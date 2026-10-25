@@ -127,7 +127,28 @@ h1,h2,h3,h4,p{margin:0}
   color:#fff;font-size:20px;
   box-shadow:0 8px 18px -8px rgba(91,107,240,.9);
 }
-.brand-text{display:flex;flex-direction:column;line-height:1.25}
+.brand-text{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.brand-search{
+  margin-left:auto;flex:none;width:32px;height:32px;border-radius:9px;
+  display:grid;place-items:center;font-size:13px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+  cursor:pointer;transition:color .15s,border-color .15s,background .15s;
+}
+.brand-search:hover{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--accent-soft)}
+/* 手机端悬浮搜索入口：默认隐藏，窄屏才显示，避开中间的「+」 */
+.search-fab{display:none}
+@media (max-width:960px){
+  .search-fab{
+    display:grid;place-items:center;
+    position:fixed;right:14px;z-index:41;
+    bottom:calc(74px + env(safe-area-inset-bottom));
+    width:44px;height:44px;border-radius:50%;font-size:16px;
+    background:var(--surface);border:1px solid var(--line);color:var(--muted);
+    box-shadow:0 10px 24px -12px rgba(20,25,40,.5);cursor:pointer;
+    transition:transform .16s,color .16s,border-color .16s;
+  }
+  .search-fab:active{transform:scale(.93)}
+}
 .brand-text b{font-size:15px;letter-spacing:.01em}
 .brand-text small{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:600}
 .nav{display:flex;flex-direction:column;gap:4px}
@@ -974,6 +995,32 @@ body{
 .board-tools .bt-sep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:none}
 .board-tools .tag-chip{display:inline-flex;align-items:center;gap:5px}
 .board-tools .bt-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.se-card{width:min(560px,calc(100vw - 32px));padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:76vh}
+.se-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
+.se-ico{font-size:15px;opacity:.7;flex:none}
+.se-head input{
+  flex:1;min-width:0;background:transparent;border:0;outline:none;
+  font-size:14.5px;color:var(--text);
+}
+.se-head input::placeholder{color:var(--muted)}
+.se-body{overflow:auto;padding:8px;flex:1;-webkit-overflow-scrolling:touch}
+.se-hint{padding:22px 12px;text-align:center;font-size:12px;color:var(--muted);line-height:1.8}
+.se-group{font-size:10px;letter-spacing:.08em;color:var(--muted);padding:9px 10px 5px}
+.se-item{
+  display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;
+  padding:8px 10px;border-radius:10px;border:1px solid transparent;
+  cursor:pointer;transition:background .12s,border-color .12s;
+}
+.se-item:hover{background:var(--surface-2)}
+.se-item.is-on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 34%,transparent)}
+.se-item .se-title{font-size:13px;color:var(--text);line-height:1.45;word-break:break-word}
+.se-item .se-title mark{background:color-mix(in srgb,var(--accent) 26%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+.se-item .se-meta{font-size:10.5px;color:var(--muted)}
+.se-foot{
+  flex:none;display:flex;justify-content:space-between;gap:10px;
+  padding:8px 14px;border-top:1px solid var(--line);
+  font-size:10.5px;color:var(--muted);
+}
 .task.is-focus{box-shadow:0 0 0 2px var(--accent),0 14px 26px -20px rgba(60,45,25,.55)}
 /* 双击展开详情 */
 .task.is-open{border-color:var(--line-strong);box-shadow:0 14px 30px -22px rgba(60,45,25,.55)}
@@ -2906,6 +2953,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         </svg>
       </div>
       <div class="brand-text"><b>晚风Todo</b><small>PLAN · TRACK · GROW</small></div>
+      <button type="button" class="brand-search" data-act="search-open" aria-label="搜索" title="搜索（Ctrl / ⌘ + K）">🔍</button>
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
@@ -2919,6 +2967,8 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 </div>
 <div id="modal-root"></div>
 <nav class="mobile-tabbar" id="mobile-nav" aria-label="移动端导航"></nav>
+<!-- 手机没有 Ctrl+K，给搜索一个悬浮入口（仅窄屏显示） -->
+<button type="button" class="search-fab" data-act="search-open" aria-label="搜索">🔍</button>
 <button type="button" class="sync-indicator" id="sync-indicator" data-act="cloud-sync" aria-live="polite" hidden></button>
 <div class="toast" id="toast"></div>
 <!-- 备份导入：隐藏的真实 file input，由 data-act="import-json" 触发点击 -->
@@ -4848,6 +4898,184 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         '" transform="rotate(-90 ' + mid + ' ' + mid + ')" style="transition:stroke-dashoffset .5s ease"/>' +
       '</svg>';
   }
+  /* ============================================================
+     全局搜索（Cmd / Ctrl + K）
+     检索 tasks / essays / meds / habits，结果按类型分组，
+     回车跳到对应页面并高亮目标。搜索状态全部留在模块级变量里。
+     ============================================================ */
+  const SEARCH_MAX = 24;
+  let searchTerm = '';
+  let searchIndex = 0;
+  let searchTimer = null;
+
+  /* 用 DOM 判断浮层是否开着，不用布尔量：
+     点 ✕、点遮罩、Esc 都会绕过 state 变量，布尔量会漂移，
+     导致下一次 Ctrl+K 变成「关闭一个已关闭的浮层」。 */
+  function isSearchOpen() { return !!$('#search-input'); }
+
+  function searchPool() {
+    const pool = [];
+    (state.tasks || []).forEach(t => {
+      if (isArchived(t)) return;
+      pool.push({ kind: 'task', id: t.id, title: t.title || '', text: t.note || '',
+                  view: 'board', meta: (t.tag || '其他') + ' · ' + dueText(t) });
+    });
+    (state.essays || []).forEach(e => {
+      pool.push({ kind: 'essay', id: e.id, title: e.title || '(无标题)', text: e.text || '',
+                  view: 'essays', meta: (e.date || '') + ((e.tags || []).length ? ' · ' + e.tags.join('/') : '') });
+    });
+    (state.meds || []).forEach(m => {
+      pool.push({ kind: 'med', id: m.id, title: m.name || '', text: [m.purpose, m.form, m.note].filter(Boolean).join(' '),
+                  view: 'meds', meta: medCourseLabel(m) });
+    });
+    (state.habits || []).forEach(h => {
+      /* h_med 是「用药卡」的占位习惯，习惯页会跳过它（habitManageRows 过滤 !h.med），
+         跳过去只会落空；用药本身有独立入口，这里不重复收录。 */
+      if (h.med || !String(h.name || '').trim()) return;
+      pool.push({ kind: 'habit', id: h.id, title: h.name, text: h.note || '',
+                  view: 'habits', meta: isArchived(h) ? '已归档' : (h.unit || '次') });
+    });
+    return pool;
+  }
+
+  const SEARCH_KIND = {
+    task:  { label: '待办', icon: '📋' },
+    habit: { label: '习惯', icon: '✅' },
+    med:   { label: '用药', icon: '💊' },
+    essay: { label: '随笔', icon: '📝' }
+  };
+
+  function searchTextOf(it) {
+    return (it.title + '\n' + it.text).toLowerCase();
+  }
+
+  function searchResults(term) {
+    const q = String(term || '').trim().toLowerCase();
+    if (!q) return [];
+    const pool = searchPool();
+    const starts = [], contains = [];
+    pool.forEach(it => {
+      const t = it.title.toLowerCase();
+      if (t.indexOf(q) === 0) starts.push(it);
+      else if (t.indexOf(q) > 0 || searchTextOf(it).indexOf(q) >= 0) contains.push(it);
+    });
+    return starts.concat(contains).slice(0, SEARCH_MAX);
+  }
+
+  function searchHighlight(text, term) {
+    const src = String(text || '');
+    const q = String(term || '').trim();
+    if (!q) return esc(src);
+    const lower = src.toLowerCase();
+    const needle = q.toLowerCase();
+    const at = lower.indexOf(needle);
+    if (at < 0) return esc(src);
+    return esc(src.slice(0, at)) + '<mark>' + esc(src.slice(at, at + q.length)) + '</mark>' + esc(src.slice(at + q.length));
+  }
+
+  function searchBodyHtml() {
+    const results = searchResults(searchTerm);
+    if (!String(searchTerm).trim()) {
+      return '<div class="se-hint">可以搜待办标题与备注、随笔正文、药名与用途、习惯名称。<br>' +
+        '↑↓ 选择，回车跳转，Esc 关闭。</div>';
+    }
+    if (!results.length) {
+      return '<div class="se-hint">没有匹配「' + esc(searchTerm) + '」的内容。</div>';
+    }
+    if (searchIndex >= results.length) searchIndex = 0;
+    let html = '';
+    let lastKind = null;
+    results.forEach((it, i) => {
+      if (it.kind !== lastKind) {
+        const n = results.filter(x => x.kind === it.kind).length;
+        html += '<div class="se-group">' + SEARCH_KIND[it.kind].icon + ' ' + SEARCH_KIND[it.kind].label + ' · ' + n + '</div>';
+        lastKind = it.kind;
+      }
+      html += '<button type="button" class="se-item' + (i === searchIndex ? ' is-on' : '') +
+        '" data-act="search-pick" data-i="' + i + '">' +
+        '<span class="se-title">' + searchHighlight(it.title, searchTerm) + '</span>' +
+        '<span class="se-meta">' + esc(it.meta || '') + '</span>' +
+        '</button>';
+    });
+    return html;
+  }
+
+  function openSearch() {
+    searchIndex = 0;
+    openModal('' +
+      '<div class="modal-card se-card">' +
+        '<div class="se-head">' +
+          '<span class="se-ico">🔍</span>' +
+          '<input type="text" id="search-input" placeholder="搜索待办 / 随笔 / 用药 / 习惯…" ' +
+            'autocomplete="off" spellcheck="false" value="' + esc(searchTerm) + '">' +
+          '<button class="icon-btn" data-act="close-modal" title="关闭">✕</button>' +
+        '</div>' +
+        '<div class="se-body" id="search-body">' + searchBodyHtml() + '</div>' +
+        '<div class="se-foot"><span>↑↓ 选择 · 回车跳转 · Esc 关闭</span><span id="se-count"></span></div>' +
+      '</div>');
+    const input = $('#search-input');
+    if (input) {
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+    }
+    searchSyncCount();
+  }
+
+  function searchSyncCount() {
+    const box = $('#se-count');
+    if (!box) return;
+    const n = searchResults(searchTerm).length;
+    box.textContent = String(searchTerm).trim() ? (n ? n + ' 条结果' : '无结果') : '';
+  }
+
+  function searchRerenderBody() {
+    const body = $('#search-body');
+    if (!body) return;
+    body.innerHTML = searchBodyHtml();
+    searchSyncCount();
+  }
+
+  function closeSearch() {
+    clearTimeout(searchTimer);
+    closeModal();
+  }
+
+  /* 跳到目标所在地：切视图 → 等一帧 → 滚动并高亮 */
+  /* 卡片本身通常不带 data-id（挂在内部按钮上），所以用「锚点 + closest」定位，
+     再退化为按标题文本找卡片，两级兜底。 */
+  const SEARCH_CARD = {
+    task:  '.task, .task-row',
+    habit: '.habit-card, .vital-card, .habit-row',
+    med:   '.med-item, .med-card, .med-row, .mh',
+    essay: '.essay-card'
+  };
+
+  function searchLocate(it) {
+    const anchor = document.querySelector('[data-id="' + it.id + '"]');
+    if (anchor) {
+      const card = anchor.closest(SEARCH_CARD[it.kind] || '');
+      if (card) return card;
+    }
+    return Array.from(document.querySelectorAll(SEARCH_CARD[it.kind] || ''))
+      .find(e => (e.textContent || '').indexOf(it.title) >= 0) || null;
+  }
+
+  function searchGo(it) {
+    closeSearch();
+    if (view !== it.view) {
+      view = it.view;
+      state.view = it.view;
+      render();
+    }
+    requestAnimationFrame(() => {
+      const el = searchLocate(it);
+      if (!el) { toast('已切到「' + SEARCH_KIND[it.kind].label + '」，请自行定位'); return; }
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('is-focus');
+      setTimeout(() => el.classList.remove('is-focus'), 1800);
+    });
+  }
+
   function toast(msg) {
     const el = $('#toast');
     if (!el) return;
@@ -9000,6 +9228,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       todayTasksOpen = false;
       render();
     },
+    'search-open': () => openSearch(),
+    'search-pick': el => {
+      const items = searchResults(searchTerm);
+      const it = items[Number(el.dataset.i)];
+      if (it) searchGo(it);
+    },
     'board-quick': el => {
       const q = el.dataset.quick || 'all';
       boardQuick = (boardQuick === q && q !== 'all') ? 'all' : q;
@@ -9354,7 +9588,45 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   }, true);
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('#modal-root').children.length) closeModal();
+    if (e.key === 'Escape' && $('#modal-root').children.length) {
+      if (isSearchOpen()) closeSearch(); else closeModal();
+      return;
+    }
+    /* Cmd/Ctrl + K：全局搜索 */
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (isSearchOpen()) closeSearch(); else openSearch();
+      return;
+    }
+    if (!isSearchOpen()) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const list = $('#search-body');
+      const n = searchResults(searchTerm).length;
+      if (!list || !n) return;
+      searchIndex = (searchIndex + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      searchRerenderBody();
+      const cur = list.querySelector('.se-item.is-on');
+      if (cur) cur.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'Enter') {
+      const items = searchResults(searchTerm);
+      if (!items.length) return;
+      e.preventDefault();
+      searchGo(items[Math.min(searchIndex, items.length - 1)]);
+    }
+  });
+
+  /* 搜索在 modal-root 里，这里是它的输入与渲染绑定 */
+  document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'search-input') {
+      if (e.target.value) searchTerm = e.target.value;
+      else searchTerm = '';
+      searchIndex = 0;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(searchRerenderBody, 150);
+    }
   });
 
   const importFile = document.getElementById('import-file');
