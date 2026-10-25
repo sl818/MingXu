@@ -149,6 +149,22 @@ h1,h2,h3,h4,p{margin:0}
   }
   .search-fab:active{transform:scale(.93)}
 }
+/* ---------- 触控目标：仅触摸设备扩大热区，视觉尺寸不变 ----------
+   做法：::after 绝对定位铺一层透明热区，尺寸取 max(原尺寸, 44px)，
+   所以已经够大的那一维不会再被放大（例如 91px 宽的药条只补高度）。
+   整套规则都在 pointer: coarse 下，桌面端完全不受影响。
+   不处理的两类：正文行内链接、页脚外部链接——它们彼此相邻，
+   放大后热区互相覆盖反而会误触，且都不是主要操作。 */
+@media (pointer: coarse){
+  .check,.icon-btn,.link-btn,.hero-arrow,.hero-today,.mini-btn,.tag-chip,.essay-tag,
+  .arrow,.pip,.med-slot,.med-mini,.sync-indicator,.bf-clear{position:relative}
+  .check::after,.icon-btn::after,.link-btn::after,.hero-arrow::after,.hero-today::after,
+  .mini-btn::after,.tag-chip::after,.essay-tag::after,.arrow::after,.pip::after,
+  .med-slot::after,.med-mini::after,.sync-indicator::after,.bf-clear::after{
+    content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:max(100%,44px);height:max(100%,44px);
+  }
+}
 .brand-text b{font-size:15px;letter-spacing:.01em}
 .brand-text small{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:600}
 .nav{display:flex;flex-direction:column;gap:4px}
