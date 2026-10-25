@@ -406,3 +406,62 @@ cd /www/wwwroot/todo
 - `register_attempts`：注册限流
 
 管理员接口只查询 `users` 的账号字段，不读取 `boards` 或 `board_revisions`。
+
+---
+
+## 回滚（每次部署前必做）
+
+线上只有两个文件会随版本变化：`index.html` 和 `service-worker.js`。
+`api.php`、`api/config.php`、`db/`、`install/` 不参与日常发布，改它们属于另一类变更。
+
+### 1. 部署前：在服务器留一份现场
+
+在站点根目录（如 `/www/wwwroot/todo`）下建带时间戳的备份目录：
+
+```bash
+cd /www/wwwroot/todo
+STAMP=$(date +%Y%m%d-%H%M%S)
+mkdir -p .bak/$STAMP
+cp -p index.html service-worker.js .bak/$STAMP/
+```
+
+### 2. 上传新文件
+
+只覆盖这两个文件，其余不动。
+
+### 3. 部署后：核对线上与本地是否一致
+
+```bash
+# 本地
+sha256sum index.html service-worker.js
+# 线上
+curl -s https://todo.csl88.top/index.html | sha256sum
+curl -s https://todo.csl88.top/service-worker.js | sha256sum
+```
+
+两边哈希一致 = 文件已生效。`service-worker.js` 里的 `CACHE` 常量必须比上一版大，
+否则老客户端不会拉新资源。
+
+### 4. 出问题：回滚
+
+```bash
+cd /www/wwwroot/todo
+cp -p .bak/20261026-014000/index.html .bak/20261026-014000/service-worker.js ./
+```
+
+回滚后 `CACHE` 常量会退回旧值，**必须再手动 +1**，否则已经缓存新版的客户端不会回退：
+
+```bash
+sed -i "s/lifeboard-shell-v[0-9]*/lifeboard-shell-v99/" service-worker.js
+```
+
+（`v99` 只要是没出现过的更大值即可。数字只能往前走，往回退会导致缓存卡住。）
+
+### 5. 用 git 找回任意历史版本
+
+```bash
+git tag                    # 看所有发布锚点，如 v28-baseline
+git show v28-baseline:index.html > /tmp/index.html
+```
+
+发布锚点约定：每个上线版本打一个 `vNN-baseline` 标签，指向与线上完全一致的那次提交。
