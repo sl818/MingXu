@@ -2968,6 +2968,8 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 <nav class="mobile-tabbar" id="mobile-nav" aria-label="移动端导航"></nav>
 <button type="button" class="sync-indicator" id="sync-indicator" data-act="cloud-sync" aria-live="polite" hidden></button>
 <div class="toast" id="toast"></div>
+<!-- 备份导入：隐藏的真实 file input，由 data-act="import-json" 触发点击 -->
+<input type="file" id="import-file" accept=".json,application/json" hidden>
 
 <script>
 (function () {
@@ -7213,10 +7215,11 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       '</div>' +
       cloudPanelHtml() +
       '<div class="panel"><h3>数据管理</h3>' +
-        '<p class="muted-sm" style="margin-bottom:4px">数据保存在云端。可以导出 JSON 备份，或导出 CSV；不再支持导入 JSON。</p>' +
+        '<p class="muted-sm" style="margin-bottom:4px">数据保存在云端。定期导出 JSON 备份并妥善保存；导出的备份可以随时导入还原。导入会<b>整体替换</b>当前数据，建议先导出一次再操作。</p>' +
         '<div class="btn-row">' +
           '<button class="btn" data-act="history-open">历史版本</button>' +
           '<button class="btn" data-act="export-json">导出备份 JSON</button>' +
+          '<button class="btn" data-act="import-json">导入备份还原</button>' +
           '<button class="btn" data-act="export-csv">导出 CSV</button>' +
           '<button class="btn danger" data-act="reset">清空全部数据</button>' +
         '</div>' +
@@ -8575,17 +8578,55 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     };
   }
 
+  /* 从「导出备份 JSON」还原数据，让备份链条闭环。
+     三条原则：
+     1) 确认框必须让用户看到「要拿回什么」和「会失去什么」，不允许盲确认；
+     2) 任一步失败都停手，绝不留半成品数据；
+     3) 统一走 repairBackup 清洗，导入后的结构与主状态完全一致。 */
   function handleImport(e) {
-    const file = e.target.files && e.target.files[0];
+    const input = e.target;
+    const file = input.files && input.files[0];
+    input.value = '';
     if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      alert('导入失败：文件超过 20MB，不是本站导出的备份。');
+      return;
+    }
+
     const reader = new FileReader();
+    reader.onerror = () => alert('导入失败：文件读取出错，请重新选择。');
     reader.onload = () => {
+      let data;
       try {
-        const data = JSON.parse(String(reader.result));
-        if (!data || typeof data !== 'object' || (!Array.isArray(data.habits) && !Array.isArray(data.tasks))) {
-          throw new Error('文件格式不正确');
-        }
-        if (!confirm('导入会覆盖当前所有任务和打卡记录，确定继续吗？')) return;
+        data = JSON.parse(String(reader.result));
+      } catch (err) {
+        alert('导入失败：不是有效的 JSON 文件。');
+        return;
+      }
+      if (!data || typeof data !== 'object' || Array.isArray(data) || (!Array.isArray(data.habits) && !Array.isArray(data.tasks))) {
+        alert('导入失败：文件里没有习惯或待办数据，可能不是本站导出的备份。');
+        return;
+      }
+
+      const n = v => (Array.isArray(v) ? v.length : 0);
+      const summary = [
+        '习惯 ' + n(data.habits) + ' 个',
+        '待办 ' + n(data.tasks) + ' 条',
+        '打卡 ' + Object.keys(data.checks || {}).length + ' 天',
+        '药品 ' + n(data.meds) + ' 项',
+        '体重 ' + n(data.weights) + ' 条',
+        '随笔 ' + n(data.essays) + ' 篇'
+      ].join(' · ');
+
+      if (!confirm(
+        '即将导入这份备份：\n' + summary + '\n\n' +
+        '导入会整体替换当前的全部数据，之后无法撤销。\n' +
+        '建议先点「导出备份 JSON」留一份当前数据。\n\n' +
+        '确定继续吗？'
+      )) return;
+
+      try {
         migrateColors(data);
         const clean = repairBackup(data);
         migratePinned(clean);
@@ -8593,7 +8634,10 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         migrateQuitHabit(clean);
         ensureBreathingHabit(clean);
         state = clean;
+        ensureStateMaps();
+        if (Array.isArray(state.events) && state.events.length > 1000) state.events = state.events.slice(-1000);
         view = 'today';
+        state.view = 'today';
         selectedDate = todayStr();
         save();
         render();
@@ -8603,7 +8647,6 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
   }
 
   function csvCell(value) {
@@ -9087,6 +9130,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       download('晚风Todo备份-' + stamp + '.json', JSON.stringify(state, null, 2));
       toast('备份已导出');
     },
+    'import-json': () => {
+      if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
+      const input = document.getElementById('import-file');
+      if (!input) { toast('导入组件未就绪，请刷新页面'); return; }
+      input.click();
+    },
     'history-open': () => historyModal(),
     'history-preview': el => historyPreviewModal(el.dataset.id),
     'history-restore': el => restoreHistory(el.dataset.id),
@@ -9265,6 +9314,9 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && $('#modal-root').children.length) closeModal();
   });
+
+  const importFile = document.getElementById('import-file');
+  if (importFile) importFile.addEventListener('change', handleImport);
 
   window.addEventListener('online', () => {
     if (cloud.pending && cloud.user && !cloud.pushing) cloudPush(false);
