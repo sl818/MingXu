@@ -1011,8 +1011,12 @@ body{
 .board-tools .bt-sep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:none}
 .board-tools .tag-chip{display:inline-flex;align-items:center;gap:5px}
 .board-tools .bt-dot{width:6px;height:6px;border-radius:50%;flex:none}
-/* 选中态原来的 accent 色在 mono / clay 上只有 3.4~3.7，往 --text 拉一点过 AA */
-.board-tools .tag-chip.active,.essay-tags .tag-chip.active{color:color-mix(in srgb,var(--accent) 72%,var(--text))}
+/* 选中态原来的 accent 色在 mono / clay 上只有 3.4~3.7，往 --text 拉一点过 AA。
+   必须带前缀提高优先级：#new-pages 块里有同名的 .tag-chip.active 写在后面，
+   只用单类选择器会被它覆盖。看板筛选、习惯排序、随笔标签三处共用。 */
+.board-tools .tag-chip.active,
+.habit-sort .tag-chip.active,
+.essay-tags .tag-chip.active{color:color-mix(in srgb,var(--accent) 72%,var(--text))}
 .se-card{width:min(560px,calc(100vw - 32px));padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:76vh}
 .se-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
 .se-ico{font-size:15px;opacity:.7;flex:none}
@@ -2399,7 +2403,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 .remind-go:hover{filter:brightness(1.05)}
 .remind-x{
   flex:none;padding:5px 10px;border-radius:999px;cursor:pointer;font-size:11px;
-  background:transparent;color:var(--muted);border:1px solid var(--line);
+  background:transparent;color:color-mix(in srgb,var(--text) 72%,var(--muted));border:1px solid var(--line);
 }
 .remind-x:hover{color:var(--text);border-color:var(--line-strong)}
 /* 本月回顾：六格数据 + 一句话结论 */
