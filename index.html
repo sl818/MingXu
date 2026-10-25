@@ -2365,6 +2365,21 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 /* auto-fit + minmax：3 项时仍是三等分，设了目标体重变成 4 项时自动四等分 */
 .profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:12px}
 .habit-sort{display:flex;gap:5px;flex-wrap:wrap}
+/* 补记提示条：只在补记历史某天时出现，颜色跟强调色走，不抢 hero 的视觉重心 */
+.backfill-bar{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  margin:0 0 14px;padding:9px 13px;border-radius:12px;
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);
+  font-size:12px;color:color-mix(in srgb,var(--text) 78%,var(--accent));
+}
+.backfill-ico{font-size:13px;flex:none}
+.backfill-bar b{font-weight:600;color:var(--text)}
+.backfill-today{
+  margin-left:auto;flex:none;padding:4px 11px;border-radius:999px;cursor:pointer;
+  font-size:11.5px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));
+  color:var(--accent-strong);transition:background .15s,color .15s;
+}
+.backfill-today:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -6164,6 +6179,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       '</section>';
 
     return '' +
+      (isToday ? '' :
+        '<div class="backfill-bar">' +
+          '<span class="backfill-ico">📝</span>' +
+          '<span>正在看 <b>' + (dd.getMonth() + 1) + ' 月 ' + dd.getDate() + ' 日</b> · 补记模式，改动会写进这一天</span>' +
+          '<button type="button" class="backfill-today" data-act="date-today">回今天</button>' +
+        '</div>') +
       '<div class="today-grid">' +
       '<div class="today-col">' +
         '<section class="hero">' +
