@@ -2418,6 +2418,47 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
   font-size:12px;color:color-mix(in srgb,var(--text) 82%,var(--accent));
 }
+/* 导出隐私提示 */
+.privacy-note{
+  margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:11.5px;line-height:1.7;
+  background:color-mix(in srgb,var(--bad) 8%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--bad) 24%,var(--line));
+  color:color-mix(in srgb,var(--text) 84%,var(--bad));
+}
+.privacy-note b{font-weight:600;color:var(--text)}
+/* ---------- 键盘焦点可见 ----------
+   只在键盘操作时出现焦点环（:focus-visible），鼠标点击不会冒出难看的框。
+   之前只有少数组件有焦点样式，Tab 走一遍几乎看不出停在哪。 */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.se-head input:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+.modal-backdrop :focus-visible{outline-offset:1px}
+/* 模态打开时锁住背景滚动，键盘用户不会滚到弹窗外 */
+body.modal-open{overflow:hidden}
+/* ---------- 首屏骨架：云端数据到达前先占住布局，避免白屏 ---------- */
+.boot-skel{padding:4px 0}
+.bs-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.bs-block{
+  border-radius:14px;background:var(--surface-2);
+  border:1px solid var(--line);
+  background-image:linear-gradient(100deg,transparent 20%,color-mix(in srgb,var(--surface) 70%,transparent) 40%,transparent 60%);
+  background-size:220% 100%;
+  animation:bsShine 1.4s ease-in-out infinite;
+}
+.bs-hero{height:132px;border-radius:20px;margin-bottom:18px}
+.bs-card{height:78px}
+.bs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.bs-line{height:11px;border-radius:6px}
+@keyframes bsShine{from{background-position:180% 0}to{background-position:-40% 0}}
+/* 尊重系统「减少动态效果」：把动画压到几乎不动，功能不变 */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+  .boot-skel .bs-block{animation:none;background-image:none}
+}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -3048,7 +3089,26 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     </div>
     <div class="side-user" id="side-user"></div>
   </header>
-  <main class="main" id="main"></main>
+  <main class="main" id="main">
+    <!-- 首屏骨架：render() 会整体替换掉。云端 state 约 24KB，慢网下有 1~2 秒空窗 -->
+    <div class="boot-skel" id="boot-skel" aria-hidden="true">
+      <div class="bs-block bs-hero"></div>
+      <div class="bs-row">
+        <div class="bs-block bs-card" style="flex:1"></div>
+        <div class="bs-block bs-card" style="flex:1"></div>
+        <div class="bs-block bs-card" style="flex:1"></div>
+      </div>
+      <div class="bs-grid">
+        <div class="bs-block bs-card"></div>
+        <div class="bs-block bs-card"></div>
+        <div class="bs-block bs-card"></div>
+      </div>
+      <div style="height:18px"></div>
+      <div class="bs-block bs-line" style="width:38%"></div>
+      <div style="height:10px"></div>
+      <div class="bs-block bs-line" style="width:72%"></div>
+    </div>
+  </main>
 </div>
 <div id="modal-root"></div>
 <nav class="mobile-tabbar" id="mobile-nav" aria-label="移动端导航"></nav>
@@ -3127,6 +3187,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     const iso = new Date().toISOString();
     return {
       version: 2,
+      schemaVersion: SCHEMA_VERSION,
       view: 'today',
       habits: [
         { id: 'h_med',   name: '用药', icon: '💊', type: 'build', target: 1, unit: '次', color: '#2f6f5e', note: '用药记录', createdAt: iso, pinned: true, med: true },
@@ -3429,13 +3490,36 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     data.moods = normalizeMoods(data.moods);
     data.events = Array.isArray(data.events) ? data.events : [];
     data.doses = isPlainObject(data.doses) ? data.doses : {};
-    migrateColors(data);
-    migratePinned(data);
-    migrateWater(data);
-    migrateMeds(data);
-    migrateQuitHabit(data);
-    ensureBreathingHabit(data);
+    migrateState(data);
     return Object.assign(seedState(), data);
+  }
+
+  /* ---------- 状态迁移 ----------
+     以前靠「某个字段存不存在」判断要不要迁移，字段一多就互相误判：
+     补一个字段可能让另一处判断以为数据已经升级过。
+     现在按 state.schemaVersion 顺序执行，每一步只跑一次。
+     没有版本号的旧数据一律当作 v1，走完整链路，跑完打上当前版本。 */
+  const SCHEMA_VERSION = 3;
+
+  function migrateState(data) {
+    if (!data || typeof data !== 'object') return data;
+    let v = Number(data.schemaVersion) || 1;
+    if (v < 2) {
+      /* v1 → v2：早期字段整理（颜色、置顶、药品结构、戒烟习惯） */
+      migrateColors(data);
+      migratePinned(data);
+      migrateMeds(data);
+      migrateQuitHabit(data);
+      v = 2;
+    }
+    if (v < 3) {
+      /* v2 → v3：喝水改毫升制、补 478 呼吸法常驻习惯 */
+      migrateWater(data);
+      ensureBreathingHabit(data);
+      v = 3;
+    }
+    data.schemaVersion = SCHEMA_VERSION;
+    return data;
   }
 
   function loadLegacyState() {
@@ -3501,6 +3585,9 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   /* ============================================================
      云同步状态（PHP + MySQL，可选）
      ============================================================ */
+  /* 正在向服务器确认身份 / 拉取数据：为 true 时页面显示骨架而不是空白或空数据 */
+  let cloudProbing = false;
+
   let cloud = (function () {
     const base = {
       available: location.protocol !== 'file:',
@@ -4049,28 +4136,31 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   async function cloudInit(force) {
     if (!cloud.available) {
       mode = 'app';
+      cloudProbing = false;
       return;
     }
     if (cloud.inited && !force) return;
     cloud.inited = true;
     cloud.error = '';
+    cloudProbing = true;
     cloudRefreshUI();
+    /* 先画骨架再等网络：否则启动瞬间会先闪一下空数据和落地页 */
+    render();
     try {
       const me = await cloudFetchMe();
       if (me.user) {
         mode = 'app';
         await cloudSyncFromServer();
-        render();
       } else {
         cloud.user = null;
         mode = 'landing';
-        render();
       }
     } catch (e) {
       cloud.error = '暂时连不上服务器：' + (e.message || '未知错误');
       mode = 'landing';
-      render();
     }
+    cloudProbing = false;
+    render();
   }
 
   function cloudLoginModal() {
@@ -7803,6 +7893,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       cloudPanelHtml() +
       '<div class="panel"><h3>数据管理</h3>' +
         '<p class="muted-sm" style="margin-bottom:4px">数据保存在云端。定期导出 JSON 备份并妥善保存；导出的备份可以随时导入还原。导入会<b>整体替换</b>当前数据，建议先导出一次再操作。</p>' +
+        '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
         '<div class="btn-row">' +
           '<button class="btn" data-act="history-open">历史版本</button>' +
           '<button class="btn" data-act="export-json">导出备份 JSON</button>' +
@@ -7969,6 +8060,27 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     '</div></div>';
   }
 
+  /* 骨架屏 HTML：骨架区（<main> 里）与这里的写法要一致，改一处记得改另一处 */
+  function bootSkelHtml() {
+    return '<div class="boot-skel" id="boot-skel" aria-hidden="true">' +
+      '<div class="bs-block bs-hero"></div>' +
+      '<div class="bs-row">' +
+        '<div class="bs-block bs-card" style="flex:1"></div>' +
+        '<div class="bs-block bs-card" style="flex:1"></div>' +
+        '<div class="bs-block bs-card" style="flex:1"></div>' +
+      '</div>' +
+      '<div class="bs-grid">' +
+        '<div class="bs-block bs-card"></div>' +
+        '<div class="bs-block bs-card"></div>' +
+        '<div class="bs-block bs-card"></div>' +
+      '</div>' +
+      '<div style="height:18px"></div>' +
+      '<div class="bs-block bs-line" style="width:38%"></div>' +
+      '<div style="height:10px"></div>' +
+      '<div class="bs-block bs-line" style="width:72%"></div>' +
+    '</div>';
+  }
+
   function render() {
     dragId = null;
     if (view !== 'board' && boardFilterDay) boardFilterDay = '';
@@ -7980,6 +8092,17 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     const appEl = $('.app');
     if (appEl) appEl.classList.toggle('landing', mode === 'landing');
     document.body.dataset.view = mode === 'landing' ? 'landing' : view;
+    /* 正在确认身份或拉数据：只画骨架，别用种子数据画一遍再闪成真数据。
+       必须放在 landing 分支之前——启动时 mode 还是 landing，否则永远轮不到骨架。
+       请求一旦失败（cloud.error）就放行，绝不能把用户锁在骨架上。 */
+    if (!cloud.error && !cloud.ready && (cloudProbing || cloud.user)) {
+      $('#nav').innerHTML = '';
+      const skelNav = $('#mobile-nav');
+      if (skelNav) skelNav.innerHTML = '';
+      $('#main').innerHTML = bootSkelHtml();
+      updateSyncIndicator();
+      return;
+    }
     if (mode === 'landing') {
       $('#nav').innerHTML = '';
       const mnav = $('#mobile-nav');
@@ -8356,7 +8479,13 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     run();
   }
 
+  /* 打开弹窗前后的焦点归属：关闭时归还，键盘用户不丢位置 */
+  let modalTrigger = null;
+
   function openModal(html) {
+    /* 记住是谁打开的，关闭时把焦点还回去——键盘用户不会丢失位置 */
+    modalTrigger = (document.activeElement && document.activeElement !== document.body)
+      ? document.activeElement : null;
     const root = $('#modal-root');
     root.innerHTML = '<div class="modal-backdrop">' + html + '</div>';
     document.body.classList.add('modal-open');
@@ -8377,6 +8506,11 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     stopBreathing();
     $('#modal-root').innerHTML = '';
     document.body.classList.remove('modal-open');
+    const back = modalTrigger;
+    modalTrigger = null;
+    if (back && document.contains(back)) {
+      try { back.focus({ preventScroll: true }); } catch (e) {}
+    }
   }
 
   function bindTaskForm() {
@@ -9165,6 +9299,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 
     return {
       version: 2,
+      schemaVersion: SCHEMA_VERSION,
       view: 'today',
       habits: habits,
       checks: cleanChecks,
@@ -9777,7 +9912,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const stamp = todayStr().replace(/-/g, '');
       download('晚风Todo备份-' + stamp + '.json', JSON.stringify(state, null, 2));
-      toast('备份已导出');
+      toast('备份已导出 · 含隐私，勿传公开链接');
     },
     'import-json': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
@@ -9969,6 +10104,26 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault();
       if (isSearchOpen()) closeSearch(); else openSearch();
+      return;
+    }
+    /* 弹窗焦点陷阱：Tab / Shift+Tab 在弹窗内循环，跑不出去 */
+    if (e.key === 'Tab' && $('#modal-root').children.length) {
+      const focusables = Array.from($('#modal-root').querySelectorAll(
+        'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),' +
+        'select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetWidth || el.offsetHeight || el === document.activeElement);
+      if (focusables.length) {
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || !$('#modal-root').contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !$('#modal-root').contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
       return;
     }
     if (!isSearchOpen()) return;
