@@ -1,0 +1,205 @@
+with sync_playwright() as p:
+    br = p.chromium.launch(channel='chrome', headless=True)
+
+    ctx = br.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=1)
+    pg = ctx.new_page()
+    pg.on('pageerror', lambda e: errs.append(str(e)[:140]))
+    pg.on('console', lambda m: errs.append(m.text[:120]) if m.type == 'error' else None)
+    pg.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
+    pg.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
+    pg.wait_for_timeout(500)
+    pg.click('[data-act="cloud-login"]')
+    pg.wait_for_timeout(400)
+    pg.fill('input[name="email"]', 'test@sl00.top')
+    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.click('form.modal-card button[type="submit"]')
+    pg.wait_for_timeout(2600)
+
+    # ---------------- 6.2 导出隐私提示 ----------------
+    if run('6.2'):
+        nav(pg, 'settings')
+        note = pg.evaluate("""() => {
+            const n = document.querySelector('.privacy-note');
+            return n ? { txt: n.textContent.replace(/\\s+/g, ' ').trim(), has: true } : { has: false };
+        }""")
+        rec('设置页有导出隐私提示', note['has'], '')
+        rec('提示写明不要上传公开网盘/链接',
+            all(k in note.get('txt', '') for k in ['明文', '网盘']), note.get('txt', '')[:60])
+
+        with pg.expect_download() as dl:
+            pg.click('[data-act="export-json"]')
+        pg.wait_for_timeout(400)
+        toast_txt = pg.evaluate("() => (document.querySelector('#toast') || {}).textContent || ''")
+        rec('导出后 toast 带隐私提醒', '隐私' in toast_txt, toast_txt.strip()[:40])
+        rec('导出的确实是 JSON 文件', dl.value.suggested_filename.endswith('.json'), dl.value.suggested_filename)
+
+    # ---------------- 5.3 减少动画 ----------------
+    if run('5.3'):
+        full = ctx.storage_state()
+        # 只带 cookie、不带 localStorage：模拟「首次在这台设备打开」，
+        # 否则客户端会先用本地缓存直接画出内容，骨架根本没机会出现
+        state = {'cookies': full['cookies'], 'origins': []}
+
+        def motion_probe(reduce):
+            c2 = br.new_context(viewport={'width': 1200, 'height': 800}, storage_state=state,
+                                reduced_motion='reduce' if reduce else 'no-preference')
+            p2 = c2.new_page()
+            p2.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
+            LOAD_DELAY[0] = 1200
+            p2.goto('http://127.0.0.1:%d/index.html' % port, wait_until='domcontentloaded')
+            p2.wait_for_timeout(300)
+            r = p2.evaluate("""() => {
+                const el = document.querySelector('.bs-block');
+                if (!el) return null;
+                const cs = getComputedStyle(el);
+                return { dur: cs.animationDuration, name: cs.animationName,
+                         media: matchMedia('(prefers-reduced-motion: reduce)').matches };
+            }""")
+            LOAD_DELAY[0] = 0
+            c2.close()
+            return r
+
+        normal = motion_probe(False)
+        reduced = motion_probe(True)
+        rec('默认允许动画时骨架有动画', bool(normal) and normal['name'] != 'none' and normal['dur'] != '0.01ms',
+            json.dumps(normal, ensure_ascii=False))
+        # 浏览器会把 0.01ms 归一化成 1e-05s / 0.00001s，两种写法都认
+        tiny = bool(reduced) and reduced['dur'] in ('1e-05s', '0.00001s', '0.01ms')
+        rec('减少动画时动画被压到 0.01ms', tiny, json.dumps(reduced, ensure_ascii=False))
+        rec('媒体查询确实被模拟生效', bool(reduced) and reduced['media'] is True, '')
+
+    # ---------------- 5.4 首屏骨架 ----------------
+    if run('5.4'):
+        LOAD_DELAY[0] = 1500
+        cookies_only = {'cookies': ctx.storage_state()['cookies'], 'origins': []}
+        c3 = br.new_context(viewport={'width': 1200, 'height': 800}, storage_state=cookies_only)
+        p3 = c3.new_page()
+        p3.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
+        p3.goto('http://127.0.0.1:%d/index.html' % port, wait_until='domcontentloaded')
+        p3.wait_for_timeout(350)
+        early = p3.evaluate("""() => {
+            const s = document.querySelector('.boot-skel');
+            return { has: !!s, blocks: document.querySelectorAll('.boot-skel .bs-block').length,
+                     h: s ? Math.round(s.getBoundingClientRect().height) : 0,
+                     mainEmpty: !document.querySelector('.page-head, .hero') };
+        }""")
+        rec('数据到达前显示骨架屏', early['has'] and early['blocks'] >= 4 and early['h'] > 100,
+            json.dumps(early, ensure_ascii=False))
+        rec('骨架期间还没有真实内容（说明确实是首屏占位）', early['mainEmpty'], '')
+        p3.wait_for_timeout(3200)
+        late = p3.evaluate("""() => ({
+            skel: !!document.querySelector('.boot-skel'),
+            content: !!document.querySelector('.page-head, .hero')
+        })""")
+        rec('数据到达后骨架被真实内容替换', (not late['skel']) and late['content'], json.dumps(late, ensure_ascii=False))
+        LOAD_DELAY[0] = 0
+        c3.close()
+
+    # ---------------- 1.2 状态版本号 ----------------
+    if run('1.2'):
+        # 老数据（无 schemaVersion）应被迁移并打上版本号，同时补齐呼吸法习惯
+        saved = json.loads(json.dumps(board['data']))
+        board['data'].pop('schemaVersion', None)
+        board['data']['habits'] = [h for h in board['data']['habits'] if h['id'] != 'h_breathe']
+        board['rev'] += 1
+        p4 = ctx.new_page()
+        p4.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
+        p4.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
+        p4.wait_for_timeout(2600)
+        nav(p4, 'habits')
+        v1 = p4.evaluate("""() => ({
+            breathe: Array.from(document.querySelectorAll('.habit-row-info b')).some(e => e.textContent.indexOf('478') >= 0)
+        })""")
+        rec('无版本号的老数据会执行 v1→v3 迁移（补回呼吸法习惯）', v1['breathe'], json.dumps(v1, ensure_ascii=False))
+        # 触发一次保存，检查落库的数据带上了版本号
+        # 真改一次数据触发保存：用「今日状态」的心情按钮，它一定在今日页且必定写库
+        nav(p4, 'today')
+        p4.evaluate("""() => { const b = document.querySelector('[data-act="set-mood"]'); if (b) b.click(); }""")
+        p4.wait_for_timeout(2200)
+        rec('保存后数据里带上 schemaVersion=3', board['data'].get('schemaVersion') == 3,
+            'schemaVersion=%s' % board['data'].get('schemaVersion'))
+        p4.close()
+
+        # 已经是 v3 的数据不应该再被"修复"：删掉呼吸法后不应被自动加回
+        board['data']['schemaVersion'] = 3
+        board['data']['habits'] = [h for h in board['data']['habits'] if h['id'] != 'h_breathe']
+        board['rev'] += 1
+        p5 = ctx.new_page()
+        p5.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
+        p5.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
+        p5.wait_for_timeout(2600)
+        nav(p5, 'habits')
+        v3 = p5.evaluate("""() => Array.from(document.querySelectorAll('.habit-row-info b')).map(e => e.textContent.trim())""")
+        rec('v3 数据不再重复执行迁移（呼吸法不被自动加回）',
+            not any('478' in n for n in v3), json.dumps(v3, ensure_ascii=False))
+        p5.close()
+        board['data'] = saved
+        board['rev'] += 1
+
+    # ---------------- 5.2 键盘可达性 ----------------
+    if run('5.2'):
+        # 用桌面端一定存在的「编辑档案」按钮作为触发点（quick-add 是移动端专属）
+        nav(pg, 'weight')
+        pg.focus('[data-act="profile-edit"]')
+        pg.wait_for_timeout(200)
+        pg.keyboard.press('Enter')
+        pg.wait_for_timeout(600)
+        opened = pg.evaluate("() => !!document.querySelector('#modal-root .modal-card')")
+        rec('回车能打开弹窗（按钮可被键盘触发）', opened, '')
+
+        inside = []
+        for _ in range(12):
+            pg.keyboard.press('Tab')
+            pg.wait_for_timeout(60)
+            inside.append(pg.evaluate("() => !!document.querySelector('#modal-root').contains(document.activeElement)"))
+        rec('Tab 循环 12 次焦点始终留在弹窗内', all(inside), '跑出次数 %d' % inside.count(False))
+
+        # Shift+Tab 反向也应留在内部
+        back_in = []
+        for _ in range(6):
+            pg.keyboard.press('Shift+Tab')
+            pg.wait_for_timeout(60)
+            back_in.append(pg.evaluate("() => !!document.querySelector('#modal-root').contains(document.activeElement)"))
+        rec('Shift+Tab 反向也困在弹窗内', all(back_in), '跑出次数 %d' % back_in.count(False))
+
+        # 焦点环：输入框用 box-shadow 环，按钮用 outline，有其一即算可见
+        ring = pg.evaluate("""() => {
+            const el = document.activeElement;
+            if (!el) return null;
+            const cs = getComputedStyle(el);
+            const hasOutline = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+            const hasShadow = cs.boxShadow && cs.boxShadow !== 'none';
+            return { tag: el.tagName, outline: cs.outlineStyle, w: cs.outlineWidth,
+                     shadow: !!hasShadow, visible: el.matches(':focus-visible'),
+                     ok: hasOutline || hasShadow };
+        }""")
+        rec('弹窗内焦点有可见指示（outline 或焦点阴影）', bool(ring) and ring['visible'] and ring['ok'],
+            json.dumps(ring, ensure_ascii=False))
+
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(500)
+        closed = pg.evaluate("""() => ({
+            modal: !!document.querySelector('#modal-root .modal-card'),
+            backTo: (document.activeElement || {}).getAttribute ? (document.activeElement.getAttribute('data-act') || '') : '',
+            inMain: document.getElementById('main').contains(document.activeElement)
+        })""")
+        rec('Esc 关闭弹窗', not closed['modal'], '')
+        rec('关闭后焦点归还到触发按钮', closed['backTo'] == 'profile-edit', json.dumps(closed, ensure_ascii=False))
+
+        # 搜索浮层同样受焦点陷阱保护
+        pg.keyboard.press('Control+k')
+        pg.wait_for_timeout(400)
+        loop = []
+        for _ in range(8):
+            pg.keyboard.press('Tab')
+            pg.wait_for_timeout(50)
+            loop.append(pg.evaluate("() => !!document.querySelector('#modal-root').contains(document.activeElement)"))
+        rec('搜索浮层内 Tab 也不外逃', all(loop), '跑出次数 %d' % loop.count(False))
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(300)
+
+    print('\nJS 报错: %d' % len(errs))
+    for e in errs[:5]:
+        print('   ', e)
+    print('\n通过 %d / %d' % (sum(1 for s in steps if s['ok']), len(steps)))
+    br.close()
