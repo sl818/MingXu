@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>晚风Todo · 测试流程</title>
+<style>
+:root{
+  --bg:#f2eee3;
+  --paper:#fbf9f3;
+  --paper-2:#f6f2e7;
+  --ink:#27312c;
+  --muted:#7c8278;
+  --faint:#a7aa9f;
+  --line:#ddd6c6;
+  --line-strong:#c9c0ad;
+  --accent:#2f6f5e;
+  --accent-2:#3f8b75;
+  --accent-soft:#e3eee8;
+  --bad:#b45b4c;
+  --bad-soft:#f4e2de;
+  --warn:#b98134;
+  --warn-soft:#f5ead8;
+  --shadow:0 18px 50px -38px rgba(39,49,44,.55);
+  --radius:16px;
+  --serif:"Noto Serif SC","Songti SC","STSong",Georgia,serif;
+  --sans:"Inter","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 18% 8%,rgba(255,255,255,.55),transparent 34rem),
+    radial-gradient(circle at 82% 2%,rgba(47,111,94,.07),transparent 28rem);
+}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+.shell{position:relative;z-index:1;max-width:1220px;margin:0 auto;padding:34px 26px 70px;display:grid;grid-template-columns:236px minmax(0,1fr);gap:30px}
+.side{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 2px 0}
+.brand-mark{width:36px;height:36px;border-radius:12px;background:var(--accent);color:#f8f3e7;display:grid;place-items:center;font-family:var(--serif);font-size:19px;box-shadow:0 8px 18px -12px rgba(47,111,94,.8)}
+.brand b{display:block;font-family:var(--serif);font-size:16px;line-height:1.2;letter-spacing:.02em}
+.brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:.16em;margin-top:3px}
+.side-note{font-size:11px;line-height:1.8;color:var(--muted);padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:rgba(251,249,243,.62)}
+.side-note b{color:var(--ink)}
+.toc{overflow:auto;padding:2px 0 6px;scrollbar-width:thin}
+.toc-label{font-size:9px;letter-spacing:.16em;color:var(--faint);text-transform:uppercase;margin:0 0 7px 10px}
+.toc a{display:flex;align-items:center;justify-content:space-between;gap:8px;text-decoration:none;color:var(--muted);font-size:11.5px;padding:7px 10px;border-radius:9px;border:1px solid transparent;line-height:1.35}
+.toc a:hover{background:rgba(251,249,243,.8);color:var(--ink)}
+.toc a.active{background:var(--paper);border-color:var(--line);color:var(--accent);box-shadow:var(--shadow)}
+.toc a span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toc-count{font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums;flex:none}
+.toc a.active .toc-count{color:var(--accent)}
+.side-foot{font-size:10px;color:var(--faint);line-height:1.7;padding-left:2px}
+main{min-width:0}
+.hero{padding:8px 2px 24px}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:12px}
+.kicker::before{content:"";width:22px;height:1px;background:var(--accent)}
+h1{font-family:var(--serif);font-size:clamp(30px,4.2vw,46px);font-weight:600;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+.lede{max-width:680px;margin:0;color:var(--muted);font-size:13.5px}
+.hero-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(251,249,243,.65);color:var(--muted);font-size:10px;letter-spacing:.02em}
+.chip b{color:var(--ink);font-weight:500}
+.dashboard{display:grid;grid-template-columns:minmax(0,1fr) 224px;gap:14px;margin:2px 0 22px}
+.progress-card{position:relative;display:flex;align-items:center;gap:22px;padding:22px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--shadow);overflow:hidden}
+.progress-card::after{content:"";position:absolute;right:-50px;top:-80px;width:220px;height:220px;border-radius:50%;border:1px solid var(--line);opacity:.55;pointer-events:none}
+.ring{--p:0%;position:relative;width:104px;height:104px;border-radius:50%;flex:none;background:conic-gradient(var(--accent) var(--p),var(--line) 0);display:grid;place-items:center}
+.ring::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--paper)}
+.ring-inner{position:relative;text-align:center;line-height:1}
+.ring-inner b{display:block;font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:-.02em}
+.ring-inner span{display:block;font-size:9px;color:var(--muted);margin-top:5px;letter-spacing:.08em}
+.progress-copy{min-width:0}
+.progress-copy h2{font-family:var(--serif);font-size:18px;margin:0 0 5px;font-weight:600}
+.progress-copy p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.7}
+.stat-line{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.stat{font-size:10px;color:var(--muted);display:flex;align-items:baseline;gap:5px}
+.stat b{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--ink);line-height:1}
+.stat.pass b{color:var(--accent)}
+.stat.fail b{color:var(--bad)}
+.stat.todo b{color:var(--muted)}
+.quick-card{padding:17px 18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper-2);display:flex;flex-direction:column;justify-content:space-between;gap:12px}
+.quick-card h3{font-family:var(--serif);font-size:15px;margin:0;font-weight:600}
+.quick-card p{margin:0;font-size:10.5px;color:var(--muted);line-height:1.65}
+.quick-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);padding:8px 11px;border-radius:9px;font-size:10.5px;line-height:1;white-space:nowrap;transition:.15s ease}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#f9f5ea}
+.btn.primary:hover{background:#276150;color:#fff}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:#dfc3bd}
+.btn.danger:hover{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.toolbar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;margin:0 0 16px;border:1px solid var(--line);border-radius:13px;background:rgba(242,238,227,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.search{position:relative;flex:1;min-width:160px}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:1.8;pointer-events:none}
+.search input{width:100%;padding:8px 10px 8px 31px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-size:11px;outline:none}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.seg{display:inline-flex;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2)}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;border-radius:6px;font-size:10px;white-space:nowrap}
+.seg button.active{background:var(--paper);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.view-note{font-size:10px;color:var(--faint);margin-left:auto;white-space:nowrap}
+.section{scroll-margin-top:74px;margin:0 0 18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--shadow);overflow:hidden}
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:18px 20px 15px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(251,249,243,.9),rgba(246,242,231,.58))}
+.section-title{display:flex;align-items:baseline;gap:10px;min-width:0}
+.section-no{font-family:var(--serif);font-size:12px;color:var(--accent);letter-spacing:.04em;flex:none;padding-top:2px}
+.section-title h2{font-family:var(--serif);font-size:20px;line-height:1.25;margin:0;font-weight:600;letter-spacing:-.01em}
+.section-title p{margin:4px 0 0;color:var(--muted);font-size:10.5px;line-height:1.55}
+.section-progress{flex:none;text-align:right;font-size:9.5px;color:var(--muted);line-height:1.4}
+.section-progress b{display:block;font-family:var(--serif);font-size:16px;color:var(--ink);font-weight:600}
+.cases{padding:4px 8px 8px}
+.case{display:grid;grid-template-columns:76px minmax(0,1fr) 18px;gap:12px;align-items:start;padding:11px 12px;border-radius:10px;border:1px solid transparent;transition:background .15s,border-color .15s}
+.case + .case{border-top:1px solid rgba(221,214,198,.55);border-top-left-radius:0;border-top-right-radius:0}
+.case:hover{background:var(--paper-2)}
+.case.pass{background:rgba(227,238,232,.32)}
+.case.fail{background:rgba(244,226,222,.32)}
+.case-status{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line-strong);background:var(--paper);color:var(--muted);border-radius:999px;padding:4px 7px;font-size:9px;line-height:1.2;min-height:24px;margin-top:1px;transition:.15s}
+.case-status i{width:7px;height:7px;border-radius:50%;background:var(--line-strong);flex:none}
+.case-status:hover{border-color:var(--accent);color:var(--accent)}
+.case.pass .case-status{border-color:#b9d5c9;background:var(--accent-soft);color:var(--accent)}
+.case.pass .case-status i{background:var(--accent)}
+.case.fail .case-status{border-color:#e0beb7;background:var(--bad-soft);color:var(--bad)}
+.case.fail .case-status i{background:var(--bad)}
+.case-body{min-width:0}
+.case-body p{margin:0;font-size:12px;line-height:1.65;color:var(--ink)}
+.case-body .expect{margin-top:4px;font-size:10.5px;line-height:1.6;color:var(--muted)}
+.case-body .expect b{color:var(--accent);font-weight:600;margin-right:4px}
+.case.fail .expect b{color:var(--bad)}
+.fast-star{color:var(--warn);font-size:12px;line-height:1.6;text-align:center;visibility:hidden;user-select:none}
+.case.fast .fast-star{visibility:visible}
+.case.hidden{display:none}
+.empty-filter{display:none;padding:30px 20px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line-strong);border-radius:var(--radius);margin:0 0 18px}
+.empty-filter.show{display:block}
+.notes-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--shadow);padding:18px 20px;margin:4px 0 22px}
+.notes-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.notes-head h2{font-family:var(--serif);font-size:18px;margin:0;font-weight:600}
+.notes-head span{font-size:9px;color:var(--faint)}
+.notes-card textarea{width:100%;min-height:150px;resize:vertical;border:1px solid var(--line);border-radius:11px;background:var(--paper-2);padding:12px 13px;color:var(--ink);font-size:11.5px;line-height:1.8;outline:none}
+.notes-card textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.notes-tip{margin:7px 0 0;font-size:10px;color:var(--muted)}
+.footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:18px 2px 0;color:var(--faint);font-size:10px;border-top:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:9.5px}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend i{width:7px;height:7px;border-radius:50%;background:var(--line-strong)}
+.legend .p i{background:var(--accent)}
+.legend .f i{background:var(--bad)}
+.legend .s i{background:var(--warn)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;background:#27312c;color:#f8f3e7;font-size:11px;padding:9px 14px;border-radius:9px;z-index:100;transition:.2s;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:980px){
+  .shell{grid-template-columns:1fr;padding:24px 18px 60px;gap:18px}
+  .side{position:static;max-height:none;display:block}
+  .side .brand{margin-bottom:12px}
+  .side-note{display:none}
+  .toc{display:flex;gap:5px;overflow:auto;padding:0 0 5px;margin:0 -2px}
+  .toc-label{display:none}
+  .toc a{flex:none;padding:6px 9px;border-color:var(--line);background:rgba(251,249,243,.55);font-size:10px}
+  .toc a span:first-child{max-width:110px}
+  .toc-count{display:none}
+  .side-foot{display:none}
+  .dashboard{grid-template-columns:1fr}
+  .quick-card{flex-direction:row;align-items:center;flex-wrap:wrap}
+  .quick-card p{max-width:420px}
+}
+@media (max-width:620px){
+  .shell{padding:18px 13px 46px}
+  .hero{padding-bottom:16px}
+  .lede{font-size:12px}
+  .progress-card{padding:16px;gap:14px}
+  .ring{width:86px;height:86px}
+  .ring-inner b{font-size:22px}
+  .progress-copy h2{font-size:16px}
+  .stat-line{gap:12px}
+  .section-head{padding:15px 14px 13px}
+  .section-title h2{font-size:17px}
+  .section-title p{font-size:10px}
+  .cases{padding:3px 4px 5px}
+  .case{grid-template-columns:64px minmax(0,1fr);gap:9px;padding:10px 8px}
+  .case .fast-star{display:none}
+  .case-body p{font-size:11.5px}
+  .case-body .expect{font-size:10px}
+  .case-status{font-size:8.5px;padding:4px 5px}
+  .toolbar{padding:7px;gap:6px}
+  .view-note{display:none}
+  .search{min-width:100%}
+  .seg{flex:1;justify-content:space-between}
+  .seg button{flex:1}
+  .quick-actions{width:100%}
+  .quick-actions .btn{flex:1}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important;animation:none!important}
+}
+@media print{
+  :root{--bg:#fff;--paper:#fff;--paper-2:#fff;--ink:#000;--muted:#444;--line:#bbb;--shadow:none}
+  body{background:#fff;font-size:10pt}
+  body::before{display:none}
+  .shell{display:block;max-width:none;padding:0}
+  .side,.toolbar,.quick-actions,.case-status,.fast-star,.notes-tip,.toast,.empty-filter{display:none!important}
+  .hero{padding:0 0 10px}
+  .dashboard{display:block;margin-bottom:12px}
+  .progress-card{border:1px solid #bbb;box-shadow:none;padding:10px}
+  .ring{width:70px;height:70px}
+  .ring-inner b{font-size:18px}
+  .quick-card{display:none}
+  .section{break-inside:auto;box-shadow:none;margin-bottom:10px}
+  .section-head{padding:8px 10px;background:#fff}
+  .case{break-inside:avoid;padding:5px 6px;grid-template-columns:1fr 14px}
+  .case .case-status{display:none!important}
+  .case-body p{font-size:9.5pt}
+  .case-body .expect{font-size:8.5pt}
+  .notes-card{box-shadow:none;border:1px solid #bbb;break-inside:avoid}
+  .notes-card textarea{min-height:80px;background:#fff;border:0;padding:0;font-size:9.5pt}
+  .footer{border-top:1px solid #bbb}
+  a{color:#000;text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">晚</div>
+      <div><b>晚风Todo</b><small>TEST PLAN · 2026</small></div>
+    </div>
+    <div class="side-note">
+      <b>怎么用</b><br>
+      每项点一下状态按钮：未测 → 通过 → 失败。进度会自动保存在本机浏览器。测试时建议用测试账号，不要拿管理员真实数据做清空测试。
+    </div>
+    <nav class="toc" id="toc" aria-label="测试章节"><div class="toc-label">测试章节</div></nav>
+    <div class="side-foot">本地静态页 · 进度只存浏览器<br>晚风Todo · 2026-10-23</div>
+  </aside>
+
+  <main>
+    <header class="hero">
+      <div class="kicker">Quality checklist</div>
+      <h1>晚风Todo<br>测试流程</h1>
+      <p class="lede">从上线冒烟到账号、健康、待办、体重、历史版本、手机 PWA 和安全的完整回归清单。带 ★ 的是 10 分钟快速冒烟项。</p>
+      <div class="hero-meta">
+        <span class="chip"><b>站点</b> todo.csl88.top</span>
+        <span class="chip"><b>版本</b> 2026-10-23</span>
+        <span class="chip"><b>方式</b> 浏览器手动测试</span>
+        <span class="chip"><b>建议</b> 测试账号 + 数据库备份</span>
+      </div>
+    </header>
+
+    <section class="dashboard" aria-label="测试进度">
+      <div class="progress-card">
+        <div class="ring" id="ring" style="--p:0%">
+          <div class="ring-inner"><b id="pass-rate">0%</b><span>通过率</span></div>
+        </div>
+        <div class="progress-copy">
+          <h2>测试进度</h2>
+          <p id="progress-copy">还没有开始。先备份数据，再用测试账号逐项检查。</p>
+          <div class="stat-line">
+            <span class="stat pass"><b id="count-pass">0</b> 通过</span>
+            <span class="stat fail"><b id="count-fail">0</b> 失败</span>
+            <span class="stat todo"><b id="count-todo">0</b> 未测</span>
+          </div>
+        </div>
+      </div>
+      <div class="quick-card">
+        <div>
+          <h3>10 分钟快速冒烟</h3>
+          <p>时间有限时，先看 ★ 项：登录、手机导航、呼吸、重复任务、身体档案、历史版本和 CSV。</p>
+        </div>
+        <div class="quick-actions">
+          <button class="btn primary" id="btn-fast" type="button">只看 ★ 项</button>
+          <button class="btn" id="btn-print" type="button">打印 / PDF</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="toolbar" aria-label="筛选">
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="search" type="search" placeholder="搜索测试项，例如：历史版本、BMI、CSV" autocomplete="off">
+      </label>
+      <div class="seg" id="filter-seg">
+        <button type="button" data-filter="all" class="active">全部</button>
+        <button type="button" data-filter="todo">未通过</button>
+        <button type="button" data-filter="fail">只看失败</button>
+        <button type="button" data-filter="fast">★ 冒烟</button>
+      </div>
+      <span class="view-note" id="view-note"></span>
+    </div>
+
+    <div id="sections"></div>
+    <div class="empty-filter" id="empty-filter">没有匹配的测试项。换个关键词，或切回「全部」。</div>
+
+    <section class="notes-card">
+      <div class="notes-head">
+        <h2>测试记录 / 问题清单</h2>
+        <span id="notes-status">自动保存在本机</span>
+      </div>
+      <textarea id="notes" placeholder="记录发现的 Bug、复现步骤、截图路径或需要回头处理的事项。例如：&#10;- 2026-10-23 / 手机 Chrome / 体重页：BMI 显示正常，但统计页 90 天范围暂无数据">
+      </textarea>
+      <p class="notes-tip">导出的报告会包含这里的文字。清空浏览器数据会丢失本页进度。</p>
+    </section>
+
+    <div class="footer">
+      <div class="legend">
+        <span class="p"><i></i>通过</span>
+        <span class="f"><i></i>失败</span>
+        <span><i></i>未测</span>
+        <span class="s"><i></i>★ 快速冒烟</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn ghost" id="btn-export" type="button">导出报告</button>
+        <button class="btn danger" id="btn-reset" type="button">重置进度</button>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const PLAN = [
+  {
+    id: 'prep', no: '00', title: '测试前准备', desc: '先保证可以恢复，再开始破坏性测试。',
+    cases: [
+      { id: 'prep-backup', fast: true, text: '备份站点数据库、api/config.php 和 install.lock', expect: '有可恢复备份；确认 install.lock 存在。' },
+      { id: 'prep-account', text: '准备管理员账号和 1 个测试账号', expect: '测试账号通过邀请码注册，不使用管理员真实数据。' },
+      { id: 'prep-migration', fast: true, text: '确认 board_revisions 表已执行迁移', expect: 'phpMyAdmin 执行 SHOW TABLES LIKE \'board_revisions\'; 能看到该表。' },
+      { id: 'prep-device', text: '准备电脑 Chrome / Edge 和一台手机', expect: '电脑测桌面，手机测底部 Tab、PWA 和横向溢出。' },
+      { id: 'prep-console', text: '打开 F12，清空 Console 和 Network', expect: '测试过程中能快速发现红色报错和 500 响应。' }
+    ]
+  },
+  {
+    id: 'smoke', no: '01', title: '上线冒烟', desc: '5 分钟确认站点门禁、登录和基本加载没有断。',
+    cases: [
+      { id: 'smoke-landing', fast: true, text: '无痕窗口打开 https://todo.csl88.top/', expect: '显示介绍页，不直接进入看板。' },
+      { id: 'smoke-gate', text: '不登录直接访问站点', expect: '只能看介绍页，看不到今日数据。' },
+      { id: 'smoke-status', text: '打开 /api.php?action=status', expect: '返回 {"ok":true,"installed":true}。' },
+      { id: 'smoke-login', fast: true, text: '登录管理员账号', expect: '进入今日页，顶部品牌为晚风Todo。' },
+      { id: 'smoke-refresh', text: '按 F5 刷新', expect: '数据仍在，不出现示例数据覆盖。' },
+      { id: 'smoke-console', text: '切换今日、待办、习惯、统计', expect: 'Console 无红色报错；Network 无 500。' },
+      { id: 'smoke-title', text: '看浏览器标签、页脚和 PWA 名称', expect: '标题「晚风Todo · 习惯与任务」，页脚版权和作者正常。' }
+    ]
+  },
+  {
+    id: 'account', no: '02', title: '账号与权限', desc: '确认多用户隔离、邀请码和管理员边界。',
+    cases: [
+      { id: 'account-register', text: '管理员打开注册，用邀请码注册测试账号', expect: '注册成功后自动登录，得到示例数据。' },
+      { id: 'account-normal', text: '测试账号进入设置', expect: '没有用户管理入口，不能查看其他用户。' },
+      { id: 'account-admin', text: '管理员进入用户管理', expect: '能看到用户列表、重置密码、停用/启用、注册开关和邀请码；列表不含用户数据。' },
+      { id: 'account-logout', text: '测试账号退出登录', expect: '回到介绍页；再访问 api.php?action=load 返回 401。' },
+      { id: 'account-forgot', text: '点登录框的「找回密码」', expect: '弹窗显示联系邮箱 sl@sl00.top。' },
+      { id: 'account-wrong', text: '输入一次错误密码', expect: '提示错误，不进入系统；不要连续试错触发限流。' }
+    ]
+  },
+  {
+    id: 'health', no: '03', title: '健康底盘', desc: '用药、喝水、运动、478 呼吸和自定义习惯。',
+    cases: [
+      { id: 'health-med-short', text: '新建短期药：开始/结束日期、08:00 和 20:00', expect: '今日页出现用药卡和下一次服药时间。' },
+      { id: 'health-med-take', text: '记录一次服药', expect: '已服次数 +1，库存自动扣减。' },
+      { id: 'health-med-undo', text: '撤销这次服药', expect: '已服次数恢复，库存加回。' },
+      { id: 'health-med-low', text: '把库存改到不足 2 天量', expect: '今日页显示库存不足提醒。' },
+      { id: 'health-med-prn', text: '新建按需药并记录一次', expect: '按需药单独显示次数，不参与应服次数比例。' },
+      { id: 'health-water', text: '点「＋ 喝一杯」到 8 杯，再撤销一次', expect: '杯数、进度条和完成状态同步变化。' },
+      { id: 'health-move', text: '完成运动，再撤销', expect: '状态和连续天数正确变化。' },
+      { id: 'health-breath-start', text: '点 478 呼吸的「开始练习」→「开始」', expect: '按钮变「进行中」并禁用。' },
+      { id: 'health-breath-full', fast: true, text: '完整等完一轮 4-7-8', expect: '次数 +1，按钮变「再来一次」；球体 4 秒放大、7 秒脉动、8 秒缩回。' },
+      { id: 'health-breath-close', text: '中途关闭呼吸弹窗', expect: '不增加次数。' },
+      { id: 'health-breath-rate', text: '检查今日完成率', expect: '478 呼吸不增加完成率分母。' },
+      { id: 'health-habit-build', text: '新建养成习惯并打卡、撤销', expect: '目标次数、完成率和连续天数正确。' },
+      { id: 'health-habit-quit', text: '新建戒除习惯，点一次「记一次」再撤销', expect: '保持/破戒状态与连续天数正确。' }
+    ]
+  },
+  {
+    id: 'tasks', no: '04', title: '待办与重复任务', desc: '单次、每天、每周、每月，以及完成/撤销的连锁反应。',
+    cases: [
+      { id: 'task-single', fast: true, text: '新建单次任务，今天截止，勾选完成', expect: '任务进入已完成，今日待办减少。' },
+      { id: 'task-daily', fast: true, text: '新建「扔垃圾」每天 20:00，完成', expect: '生成下一次待办：日期为明天，时间 20:00。' },
+      { id: 'task-daily-undo', text: '撤销刚完成的每天任务', expect: '尚未完成的下一件被移除。' },
+      { id: 'task-weekly', text: '新建每周任务，选周五，截止日期选周五，完成', expect: '下一次是下一个周五，时间不变。' },
+      { id: 'task-monthly31', text: '新建每月 31 号任务，在 1 月 31 日完成', expect: '下一次是 2 月 28 日（小月取最后一天）。' },
+      { id: 'task-monthly15', text: '新建每月 15 号任务并完成', expect: '下一次是下个月 15 号。' },
+      { id: 'task-drag', text: '拖拽任务换列，再拖到已完成', expect: '状态改变；重复任务生成下一次。' },
+      { id: 'task-clear', text: '点「清理已完成」并确认', expect: '完成记录删除，已生成的下一件保留。' }
+    ]
+  },
+  {
+    id: 'body', no: '05', title: '体重、随笔、日历、统计', desc: '身体档案、BMI、统计范围和文本记录。',
+    cases: [
+      { id: 'body-profile', fast: true, text: '体重页建立档案：年龄 32，身高 175', expect: '档案卡显示年龄/身高，记录体重只填日期和体重。' },
+      { id: 'body-bmi', text: '记录体重 70', expect: 'BMI = 22.9，分类正常。' },
+      { id: 'body-same-day', text: '同一天再记录 72', expect: '当天数据更新，不产生重复记录。' },
+      { id: 'body-profile-edit', text: '修改档案身高为 180，再记录一次', expect: '新记录使用新身高；历史记录 BMI 不变。' },
+      { id: 'body-calendar', text: '打开有体重记录的日期', expect: '日历出现体重圆点，标题/提示显示体重和 BMI。' },
+      { id: 'body-stats-range', fast: true, text: '统计页切换 7 / 30 / 90 天', expect: '完成率、柱状图、习惯点阵、用药、体重趋势都跟随；默认 30 天。' },
+      { id: 'body-essay', text: '新建随笔，编辑、删除', expect: '摘要、字数和操作正常；刷新后仍在。' },
+      { id: 'body-sync', text: '换浏览器登录同一测试账号', expect: '体重、档案、随笔从云端同步。' }
+    ]
+  },
+  {
+    id: 'history', no: '06', title: '历史版本与云端保存', desc: '快照、恢复、清空恢复和最后写入覆盖。',
+    cases: [
+      { id: 'history-list', fast: true, text: '修改任意数据并保存，打开设置 → 历史版本', expect: '列表出现 save 快照；显示时间、rev、大小。' },
+      { id: 'history-preview', text: '点某个版本的「查看」', expect: '显示习惯/任务/药/体重/随笔数量。' },
+      { id: 'history-restore', text: '恢复该版本并确认', expect: '数据回到该版本；历史里多一条 restore 快照。' },
+      { id: 'history-reset', text: '用测试账号清空全部数据，再从历史恢复', expect: '清空前有快照，恢复后数据回来。' },
+      { id: 'history-db', text: 'phpMyAdmin 查询 board_revisions', expect: '有记录；管理员接口不能读取其他用户历史。' },
+      { id: 'cloud-autosave', text: '改一条数据，等 1 秒，看账号面板', expect: '显示已保存到云端。' },
+      { id: 'cloud-offline', text: 'F12 → Network → Offline，改数据后再恢复 Online', expect: '显示保存失败；恢复后自动重试或「立即保存」成功。' },
+      { id: 'cloud-lastwrite', text: '两个浏览器登录同一账号，A 保存后 B 再保存，刷新 A', expect: '后写入覆盖；历史版本保留 A 之前的版本。' }
+    ]
+  },
+  {
+    id: 'export', no: '07', title: '导出与 CSV', desc: 'JSON、CSV 和公式注入防护。',
+    cases: [
+      { id: 'export-json', text: '设置 → 数据管理 → 导出备份 JSON', expect: '下载「晚风Todo备份-*.json」，内容完整。' },
+      { id: 'export-csv', text: '点「导出 CSV」并用 Excel 打开', expect: '下载「晚风Todo-CSV-*.csv」，中文和列正常。' },
+      { id: 'export-inject', fast: true, text: '新建习惯名 =1+1，导出 CSV，用记事本查看', expect: '单元格为 \'=1+1，不是直接 =1+1；Excel 不计算公式。' },
+      { id: 'export-noimport', text: '检查数据管理按钮', expect: '没有「导入 JSON」入口。' }
+    ]
+  },
+  {
+    id: 'mobile', no: '08', title: '手机与 PWA', desc: '底部 5 Tab、更多页、安装和离线行为。',
+    cases: [
+      { id: 'mobile-tabs', fast: true, text: '手机打开站点', expect: '底部只有 5 个 Tab：今日、待办、习惯、统计、更多。' },
+      { id: 'mobile-more', text: '点「更多」', expect: '体重、随笔、日历、设置都在；进入设置时更多保持高亮。' },
+      { id: 'mobile-overflow', text: '在体重、随笔、统计之间切换', expect: '没有横向滚动；图表和长文本不撑破页面。' },
+      { id: 'mobile-pwa', text: 'Chrome 安装或手机添加到主屏幕', expect: '名称为晚风Todo，图标正常。' },
+      { id: 'mobile-sw', text: 'F12 → Application → Service Workers', expect: 'activated；manifest.json 和 service-worker.js 返回 200。' },
+      { id: 'mobile-offline', text: '断网后刷新', expect: '停在介绍页/连接失败；不显示旧账号数据。' },
+      { id: 'mobile-cache', text: '关闭 PWA 重开，或 DevTools 更新 Service Worker', expect: '加载新页面，不长期卡旧缓存。' }
+    ]
+  },
+  {
+    id: 'security', no: '09', title: '错误与安全', desc: 'XSS、未登录接口、普通用户越权和 Console。',
+    cases: [
+      { id: 'security-xss', text: '任务标题填 <img src=x onerror=alert(1)>', expect: '显示为纯文本，不弹窗；习惯名、随笔标题也测一次。' },
+      { id: 'security-unauth', text: '无痕窗口访问 api.php?action=load', expect: '401，不返回数据。' },
+      { id: 'security-admin', text: '普通用户访问 api.php?action=admin_users', expect: '403，不返回用户列表。' },
+      { id: 'security-console', text: '把所有页面切换一遍', expect: 'Console 无红色 JS 错误；Network 无异常 500。' }
+    ]
+  },
+  {
+    id: 'regression', no: '10', title: '收尾回归', desc: '测试结束后确认品牌、备份和测试数据。',
+    cases: [
+      { id: 'regression-brand', text: '检查浏览器标签、品牌、页脚和 PWA 名称', expect: '统一为晚风Todo；作者晚风 & DeepSeek。' },
+      { id: 'regression-backup', text: '导出测试账号 JSON 和 CSV 各一份', expect: '文件可打开，内容和页面一致。' },
+      { id: 'regression-clean', text: '清理测试数据或停用测试账号', expect: '不把测试记录留在正式账号里。' },
+      { id: 'regression-db', text: '再次确认 board_revisions 存在，数据库备份可恢复', expect: '迁移和备份都完成。' }
+    ]
+  }
+];
+
+const STORAGE = 'wanfeng.todo.testplan.v1';
+const statuses = ['', 'pass', 'fail'];
+const labels = { '': '未测', pass: '通过', fail: '失败' };
+const state = { status: {}, notes: '', filter: 'all', q: '' };
+let toastTimer = 0;
+
+function safeLoad() {
+  try {
+    const raw = localStorage.getItem(STORAGE);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && typeof data === 'object') {
+      if (data.status && typeof data.status === 'object') state.status = data.status;
+      if (typeof data.notes === 'string') state.notes = data.notes;
+    }
+  } catch (e) {}
+}
+function safeSave() {
+  try {
+    localStorage.setItem(STORAGE, JSON.stringify({ status: state.status, notes: state.notes, updatedAt: Date.now() }));
+  } catch (e) {}
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function allCases() {
+  return PLAN.flatMap(section => section.cases.map(item => Object.assign({ section: section.id }, item)));
+}
+function counts() {
+  const all = allCases();
+  let pass = 0, fail = 0;
+  all.forEach(c => {
+    if (state.status[c.id] === 'pass') pass++;
+    else if (state.status[c.id] === 'fail') fail++;
+  });
+  return { total: all.length, pass, fail, todo: all.length - pass - fail };
+}
+function statusOf(id) {
+  return statuses.indexOf(state.status[id]) >= 0 ? state.status[id] : '';
+}
+function visible(c) {
+  if (state.filter === 'todo' && statusOf(c.id) === 'pass') return false;
+  if (state.filter === 'fail' && statusOf(c.id) !== 'fail') return false;
+  if (state.filter === 'fast' && !c.fast) return false;
+  const q = state.q.trim().toLowerCase();
+  if (q) {
+    const text = (c.text + ' ' + c.expect + ' ' + SECTION_TITLE(c.section)).toLowerCase();
+    if (text.indexOf(q) < 0) return false;
+  }
+  return true;
+}
+function SECTION_TITLE(id) {
+  const s = PLAN.find(x => x.id === id);
+  return s ? s.title : '';
+}
+function sectionLabel(pass, fail, total) {
+  if (fail) return fail + ' 项失败';
+  if (pass === total) return '全部通过';
+  if (pass) return '进行中';
+  return '未开始';
+}
+function renderToc() {
+  const toc = document.getElementById('toc');
+  const label = '<div class="toc-label">测试章节</div>';
+  toc.innerHTML = label + PLAN.map(section => {
+    const secCases = section.cases;
+    const pass = secCases.filter(c => statusOf(c.id) === 'pass').length;
+    return '<a href="#' + section.id + '" data-toc="' + section.id + '">' +
+      '<span>' + esc(section.no + ' · ' + section.title) + '</span>' +
+      '<span class="toc-count">' + pass + '/' + secCases.length + '</span>' +
+    '</a>';
+  }).join('');
+}
+function renderSections() {
+  const wrap = document.getElementById('sections');
+  wrap.innerHTML = PLAN.map(section => {
+    const secCases = section.cases;
+    const pass = secCases.filter(c => statusOf(c.id) === 'pass').length;
+    const fail = secCases.filter(c => statusOf(c.id) === 'fail').length;
+    return '<section class="section" id="' + section.id + '">' +
+      '<div class="section-head">' +
+        '<div class="section-title"><span class="section-no">' + esc(section.no) + '</span><div><h2>' + esc(section.title) + '</h2><p>' + esc(section.desc) + '</p></div></div>' +
+        '<div class="section-progress"><b>' + pass + '/' + secCases.length + '</b>' + sectionLabel(pass, fail, secCases.length) + '</div>' +
+      '</div>' +
+      '<div class="cases">' + secCases.map(c => {
+        const st = statusOf(c.id);
+        return '<div class="case ' + st + (c.fast ? ' fast' : '') + '" data-case="' + c.id + '">' +
+          '<button type="button" class="case-status" data-status="' + c.id + '" title="点击切换：未测 → 通过 → 失败">' +
+            '<i></i><span>' + labels[st] + '</span>' +
+          '</button>' +
+          '<div class="case-body"><p>' + esc(c.text) + '</p><p class="expect"><b>期望</b>' + esc(c.expect) + '</p></div>' +
+          '<span class="fast-star" title="快速冒烟">★</span>' +
+        '</div>';
+      }).join('') + '</div>' +
+    '</section>';
+  }).join('');
+}
+function renderStats() {
+  const c = counts();
+  const pct = c.total ? Math.round(c.pass / c.total * 100) : 0;
+  const ring = document.getElementById('ring');
+  if (ring) ring.style.setProperty('--p', pct + '%');
+  document.getElementById('pass-rate').textContent = pct + '%';
+  document.getElementById('count-pass').textContent = c.pass;
+  document.getElementById('count-fail').textContent = c.fail;
+  document.getElementById('count-todo').textContent = c.todo;
+  const copy = document.getElementById('progress-copy');
+  if (c.pass + c.fail === 0) copy.textContent = '还没有开始。先备份数据，再用测试账号逐项检查。';
+  else if (c.todo === 0) copy.textContent = '全部测完：通过 ' + c.pass + ' 项，失败 ' + c.fail + ' 项。';
+  else copy.textContent = '已测 ' + (c.pass + c.fail) + ' / ' + c.total + ' 项，还有 ' + c.todo + ' 项未测。';
+  const note = document.getElementById('view-note');
+  if (note) note.textContent = state.filter === 'all' ? ('共 ' + c.total + ' 项 · ★ ' + allCases().filter(x => x.fast).length + ' 项冒烟') : '';
+}
+function applyFilter() {
+  let visibleCount = 0;
+  PLAN.forEach(section => {
+    const secEl = document.getElementById(section.id);
+    if (!secEl) return;
+    let sectionVisible = 0;
+    section.cases.forEach(c => {
+      const row = secEl.querySelector('[data-case="' + c.id + '"]');
+      if (!row) return;
+      const show = visible(c);
+      row.classList.toggle('hidden', !show);
+      if (show) sectionVisible++;
+    });
+    secEl.style.display = sectionVisible ? '' : 'none';
+    visibleCount += sectionVisible;
+  });
+  document.getElementById('empty-filter').classList.toggle('show', visibleCount === 0);
+  const note = document.getElementById('view-note');
+  if (note && state.filter !== 'all') note.textContent = visibleCount + ' 项匹配';
+}
+function renderAll() {
+  renderToc();
+  renderSections();
+  renderStats();
+  document.getElementById('notes').value = state.notes;
+  applyFilter();
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+function cycleStatus(id) {
+  const cur = statusOf(id);
+  const next = cur === '' ? 'pass' : (cur === 'pass' ? 'fail' : '');
+  if (next) state.status[id] = next;
+  else delete state.status[id];
+  safeSave();
+  const row = document.querySelector('[data-case="' + id + '"]');
+  if (row) {
+    row.classList.remove('pass', 'fail');
+    if (next) row.classList.add(next);
+    const btn = row.querySelector('[data-status]');
+    if (btn) btn.innerHTML = '<i></i><span>' + labels[next] + '</span>';
+  }
+  renderStats();
+  renderToc();
+  const section = PLAN.find(s => s.cases.some(c => c.id === id));
+  if (section) {
+    const secEl = document.getElementById(section.id);
+    if (secEl) {
+      const pass = section.cases.filter(c => statusOf(c.id) === 'pass').length;
+      const fail = section.cases.filter(c => statusOf(c.id) === 'fail').length;
+      const num = secEl.querySelector('.section-progress');
+      if (num) num.innerHTML = '<b>' + pass + '/' + section.cases.length + '</b>' + sectionLabel(pass, fail, section.cases.length);
+    }
+  }
+  applyFilter();
+  toast(next === 'pass' ? '已标记通过' : (next === 'fail' ? '已标记失败' : '已恢复未测'));
+}
+
+function exportReport() {
+  const c = counts();
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
+  let md = '# 晚风Todo 测试报告\n\n';
+  md += '- 日期：' + now.toLocaleString('zh-CN', { hour12: false }) + '\n';
+  md += '- 站点：https://todo.csl88.top/\n';
+  md += '- 结果：通过 ' + c.pass + ' / ' + c.total + '，失败 ' + c.fail + '，未测 ' + c.todo + '，通过率 ' + (c.total ? Math.round(c.pass / c.total * 100) : 0) + '%\n\n';
+  PLAN.forEach(section => {
+    md += '## ' + section.no + ' · ' + section.title + '\n\n';
+    section.cases.forEach(item => {
+      const st = statusOf(item.id);
+      md += '- [' + (st === 'pass' ? 'x' : ' ') + '] ' + item.text + '\n';
+      md += '  - 期望：' + item.expect + '\n';
+      md += '  - 状态：' + labels[st] + '\n';
+    });
+    md += '\n';
+  });
+  md += '## 测试记录 / 问题清单\n\n' + (state.notes.trim() || '（无）') + '\n';
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '晚风Todo测试报告-' + stamp + '.md';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('测试报告已导出');
+}
+
+function init() {
+  safeLoad();
+  renderAll();
+  document.getElementById('sections').addEventListener('click', e => {
+    const btn = e.target.closest('[data-status]');
+    if (!btn) return;
+    cycleStatus(btn.dataset.status);
+  });
+  document.getElementById('search').addEventListener('input', e => {
+    state.q = e.target.value;
+    applyFilter();
+  });
+  document.getElementById('filter-seg').addEventListener('click', e => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    state.filter = btn.dataset.filter;
+    document.querySelectorAll('#filter-seg button').forEach(x => x.classList.toggle('active', x === btn));
+    applyFilter();
+  });
+  document.getElementById('btn-fast').addEventListener('click', () => {
+    state.filter = state.filter === 'fast' ? 'all' : 'fast';
+    document.querySelectorAll('#filter-seg button').forEach(x => x.classList.toggle('active', x.dataset.filter === state.filter));
+    applyFilter();
+    if (state.filter === 'fast') {
+      const first = document.querySelector('.section:not([style*="display: none"]) .case:not(.hidden)');
+      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+  document.getElementById('btn-print').addEventListener('click', () => {
+    state.filter = 'all';
+    state.q = '';
+    document.getElementById('search').value = '';
+    document.querySelectorAll('#filter-seg button').forEach(x => x.classList.toggle('active', x.dataset.filter === 'all'));
+    applyFilter();
+    window.print();
+  });
+  document.getElementById('btn-export').addEventListener('click', exportReport);
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if (!confirm('确定清空所有测试状态和备注吗？此操作不可撤销。')) return;
+    state.status = {};
+    state.notes = '';
+    document.getElementById('notes').value = '';
+    safeSave();
+    renderAll();
+    toast('测试进度已重置');
+  });
+  const notes = document.getElementById('notes');
+  let saveTimer = 0;
+  notes.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      state.notes = notes.value;
+      safeSave();
+      document.getElementById('notes-status').textContent = '已保存 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    }, 250);
+  });
+  notes.addEventListener('blur', () => {
+    state.notes = notes.value;
+    safeSave();
+    document.getElementById('notes-status').textContent = '已保存 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      document.querySelectorAll('.toc a').forEach(a => a.classList.toggle('active', a.dataset.toc === entry.target.id));
+    });
+  }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+  PLAN.forEach(section => {
+    const el = document.getElementById(section.id);
+    if (el) observer.observe(el);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

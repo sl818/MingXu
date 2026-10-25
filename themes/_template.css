@@ -1,0 +1,104 @@
+/* ============================================================
+   晚风Todo 新主题模板
+   复制到 themes/custom.css 后修改。
+   只写主题样式：不写布局、HTML、JS。
+   ============================================================ */
+
+/* 把 newtheme 换成已注册的 key：paper / slate / mono / clay */
+:root[data-skin="newtheme"]{
+  --bg:#f4f6fa;
+  --surface:#ffffff;
+  --surface-2:#f5f8fc;
+  --surface-3:#e8edf5;
+  --text:#1b2638;
+  --muted:#6b7b90;
+  --line:#dce4ef;
+  --line-strong:#c1cede;
+  --accent:#466f9e;
+  --accent-2:#6f95bf;
+  --accent-strong:#2f5279;
+  --accent-soft:#e7eff8;
+  --on-accent:#f9fcff;
+  --good:#3d7f64;
+  --warn:#b07a3e;
+  --bad:#b04a50;
+  --gold:#a8874f;
+  --gold-soft:#f2e8d2;
+  --shadow:0 1px 2px rgba(30,50,80,.04),0 16px 36px -30px rgba(30,50,80,.28);
+  --shadow-lg:0 28px 56px -36px rgba(30,50,80,.4);
+  --font-serif:"Noto Serif SC","Songti SC",Georgia,serif;
+}
+
+:root[data-skin="newtheme"][data-theme="dark"]{
+  --bg:#0c1420;
+  --surface:#14202e;
+  --surface-2:#192838;
+  --surface-3:#203247;
+  --text:#e8f0fa;
+  --muted:#9aacbf;
+  --line:#24384c;
+  --line-strong:#3a556e;
+  --accent:#8ab6e6;
+  --accent-2:#b0d0f0;
+  --accent-strong:#c6e0f8;
+  --accent-soft:#1a3047;
+  --on-accent:#0a1521;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 20px 42px -32px rgba(0,0,0,.8);
+  --shadow-lg:0 30px 60px -32px rgba(0,0,0,.95);
+}
+
+/* 页面底色：可以放渐变，但不要改布局 */
+[data-skin="newtheme"] body{
+  background:
+    radial-gradient(900px 600px at 88% -10%,rgba(120,170,240,.16),transparent 62%),
+    linear-gradient(180deg,#f7faff 0%,#eef3fa 100%);
+}
+
+[data-skin="newtheme"][data-theme="dark"] body{
+  background:
+    radial-gradient(900px 600px at 88% -10%,rgba(100,150,220,.12),transparent 62%),
+    linear-gradient(180deg,#0e1824 0%,#0a121c 100%);
+}
+
+/* 侧栏：颜色、渐变、边框、阴影 */
+[data-skin="newtheme"] .sidebar{
+  background:linear-gradient(180deg,#182d46 0%,#0d1d30 100%);
+  border-right-color:rgba(210,230,255,.10);
+}
+
+/* 卡片表面 */
+[data-skin="newtheme"] .panel,
+[data-skin="newtheme"] .stat-card,
+[data-skin="newtheme"] .habit-card,
+[data-skin="newtheme"] .vital-card{
+  background:var(--surface);
+  border-color:var(--line);
+  box-shadow:var(--shadow);
+}
+
+/* Hero */
+[data-skin="newtheme"] .hero{
+  background:
+    radial-gradient(520px 280px at 88% 0%,rgba(150,190,245,.22),transparent 66%),
+    linear-gradient(135deg,#1c3a5c 0%,#122a45 55%,#0b1d33 100%);
+  border-color:rgba(210,230,255,.14);
+}
+
+/* 主按钮 */
+[data-skin="newtheme"] .btn.primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  border-color:var(--accent);
+  color:var(--on-accent);
+}
+
+/* 今日/完成状态 */
+[data-skin="newtheme"] .cal-cell.is-today{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent);
+}
+
+[data-skin="newtheme"] .bar-wrap i{
+  background:linear-gradient(180deg,var(--accent-2),var(--accent));
+}
+
+/* 深色模式下如果组件需要单独覆盖，继续写在下面 */

@@ -1,0 +1,408 @@
+# 部署到阿里云轻量服务器（宝塔 + PHP + MySQL）
+
+把项目上传到宝塔站点，访问域名后按向导安装：填数据库、创建管理员、生成邀请码。之后用户凭邀请码注册，管理员只管理账号和密码，不能查看或导出其他用户的数据。
+
+> 示例路径：站点根目录 `/www/wwwroot/todo`，PHP 8.2，数据库名 `lifeboard`。
+
+## 0. 最终结构
+
+```
+/www/wwwroot/todo/
+├── index.html              # 前端（介绍页 + 看板）
+├── api.php                 # 云同步 / 账号接口
+├── api/
+│   ├── bootstrap.php
+│   └── config.php          # 安装向导生成（不要公开）
+├── install/
+│   └── index.php           # 安装向导（装完删除）
+├── db/
+│   ├── schema.sql          # 安装器读取，用于建表
+│   └── migrations/         # 已有站点的增量迁移 SQL
+├── tools/
+│   └── create_user.php     # 命令行救援账号（可选）
+├── manifest.json           # PWA 清单
+├── service-worker.js       # PWA 外壳缓存
+├── icons/                  # 192 / 512 / maskable 图标
+├── install.lock            # 安装完成后生成
+└── DEPLOY.md
+```
+
+数据流：
+
+```
+浏览器
+  │ HTTPS
+  ▼
+Nginx + PHP-FPM
+  ├─ /                介绍页；未安装时跳 /install/；登录后进入看板
+  ├─ /install/        安装向导（装完锁定/删除）
+  └─ /api.php         登录、注册、读写、管理员接口
+        │
+        ▼
+     MySQL（users / boards / app_settings / 登录限流）
+```
+
+## 1. 宝塔准备
+
+1. 软件商店安装 **PHP 8.2**（8.1 / 8.3 也可以）和 **MySQL 8.0**（5.7 也可以）。
+2. 网站 → 添加站点：
+   - 域名：`todo.example.com`
+   - 根目录：`/www/wwwroot/todo`
+   - PHP 版本：8.2
+3. 确认 PHP 已装 `pdo_mysql`：
+
+```bash
+/www/server/php/82/bin/php -m | grep -i pdo_mysql
+```
+
+没有输出就在宝塔 PHP 设置里安装扩展并重启 PHP。
+
+## 2. 上传并解压
+
+把 [todo-deploy.zip](todo-deploy.zip) 上传到站点根目录并解压，确保 **`index.html`、`api.php`、`install/` 直接位于 `/www/wwwroot/todo`**，而不是多套一层 `todo-deploy/`。
+
+设置权限：
+
+```bash
+cd /www/wwwroot/todo
+chown -R www:www .
+find . -type d -exec chmod 755 {} \;
+find . -type f -exec chmod 644 {} \;
+```
+
+安装阶段 PHP 需要能写 `api/config.php` 和 `install.lock`，所以 `api/` 和站点根目录要对 `www` 可写（上面的 `chown` 已满足）。安装完成后 `api/config.php` 会被写成 640。
+
+## 3. 建一个空数据库
+
+宝塔 → 数据库 → 添加数据库：
+
+- 数据库名：`lifeboard`
+- 用户名：`lifeboard`
+- 密码：强密码，保存好
+- 字符集：`utf8mb4`
+
+**不要手动导入 `db/schema.sql`**，安装向导会自动建表。数据库必须是空的；如果里面有表，安装器会拒绝，避免误覆盖。
+
+> 安装器只建表，不创建数据库。宝塔创建的数据库用户通常没有 `CREATE DATABASE` 权限，这样最安全。
+
+## 4. 访问域名安装
+
+浏览器打开：
+
+```
+https://todo.example.com/
+```
+
+如果还没安装，页面会检测到 `install.lock` 不存在，自动跳到：
+
+```
+https://todo.example.com/install/
+```
+
+没有自动跳转就直接访问 `/install/`。
+
+### 4.1 环境检查
+
+向导会检查 PHP 版本、`pdo_mysql`、Session、JSON，以及 `api/`、站点根目录、`db/schema.sql` 的读写权限。全绿后点「下一步：连接数据库」。
+
+如果提示 `api/config.php 已有真实数据库配置`，说明之前装过或文件不是模板；要重装请先删除 `api/config.php` 并清空数据库。
+
+### 4.2 填数据库
+
+填写第 3 步创建的：
+
+- 地址：`127.0.0.1`（如果连不上可改 `localhost`）
+- 端口：`3306`
+- 数据库名：`lifeboard`
+- 用户名：`lifeboard`
+- 密码：数据库密码
+
+点「测试连接并建表」。安装器会：
+
+1. 测试 PDO 连接；
+2. 确认数据库是空的；
+3. 执行 `db/schema.sql` 创建 `users`、`boards`、`app_settings`、`login_attempts`、`register_attempts`。
+
+如果提示「数据库里已经有表」，先在宝塔里换一个空库，或删除旧表后重试。
+
+### 4.3 创建管理员
+
+填写：
+
+- 管理员邮箱（登录名，不会发邮件）
+- 显示名称
+- 密码（至少 8 位）+ 确认
+
+点「完成安装」。安装器会：
+
+- 写入 `api/config.php`（数据库账号 + 随机 app_key）；
+- 创建第一个管理员（`is_admin=1`）；
+- 生成 **邀请码**，打开「注册」开关；
+- 写入 `install.lock`，锁定安装向导。
+
+### 4.4 记下邀请码
+
+完成页会显示管理员邮箱和邀请码，例如：
+
+```
+管理员邮箱：you@example.com
+邀请码：A1B2C3D4
+```
+
+把邀请码发给需要注册的人。然后：
+
+```bash
+cd /www/wwwroot/todo
+rm -rf install
+```
+
+**务必删除 `install/`**。即使不删，`install.lock` 也会让向导返回 403，但删掉更干净。
+
+## 5. 登录、注册和管理员
+
+### 5.1 登录
+
+打开域名，首页是功能介绍页；点「登录」，输入管理员邮箱和密码。管理员登录后，左侧会进入看板，设置 → 云同步里会多一个「用户管理」按钮。
+
+### 5.2 注册（邀请码）
+
+- 首页 →「注册（需要邀请码）」；
+- 或登录弹窗 →「用邀请码注册」。
+- 填写显示名称（可选）、邮箱、密码、邀请码。
+- 密码至少 **8 位**。
+- 注册成功后自动登录，并从云端加载初始数据（新用户会得到一份示例习惯/任务，可自行修改）。
+- 注册限流：同一 IP 每小时最多 10 次注册尝试。
+
+管理员可以在「用户管理」里关闭注册。关闭后，首页和登录弹窗不再显示注册入口，接口也会拒绝注册。
+
+### 5.3 管理员面板
+
+设置 → 云同步 →「用户管理」：
+
+- 查看用户列表：邮箱、显示名称、角色、状态、注册时间、最后登录。
+- **重置密码**：给指定用户设置新密码；对方所有已登录设备会立即退出。
+- **停用 / 启用账号**：停用后无法登录，已登录会话失效；不能停用自己。
+- **注册设置**：开放/关闭注册、修改邀请码、修改站点名称。
+
+权限边界：
+
+- 管理员接口只返回 `id / email / display_name / is_admin / status / created_at / last_login_at`。
+- 没有任何管理员读取 `boards` 的接口；管理员不能查看或导出别人的习惯、任务、用药数据。
+- 但管理员可以重置密码，理论上可以设置新密码后以该用户身份登录。这是“管理员可重置密码”的固有边界；如果要求绝对隔离，需要取消管理员重置密码，或改为用户自己持有密钥的端到端加密。
+
+### 5.4 忘记密码
+
+登录弹窗右下角有「找回密码」；点击后提示：
+
+```
+找回密码：sl@sl00.top
+```
+
+用户用注册邮箱联系这个地址；管理员在「用户管理」里为他重置密码（至少 8 位）。重置后该用户所有已登录设备都会退出。
+
+## 6. Nginx 与 PHP 配置
+
+### 6.1 Nginx
+
+网站 → 设置 → 配置文件，在 `server { ... }` 中加：
+
+```nginx
+client_max_body_size 8m;
+
+# 这些目录只给 PHP include / 安装器读取，禁止浏览器直接访问
+location ^~ /api/ {
+    deny all;
+}
+location ^~ /db/ {
+    deny all;
+}
+location ^~ /tools/ {
+    deny all;
+}
+
+# PWA 清单和 Service Worker
+location = /manifest.json {
+    types { application/manifest+json json; }
+    default_type application/manifest+json;
+}
+location = /service-worker.js {
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+```
+
+不要拦 `/api.php`（它在站点根目录）。`install/` 在安装阶段必须可访问，装完删除即可；`install.lock` 存在时向导自己会返回 403。
+
+验证：
+
+- `https://todo.example.com/api/config.php` → 403
+- `https://todo.example.com/db/schema.sql` → 403
+- `https://todo.example.com/api.php?action=status` → `{"ok":true,"installed":true}`
+
+### 6.2 PHP
+
+宝塔 → 软件商店 → PHP 8.2 → 设置 → 配置修改：
+
+```ini
+post_max_size = 8M
+upload_max_filesize = 8M
+max_execution_time = 60
+max_input_time = 60
+display_errors = Off
+log_errors = On
+session.cookie_httponly = 1
+session.cookie_samesite = Lax
+```
+
+保存后重启 PHP-FPM。`post_max_size` 要大于单次保存的数据量（接口默认上限 4MB）。
+
+## 7. HTTPS
+
+网站 → 设置 → SSL → Let's Encrypt → 申请（域名解析到这台服务器）→ 开启「强制 HTTPS」。
+
+没有证书前先用 HTTP 跑通也可以，但登录密码会明文传输，页面的云同步面板会显示红色提醒。
+
+### 7.1 安装到桌面（PWA）
+
+项目自带：
+
+- `manifest.json`：应用名称、图标、`start_url`、`display: standalone`；
+- `service-worker.js`：缓存页面外壳、manifest 和图标，**不缓存 `api.php`**；
+- `icons/icon-192.png`、`icon-512.png`、`icon-maskable-512.png`。
+
+要求：
+
+1. HTTPS（PWA 安装必须）；
+2. `/manifest.json` 和 `/service-worker.js` 能正常访问（上面的 Nginx 配置已处理 MIME 和缓存）；
+3. 浏览器打开一次首页，Service Worker 注册成功后，Chrome/Edge 地址栏会出现安装图标；手机 Safari 用「分享 → 添加到主屏幕」。
+
+限制：PWA 只缓存页面外壳。登录、注册和读写数据仍要联网访问 `api.php`；离线打开会看到介绍页/连接失败提示，不会把账号数据缓存到本地。
+
+更新前端后，如果希望强制刷新外壳缓存，把 `service-worker.js` 里的 `CACHE` 版本号改一下（如 `lifeboard-shell-v2`）。
+
+## 8. 备份
+
+数据全在 MySQL，备份数据库即可：
+
+```bash
+mkdir -p /www/backup
+mysqldump --single-transaction --default-character-set=utf8mb4 \
+  -u lifeboard -p lifeboard | gzip > /www/backup/lifeboard-$(date +%F).sql.gz
+```
+
+恢复：
+
+```bash
+gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboard
+```
+
+另外：
+
+- 宝塔 → 数据库 → 备份 → 设置计划任务，每天备份，保留 7–14 天。
+- 阿里云控制台给轻量服务器做定期快照。
+- 应用内「设置 → 数据管理 → 导出备份 JSON」仍保留，可作为单用户额外备份。
+
+## 9. 安全清单
+
+- 宝塔面板：改默认端口、强密码、面板 SSL、限制访问 IP；不要公开 8888。
+- 阿里云防火墙 / 宝塔防火墙：只放行 80、443、SSH；不要放行 3306。
+- 数据库用户只授权 `lifeboard` 库，不用 root 跑应用。
+- `api/config.php` 权限 640，不要提交到公开仓库。
+- 全站 HTTPS；登录 Cookie 使用 HttpOnly、SameSite=Lax，HTTPS 下加 Secure。
+- 安装完成后删除 `install/`，保留 `install.lock`。
+- 注册默认需要邀请码；不需要开放时在管理员面板关闭。
+- 管理员的密码重置会强制目标用户退出；建议只在用户求助时使用。
+- 保持 PHP / MySQL / 宝塔更新；改完 PHP 先 `php -l`。
+- 备份文件含所有用户的用药数据，权限设为 600/640，不要放网站根目录。
+
+## 10. 更新代码
+
+1. 备份数据库。
+2. 覆盖 `index.html`、`api.php`、`api/bootstrap.php`、`install/`、`db/schema.sql`、`db/migrations/`（保留 `api/config.php` 和 `install.lock`）。
+3. 如果数据库还没有 `board_revisions`，执行一次：
+   - 宝塔 → 数据库 → phpMyAdmin → 选中站点数据库 → SQL，粘贴 `db/migrations/2026-10-23_board_revisions.sql`；
+   - 或命令行：`mysql -u 用户名 -p 数据库名 < db/migrations/2026-10-23_board_revisions.sql`。
+4. `php -l` 检查，重载 PHP/Nginx。
+5. 浏览器 `Ctrl+F5` 强制刷新。
+
+历史版本表只新增表，不会修改 `boards` / `users` / `app_settings` 的现有数据。没有执行迁移时，正常保存仍可用，但「历史版本」页面会提示不可用。
+
+更新时**不要覆盖** `api/config.php`（数据库密码）和 `install.lock`，否则会重新进入安装状态或连不上数据库。
+
+## 11. 排错
+
+| 现象 | 排查 |
+|---|---|
+| `Fatal error: strict_types declaration must be the very first statement` | PHP 文件开头有 UTF-8 BOM 或空白。用最新部署包覆盖 `api.php`、`install/index.php`、`tools/create_user.php`；不要用记事本「UTF-8 带 BOM」另存 |
+| 访问域名显示旧静态页、不进安装 | 先 Ctrl+F5 清缓存；确认 `index.html` 里有 `api.php?action=status`；直接访问 `/api.php?action=status` 看是否返回 JSON |
+| 登录后还是看到看板、看不到介绍页 | 已登录时直接进看板是正常的；要回到介绍页点「退出登录」。如果未登录也直接进看板，说明 `index.html` 还是旧版，重新上传 |
+| PWA 无法安装 | 必须 HTTPS；确认 `/manifest.json`、`/service-worker.js` 返回 200；Nginx 给 manifest 配 `application/manifest+json`；手机用浏览器菜单「添加到主屏幕」 |
+| 主题没有按时间切换 | 设置 → 主题 → 选「自动」；规则是 7:00–19:00 浅色，其余深色；页面每分钟检查一次 |
+| 点「找回密码」没反应 | 登录弹窗右下角；点击后应显示 `找回密码：sl@sl00.top`；旧缓存会缺这个按钮，Ctrl+F5 |
+| 访问域名没跳安装 | `api.php?action=status` 是否返回 `installed:false`；`install/` 是否上传；浏览器控制台是否有 JS 错误 |
+| 安装页 403 | `install.lock` 已存在；要重装先删 `install.lock` + `api/config.php` + 清空数据库 |
+| 安装页空白 / 500 | 看宝塔网站错误日志；PHP 版本、`pdo_mysql`、文件权限 |
+| 提示数据库不是空库 | 换一个空数据库；或删除旧表后重试 |
+| 提示 api/ 不可写 | `chown -R www:www /www/wwwroot/todo`，确认 `api/` 755、PHP 以 www 运行 |
+| 数据库连接失败 | 地址/端口/库名/用户/密码；`127.0.0.1` 不行改 `localhost`；MySQL 是否启动 |
+| 安装完成但登录 500 | `api/config.php` 是否存在且账号正确；看 PHP 错误日志 |
+| 登录提示「会话校验失败」 | Cookie 被拦、域名/协议不一致、`session.save_path` 不可写；清 Cookie 再试 |
+| 登录一直「邮箱或密码不正确」 | 邮箱/密码错误；管理员可重置；看是否被限流 |
+| 注册提示邀请码错误 | 管理员面板复制最新邀请码；注意大小写（接口会自动转大写） |
+| 注册提示频繁 | 同 IP 每小时最多 10 次；等一会儿或换网络 |
+| 保存 409 / 冲突弹窗 | 当前版本采用最后写入覆盖，正常不会再出现；若旧缓存页面还在，Ctrl+F5 更新 |
+| 保存 413 | 调大 Nginx `client_max_body_size` 和 PHP `post_max_size` |
+| 管理员看不到用户管理 | 当前账号 `is_admin` 不是 1；用安装器创建的管理员登录，或 CLI `--admin` |
+| 停用后还能登录 | 检查 users.status；接口登录会拒绝 disabled；清 Cookie 再试 |
+| 云端数据损坏 | 从数据库备份恢复；导入 JSON 功能已取消 |
+
+日志：
+
+- 宝塔网站日志：`/www/wwwlogs/你的域名.log`、`.error.log`
+- PHP 错误日志：宝塔 PHP 设置里的 `error_log`
+- 接口异常：PHP `error_log`，前缀 `lifeboard api:`
+
+## 12. 救援：命令行创建/重置账号
+
+安装器之外保留了一个 CLI 脚本，适合忘记管理员密码或需要手动建号：
+
+```bash
+cd /www/wwwroot/todo
+/www/server/php/82/bin/php tools/create_user.php --admin you@example.com '至少8位的密码'
+```
+
+- `--admin`：创建管理员；不加则创建普通用户。
+- `--update`：重置已有账号密码（会使该账号已登录设备退出）。
+- 示例：`--update --admin you@example.com '新密码'`（重置并确保是管理员）。
+
+## 13. 接口与表结构
+
+接口都在 `api.php`，同域访问，不需要 CORS。
+
+| action | 方法 | 登录 | 管理员 | CSRF | 说明 |
+|---|---|---|---|---|---|
+| `status` | GET | 否 | 否 | 否 | 是否已安装，不连数据库 |
+| `me` | GET | 否 | 否 | 否 | 当前用户、CSRF、注册开关 |
+| `login` | POST | 否 | 否 | 是 | 登录 |
+| `register` | POST | 否 | 否 | 是 | 邀请码注册，自动登录 |
+| `logout` | POST | 是 | 否 | 是 | 退出 |
+| `load` | GET | 是 | 否 | 否 | 读取自己的 boards |
+| `history` | GET | 是 | 否 | 否 | 自己的历史版本列表；带 `id` 时返回该版本数据 |
+| `restore` | POST | 是 | 否 | 是 | 恢复自己的历史版本（恢复前自动存快照） |
+| `save` | POST | 是 | 否 | 是 | 保存自己的 boards（带 base_rev） |
+| `force` | POST | 是 | 否 | 是 | 用自己的数据覆盖云端 |
+| `change_password` | POST | 是 | 否 | 是 | 修改自己的密码 |
+| `admin_users` | GET | 是 | 是 | 否 | 用户列表（不含数据） |
+| `admin_user_update` | POST | 是 | 是 | 是 | 重置密码 / 停用启用 |
+| `admin_settings` | GET | 是 | 是 | 否 | 注册开关、邀请码、站点名 |
+| `admin_settings_save` | POST | 是 | 是 | 是 | 保存注册设置 |
+
+表：
+
+- `users`：`id`、`email`、`password_hash`、`display_name`、`is_admin`、`status`、`session_epoch`、`created_at`、`last_login_at`
+- `boards`：`user_id`（主键）、`data`（整份 JSON）、`rev`、`updated_at`（毫秒）
+- `board_revisions`：`id`、`user_id`、`rev`、`data`、`reason`、`created_at`；每个用户保留最近 20 版 / 30 天，仅本人可读
+- `app_settings`：`k` / `v`（`registration_open`、`invite_code`、`site_name`）
+- `login_attempts`：登录失败限流
+- `register_attempts`：注册限流
+
+管理员接口只查询 `users` 的账号字段，不读取 `boards` 或 `board_revisions`。
