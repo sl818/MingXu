@@ -2380,6 +2380,28 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   color:var(--accent-strong);transition:background .15s,color .15s;
 }
 .backfill-today:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+/* 打开即提醒横幅：贴着内容顶部，不遮挡导航 */
+.remind-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 14px;padding:10px 14px;border-radius:13px;
+  background:color-mix(in srgb,var(--gold,#c08a2e) 12%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--gold,#c08a2e) 34%,var(--line));
+  font-size:12px;color:color-mix(in srgb,var(--text) 84%,var(--gold,#c08a2e));
+}
+.remind-ico{font-size:14px;flex:none}
+.remind-body{display:flex;flex-wrap:wrap;gap:4px 14px;flex:1;min-width:180px}
+.remind-item{position:relative;padding-left:11px}
+.remind-item::before{content:"";position:absolute;left:0;top:6px;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.65}
+.remind-go{
+  flex:none;padding:5px 12px;border-radius:999px;cursor:pointer;font-size:11.5px;
+  background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);
+}
+.remind-go:hover{filter:brightness(1.05)}
+.remind-x{
+  flex:none;padding:5px 10px;border-radius:999px;cursor:pointer;font-size:11px;
+  background:transparent;color:var(--muted);border:1px solid var(--line);
+}
+.remind-x:hover{color:var(--text);border-color:var(--line-strong)}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -5127,6 +5149,91 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     });
   }
 
+  /* ============================================================
+     打开即提醒（不做 Web Push：iOS 要装 PWA、Android 要推送服务）
+     只在打开页面 / 切回来时提醒：顶部横幅 + 标签页标题计数闪烁。
+     「今天不再提醒」记在 localStorage，不进 state，避免纯提示操作触发云保存。
+     ============================================================ */
+  const REMIND_DISMISS_KEY = 'lifeboard.remind.dismissed';
+  const BASE_TITLE = document.title;
+  let remindTimer = null;
+  let remindFlip = false;
+  let remindCount = 0;
+
+  function remindDismissedOn() {
+    try { return localStorage.getItem(REMIND_DISMISS_KEY) === todayStr(); } catch (e) { return false; }
+  }
+
+  /* 三条规则：逾期用药 / 今日待服 / 喝水长时间没记。
+     统一在 9 点后才算，避免清早一打开就被催。 */
+  function remindItems() {
+    const d = todayStr();
+    const now = new Date();
+    if (now.getHours() < 9) return [];
+    const hm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    const items = [];
+
+    let overdue = 0, pending = 0;
+    medScheduledFor(d).forEach(s => {
+      if (doseAt(d, s.med.id, s.slot)) return;
+      if (s.slot < hm) overdue++; else pending++;
+    });
+    if (overdue) items.push({ text: '用药有 ' + overdue + ' 次已过时间还没记录', view: 'meds' });
+    if (pending) items.push({ text: '今天还有 ' + pending + ' 次用药待服', view: 'meds' });
+
+    const water = (state.habits || []).find(h => h.id === 'h_water' && !isArchived(h));
+    if (water) {
+      const target = Number(water.target) || 9;
+      const done = countOf(d, water.id);
+      if (done < target) {
+        const last = (state.events || [])
+          .filter(e => e.d === d && e.id === water.id && Number(e.delta) > 0)
+          .map(e => String(e.at || '')).sort().pop();
+        const gap = last ? (Date.now() - new Date(last).getTime()) / 3600000 : null;
+        if (gap === null || gap >= 1.5) {
+          items.push({
+            text: '喝水还差 ' + (target - done) + ' ' + (water.unit || '杯') +
+              (gap === null ? '，今天还没记' : '，已 ' + Math.floor(gap) + ' 小时没记'),
+            view: 'today'
+          });
+        }
+      }
+    }
+    return items;
+  }
+
+  function remindBannerHtml() {
+    if (mode === 'landing' || !cloud.user) return '';
+    if (remindDismissedOn()) return '';
+    const items = remindItems();
+    if (!items.length) return '';
+    return '<div class="remind-bar" role="status">' +
+      '<span class="remind-ico">⏰</span>' +
+      '<div class="remind-body">' +
+        items.map(i => '<span class="remind-item">' + esc(i.text) + '</span>').join('') +
+      '</div>' +
+      '<button type="button" class="remind-go" data-act="remind-go" data-view="' + esc(items[0].view) + '">去看看</button>' +
+      '<button type="button" class="remind-x" data-act="remind-dismiss" title="今天不再提醒">今天不再提醒</button>' +
+    '</div>';
+  }
+
+  /* 标题闪烁：只闪计数，切回来立即恢复原标题 */
+  function remindSync() {
+    remindCount = (mode === 'landing' || !cloud.user || remindDismissedOn()) ? 0 : remindItems().length;
+    if (!remindCount) { remindStop(); return; }
+    if (remindTimer) return;
+    remindFlip = false;
+    remindTimer = setInterval(() => {
+      remindFlip = !remindFlip;
+      document.title = remindFlip ? '(' + remindCount + ') ' + BASE_TITLE : BASE_TITLE;
+    }, 1400);
+  }
+
+  function remindStop() {
+    if (remindTimer) { clearInterval(remindTimer); remindTimer = null; }
+    if (document.title !== BASE_TITLE) document.title = BASE_TITLE;
+  }
+
   function toast(msg) {
     const el = $('#toast');
     if (!el) return;
@@ -7776,6 +7883,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       if (mnav) mnav.innerHTML = '';
       $('#main').innerHTML = landingHtml();
       updateSyncIndicator();
+      remindStop();
       return;
     }
     const wide = document.documentElement.dataset.layout === 'wide';
@@ -7823,9 +7931,10 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     }
     const themeBtn = $('#theme-btn');
     if (themeBtn) themeBtn.textContent = theme === 'dark' ? '切换浅色模式' : '切换深色模式';
-    $('#main').innerHTML = (VIEWS[view] || viewToday)() + siteFooter();
+    $('#main').innerHTML = remindBannerHtml() + (VIEWS[view] || viewToday)() + siteFooter();
     bindView();
     updateSyncIndicator();
+    remindSync();
   }
 
   function bindView() {
@@ -9466,6 +9575,21 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       const h = currentHabit(el.dataset.id);
       if (h) habitModal(h);
     },
+    'remind-dismiss': () => {
+      try { localStorage.setItem(REMIND_DISMISS_KEY, todayStr()); } catch (e) {}
+      render();
+    },
+    'remind-go': el => {
+      const v = el.dataset.view || 'today';
+      if (VIEWS[v] && v !== view) {
+        view = v;
+        state.view = v;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        render();
+      }
+    },
     'habit-sort': el => {
       const v = el.dataset.sort || 'created';
       if (habitSort === v) return;
@@ -9798,6 +9922,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       return;
     }
     if (document.visibilityState === 'visible') {
+      remindStop();          /* 切回来立即恢复原标题 */
       refreshAutoTheme();
       if (mode === 'landing' && !cloud.user) cloudInit(true);
       else cloudMaybePull();
