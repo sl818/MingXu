@@ -327,8 +327,8 @@ h1,h2,h3,h4,p{margin:0}
 .quick-add input:focus{outline:none;border-style:solid;border-color:var(--accent);background:var(--surface)}
 
 /* ============ 看板 ============ */
-.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
-.col{background:var(--surface-2);border:1px solid var(--line);border-radius:18px;padding:12px}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column}
 .col-head{display:flex;align-items:center;gap:8px;padding:2px 4px 12px}
 .col-head b{font-size:13.5px}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -337,8 +337,19 @@ h1,h2,h3,h4,p{margin:0}
   border-radius:99px;padding:1px 7px;border:1px solid var(--line);
 }
 .col-head .icon-btn{margin-left:auto}
-.col-body{display:flex;flex-direction:column;gap:9px;min-height:200px}
-.col-empty{font-size:12px;color:var(--muted);text-align:center;padding:26px 8px;border:1px dashed var(--line);border-radius:12px}
+.col-body{display:flex;flex-direction:column;gap:9px;min-height:200px;flex:1}
+.col-empty{
+  font-size:12px;color:var(--muted);text-align:center;padding:26px 8px;
+  border:1px dashed var(--line);border-radius:12px;
+  background:transparent;width:100%;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:6px;flex:1;justify-content:center;
+  transition:border-color .16s,background .16s,color .16s;
+}
+.col-empty:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--accent-soft);color:var(--accent-strong)}
+.col-empty .ce-plus{font-size:20px;line-height:1;color:var(--accent);opacity:.75}
+.col-empty:hover .ce-plus{opacity:1}
+.col-empty .ce-main{font-size:12px;font-weight:500}
+.col-empty .ce-sub{font-size:10.5px;color:color-mix(in srgb,var(--muted) 80%,var(--text));line-height:1.5}
 .task{
   background:var(--surface);border:1px solid var(--line);border-radius:13px;
   padding:11px 12px;box-shadow:0 1px 2px rgba(20,25,40,.04);
@@ -870,6 +881,17 @@ body{
 .task-row-title{font-size:13.5px;font-weight:500;color:var(--text)}
 .task-row-meta{margin-top:4px;gap:8px}
 .done-sep{font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin:14px 2px 4px}
+.today-group{font-size:10.5px;letter-spacing:.08em;color:var(--muted);margin:14px 2px 4px;display:flex;align-items:center;gap:6px}
+.today-group::after{content:"";flex:1;height:1px;background:var(--line)}
+.today-group.overdue{color:color-mix(in srgb,var(--bad) 82%,var(--text));font-weight:600}
+.today-group.overdue::after{background:color-mix(in srgb,var(--bad) 26%,transparent)}
+.today-more{
+  width:100%;margin-top:8px;padding:9px 10px;border-radius:10px;
+  border:1px dashed var(--line-strong);background:transparent;
+  color:var(--muted);font-size:11.5px;text-align:center;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s;
+}
+.today-more:hover{color:var(--accent-strong);border-color:color-mix(in srgb,var(--accent) 40%,var(--line-strong));background:var(--accent-soft)}
 .quick-add{margin-top:18px}
 .quick-add input{
   background:var(--surface);border:1px dashed var(--line-strong);
@@ -948,6 +970,10 @@ body{
   display:grid;place-items:center;cursor:pointer;
 }
 .board-filter .bf-clear:hover{color:var(--text);border-color:var(--line-strong)}
+.board-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 14px}
+.board-tools .bt-sep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:none}
+.board-tools .tag-chip{display:inline-flex;align-items:center;gap:5px}
+.board-tools .bt-dot{width:6px;height:6px;border-radius:50%;flex:none}
 .task.is-focus{box-shadow:0 0 0 2px var(--accent),0 14px 26px -20px rgba(60,45,25,.55)}
 /* 双击展开详情 */
 .task.is-open{border-color:var(--line-strong);box-shadow:0 14px 30px -22px rgba(60,45,25,.55)}
@@ -5824,11 +5850,38 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         (others.length ? (pinned.length ? ' · ' : '') + others.length + ' 项其他' : '');
     }
 
-    const taskHtml = pend.length || doneToday.length
-      ? pend.map(t => taskRow(t, d)).join('') +
-        (doneToday.length
-          ? '<div class="done-sep">已完成 ' + doneToday.length + ' 条</div>' + doneToday.map(t => taskRow(t, d)).join('')
-          : '')
+    /* 待办列表：逾期单独成组置顶，今天到期超过 TODAY_REST_LIMIT 条折叠。
+       逾期按「是否早于真正的今天」判定，补记历史某天时同样成立。 */
+    const now = todayStr();
+    const overdueList = pend.filter(t => t.due && t.due < now);
+    const restList = pend.filter(t => !(t.due && t.due < now));
+    const taskParts = [];
+    if (overdueList.length) {
+      taskParts.push(
+        '<div class="today-group overdue">逾期 ' + overdueList.length + ' 条</div>' +
+        overdueList.map(t => taskRow(t, d)).join('')
+      );
+    }
+    if (restList.length) {
+      if (overdueList.length) {
+        taskParts.push('<div class="today-group">' + (isToday ? '今天到期 ' : '当日到期 ') + restList.length + ' 条</div>');
+      }
+      const shown = todayTasksOpen ? restList : restList.slice(0, TODAY_REST_LIMIT);
+      taskParts.push(shown.map(t => taskRow(t, d)).join(''));
+      if (restList.length > TODAY_REST_LIMIT) {
+        taskParts.push(todayTasksOpen
+          ? '<button class="today-more" data-act="today-collapse">收起，只看前 ' + TODAY_REST_LIMIT + ' 条</button>'
+          : '<button class="today-more" data-act="today-expand">还有 ' + (restList.length - TODAY_REST_LIMIT) + ' 条，展开全部</button>');
+      }
+    }
+    if (doneToday.length) {
+      taskParts.push(
+        '<div class="done-sep">已完成 ' + doneToday.length + ' 条</div>' +
+        doneToday.map(t => taskRow(t, d)).join('')
+      );
+    }
+    const taskHtml = taskParts.length
+      ? taskParts.join('')
       : '<div class="empty-box">今天没有待办，享受空白的一天。</div>';
 
     const mood = (state.moods && state.moods[d]) || '';
@@ -5903,6 +5956,13 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   const openTaskIds = new Set();
   /* 统计页「打卡时间」是否展开全部 */
   let statsLogOpen = false;
+  /* 今日页「今天到期」列表是否展开全部（超过 TODAY_REST_LIMIT 条才出现按钮） */
+  let todayTasksOpen = false;
+  const TODAY_REST_LIMIT = 6;
+  /* 待办页左栏筛选：日期快捷 + 标签 chips。三者同样是视图状态，不进 state。
+     日期快捷（boardQuick）与右栏日历选日（boardFilterDay）互斥，二选一。 */
+  let boardQuick = 'all';
+  let boardTag = '';
   /* 体重折线图区间：0 = 全部 */
   let weightRange = 0;
 
@@ -6053,9 +6113,37 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     const doneCount = liveTasks().filter(t => t.status === 'done').length;
     const archCount = archivedTasks().length;
     const filt = boardFilterDay;
+
+    /* 日期快捷 + 标签双重筛选。与右栏选日互斥：选了快捷就清掉选日，反之亦然。 */
+    const nowStr = todayStr();
+    const thisMonday = addDays(parseD(nowStr), -((parseD(nowStr).getDay() + 6) % 7));
+    const weekStartStr = fmt(thisMonday);
+    const weekEndStr = fmt(addDays(thisMonday, 6));
+    const quickMatch = t => {
+      if (boardQuick === 'today') return t.due === nowStr;
+      if (boardQuick === 'overdue') return !!t.due && t.due < nowStr && t.status !== 'done' && t.status !== 'cancelled';
+      if (boardQuick === 'week') return !!t.due && t.due >= weekStartStr && t.due <= weekEndStr;
+      return true;
+    };
+    const tagMatch = t => !boardTag || (t.tag || '其他') === boardTag;
+    const pass = t => (!filt || t.due === filt) && quickMatch(t) && tagMatch(t);
+
+    const QUICKS = [['all', '全部'], ['today', '今天'], ['overdue', '逾期'], ['week', '本周']];
+    const toolsHtml = '<div class="board-tools">' +
+      QUICKS.map(q => '<button type="button" class="tag-chip' + (boardQuick === q[0] ? ' active' : '') +
+        '" data-act="board-quick" data-quick="' + q[0] + '">' + q[1] + '</button>').join('') +
+      '<span class="bt-sep"></span>' +
+      '<button type="button" class="tag-chip' + (!boardTag ? ' active' : '') +
+        '" data-act="board-tag" data-tag="">全部标签</button>' +
+      Object.keys(TAGS).map(tag =>
+        '<button type="button" class="tag-chip' + (boardTag === tag ? ' active' : '') +
+          '" data-act="board-tag" data-tag="' + esc(tag) + '">' +
+          '<i class="bt-dot" style="background:' + TAGS[tag] + '"></i>' + esc(tag) +
+        '</button>').join('') +
+    '</div>';
     const board = '<div class="board">' +
       cols.map(c => {
-        const list = liveTasks().filter(t => t.status === c.key && (!filt || t.due === filt));
+        const list = liveTasks().filter(t => t.status === c.key && pass(t));
         return '<section class="col" data-status="' + c.key + '">' +
           '<header class="col-head">' +
             '<span class="dot" style="background:' + c.color + '"></span>' +
@@ -6064,8 +6152,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
             '<button class="icon-btn add" data-act="task-new" data-status="' + c.key + '" title="在此列新建">＋</button>' +
           '</header>' +
           '<div class="col-body" data-status="' + c.key + '">' +
-            (list.length ? list.map(taskCard).join('')
-              : '<div class="col-empty">' + (filt ? '这天没有' + c.label + '的任务' : c.hint) + '</div>') +
+            list.map(taskCard).join('') +
+            (list.length ? '' : '<button class="col-empty" data-act="task-new" data-status="' + c.key + '">' +
+              '<span class="ce-plus">＋</span>' +
+              '<span class="ce-main">' + (filt ? '这天没有' + c.label + '的任务' : '往这列加一条') + '</span>' +
+              '<span class="ce-sub">' + (filt ? '换个日期看看，或直接新建' : esc(c.hint)) + '</span>' +
+            '</button>') +
           '</div>' +
         '</section>';
       }).join('') +
@@ -6081,6 +6173,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       '</div>' +
       '<div class="board-shell">' +
         '<div class="board-col-wrap">' +
+          toolsHtml +
           (filt
             ? '<div class="board-filter">正在看 <b>' + boardDayLabel(filt) + '</b> 到期的任务' +
               '<button class="bf-clear" data-act="board-filter-clear" title="显示全部任务">✕</button></div>'
@@ -7312,7 +7405,9 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   function render() {
     dragId = null;
     if (view !== 'board' && boardFilterDay) boardFilterDay = '';
+    if (view !== 'board') { boardQuick = 'all'; boardTag = ''; }
     if (view !== 'stats' && statsLogOpen) statsLogOpen = false;
+    if (view !== 'today' && todayTasksOpen) todayTasksOpen = false;
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.skin = skin;
     const appEl = $('.app');
@@ -8897,9 +8992,29 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       statsLogOpen = !statsLogOpen;
       render();
     },
+    'today-expand': () => {
+      todayTasksOpen = true;
+      render();
+    },
+    'today-collapse': () => {
+      todayTasksOpen = false;
+      render();
+    },
+    'board-quick': el => {
+      const q = el.dataset.quick || 'all';
+      boardQuick = (boardQuick === q && q !== 'all') ? 'all' : q;
+      boardFilterDay = '';
+      render();
+    },
+    'board-tag': el => {
+      const tag = el.dataset.tag || '';
+      boardTag = (boardTag === tag) ? '' : tag;
+      render();
+    },
     'board-filter-day': el => {
       const d = el.dataset.day || '';
       boardFilterDay = boardFilterDay === d ? '' : d;
+      boardQuick = 'all';
       render();
     },
     'board-filter-clear': () => {
