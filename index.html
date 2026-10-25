@@ -2364,6 +2364,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 .weight-metrics b{display:block;font-size:15px;color:var(--text);margin-top:2px}
 /* auto-fit + minmax：3 项时仍是三等分，设了目标体重变成 4 项时自动四等分 */
 .profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:12px}
+.habit-sort{display:flex;gap:5px;flex-wrap:wrap}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -7097,8 +7098,37 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     '</div>';
   }
 
+  /* 习惯页排序：纯视图偏好，不进 state。刻意「离开页面仍保留」——
+     排序不会隐藏任何数据，用户选过一次多半希望它记住。 */
+  let habitSort = 'created';
+  const HABIT_SORTS = [['created', '按创建'], ['progress', '今日进度'], ['streak', '连续天数']];
+
+  function habitSortHtml() {
+    return '<div class="habit-sort">' +
+      HABIT_SORTS.map(s =>
+        '<button type="button" class="tag-chip' + (habitSort === s[0] ? ' active' : '') +
+        '" data-act="habit-sort" data-sort="' + s[0] + '" title="按' + s[1] + '排序">' + s[1] + '</button>'
+      ).join('') +
+    '</div>';
+  }
+
   function habitManageRows() {
-    return state.habits.filter(h => !h.med && !isArchived(h)).map(h => {
+    const base = state.habits.filter(h => !h.med && !isArchived(h));
+    const d = todayStr();
+    const ratioOf = h => {
+      const c = countOf(d, h.id);
+      if (h.type === 'quit') return c === 0 ? 1 : 0;
+      const t = Number(h.target) || 1;
+      return Math.min(1, c / t);
+    };
+    const order = new Map(base.map((h, i) => [h.id, i]));
+    const list = base.slice();
+    if (habitSort === 'progress') {
+      list.sort((a, b) => ratioOf(b) - ratioOf(a) || order.get(a.id) - order.get(b.id));
+    } else if (habitSort === 'streak') {
+      list.sort((a, b) => habitStreak(b) - habitStreak(a) || order.get(a.id) - order.get(b.id));
+    }
+    return list.map(h => {
       const pin = isPinned(h);
       const detail = h.id === 'h_breathe'
         ? '每天一组 · ' + (Number(h.breatheCycles) || 4) + ' 次循环 · 建议 ' + String(h.suggestTime || '15:00')
@@ -7304,7 +7334,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯与常驻卡。用药在「用药」页单独管理。</p></div>' +
         '<button class="btn primary" data-act="habit-new">＋ 添加习惯</button></div>' +
       '<div class="settings-wrap">' +
-      '<div class="panel"><h3>我的习惯</h3>' +
+      '<div class="panel"><div class="panel-head"><h3>我的习惯</h3>' + habitSortHtml() + '</div>' +
         (rows || '<div class="empty-box">还没有习惯，点右上角添加一个。</div>') +
         '<p class="hint">带「常驻」标记的习惯不能删除或归档；归档后不计入今日、日历和统计，但历史打卡保留。</p>' +
       '</div>' +
@@ -9414,6 +9444,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     'habit-edit': el => {
       const h = currentHabit(el.dataset.id);
       if (h) habitModal(h);
+    },
+    'habit-sort': el => {
+      const v = el.dataset.sort || 'created';
+      if (habitSort === v) return;
+      habitSort = v;
+      render();
     },
     'habit-archive': el => {
       const h = currentHabit(el.dataset.id);
