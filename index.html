@@ -1011,6 +1011,8 @@ body{
 .board-tools .bt-sep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:none}
 .board-tools .tag-chip{display:inline-flex;align-items:center;gap:5px}
 .board-tools .bt-dot{width:6px;height:6px;border-radius:50%;flex:none}
+/* 选中态原来的 accent 色在 mono / clay 上只有 3.4~3.7，往 --text 拉一点过 AA */
+.board-tools .tag-chip.active,.essay-tags .tag-chip.active{color:color-mix(in srgb,var(--accent) 72%,var(--text))}
 .se-card{width:min(560px,calc(100vw - 32px));padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:76vh}
 .se-head{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
 .se-ico{font-size:15px;opacity:.7;flex:none}
@@ -1031,11 +1033,12 @@ body{
 .se-item.is-on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 34%,transparent)}
 .se-item .se-title{font-size:13px;color:var(--text);line-height:1.45;word-break:break-word}
 .se-item .se-title mark{background:color-mix(in srgb,var(--accent) 26%,transparent);color:inherit;border-radius:3px;padding:0 1px}
-.se-item .se-meta{font-size:10.5px;color:var(--muted)}
+/* 往 --text 方向拉，比直接用 --muted 对比度更高（9 皮肤实测均过 AA） */
+.se-item .se-meta{font-size:10.5px;color:color-mix(in srgb,var(--text) 74%,var(--muted))}
 .se-foot{
   flex:none;display:flex;justify-content:space-between;gap:10px;
   padding:8px 14px;border-top:1px solid var(--line);
-  font-size:10.5px;color:var(--muted);
+  font-size:10.5px;color:color-mix(in srgb,var(--text) 74%,var(--muted));
 }
 .task.is-focus{box-shadow:0 0 0 2px var(--accent),0 14px 26px -20px rgba(60,45,25,.55)}
 /* 双击展开详情 */
