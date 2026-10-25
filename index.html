@@ -1645,6 +1645,15 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .ms-bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
 .med-group-hint{font-size:11px;color:var(--muted)}
 .med-board{display:flex;flex-direction:column;gap:8px}
+.med-sub-head{
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;letter-spacing:.06em;color:var(--muted);
+  margin:14px 0 8px;padding-top:2px;
+}
+.med-sub-head:first-of-type,
+.med-group-head + .med-sub-head{margin-top:2px}
+.med-sub-head::after{content:"";flex:1;height:1px;background:var(--line)}
+.med-sub-head i{font-style:normal;order:2;font-size:10.5px;color:color-mix(in srgb,var(--text) 62%,var(--muted))}
 
 .med-row{
   display:grid;grid-template-columns:40px minmax(0,1fr) auto;
@@ -7211,13 +7220,34 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     else if (prnCount) sub = '今天没有定时用药，有 ' + prnCount + ' 种按需药';
     else if (list.length) sub = '今天没有需要服的药';
 
+    /* 「进行中」组内再按疗程切三段：长期 / 短期 / 按需。
+       只有一个疗程时不加小标题，免得少量药品被切得太碎。 */
+    const COURSE_PARTS = [
+      { key: 'long',  label: '长期' },
+      { key: 'short', label: '短期' },
+      { key: 'prn',   label: '按需' }
+    ];
+    const courseOf = m => (isPrn(m) ? 'prn' : (m.courseType === 'short' ? 'short' : 'long'));
+    const activeBoardHtml = arr => {
+      const byCourse = { long: [], short: [], prn: [] };
+      arr.forEach(m => byCourse[courseOf(m)].push(m));
+      const used = COURSE_PARTS.filter(p => byCourse[p.key].length);
+      if (used.length < 2) return '<div class="med-board">' + arr.map(medRowHtml).join('') + '</div>';
+      return used.map(p =>
+        '<div class="med-sub-head">' + p.label + '<i>' + byCourse[p.key].length + ' 种</i></div>' +
+        '<div class="med-board">' + byCourse[p.key].map(medRowHtml).join('') + '</div>'
+      ).join('');
+    };
+
     const groups = MED_PHASES.map(ph => {
       const arr = buckets[ph.key];
       if (!arr.length) return '';
       return '<section class="med-group">' +
         '<div class="med-group-head"><h3>' + ph.label + '</h3><i>' + arr.length + ' 种</i>' +
           (ph.hint ? '<span class="med-group-hint">' + ph.hint + '</span>' : '') + '</div>' +
-        '<div class="med-board">' + arr.map(medRowHtml).join('') + '</div>' +
+        (ph.key === 'active'
+          ? activeBoardHtml(arr)
+          : '<div class="med-board">' + arr.map(medRowHtml).join('') + '</div>') +
       '</section>';
     }).join('');
 
