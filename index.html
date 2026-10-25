@@ -2402,6 +2402,18 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   background:transparent;color:var(--muted);border:1px solid var(--line);
 }
 .remind-x:hover{color:var(--text);border-color:var(--line-strong)}
+/* 本月回顾：六格数据 + 一句话结论 */
+.rv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:12px;margin:2px 0 14px}
+.rv-cell{padding:11px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+.rv-cell small{display:block;font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.rv-cell b{display:block;font-size:19px;color:var(--text);margin-top:4px;font-variant-numeric:tabular-nums}
+.rv-cell b i{font-size:10.5px;font-style:normal;color:var(--muted);font-weight:400}
+.rv-cell span{display:block;font-size:10.5px;color:color-mix(in srgb,var(--text) 62%,var(--muted));margin-top:3px}
+.rv-verdict{
+  margin:0;padding:10px 13px;border-radius:11px;
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+  font-size:12px;color:color-mix(in srgb,var(--text) 82%,var(--accent));
+}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -6851,6 +6863,92 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
   /* ============================================================
      统计视图
      ============================================================ */
+  /* 本月回顾：把「这个月整体怎么样」收成一张卡。
+     只算已经过去的日子，未到的日期不参与统计，避免月初被低估。 */
+  function monthReviewData() {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const today = todayStr();
+    const elapsed = now.getDate();
+
+    const days = [];
+    for (let i = 1; i <= elapsed; i++) days.push(fmt(new Date(y, m, i)));
+
+    let recorded = 0, qualified = 0, best = 0, run = 0;
+    days.forEach(d => {
+      if (hasRecords(d)) recorded++;
+      if (dayQualified(d)) {
+        qualified++;
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    });
+    const rate = rateOver(days);
+
+    const first = days[0];
+    const ws = weightRecords().filter(w => w.date >= first && w.date <= today);
+    const wDelta = ws.length >= 2
+      ? Math.round((ws[ws.length - 1].weight - ws[0].weight) * 10) / 10
+      : null;
+
+    let sched = 0, taken = 0;
+    (state.meds || []).forEach(med => {
+      if (isPrn(med)) return;
+      const slots = medDoseSlots(med);
+      if (!slots.length) return;
+      days.forEach(d => {
+        if (!medActiveOn(med, d)) return;
+        slots.forEach(slot => {
+          sched++;
+          if (doseAt(d, med.id, slot)) taken++;
+        });
+      });
+    });
+    const adherence = sched ? Math.round(taken / sched * 100) : null;
+
+    /* 与上月对比：上月可能一天都没达标（新用户），要单独措辞 */
+    const prevLast = fmt(new Date(y, m, 0));
+    let prevQualified = 0;
+    for (let d = new Date(y, m - 1, 1); fmt(d) <= prevLast; d = addDays(d, 1)) {
+      if (dayQualified(fmt(d))) prevQualified++;
+    }
+    let verdict;
+    if (!prevQualified && !qualified) verdict = '这个月还没有达标记录，从今天记一笔开始。';
+    else if (!prevQualified) verdict = '这个月已达标 ' + qualified + ' 天，上月没有达标记录。';
+    else {
+      const diff = qualified - prevQualified;
+      verdict = diff > 0 ? '比上月多完成 ' + diff + ' 天。'
+        : diff < 0 ? '比上月少完成 ' + Math.abs(diff) + ' 天。'
+        : '与上月达标天数持平（' + qualified + ' 天）。';
+    }
+
+    return { elapsed, recorded, qualified, best, rate, wDelta, adherence, taken, sched, verdict, monthLabel: (m + 1) + ' 月' };
+  }
+
+  function monthReviewPanel() {
+    const r = monthReviewData();
+    const cell = (label, value, unit, sub) =>
+      '<div class="rv-cell"><small>' + esc(label) + '</small><b>' + value +
+        (unit ? ' <i>' + esc(unit) + '</i>' : '') + '</b>' +
+        (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>';
+    const pctOf = v => r.elapsed ? Math.round(v / r.elapsed * 100) : 0;
+    return '<div class="panel"><h3>本月回顾 <span class="muted-sm">（' + esc(r.monthLabel) + '已过 ' + r.elapsed + ' 天）</span></h3>' +
+      '<div class="rv-grid">' +
+        cell('达标天数', r.qualified, '天', '占已过天数 ' + pctOf(r.qualified) + '%') +
+        cell('有记录', r.recorded, '天', '缺 ' + (r.elapsed - r.recorded) + ' 天') +
+        cell('最长连续', r.best, '天', '完成率 ≥ 75% 记一天') +
+        cell('平均完成率', Math.round(r.rate.rate * 100) + '%', '', '按有记录的 ' + r.rate.days + ' 天算') +
+        cell('体重变化', r.wDelta === null ? '—' : (r.wDelta > 0 ? '+' : '') + r.wDelta, r.wDelta === null ? '' : 'kg',
+          r.wDelta === null ? '本月记录不足 2 次' : (r.wDelta === 0 ? '持平' : (r.wDelta < 0 ? '在下降' : '在上升'))) +
+        cell('用药依从', r.adherence === null ? '—' : r.adherence + '%', '',
+          r.adherence === null ? '本月无排期' : '已服 ' + r.taken + ' / 应服 ' + r.sched + ' 次') +
+      '</div>' +
+      '<p class="rv-verdict">' + esc(r.verdict) + '</p>' +
+    '</div>';
+  }
+
   function viewStats() {
     const now = new Date();
     const range = [7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
@@ -7026,6 +7124,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         '<div class="stat-card"><small>已完成任务</small><b>' + doneTasks.length + ' <i>条</i></b><span>近 7 天 +' + weekDone + ' · 今天 +' + doneToday + '</span></div>' +
       '</div>' +
       '<div class="panel"><h3>近 ' + range + ' 天完成率</h3><div class="chart" style="gap:' + (range > 30 ? '2px' : '8px') + '">' + bars + '</div></div>' +
+      monthReviewPanel() +
       '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +
         (hstats || '<div class="empty-box">还没有习惯数据。</div>') +
       '</div>' +
