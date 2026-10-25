@@ -2362,7 +2362,8 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 .weight-bmi.high b{color:var(--bad)}
 .weight-metrics{display:grid;gap:10px;border-left:1px solid var(--line);padding-left:18px}
 .weight-metrics b{display:block;font-size:15px;color:var(--text);margin-top:2px}
-.profile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+/* auto-fit + minmax：3 项时仍是三等分，设了目标体重变成 4 项时自动四等分 */
+.profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:12px}
 .profile-grid small{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .profile-grid b{display:block;font-size:17px;color:var(--text);margin-top:3px}
 .profile-grid b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400}
@@ -2387,6 +2388,8 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 .ww-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
 .ww-band{fill:color-mix(in srgb,var(--accent) 9%,transparent)}
 .ww-band-line{stroke:color-mix(in srgb,var(--accent) 30%,transparent);stroke-width:1;stroke-dasharray:4 4}
+.ww-goal{stroke:color-mix(in srgb,var(--gold,var(--accent)) 82%,var(--text));stroke-width:1.4;stroke-dasharray:7 5;opacity:.9}
+.ww-goal-lbl{font-size:9.5px;fill:color-mix(in srgb,var(--text) 66%,var(--muted));font-family:var(--font-sans);font-weight:600}
 .ww-line{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
 .ww-dot{fill:var(--surface);stroke:var(--accent);stroke-width:2}
 .ww-dot.last{fill:var(--accent)}
@@ -3199,13 +3202,17 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     return data;
   }
 
+  /* goalWeight 可选：0 表示没设目标。范围放宽到 20–300kg，
+     只做合理性拦截，不给医学建议。 */
   function normalizeBodyProfile(p) {
     const age = parseInt(p && p.age, 10);
     const height = Number(p && p.height);
     if (!isFinite(age) || age < 1 || age > 120 || !isFinite(height) || height < 50 || height > 250) {
-      return { age: 0, height: 0 };
+      return { age: 0, height: 0, goalWeight: 0 };
     }
-    return { age: Math.round(age), height: Math.round(height * 10) / 10 };
+    const goal = Number(p && p.goalWeight);
+    const goalWeight = (isFinite(goal) && goal >= 20 && goal <= 300) ? Math.round(goal * 10) / 10 : 0;
+    return { age: Math.round(age), height: Math.round(height * 10) / 10, goalWeight: goalWeight };
   }
 
   function hasBodyProfile() {
@@ -6971,6 +6978,12 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
     }
     const pad = Math.max(0.6, (hi - lo) * 0.16);
     lo -= pad; hi += pad;
+    /* 目标体重：纳入值域，保证虚线一定可见（否则目标在区间外时画不出来） */
+    const goal = Number(profile && profile.goalWeight) || 0;
+    if (goal > 0) {
+      if (goal < lo) lo = goal - pad * 0.4;
+      if (goal > hi) hi = goal + pad * 0.4;
+    }
     const span = Math.max(0.5, hi - lo);
     const yy = v => T + (hi - v) / span * ph;
     const xx = i => pts.length === 1 ? L + pw / 2 : L + (i / (pts.length - 1)) * pw;
@@ -6997,8 +7010,15 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       }
     }
 
-    const d = pts.map((p, i) => (i ? 'L' : 'M') + xx(i).toFixed(1) + ',' + yy(p.v).toFixed(1)).join(' ');
-    g += '<path class="ww-line" d="' + d + '"/>';
+    /* 目标体重虚线 + 右侧标签 */
+    if (goal > 0) {
+      const gy = Math.max(T, Math.min(T + ph, yy(goal)));
+      g += '<line class="ww-goal" x1="' + L + '" y1="' + gy.toFixed(1) + '" x2="' + (W - R) + '" y2="' + gy.toFixed(1) + '">' +
+        '<title>目标 ' + goal.toFixed(1) + ' kg</title></line>' +
+        '<text class="ww-goal-lbl" x="' + (W - R) + '" y="' + (gy - 4).toFixed(1) + '" text-anchor="end">目标 ' + goal.toFixed(1) + '</text>';
+    }
+
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + xx(i).toFixed(1) + ',' + yy(p.v).toFixed(1)).join(' ');    g += '<path class="ww-line" d="' + d + '"/>';
     pts.forEach((p, i) => {
       const last = i === pts.length - 1;
       g += '<circle class="ww-dot' + (last ? ' last' : '') + '" cx="' + xx(i).toFixed(1) + '" cy="' + yy(p.v).toFixed(1) + '" r="' + (last ? 3.6 : 2.6) + '">' +
@@ -7311,8 +7331,17 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       (hasProfile
         ? '<div class="profile-grid"><div><small>年龄</small><b>' + esc(profile.age) + ' <i>岁</i></b></div>' +
           '<div><small>身高</small><b>' + esc(profile.height) + ' <i>cm</i></b></div>' +
-          '<div><small>BMI 参考</small><b>18.5–23.9</b></div></div>' +
-          '<p class="hint">年龄和身高只需维护一次；之后记录体重只填日期和体重。</p>'
+          '<div><small>' + (profile.goalWeight > 0 ? '目标体重' : 'BMI 参考') + '</small><b>' +
+            (profile.goalWeight > 0
+              ? esc(profile.goalWeight) + ' <i>kg</i>'
+              : '18.5–23.9') + '</b></div>' +
+          (profile.goalWeight > 0 && latest
+            ? '<div><small>距目标</small><b>' + (Math.round((latest.weight - profile.goalWeight) * 10) / 10 > 0 ? '还差 ' : '已低于目标 ') +
+                Math.abs(Math.round((latest.weight - profile.goalWeight) * 10) / 10) + ' <i>kg</i></b></div>'
+            : '') +
+          '</div>' +
+          '<p class="hint">年龄和身高只需维护一次；之后记录体重只填日期和体重。' +
+            (profile.goalWeight > 0 ? '目标体重可随时在档案里改或清空，清空后折线图不再画目标线。' : '') + '</p>'
         : '<div class="empty-box">还没有身体档案。先补全年龄和身高，之后记录体重只需要填体重。</div>') +
     '</section>';
 
@@ -8347,6 +8376,7 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
         '<div class="form-grid">' +
           '<label class="field"><span>年龄</span><input type="number" name="age" required min="1" max="120" step="1" value="' + esc(p.age || '') + '" placeholder="例如：32"></label>' +
           '<label class="field"><span>身高（cm）</span><input type="number" name="height" required min="50" max="250" step="0.1" value="' + esc(p.height || '') + '" placeholder="例如：175"></label>' +
+          '<label class="field"><span>目标体重（kg，选填）</span><input type="number" name="goalWeight" min="20" max="300" step="0.1" value="' + esc(p.goalWeight || '') + '" placeholder="例如：65，留空则不画目标线"></label>' +
         '</div>' +
         '<p class="hint">BMI 按成人参考范围 18.5–23.9 显示；未成年人仅参考。</p>' +
         '<div class="form-error"></div>' +
@@ -8373,7 +8403,17 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
       if (error) error.textContent = '身高请填 50–250 cm。';
       return;
     }
-    state.bodyProfile = { age: Math.round(age), height: Math.round(height * 10) / 10 };
+    const goalRaw = get('goalWeight');
+    const goal = goalRaw === '' ? 0 : Number(goalRaw);
+    if (goalRaw !== '' && (!isFinite(goal) || goal < 20 || goal > 300)) {
+      if (error) error.textContent = '目标体重请填 20–300 kg，或留空。';
+      return;
+    }
+    state.bodyProfile = {
+      age: Math.round(age),
+      height: Math.round(height * 10) / 10,
+      goalWeight: goal ? Math.round(goal * 10) / 10 : 0
+    };
     const after = form.dataset.after || '';
     save();
     closeModal();
