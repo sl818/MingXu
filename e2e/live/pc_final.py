@@ -208,27 +208,39 @@ with sync_playwright() as p:
     d2 = state(pg)
     rec('用药页记录一次服药', taken(d2, TODAY) >= 1, '已服 %d / 应服 %d' % (taken(d2, TODAY), len(slots(d2, TODAY))))
 
-    # 按需用药：今日页 →「打开用药」→ 弹层里「＋ 记一次」
+    # 按需用药：今日页用药卡 → 用药页 → 按需行「＋ 记一次」→ 撤销还原
+    # （v30 起改在用药页行内记录：排期药 ≥2 种时今日卡没有 med-open，弹层够不到）
     nav(pg, 'today')
-    opened = pg.evaluate("""() => {
-        const b = document.querySelector('[data-act="med-open"]');
-        if (b) { b.click(); return true; } return false; }""")
-    pg.wait_for_timeout(1500)
-    prn_btn = pg.evaluate("""() => {
-        const b = document.querySelector('[data-act="med-prn"]');
+    entry = pg.evaluate("""() => {
+        const sec = [...document.querySelectorAll('.vital-card')].find(c => /种药|按需用药/.test(c.textContent));
+        if (!sec) return null;
+        const b = sec.querySelector('[data-nav="meds"]') || sec.querySelector('[data-act="med-open"]');
         if (!b) return null;
-        b.click(); return b.dataset.id || 'ok'; }""")
-    pg.wait_for_timeout(1700)
-    d2b = state(pg)
-    prn_logged = sum(len(v or {}) for v in (d2b.get('doses', {}).get(TODAY, {}) or {}).values())
-    rec('今日页「打开用药」能打开用药弹层', opened, '')
-    rec('按需用药在弹层里可「记一次」', bool(prn_btn) and prn_logged > 0, 'prn按钮=%s 今日剂量条=%d' % (prn_btn, prn_logged))
-    rec('记录后弹层同步刷新', pg.evaluate("() => document.querySelectorAll('[data-act=\"med-prn-undo\"]').length") > 0, '')
-    pg.screenshot(path=SHOTS + '/pc-6b-med-sheet.png')
-    pg.keyboard.press('Escape')
-    pg.wait_for_timeout(500)
+        b.click();
+        return { act: b.dataset.act || ('nav:' + b.dataset.nav), text: b.textContent.trim() };
+    }""")
+    pg.wait_for_timeout(1200)
+    landed = pg.evaluate("() => document.body.dataset.view")
+    rec('今日页用药卡可进入用药页（%s）' % ((entry or {}).get('text', '无入口')),
+        bool(entry) and landed == 'meds', 'view=%s' % landed)
+
+    target = pg.evaluate("""() => {
+        const b = document.querySelector('[data-act="med-prn"]');
+        return b ? b.dataset.id : '';
+    }""")
+    before = len([k for k in (((state(pg).get('doses') or {}).get(TODAY, {}) or {}).get(target) or {}) if k.startswith('prn_')])
+    pg.evaluate("""id => { const b=document.querySelector('[data-act="med-prn"][data-id="'+id+'"]'); if(b) b.click(); }""", target)
+    pg.wait_for_timeout(1800)
+    mid = len([k for k in (((state(pg).get('doses') or {}).get(TODAY, {}) or {}).get(target) or {}) if k.startswith('prn_')])
+    rec('用药页按需行可「记一次」（%d → %d）' % (before, mid), bool(target) and mid == before + 1, '')
+
+    pg.evaluate("""id => { const b=document.querySelector('[data-act="med-prn-undo"][data-id="'+id+'"]'); if(b) b.click(); }""", target)
+    pg.wait_for_timeout(1800)
+    after = len([k for k in (((state(pg).get('doses') or {}).get(TODAY, {}) or {}).get(target) or {}) if k.startswith('prn_')])
+    rec('撤销后还原到点击前（%d）' % after, after == before, 'before=%d after=%d' % (before, after))
 
     nav(pg, 'board')
+    d2b = state(pg)   # 重新取一次：前面几次操作会 rev 递增
     before = collections.Counter(x.get('status') for x in d2b['tasks'])
     moved = pg.evaluate("""() => {
         const btn = document.querySelector('.board .col[data-status="todo"] [data-act="task-move"][data-dir="1"]');
