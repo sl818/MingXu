@@ -128,10 +128,13 @@ h1,h2,h3,h4,p{margin:0}
    放大后热区互相覆盖反而会误触，且都不是主要操作。 */
 @media (pointer: coarse){
   .check,.icon-btn,.link-btn,.hero-arrow,.hero-today,.mini-btn,.tag-chip,.essay-tag,
-  .arrow,.pip,.med-slot,.med-mini,.sync-indicator,.bf-clear{position:relative}
+  .arrow,.pip,.med-slot,.med-mini,.sync-indicator,.bf-clear,
+  .remind-go,.remind-x,.backfill-today,.med-prn-add,.med-prn-undo{position:relative}
   .check::after,.icon-btn::after,.link-btn::after,.hero-arrow::after,.hero-today::after,
   .mini-btn::after,.tag-chip::after,.essay-tag::after,.arrow::after,.pip::after,
-  .med-slot::after,.med-mini::after,.sync-indicator::after,.bf-clear::after{
+  .med-slot::after,.med-mini::after,.sync-indicator::after,.bf-clear::after,
+  .remind-go::after,.remind-x::after,.backfill-today::after,
+  .med-prn-add::after,.med-prn-undo::after{
     content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:max(100%,44px);height:max(100%,44px);
   }
@@ -1094,6 +1097,12 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 }
 .field input[type="color"]{height:42px;padding:4px}
 .hint{font-size:10.5px;line-height:1.8;color:var(--muted);margin:12px 0 0}
+/* 疗程已结束等需要提醒但不算错误的说明 */
+.hint-warn{
+  color:color-mix(in srgb,var(--text) 82%,var(--accent));
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+  border-radius:10px;padding:9px 12px;
+}
 .modal-actions{margin-top:24px}
 
 /* ---------- 提示 ---------- */
@@ -1449,6 +1458,23 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .med-row-dose > span{font-size:11.5px;font-weight:400;color:var(--muted)}
 .med-row-note{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.55}
 .med-row-slots{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* 按需用药的行内记录：原先「＋ 记一次」只在用药弹层里，而弹层入口在排期药 ≥2 种时
+   会被「查看详细」替换掉，导致按需药没有任何地方能记一次 */
+.med-row-prn{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.med-row-prn-cnt{font-size:11.5px;color:color-mix(in srgb,var(--text) 68%,var(--muted))}
+.med-row-prn-cnt b{color:var(--text);font-weight:600}
+.med-prn-add{
+  font-family:var(--font-sans);font-size:12px;line-height:1.4;padding:4px 11px;border-radius:9px;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line-strong));
+  background:var(--accent-soft);color:color-mix(in srgb,var(--accent) 70%,var(--text));
+  transition:background .16s,border-color .16s,color .16s;
+}
+.med-prn-add:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.med-prn-undo{
+  font-family:var(--font-sans);font-size:11.5px;line-height:1.4;padding:3px 9px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line-strong);background:transparent;color:color-mix(in srgb,var(--text) 76%,var(--muted));
+}
+.med-prn-undo:hover{color:var(--text);border-color:var(--accent)}
 .med-slot{
   font-family:var(--font-sans);font-size:12px;letter-spacing:.02em;line-height:1.4;
   padding:4px 11px;border-radius:9px;cursor:pointer;
@@ -7304,8 +7330,25 @@ body.modal-open{overflow:hidden}
       const entry = doseAt(t, med.id, slot);
       return '<button type="button" class="med-slot' + (entry ? ' done' : '') + '"' +
         ' data-act="' + (entry ? 'med-undo' : 'med-take') + '" data-id="' + med.id + '" data-slot="' + esc(slot) + '"' +
+        ' data-date="' + t + '"' +
         ' title="' + (entry ? '点击撤销 ' : '点击记录 ') + esc(slot) + '">' + esc(slot) + (entry ? ' ✓' : '') + '</button>';
     }).join('');
+
+    /* 按需药：在行内直接给「＋ 记一次」，不再依赖用药弹层 */
+    const prnKeysToday = prn ? prnKeys(t, med.id).sort() : [];
+    const prnTimes = prnKeysToday.map(k => {
+      const e = state.doses[t][med.id][k];
+      const at = new Date(e.at);
+      return isNaN(at.getTime()) ? '' : pad2(at.getHours()) + ':' + pad2(at.getMinutes());
+    }).filter(Boolean);
+    const prnHtml = (prn && canTap)
+      ? '<div class="med-row-prn">' +
+          '<span class="med-row-prn-cnt">今日已记 <b>' + prnKeysToday.length + '</b> 次' +
+            (prnTimes.length ? ' · ' + esc(prnTimes.join(' / ')) : '') + '</span>' +
+          '<button type="button" class="med-prn-add" data-act="med-prn" data-id="' + med.id + '" data-date="' + t + '">＋ 记一次</button>' +
+          (prnKeysToday.length ? '<button type="button" class="med-prn-undo" data-act="med-prn-undo" data-id="' + med.id + '" data-date="' + t + '">撤销</button>' : '') +
+        '</div>'
+      : '';
 
     const stock = medStockLabel(med);
     let info = med.medInfo || med.note || '';
@@ -7324,6 +7367,7 @@ body.modal-open{overflow:hidden}
           (sec.length ? '<span>· ' + esc(sec.join(' · ')) + '</span>' : '') + '</p>' +
         (info ? '<p class="med-row-note">' + esc(info) + '</p>' : '') +
         (slotHtml ? '<div class="med-row-slots">' + slotHtml + '</div>' : '') +
+        prnHtml +
       '</div>' +
       '<div class="med-row-side">' +
         (stock ? '<span class="med-row-stock">' + esc(stock) + '</span>' : '') +
@@ -8430,10 +8474,18 @@ body.modal-open{overflow:hidden}
       OFFSET_LIST.map(v => '<option value="' + v + '"' + (rawOff === v ? ' selected' : '') + '>' + (v === 0 ? '立即' : v + ' 分钟') + '</option>').join('') +
       '<option value="custom"' + (isCustomOff ? ' selected' : '') + '>自定义…</option>';
     const hasMeal = (m.mealTiming === 'before' || m.mealTiming === 'after');
+    /* 短期疗程过了结束日期后，列表会把这条归到「已停用」，但 status 字段没变。
+       不在这里说清楚，用户会看到「已停用」却在编辑里显示「进行中」而对不上。 */
+    const courseExpired = !isNew && (m.courseType || 'long') === 'short'
+      && !!m.endDate && m.endDate < todayStr();
 
     openModal('' +
       '<form class="modal-card med-form" id="med-form" data-id="' + esc(m.id || '') + '">' +
         '<h3>' + (isNew ? '添加用药' : '编辑用药') + '</h3>' +
+        (courseExpired
+          ? '<p class="hint hint-warn">这个短期疗程已在 ' + esc(m.endDate) + ' 结束，用药列表里会归到「已停用」。' +
+            '如果医生让你继续吃，请把结束日期改到后面；如果确实停了，可以把状态改成「已完成」。</p>'
+          : '') +
         '<label class="field"><span>药名</span><input name="name" required maxlength="30" value="' + esc(m.name) + '" placeholder="例如：阿莫西林"></label>' +
         '<div class="form-grid">' +
           '<label class="field"><span>用途</span><select name="purpose">' + purposeOpts + '</select></label>' +
@@ -9431,27 +9483,29 @@ body.modal-open{overflow:hidden}
       toast('已记录 ' + nx.med.name + ' ' + nx.slot);
     },
     'med-take': el => {
-      if (!takeDose(selectedDate, el.dataset.id, el.dataset.slot)) return;
+      /* 用药页行内按钮带 data-date（页面固定展示今天），弹层里没有则用 selectedDate */
+      if (!takeDose(el.dataset.date || selectedDate, el.dataset.id, el.dataset.slot)) return;
       render();
       refreshMedSheet();
       toast('已记录');
     },
     'med-undo': el => {
-      if (!undoDose(selectedDate, el.dataset.id, el.dataset.slot)) return;
+      if (!undoDose(el.dataset.date || selectedDate, el.dataset.id, el.dataset.slot)) return;
       render();
       refreshMedSheet();
       toast('已撤销');
     },
     'med-prn': el => {
-      if (!takeDose(selectedDate, el.dataset.id, 'prn_' + Date.now())) return;
+      if (!takeDose(el.dataset.date || selectedDate, el.dataset.id, 'prn_' + Date.now())) return;
       render();
       refreshMedSheet();
       toast('已记录一次');
     },
     'med-prn-undo': el => {
-      const keys = prnKeys(selectedDate, el.dataset.id).sort();
+      const d = el.dataset.date || selectedDate;
+      const keys = prnKeys(d, el.dataset.id).sort();
       if (!keys.length) return;
-      undoDose(selectedDate, el.dataset.id, keys[keys.length - 1]);
+      undoDose(d, el.dataset.id, keys[keys.length - 1]);
       render();
       refreshMedSheet();
       toast('已撤销');
