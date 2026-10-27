@@ -29,3 +29,7 @@ e2e/*.png
 # 临时工作目录（验证脚本的中间产物）
 .tmp*/
 .tmp-*.py
+
+# Python 缓存
+__pycache__/
+*.pyc
