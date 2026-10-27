@@ -290,7 +290,8 @@ with sync_playwright() as p:
         nav(p4, 'today')
         p4.evaluate("""() => { const b = document.querySelector('[data-act="set-mood"]'); if (b) b.click(); }""")
         p4.wait_for_timeout(2200)
-        rec('保存后数据里带上 schemaVersion=3', board['data'].get('schemaVersion') == 3,
+        # 不写死具体版本号：以后再加迁移步骤不该让这条变成假红灯
+        rec('保存后数据里带上当前 schemaVersion', (board['data'].get('schemaVersion') or 0) >= 3,
             'schemaVersion=%s' % board['data'].get('schemaVersion'))
         p4.close()
 

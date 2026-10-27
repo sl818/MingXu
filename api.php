@@ -120,6 +120,11 @@ try {
             }
 
             lb_throttle_clear($email);
+            // 单设备登录：每次登录都把 session_epoch 推进一步，
+            // 之前那台设备的会话下一次请求就会因 epoch 不匹配而失效（被踢下线）。
+            $bump = lb_db()->prepare('UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?');
+            $bump->execute([(int)$user['id']]);
+            $user['session_epoch'] = (int)$user['session_epoch'] + 1;
             lb_session_login($user);
             $up = lb_db()->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
             $up->execute([(int)$user['id']]);

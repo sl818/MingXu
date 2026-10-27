@@ -3027,6 +3027,29 @@ body.modal-open{overflow:hidden}
     return data;
   }
 
+  /* 把旧的 med.stock（剩余数量）转成基线：从这一刻起按服药记录往下扣。
+     旧 stock 字段保留不删（万一需要回滚），但新代码只读 stockBase。 */
+  function migrateStock(data) {
+    if (!data || !Array.isArray(data.meds)) return data;
+    const now = new Date().toISOString();
+    data.meds.forEach(function (m) {
+      if (!m) return;
+      const hasBase = m.stockBase !== undefined && m.stockBase !== null;
+      if (hasBase) return;
+      const legacy = m.stock;
+      if (legacy !== '' && legacy !== null && legacy !== undefined && isFinite(Number(legacy))) {
+        m.stockBase = Math.max(0, Number(legacy));
+        m.stockBaseAt = now;
+        /* 旧数字很可能已经不准了（之前扣减会丢），标出来让人核对一次 */
+        m.stockReview = true;
+      } else {
+        m.stockBase = '';
+        m.stockBaseAt = '';
+      }
+    });
+    return data;
+  }
+
   function migrateMeds(data) {
     if (!data || !Array.isArray(data.habits)) return data;
     let medHabit = data.habits.find(h => h.id === 'h_med');
@@ -3285,7 +3308,7 @@ body.modal-open{overflow:hidden}
      补一个字段可能让另一处判断以为数据已经升级过。
      现在按 state.schemaVersion 顺序执行，每一步只跑一次。
      没有版本号的旧数据一律当作 v1，走完整链路，跑完打上当前版本。 */
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
 
   function migrateState(data) {
     if (!data || typeof data !== 'object') return data;
@@ -3304,7 +3327,15 @@ body.modal-open{overflow:hidden}
       ensureBreathingHabit(data);
       v = 3;
     }
+    if (v < 4) {
+      /* v3 → v4：库存从「绝对数逐次扣减」改为「基线 + 按记录推算」
+         （具体补齐在下面的 migrateStock 里，它是幂等的，每次加载都会跑） */
+      v = 4;
+    }
     data.schemaVersion = SCHEMA_VERSION;
+    /* 幂等补齐：不依赖版本号，任何缺少 stockBase 的药品都会被补成基线，
+       避免「版本已经升到 4、但后来又混进旧格式条目」时被漏掉。 */
+    migrateStock(data);
     return data;
   }
 
@@ -3846,33 +3877,66 @@ body.modal-open{overflow:hidden}
         if (!item || !item.id) return;
         if (!map[item.id]) {
           map[item.id] = item;
-        } else {
-          const cur = map[item.id];
-          if (!cur.archivedAt && item.archivedAt) cur.archivedAt = item.archivedAt;
+          return;
+        }
+        const cur = map[item.id];
+        if (!cur.archivedAt && item.archivedAt) cur.archivedAt = item.archivedAt;
+        if (key === 'meds') {
+          /* 以前这里是「整条以云端为准」，结果本地刚改的名字、刚登记的库存都会被丢弃。
+             现在按 updatedAt 判断谁更新：新的一侧整体胜出，归档标记只增不减，
+             库存基线额外比一次登记时间（它可能来自另一个更晚的显式登记）。 */
+          const lu = Number(item.updatedAt) || 0;
+          const ru = Number(cur.updatedAt) || 0;
+          const pickLocal = lu > ru;
+          const newer = pickLocal ? item : cur;
+          const older = pickLocal ? cur : item;
+          const out2 = Object.assign({}, newer);
+          if (!out2.archivedAt && older.archivedAt) out2.archivedAt = older.archivedAt;
+          const nt = Date.parse(out2.stockBaseAt || '') || 0;
+          const ot = Date.parse(older.stockBaseAt || '') || 0;
+          if (older.stockBase !== undefined && ot > nt) {
+            out2.stockBase = older.stockBase;
+            out2.stockBaseAt = older.stockBaseAt;
+            out2.stockReview = older.stockReview;
+          }
+          map[item.id] = out2;
         }
       });
       out[key] = Object.keys(map).map(function (k) { return map[k]; });
     });
 
-    // 打卡/用药计数：按日期合并，同 habit 取较大值（只增不减）
-    ['checks', 'doses'].forEach(function (key) {
-      const r = isPlainObject(remote[key]) ? remote[key] : {};
-      const l = isPlainObject(local[key]) ? local[key] : {};
+    /* 打卡/用药：按天合并，但两者层级不同，必须分开处理——
+       checks 是 {日期: {习惯id: 次数}}，次数取较大值；
+       doses  是 {日期: {药品id: {时段: 记录}}}，要多走一层按时段并集。
+       以前两者用同一段代码，doses 里 Number({}) 得到 NaN → 0，
+       合并一次就会把当天整瓶药的服药记录压成 0（这是「用药数据突然没了」的元凶）。 */
+    function mergeByDay(remoteMap, localMap) {
+      const r = isPlainObject(remoteMap) ? remoteMap : {};
+      const l = isPlainObject(localMap) ? localMap : {};
       const merged = Object.assign({}, r);
       Object.keys(l).forEach(function (day) {
-        if (!merged[day]) { merged[day] = l[day]; return; }
-        if (isPlainObject(l[day]) && isPlainObject(merged[day])) {
-          const m = Object.assign({}, merged[day]);
-          Object.keys(l[day]).forEach(function (hid) {
-            m[hid] = Math.max(Number(m[hid]) || 0, Number(l[day][hid]) || 0);
-          });
-          merged[day] = m;
-        } else {
-          merged[day] = l[day];
+        if (!isPlainObject(merged[day]) || !isPlainObject(l[day])) {
+          if (!merged[day]) merged[day] = l[day];
+          return;
         }
+        const m = Object.assign({}, merged[day]);
+        Object.keys(l[day]).forEach(function (k) {
+          const lv = l[day][k];
+          const rv = m[k];
+          if (isPlainObject(lv)) {
+            /* 时段级并集（doses）：两边都有的时段取本地那份，其余保留云端 */
+            m[k] = Object.assign({}, isPlainObject(rv) ? rv : {}, lv);
+          } else {
+            /* 次数（checks）：只增不减 */
+            m[k] = Math.max(Number(rv) || 0, Number(lv) || 0);
+          }
+        });
+        merged[day] = m;
       });
-      out[key] = merged;
-    });
+      return merged;
+    }
+    out.checks = mergeByDay(remote.checks, local.checks);
+    out.doses = mergeByDay(remote.doses, local.doses);
 
     // 心情：按日期合并，本地优先（最后心情）
     out.moods = Object.assign({}, isPlainObject(remote.moods) ? remote.moods : {}, isPlainObject(local.moods) ? local.moods : {});
@@ -3896,16 +3960,22 @@ body.modal-open{overflow:hidden}
 
   function handleCloudError(e, manual) {
     if (e && e.status === 401) {
+      /* 后端会把「被其他设备顶替」和「会话过期」分开返回，提示要说清原因，
+         否则用户只会看到莫名其妙被踢回登录页。 */
+      const replaced = !!(e.data && e.data.code === 'session_replaced');
       cloud.user = null;
       cloud.csrf = '';
-      cloud.error = '登录已过期，请重新登录';
+      cloud.error = replaced
+        ? '这个账号已在其他设备登录，这台设备已退出（同一账号只允许一台设备在线）'
+        : '登录已过期，请重新登录';
       cloud.ready = false;
       mode = 'landing';
       view = 'today';
       state.view = 'today';
       persistCloudMeta();
       render();
-      if (manual) toast('登录已过期，请重新登录');
+      /* 被顶替时无论是否手动保存都要提示一次，否则数据看起来「突然没了」 */
+      if (manual || replaced) toast(cloud.error);
       return;
     }
     if (e && e.status === 403) {
@@ -4523,6 +4593,20 @@ body.modal-open{overflow:hidden}
     });
     if (state.events.length > 1000) state.events = state.events.slice(-1000);
   }
+  /* 服药也进操作日志：以前只有习惯打卡写 events，所以统计页永远看不到用药 */
+  function logMed(medId, slot, delta, d) {
+    if (!delta) return;
+    if (!Array.isArray(state.events)) state.events = [];
+    state.events.push({
+      at: new Date().toISOString(),
+      d: d || selectedDate,
+      id: medId,
+      delta: delta,
+      kind: 'med',
+      slot: slot || ''
+    });
+    if (state.events.length > 1000) state.events = state.events.slice(-1000);
+  }
 
   function medById(id) {
     return (state.meds || []).find(m => m.id === id);
@@ -4653,20 +4737,72 @@ body.modal-open{overflow:hidden}
     const m = state.doses && state.doses[d] && state.doses[d][medId];
     return m ? Object.keys(m).filter(k => k.indexOf('prn_') === 0) : [];
   }
-  function medStockDays(med) {
-    if (med.stock === '' || med.stock === null || med.stock === undefined) return null;
-    const stock = Number(med.stock);
+  /* ===== 库存：基线 + 按记录推算 =====
+     以前的实现是把「剩余数量」当成一个绝对数存进 med.stock，每次服药减一点。
+     问题是这个数一旦因为冲突合并、丢写而偏差，就永久错了，而且系统没有任何办法发现。
+     现在改成：只记录「某时刻我手里有多少」（stockBase + stockBaseAt），
+     余量 = 基线 − 基线之后所有服药记录累计的剂量。
+     因为 doses 在合并时是并集（只增不减），任何设备算出来的余量都一样；
+     即使某次写入丢了，下一次重算会自动纠正。 */
+  function medStockBaseAtMs(med) {
+    if (!med) return 0;
+    const raw = med.stockBaseAt;
+    if (raw === '' || raw === null || raw === undefined) return 0;
+    if (typeof raw === 'number') return raw;
+    const t = new Date(raw).getTime();
+    return isNaN(t) ? 0 : t;
+  }
+  function medStockBase(med) {
+    if (!med) return null;
+    const v = med.stockBase;
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return (isFinite(n) && n >= 0) ? n : null;
+  }
+  /* 基线之后已服的累计剂量（含按需记录）。撤销会删掉记录，所以余量会自动退回。 */
+  function medStockUsed(med) {
+    const base = medStockBaseAtMs(med);
     const per = Math.max(0.01, Number(med.doseAmount) || 1);
-    const perDay = medDoseSlots(med).length;
-    if (!isFinite(stock) || stock < 0 || !perDay) return null;
-    return Math.floor(stock / (per * perDay));
+    const doses = state.doses || {};
+    let n = 0;
+    Object.keys(doses).forEach(function (d) {
+      const day = doses[d] && doses[d][med.id];
+      if (!day) return;
+      Object.keys(day).forEach(function (slot) {
+        const e = day[slot];
+        if (!e || !e.at) return;
+        const t = new Date(e.at).getTime();
+        if (isNaN(t) || t <= base) return;
+        n += per;
+      });
+    });
+    return Math.round(n * 100) / 100;
+  }
+  function medStockRemain(med) {
+    const base = medStockBase(med);
+    if (base === null) return null;
+    return Math.round(Math.max(0, base - medStockUsed(med)) * 100) / 100;
+  }
+  function medStockDays(med) {
+    const remain = medStockRemain(med);
+    if (remain === null) return null;
+    const perDay = (Math.max(0.01, Number(med.doseAmount) || 1)) * medDoseSlots(med).length;
+    if (!perDay) return null;
+    return Math.floor(remain / perDay);
   }
   function medStockLabel(med) {
-    if (med.stock === '' || med.stock === null || med.stock === undefined) return '';
-    const s = Number(med.stock);
-    if (!isFinite(s)) return '';
+    const remain = medStockRemain(med);
+    if (remain === null) return '';
     const days = medStockDays(med);
-    return '剩 ' + (Math.round(s * 100) / 100) + ' ' + (med.doseUnit || '') + (days !== null ? '（约 ' + days + ' 天）' : '');
+    const flag = med.stockReview ? ' · 待核对' : '';
+    return '剩 ' + remain + ' ' + (med.doseUnit || '') + (days !== null ? '（约 ' + days + ' 天）' : '') + flag;
+  }
+  /* 基线登记日期，用于让人判断这个数字是不是旧了 */
+  function medStockBaseLabel(med) {
+    const ms = medStockBaseAtMs(med);
+    if (!ms) return '';
+    const d = new Date(ms);
+    return (d.getMonth() + 1) + '-' + d.getDate() + ' 登记';
   }
   function medCourseLabelOn(med, d) {
     if (d >= todayStr()) {
@@ -4696,29 +4832,20 @@ body.modal-open{overflow:hidden}
     if (!state.doses[d]) state.doses[d] = {};
     if (!state.doses[d][medId]) state.doses[d][medId] = {};
     if (state.doses[d][medId][slot]) return false;
-    const entry = { at: new Date().toISOString() };
-    const amount = Math.max(0.01, Number(med.doseAmount) || 1);
-    const hasStock = med.stock !== '' && med.stock !== null && med.stock !== undefined && isFinite(Number(med.stock));
-    if (hasStock && Number(med.stock) > 0) {
-      med.stock = Math.max(0, Math.round((Number(med.stock) - amount) * 100) / 100);
-      entry.stocked = true;
-    }
-    state.doses[d][medId][slot] = entry;
+    /* 库存不再在这里改：余量由「基线 − 记录」实时算出来，避免绝对数被写歪 */
+    state.doses[d][medId][slot] = { at: new Date().toISOString() };
+    logMed(medId, slot, 1, d);
     save();
     return true;
   }
   function undoDose(d, medId, slot) {
     const day = state.doses[d];
     if (!day || !day[medId] || !day[medId][slot]) return false;
-    const entry = day[medId][slot];
     delete day[medId][slot];
     if (!Object.keys(day[medId]).length) delete day[medId];
     if (!Object.keys(day).length) delete state.doses[d];
-    const med = medById(medId);
-    if (entry && entry.stocked && med && med.stock !== '' && med.stock !== null && med.stock !== undefined) {
-      const amount = Math.max(0.01, Number(med.doseAmount) || 1);
-      med.stock = Math.round((Number(med.stock) + amount) * 100) / 100;
-    }
+    /* 记录删掉，余量自然退回，不需要再加数 */
+    logMed(medId, slot, -1, d);
     save();
     return true;
   }
@@ -6954,11 +7081,13 @@ body.modal-open{overflow:hidden}
     rawLog.forEach(e => {
       const at = new Date(e.at);
       const minute = pad2(at.getHours()) + ':' + pad2(at.getMinutes());
-      const key = e.id + '|' + fmt(at) + '|' + minute;
+      /* 用药带 slot（比如 08:00），把 slot 也放进键里，同一分钟两种药不会被并成一条 */
+      const slot = e.slot || '';
+      const key = e.id + '|' + slot + '|' + fmt(at) + '|' + minute;
       if (logBuckets.has(key)) {
         logBuckets.get(key).delta += Number(e.delta);
       } else {
-        logBuckets.set(key, { id: e.id, delta: Number(e.delta), at: at, d: e.d, minute: minute });
+        logBuckets.set(key, { id: e.id, slot: slot, kind: e.kind || '', delta: Number(e.delta), at: at, d: e.d, minute: minute });
       }
     });
     const logList = [...logBuckets.values()].filter(b => b.delta !== 0).slice(0, 24);
@@ -6967,6 +7096,7 @@ body.modal-open{overflow:hidden}
     const todayS = todayStr();
     const logRows = logShown.map(e => {
       const h = state.habits.find(x => x.id === e.id);
+      const md = h ? null : medById(e.id);
       const at = e.at;
       const opDate = fmt(at);
       let rel;
@@ -6974,11 +7104,15 @@ body.modal-open{overflow:hidden}
       else if (opDate === fmt(addDays(new Date(), -1))) rel = '昨天';
       else rel = (at.getMonth() + 1) + '/' + at.getDate();
       const backfill = e.d && e.d !== opDate ? '补记 ' + (Number(e.d.slice(5, 7)) + '/' + Number(e.d.slice(8, 10))) : '';
-      return '<div class="log-row" style="--hc:' + esc((h && h.color) || '#8a8f83') + '">' +
+      const logName = md
+        ? md.name + (e.slot ? ' · ' + e.slot : '')
+        : (h ? h.name : '已删除的习惯');
+      const logIco = md ? '💊' : ((h && h.icon) || '·');
+      return '<div class="log-row" style="--hc:' + esc(md ? '#6f7f91' : ((h && h.color) || '#8a8f83')) + '">' +
         '<span class="log-time">' + e.minute + '</span>' +
-        '<span class="log-ico">' + esc((h && h.icon) || '·') + '</span>' +
-        '<span class="log-name">' + esc(h ? h.name : '已删除的习惯') + '</span>' +
-        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (h && h.type === 'quit' ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
+        '<span class="log-ico">' + esc(logIco) + '</span>' +
+        '<span class="log-name">' + esc(logName) + '</span>' +
+        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (!md && h && h.type === 'quit' ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
         '<span class="log-date">' + rel + (backfill ? ' · ' + backfill : '') + '</span>' +
       '</div>';
     }).join('');
@@ -6988,7 +7122,7 @@ body.modal-open{overflow:hidden}
         '</button>'
       : '';
     const logPanel = '<div class="panel">' +
-      '<div class="panel-head"><h3>打卡时间 <span class="muted-sm">（最近 ' + logList.length + ' 次操作）</span></h3>' + logToggle + '</div>' +
+      '<div class="panel-head"><h3>打卡时间 <span class="muted-sm">（最近 ' + logList.length + ' 次操作，含服药）</span></h3>' + logToggle + '</div>' +
       (logRows || '<div class="empty-box">还没有操作记录，去今日页点一下习惯试试。</div>') +
       '</div>';
 
@@ -8459,7 +8593,10 @@ body.modal-open{overflow:hidden}
       .map(x => '<option value="' + x[0] + '"' + ((m.courseType || 'long') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('');
     const statusOpts = [['active', '进行中'], ['paused', '暂停'], ['stopped', '已停用'], ['done', '已完成']]
       .map(x => '<option value="' + x[0] + '"' + ((m.status || 'active') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('');
-    const stockVal = (m.stock === '' || m.stock === null || m.stock === undefined) ? '' : m.stock;
+    /* 表单里填的是「现在手里有多少」，不是「剩余量」本身；
+       余量由基线减记录算出来，这里只是把它显示出来便于核对 */
+    const stockRemain = isNew ? null : medStockRemain(m);
+    const stockVal = stockRemain === null ? '' : stockRemain;
     const curTimes = Array.isArray(m.times) ? m.times : [];
     const curCount = Math.max(1, Math.min(6, curTimes.length || 1));
     const countOpts = [1, 2, 3, 4, 5, 6]
@@ -8505,10 +8642,13 @@ body.modal-open{overflow:hidden}
           '<label class="field"><span>开始日期</span><input type="date" name="startDate" value="' + esc(m.startDate || todayStr()) + '"></label>' +
           '<label class="field" data-course="short"><span>结束日期</span><input type="date" name="endDate" value="' + esc(m.endDate || fmt(addDays(new Date(), 6))) + '"></label>' +
           '<label class="field" data-course="long"><span>复诊日期（可选）</span><input type="date" name="reviewDate" value="' + esc(m.reviewDate || '') + '"></label>' +
-          '<label class="field"><span>库存（可选）</span><input type="number" name="stock" min="0" step="0.1" value="' + esc(stockVal) + '" placeholder="与剂量单位一致"></label>' +
+          '<label class="field"><span>当前余量（可选）</span><input type="number" name="stock" min="0" step="0.1" value="' + esc(stockVal) + '" placeholder="现在手里实际剩几片"></label>' +
           '<label class="field"><span>药品厂商</span><input name="manufacturer" maxlength="30" value="' + esc(m.manufacturer || '') + '" placeholder="例如：辉瑞 / 白云山"></label>' +
           '<label class="field wide"><span>药品信息备注</span><input name="medInfo" maxlength="60" value="' + esc(m.medInfo || '') + '" placeholder="例如：缓释胶囊 / 需避光 / 不可与牛奶同服"></label>' +
         '</div>' +
+        '<p class="hint">「当前余量」填你现在手里实际有多少（可数一遍）。之后每记录一次服药会自动往下扣，' +
+          (stockRemain === null ? '所以这个数越准，剩余天数越可信。' : '上次登记：' + esc(medStockBaseLabel(m) || '—') + '。改这个数字等于重新登记一次基线。') +
+          '留空则不跟踪库存。</p>' +
         '<p class="hint">只记录医生给你的方案；应用不提供剂量建议。剂量单位默认与剂型一致，可单独调整；选择「按需」时无需填次数与时间。</p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
@@ -8966,6 +9106,25 @@ body.modal-open{overflow:hidden}
         if (isFinite(nv) && nv >= 0) mealOffset = Math.min(720, Math.round(nv));
       }
     }
+    /* 库存：输入框里是「现在手里有多少」。
+       - 留空 → 不跟踪
+       - 数字和当前余量相同 → 什么都没变，保留原基线（否则历史扣减会被“洗掉”）
+       - 数字不同 → 视为一次重新登记，把此刻设为新基线 */
+    const existingMed = id ? medById(id) : null;
+    const shownRemain = existingMed ? medStockRemain(existingMed) : null;
+    const inputStock = stockRaw === '' ? null : Math.max(0, Number(stockRaw) || 0);
+    let stockBase = '';
+    let stockBaseAt = '';
+    if (inputStock !== null) {
+      if (existingMed && shownRemain !== null && Math.abs(inputStock - shownRemain) < 0.001) {
+        stockBase = existingMed.stockBase;
+        stockBaseAt = existingMed.stockBaseAt;
+      } else {
+        stockBase = inputStock;
+        stockBaseAt = new Date().toISOString();
+      }
+    }
+
     const payload = {
       name: name,
       purpose: get('purpose') || '其他',
@@ -8981,7 +9140,10 @@ body.modal-open{overflow:hidden}
       endDate: endDate,
       reviewDate: courseType === 'long' ? get('reviewDate') : '',
       status: get('status') || 'active',
-      stock: stockRaw === '' ? '' : Math.max(0, Number(stockRaw) || 0),
+      stockBase: stockBase,
+      stockBaseAt: stockBaseAt,
+      stockReview: false,
+      updatedAt: Date.now(),
       manufacturer: get('manufacturer'),
       medInfo: get('medInfo'),
       note: id ? ((medById(id) || {}).note || '') : ''

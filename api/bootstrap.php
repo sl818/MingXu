@@ -165,7 +165,12 @@ function lb_user(): ?array
         return null;
     }
     if (!isset($_SESSION['epoch']) || (int)$_SESSION['epoch'] !== (int)$user['session_epoch']) {
+        // 之前登录过、但现在 epoch 对不上：说明这个账号在别处重新登录了，本设备被顶替
+        $wasLoggedIn = isset($_SESSION['uid']);
         unset($_SESSION['uid'], $_SESSION['epoch']);
+        if ($wasLoggedIn) {
+            $_SESSION['kicked'] = 1;
+        }
         return null;
     }
     return $user;
@@ -175,6 +180,10 @@ function lb_auth(): array
 {
     $user = lb_user();
     if (!$user) {
+        if (!empty($_SESSION['kicked'])) {
+            unset($_SESSION['kicked']);
+            lb_fail('这个账号已在其他设备登录，这台设备已退出。同一账号只允许一台设备在线。', 401, 'session_replaced');
+        }
         lb_fail('请先登录', 401, 'unauthenticated');
     }
     return $user;
