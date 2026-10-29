@@ -34,6 +34,9 @@ ini_set('display_errors', '0');
 require __DIR__ . '/api/bootstrap.php';
 require __DIR__ . '/api/backup.php';
 require __DIR__ . '/api/ics.php';
+/* push.php 内部已经 require_once 了 schedule.php；
+   这里必须用 once，否则 schedule.php 被加载两次会「函数重复声明」直接 fatal */
+require_once __DIR__ . '/api/push.php';
 
 /* 订阅请求用不上会话：系统日历不带 Cookie，不需要登录态。
    而 session_start() 每次都会新建/锁定一个文件 —— 实测每个订阅请求都会在
@@ -330,6 +333,94 @@ try {
             }
             echo $built['text'];
             exit;
+
+        /* ---------- 手机推送 ----------
+           地址不在这里回显成脱敏形式，而是原样返回：
+           用户需要能核对、能复制，登录态下给完整地址是合理的。 */
+        case 'push_status':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $user = lb_auth();
+            $st = lb_db()->prepare(
+                'SELECT push_webhook, push_enabled FROM users WHERE id = ? LIMIT 1'
+            );
+            $st->execute([(int)$user['id']]);
+            $row = $st->fetch() ?: [];
+            $cnt = lb_db()->prepare(
+                'SELECT COUNT(*) FROM push_sent WHERE user_id = ? AND sent_at >= ?'
+            );
+            $cnt->execute([
+                (int)$user['id'],
+                (new DateTimeImmutable('today', lb_ics_tz()))->format('Y-m-d H:i:s'),
+            ]);
+            $last = lb_db()->prepare(
+                'SELECT sent_at FROM push_sent WHERE user_id = ? ORDER BY sent_at DESC LIMIT 1'
+            );
+            $last->execute([(int)$user['id']]);
+            lb_json([
+                'ok' => true,
+                'enabled' => (int)($row['push_enabled'] ?? 0) === 1,
+                'webhook' => (string)($row['push_webhook'] ?? ''),
+                'sent_today' => (int)$cnt->fetchColumn(),
+                'last_sent' => (string)($last->fetchColumn() ?: ''),
+            ]);
+            break;
+
+        case 'push_save':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $in = lb_body();
+            $url = trim((string)($in['webhook'] ?? ''));
+            if ($url !== '' && !lb_push_url_ok($url)) {
+                lb_fail(
+                    '这条地址不像是企业微信机器人。正确形式是 '
+                    . 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...',
+                    400,
+                    'bad_webhook'
+                );
+            }
+            $enabled = !empty($in['enabled']) && $url !== '';
+            $up = lb_db()->prepare(
+                'UPDATE users SET push_webhook = ?, push_enabled = ? WHERE id = ?'
+            );
+            $up->execute([$url !== '' ? $url : null, $enabled ? 1 : 0, (int)$user['id']]);
+            lb_json(['ok' => true, 'enabled' => $enabled]);
+            break;
+
+        case 'push_test':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $st = lb_db()->prepare('SELECT push_webhook FROM users WHERE id = ? LIMIT 1');
+            $st->execute([(int)$user['id']]);
+            $url = (string)$st->fetchColumn();
+            if ($url === '') {
+                lb_fail('还没填推送地址', 400, 'no_webhook');
+            }
+            $now = new DateTimeImmutable('now', lb_ics_tz());
+            $ok = lb_push_send(
+                $url,
+                '晚风 Todo 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
+                . "\n" . '收到这条就说明推送通道是通的。',
+                'text',
+                $why
+            );
+            if (!$ok) {
+                lb_fail('没发出去：' . $why, 502, 'push_failed');
+            }
+            lb_json(['ok' => true]);
+            break;
+
+        case 'push_off':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            lb_db()->prepare('UPDATE users SET push_enabled = 0 WHERE id = ?')
+                ->execute([(int)$user['id']]);
+            lb_json(['ok' => true]);
+            break;
 
         case 'load':
             if ($method !== 'GET') {

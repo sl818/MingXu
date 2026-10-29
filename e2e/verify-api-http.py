@@ -54,8 +54,12 @@ if os.path.isdir(SITE):
     shutil.rmtree(SITE)
 os.makedirs(os.path.join(SITE, 'api'))
 shutil.copy(os.path.join(ROOT, 'api.php'), SITE)
-for f in ('bootstrap.php', 'backup.php', 'ics.php'):
-    shutil.copy(os.path.join(ROOT, 'api', f), os.path.join(SITE, 'api', f))
+# 把 api/ 下所有后端文件都带上（不含 config.php，测试用自己伪造的那份）。
+# 以前是写死文件名，加了 push.php / schedule.php 之后站点起不来，全部 500——
+# 那种失败看起来像「接口坏了」，其实是测试环境缺文件，很容易误判。
+for f in sorted(os.listdir(os.path.join(ROOT, 'api'))):
+    if f.endswith('.php') and f != 'config.php':
+        shutil.copy(os.path.join(ROOT, 'api', f), os.path.join(SITE, 'api', f))
 
 # 把「临时副本」的 DSN 换成 SQLite，真文件不动
 bp = os.path.join(SITE, 'api', 'bootstrap.php')
@@ -90,8 +94,11 @@ db = sqlite3.connect(os.path.join(SITE, 't.db'))
 db.executescript("""
 CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, password_hash TEXT, display_name TEXT,
   is_admin INTEGER DEFAULT 0, status TEXT DEFAULT 'active', session_epoch INTEGER DEFAULT 0,
-  ics_token TEXT, created_at TEXT, last_login_at TEXT);
+  ics_token TEXT, push_webhook TEXT, push_enabled INTEGER DEFAULT 0,
+  created_at TEXT, last_login_at TEXT);
 CREATE TABLE boards (user_id INTEGER PRIMARY KEY, data TEXT, rev INTEGER, updated_at INTEGER);
+CREATE TABLE push_sent (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER,
+  slot_key TEXT, kind TEXT, sent_at TEXT);
 CREATE TABLE app_settings (k TEXT PRIMARY KEY, v TEXT);
 """)
 db.execute("INSERT INTO users (id,email,status,ics_token) VALUES (1,'x@y.z','active',?)", (TOKEN,))
@@ -192,6 +199,18 @@ try:
     chk('me 正常返回', st == 200 and b'"ok":true' in body, 'status=%d' % st)
     chk('me 会创建会话（说明会话没被整体跳过）', count_sessions() > after,
         'now=%d' % count_sessions())
+
+    print('\n[4b] 推送接口的鉴权与降级')
+    st, _, _ = req(BASE + '?action=push_status')
+    chk('push_status 未登录返回 401', st == 401, 'status=%d' % st)
+    # 写接口先校验方法再校验身份，所以要用 POST 才能看到 401
+    for act in ('push_save', 'push_test', 'push_off'):
+        st, _, _ = req('%s?action=%s' % (BASE, act), method='POST')
+        chk('%s 未登录返回 401' % act, st == 401, 'status=%d' % st)
+    st, _, _ = req(BASE + '?action=push_status', method='POST')
+    chk('push_status 用 POST 返回 405', st == 405, 'status=%d' % st)
+    st, _, _ = req(BASE + '?action=push_save')
+    chk('push_save 用 GET 返回 405', st == 405, 'status=%d' % st)
 
     print('\n[5] 探测与未知路径')
     st, _, body = req(BASE)

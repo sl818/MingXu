@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
   session_epoch INT UNSIGNED NOT NULL DEFAULT 0,
   ics_token VARCHAR(64) NULL DEFAULT NULL,
+  push_webhook VARCHAR(255) NULL DEFAULT NULL,
+  push_enabled TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL,
   PRIMARY KEY (id),
@@ -38,6 +40,18 @@ CREATE TABLE IF NOT EXISTS board_revisions (
   KEY idx_revisions_user_time (user_id, created_at),
   KEY idx_revisions_user_id (user_id, id),
   CONSTRAINT fk_revisions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS push_sent (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  slot_key VARCHAR(120) NOT NULL,
+  kind VARCHAR(12) NOT NULL DEFAULT '',
+  sent_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_push_sent (user_id, slot_key),
+  KEY idx_push_sent_time (sent_at),
+  CONSTRAINT fk_push_sent_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS app_settings (

@@ -109,6 +109,9 @@ class H(http.server.SimpleHTTPRequestHandler):
                 self._j({'ok': True, 'installed': True, 'registration_open': False})
             elif a == 'me':
                 self._j({'ok': True, 'user': sessions.get(self._sid()), 'csrf': 'x', 'registration_open': False})
+            elif a == 'push_status':
+                self._j({'ok': True, 'enabled': False, 'webhook': '',
+                         'sent_today': 0, 'last_sent': ''})
             elif a == 'ics_status':
                 # 订阅地址默认没有；专门的 verify-ics-ui.py 会覆盖这个路由做交互测试
                 self._j({'ok': True, 'url': None})

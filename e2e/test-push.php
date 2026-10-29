@@ -7,6 +7,10 @@
  *   php -d extension_dir=<php>/ext -d extension=openssl -d extension=curl e2e/test-push.php
  */
 
+/* push.php 现在会连带 require schedule.php -> ics.php，
+   而 ics.php 没有这个常量就直接 exit */
+define('LIFEBOARD_API', 1);
+
 require __DIR__ . '/../api/push.php';
 
 $pass = 0;

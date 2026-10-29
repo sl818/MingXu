@@ -13,6 +13,11 @@
  * 这个文件只负责「把一段文字发出去」，不判断该不该发。判断逻辑在调用方。
  */
 
+/* 依赖 schedule.php 计算「这一分钟该发什么」。
+   schedule.php 依赖 ics.php 的日期工具，而 ics.php 有 LIFEBOARD_API 保护，
+   所以调用方（api.php / tools / e2e）必须已经定义了这个常量。 */
+require_once __DIR__ . '/schedule.php';
+
 const LB_PUSH_HOST = 'qyapi.weixin.qq.com';
 const LB_PUSH_TIMEOUT = 6;
 /* 企业微信文本消息上限 2048 字节，留点余量给装不下的情况 */
@@ -212,4 +217,120 @@ function lb_push_send(string $webhook, string $content, string $type = 'text', ?
         return false;
     }
     return true;
+}
+
+/**
+ * 跑一轮推送：算出现在该发什么，逐条发出去。
+ *
+ * 逻辑和 IO 分开是有意的——发送器由调用方传入，测试时可以塞一个假的，
+ * 于是「去重是否正确」「发失败会不会回滚」这些最容易写错的地方能被穷举验证，
+ * 而不是靠人肉盯线上。
+ *
+ * @param callable $sender function(string $webhook, string $content, ?string &$err): bool
+ * @return array{sent:int, skipped:int, failed:int, items:array<int,array>}
+ */
+function lb_push_tick_run(
+    PDO $pdo,
+    string $date,
+    string $hm,
+    callable $sender,
+    bool $dry = false,
+    int $grace = 3
+): array {
+    $out = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'items' => []];
+
+    $rows = $pdo->query(
+        "SELECT u.id, u.push_webhook, b.data
+           FROM users u
+           INNER JOIN boards b ON b.user_id = u.id
+          WHERE u.push_enabled = 1
+            AND u.status = 'active'
+            AND u.push_webhook IS NOT NULL
+            AND u.push_webhook <> ''"
+    )->fetchAll();
+
+    if (!$rows) {
+        return $out;
+    }
+
+    $ins = null;
+    $del = null;
+    if (!$dry) {
+        /* SQLite 不认 MySQL 的 INSERT IGNORE，但它是我们唯一能在本地跑起来的
+           真实数据库——去重逻辑只有在真库上验过才算数，所以两种写法都留着。 */
+        $verb = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+        $ins = $pdo->prepare(
+            $verb . ' INTO push_sent (user_id, slot_key, kind, sent_at) VALUES (?, ?, ?, ?)'
+        );
+        $del = $pdo->prepare('DELETE FROM push_sent WHERE user_id = ? AND slot_key = ?');
+    }
+    $stamp = $date . ' ' . $hm . ':00';
+
+    foreach ($rows as $r) {
+        $uid = (int)$r['id'];
+        $hook = (string)$r['push_webhook'];
+        $state = json_decode((string)$r['data'], true);
+        if (!is_array($state)) {
+            continue;
+        }
+        $due = lb_schedule_due(lb_schedule_day($state, $date), $hm, $grace);
+        if (!$due) {
+            continue;
+        }
+
+        foreach ($due as $item) {
+            $key = $date . '|' . $item['kind'] . '|' . $item['id'] . '|' . $item['time'];
+            $text = $item['title'] . "\n" . $item['body'];
+            $entry = ['user' => $uid, 'key' => $key, 'kind' => $item['kind'],
+                      'time' => $item['time'], 'text' => $text, 'ok' => false];
+
+            if ($dry) {
+                $entry['ok'] = true;
+                $out['items'][] = $entry;
+                $out['sent']++;
+                continue;
+            }
+
+            /* 先占位再看结果：唯一索引保证同一条只可能插进去一次，
+               比「先查再插」在并发和延迟下都可靠 */
+            try {
+                $ins->execute([$uid, $key, $item['kind'], $stamp]);
+            } catch (PDOException $e) {
+                $out['failed']++;
+                $entry['why'] = '写发送记录失败：' . $e->getMessage();
+                $out['items'][] = $entry;
+                continue;
+            }
+            if ($ins->rowCount() < 1) {
+                $out['skipped']++;
+                continue;
+            }
+
+            $why = '';
+            $ok = (bool)$sender($hook, $text, $why);
+            if ($ok) {
+                $out['sent']++;
+                $entry['ok'] = true;
+            } else {
+                $out['failed']++;
+                $entry['why'] = $why;
+                /* 发失败必须撤掉占位，否则这条永远不会再试，提醒就永久丢了 */
+                $del->execute([$uid, $key]);
+            }
+            $out['items'][] = $entry;
+        }
+    }
+
+    /* 清理旧记录。失败也不影响本轮结果 */
+    if (!$dry) {
+        try {
+            $pdo->prepare('DELETE FROM push_sent WHERE sent_at < ?')
+                ->execute([date('Y-m-d H:i:s', strtotime($stamp . ' -7 days'))]);
+        } catch (PDOException $e) {
+            /* 忽略：清理失败不该让推送停摆 */
+        }
+    }
+
+    return $out;
 }

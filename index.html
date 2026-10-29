@@ -4269,6 +4269,7 @@ body.modal-open{overflow:hidden}
 
   async function cloudLogout() {
     icsUrl = undefined;   /* 换账号后订阅地址不能沿用 */
+    pushCfg = undefined;  /* 同上，推送地址更不能沿用 */
     if (cloud.pending) await cloudPush(false, true);
     if (cloud.pending && !confirm('还有修改没有保存到云端。退出后这些修改会丢失，继续吗？')) return;
     try {
@@ -8121,6 +8122,112 @@ body.modal-open{overflow:hidden}
     }
   }
 
+  /* ---------- 手机推送 ----------
+     走企业微信机器人，不用 Web Push：国行安卓没有 FCM，Bark 只有 iOS，
+     ntfy 这类要靠 App 自己保活会被系统杀掉。微信/企业微信在厂商白名单里。
+     pushCfg 三态：undefined = 还没问过；null = 没配置；对象 = 已读到。 */
+  let pushCfg;
+  let pushLoading = false;
+  let pushBusy = false;
+
+  function pushStateText() {
+    if (pushCfg === undefined) return '读取中';
+    if (!pushCfg || !pushCfg.webhook) return '还没设置';
+    return pushCfg.enabled ? '已开启 · 每分钟检查一次' : '已填地址，未开启';
+  }
+
+  async function pushLoad() {
+    if (pushLoading || pushCfg !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    pushLoading = true;
+    try {
+      const r = await cloudApi('push_status');
+      pushCfg = {
+        enabled: !!(r && r.enabled),
+        webhook: (r && typeof r.webhook === 'string') ? r.webhook : '',
+        sentToday: (r && Number(r.sent_today)) || 0,
+        lastSent: (r && r.last_sent) ? String(r.last_sent) : ''
+      };
+    } catch (e) {
+      pushCfg = null;
+    }
+    pushLoading = false;
+    if (view === 'settings') render();
+  }
+
+  function pushHookInput() {
+    const el = document.getElementById('push-hook');
+    return el ? el.value.trim() : ((pushCfg && pushCfg.webhook) || '');
+  }
+
+  async function pushSave(enable) {
+    const hook = pushHookInput();
+    if (enable && !hook) {
+      toast('先把 webhook 地址填进来');
+      const el = document.getElementById('push-hook');
+      if (el) el.focus();
+      return false;
+    }
+    try {
+      const r = await cloudApi('push_save', { webhook: hook, enabled: !!enable });
+      pushCfg = Object.assign({ sentToday: 0, lastSent: '' }, pushCfg || {}, {
+        webhook: hook, enabled: !!(r && r.enabled)
+      });
+      render();
+      toast(enable ? '推送已开启 · 到点会发到手机上' : '已保存，推送已关闭');
+      return true;
+    } catch (e) {
+      toast(e && e.message ? e.message : '保存失败');
+      return false;
+    }
+  }
+
+  async function pushTest() {
+    if (pushBusy) return;
+    pushBusy = true;
+    try {
+      const saved = await pushSave(true);
+      if (!saved) return;
+      toast('正在发送…');
+      try {
+        await cloudApi('push_test', {});
+        toast('发出去了，看看手机');
+      } catch (e) {
+        toast(e && e.message ? e.message : '发送失败');
+      }
+    } finally {
+      pushBusy = false;
+    }
+  }
+
+  function pushBoxHtml() {
+    const cfg = pushCfg;
+    const hook = cfg && cfg.webhook ? cfg.webhook : '';
+    const on = !!(cfg && cfg.enabled);
+    return '<div class="ntf-box">' +
+      '<div class="ntf-head"><span class="ntf-dot ' + (on ? 'on' : '') + '"></span><b>手机推送</b>' +
+        '<span class="ntf-state">' + esc(pushStateText()) + '</span></div>' +
+      '<p class="muted-sm" style="margin:0 0 10px">用药、到点的任务、习惯会直接发到你的微信。' +
+      '和日历订阅的区别是：日历由手机自己算，这个由服务器在那一分钟主动发，' +
+      '所以关掉网页也能收到，而且能看到具体是「该吃药了」还是「该做这件事了」。</p>' +
+      '<input class="ics-url" id="push-hook" spellcheck="false" ' +
+        'placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." ' +
+        'value="' + esc(hook) + '">' +
+      '<div class="btn-row">' +
+        '<button class="btn primary" data-act="push-test">保存并发一条测试</button>' +
+        (on ? '<button class="btn" data-act="push-off">暂停推送</button>' : '') +
+      '</div>' +
+      '<p class="ics-hint">企业微信 → 建一个只有自己的<b>内部群</b>（外部群加不了机器人）→ ' +
+      '群设置 → 群机器人 → 添加 → 复制 webhook 地址粘到这里。</p>' +
+      '<p class="ics-warn">⚠️ 这个地址等于往你群里发消息的钥匙，别贴到公开的地方。' +
+      '万一泄露，在企业微信里删掉机器人再重新添加一个就是新地址。</p>' +
+      (cfg && cfg.lastSent
+        ? '<p class="ics-hint">最近一次发送：' + esc(cfg.lastSent) +
+          (cfg.sentToday ? ' · 今天已发 ' + cfg.sentToday + ' 条' : '') + '</p>'
+        : '') +
+    '</div>';
+  }
+
   /* ---------- 提醒设置面板 ---------- */
   function remindStatusText() {
     const st = notifyState();
@@ -8184,11 +8291,13 @@ body.modal-open{overflow:hidden}
         '安卓：Google 日历 → 添加其他日历 → 通过网址添加。</p>' +
         '<p class="ics-warn">⚠️ 这个地址等于你日程的钥匙，别发给别人。万一泄露就点「重新生成」，旧地址立刻失效。</p>' +
       '</div>' +
+      pushBoxHtml() +
       installBoxHtml();
   }
 
   function viewSettings() {
     icsLoad();
+    pushLoad();
     return '' +
       '<div class="page-head"><div><h2>设置</h2><p>外观、账号与数据。</p></div></div>' +
       '<div class="settings-wrap">' +
@@ -10540,6 +10649,8 @@ body.modal-open{overflow:hidden}
     'notify-off': () => notifyDisable(),
     'ics-copy': () => { icsCopy(); },
     'ics-reset': () => { icsReset(); },
+    'push-test': () => { pushTest(); },
+    'push-off': () => { pushSave(false); },
     'ics-export': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const built = buildICS();

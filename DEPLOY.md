@@ -13,6 +13,9 @@
 ├── api/
 │   ├── bootstrap.php
 │   ├── backup.php          # 每日快照（写入 ../backups/）
+│   ├── ics.php             # 日历订阅的 iCalendar 生成
+│   ├── schedule.php        # 「某一天几点该提醒什么」（推送用）
+│   ├── push.php            # 企业微信机器人发送 + 一轮推送的调度
 │   └── config.php          # 安装向导生成（不要公开）
 ├── install/
 │   └── index.php           # 安装向导（装完删除）
@@ -21,7 +24,9 @@
 │   └── migrations/         # 已有站点的增量迁移 SQL
 ├── tools/
 │   ├── create_user.php     # 命令行救援账号（可选）
-│   └── restore_backup.php  # 从每日快照恢复看板
+│   ├── restore_backup.php  # 从每日快照恢复看板
+│   ├── push_tick.php       # 定时任务：每分钟把该提醒的推到手机
+│   └── push_test.php       # 命令行发一条测试消息
 ├── backups/                # 每日快照，自动生成；含隐私，勿公开勿入库
 ├── manifest.json           # PWA 清单
 ├── service-worker.js       # PWA 外壳缓存
@@ -353,6 +358,64 @@ location ~ ^/ics/([a-f0-9]{64})\.ics$ {
 地址里那串 token 等于你日程的钥匙，别发给别人；泄露了点「重新生成」，旧地址立刻失效。
 这个功能需要先执行 `db/migrations/2026-10-29_ics_token.sql`（给 users 表加一列）。
 
+### 8.1c 手机推送（企业微信群机器人）
+
+日历订阅靠手机自己算，好处是零维护；缺点是改计划后要等系统来拉，而且部分国产日历
+（小米、华为）解析不了订阅源。想要「服务器在那一分钟主动发到手机」，就用这条路。
+
+为什么是微信而不是别的：国行安卓没有 Google 服务框架，也就没有 FCM 这条系统级推送通道。
+Bark 只有 iOS 客户端；ntfy 这类要 App 自己开长连接保活，会被 MIUI / HyperOS 杀掉。
+微信和企业微信在厂商白名单里，是国行安卓上唯一稳定的送达通道。
+
+**配置步骤**
+
+1. 执行 `db/migrations/2026-10-29_push.sql`（给 users 加两列 + 建 push_sent 表）
+2. 传代码
+3. 进设置 → 提醒 → 手机推送，粘贴 webhook，点「保存并发一条测试」
+
+webhook 在哪拿：企业微信 → 建一个**只有自己的内部群**（外部群加不了机器人）→
+群设置 → 群机器人 → 添加 → 复制地址。个人注册免费，不需要营业执照。
+
+**必须配的计划任务**
+
+宝塔 → 计划任务 → 添加：
+
+- 任务类型：Shell 脚本
+- 任务名称：晚风推送
+- 执行周期：**N 分钟 → 1 分钟**（不能更稀，代码只往前宽容 3 分钟）
+- 脚本内容：
+
+```bash
+cd /www/wwwroot/todo && /www/server/php/81/bin/php tools/push_tick.php
+```
+
+PHP 路径按实际版本改（`ls /www/server/php/` 能看到）。
+
+**怎么确认它在工作**
+
+```bash
+# 预演：只打印这一分钟要发什么，不写库也不真发
+cd /www/wwwroot/todo && php tools/push_tick.php --dry
+
+# 假装现在是 08:00，排查「为什么这条没发」
+php tools/push_tick.php --dry --at 08:00
+```
+
+**几个要知道的行为**
+
+- 每一条只发一次。靠 `push_sent` 的唯一索引去重，定时任务重叠执行也不会重复发
+- 发失败会把占位删掉，下一分钟自动重试
+- 只往前宽容 3 分钟。服务器重启后不会补发几小时前的提醒——那没有意义
+- 只有「今天到期」的待办会按点提醒；逾期的走页内提醒，不在这里反复响
+- 备用药（按需服用）、可选项习惯、已经打过卡的，都不会推
+- 企业微信限每个机器人每分钟 20 条，超出直接丢弃。正常使用远远够
+
+**时区**
+
+代码里固定按 `Asia/Shanghai` 计算，不依赖 php.ini。但 `push_sent.sent_at` 和清理逻辑
+用的是同一个时间源，所以服务器时区即使是 UTC 也不会错位。真要保险，可以在宝塔里
+把 PHP 时区设成 Asia/Shanghai。
+
 ### 8.2 数据库级备份（建议配上）
 
 应用快照挡得住误删和程序故障，挡不住整台服务器出事，所以再加一层数据库 dump：
@@ -392,9 +455,14 @@ gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboa
 
 ## 10. 更新代码
 
-> 如果这次更新包含 `db/migrations/` 里的新文件，先执行 SQL 再传代码：
-> 例如 v36 的日历订阅需要 `ALTER TABLE users ADD COLUMN ics_token ...`。
-> 顺序反了不会崩（接口会报 500），但订阅功能用不了。
+> 如果这次更新包含 `db/migrations/` 里的新文件，先执行 SQL 再传代码。
+> 顺序反了不会崩（对应接口会报 500），功能用不了。
+>
+> - v36 日历订阅：`ALTER TABLE users ADD COLUMN ics_token ...`
+> - v39 手机推送：`ALTER TABLE users ADD COLUMN push_webhook / push_enabled`
+>   ＋ 建 `push_sent` 表，见 `db/migrations/2026-10-29_push.sql`
+>
+> 推送还需要在宝塔里加一个**每分钟**的计划任务，见 8.1c。
 
 1. 备份数据库。
 2. 覆盖 `index.html`、`api.php`、`api/bootstrap.php`、`install/`、`db/schema.sql`、`db/migrations/`（保留 `api/config.php` 和 `install.lock`）。
