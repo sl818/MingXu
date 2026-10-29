@@ -403,12 +403,19 @@ with sync_playwright() as p:
             return b ? { items: Array.from(b.querySelectorAll('.remind-item')).map(e => e.textContent.trim()),
                          go: !!b.querySelector('.remind-go'), x: !!b.querySelector('.remind-x') } : null;
         }""")
-        rec('打开页面出现提醒横幅', bool(bar) and len(bar['items']) == 3, json.dumps(bar, ensure_ascii=False))
+        rec('打开页面出现提醒横幅',
+            bool(bar) and len([x for x in bar['items'] if not x.startswith('还有 ')]) <= 3,
+            json.dumps(bar, ensure_ascii=False))
         if bar:
             joined = ' | '.join(bar['items'])
+            shown = [x for x in bar['items'] if not x.startswith('还有 ')]
             rec('提示逾期用药次数（2 次）', '逾期' in joined or '已过时间' in joined, joined[:60])
             rec('提示今日待服次数（2 次）', '待服' in joined, joined[:60])
-            rec('提示喝水还差 6 杯', '喝水还差 6' in joined, joined[:60])
+            rec('横幅最多铺 3 条', len(shown) == 3, joined[:80])
+            # 从 v33 起提醒来源扩到 6 类，超过 3 条的折成「还有 N 条」，
+            # 喝水排在最后，正常情况下会被折进计数
+            rec('喝水提醒仍在（超出部分折进计数）',
+                '喝水还差 6' in joined or any(x == '还有 1 条' for x in bar['items']), joined[:80])
             rec('横幅有「去看看」与「今天不再提醒」', bar['go'] and bar['x'], '')
 
         # 标题闪烁：轮询 3.4 秒，应至少出现一次带计数前缀的标题

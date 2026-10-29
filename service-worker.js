@@ -1,6 +1,6 @@
 /* 晚风Todo PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v32';
+const CACHE = 'lifeboard-shell-v33';
 const ASSETS = [
   './',
   './index.html',
@@ -76,5 +76,24 @@ self.addEventListener('fetch', event => {
         return response;
       });
     })
+  );
+});
+
+/* 点通知：优先聚焦已经开着的窗口，并把要去的页面告诉它；
+   全都没开的时候才新开一个。 */
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.view) || 'today';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        if ('focus' in c) {
+          if ('postMessage' in c) c.postMessage({ type: 'goto', view: target });
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow('./');
+    }).catch(() => {})
   );
 });

@@ -2868,6 +2868,50 @@ body.modal-open{overflow:hidden}
   :root[data-layout="wide"] .sidebar{display:none}
     }
 </style>
+<style id="notify-v33">
+/* v33：提醒面板与安装提示 */
+.remind-item.remind-more{color:var(--text);font-weight:500}
+.ntf-box{padding:13px 14px;border:1px solid var(--line);border-radius:12px;margin:10px 0 0;background:var(--surface-2)}
+.ntf-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.ntf-head b{font-size:13.5px;font-weight:600;color:var(--text)}
+.ntf-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;opacity:.5}
+.ntf-dot.on{background:var(--accent);opacity:1}
+.ntf-dot.bad{background:var(--bad);opacity:1}
+.ntf-state{font-size:12px;color:var(--muted);font-weight:400;line-height:1.5}
+.ntf-box .btn-row{margin-top:10px}
+.install-tip{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;
+  border:1px dashed var(--line);border-radius:12px;background:var(--surface-2)}
+.it-ico{font-size:18px;line-height:1;flex:none}
+.it-body{flex:1;min-width:0}
+.it-body b{display:block;font-size:12.5px;font-weight:600;color:var(--text);line-height:1.4}
+.it-body small{display:block;font-size:11px;color:var(--muted);line-height:1.45;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 描边按钮而不是实心：clay 皮肤的 --accent 与 --on-accent 对比只有 4.02，
+   实心样式会让这段 12.5px 的小字落在 AA 线以下 */
+.it-go{flex:none;border:1px solid var(--accent);background:var(--surface);color:var(--text);
+  font:inherit;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:9px;cursor:pointer}
+.it-go:hover{background:var(--accent-soft)}
+.it-x{flex:none;border:0;background:none;color:var(--muted);font-size:17px;line-height:1;
+  padding:4px 6px;cursor:pointer;border-radius:7px}
+.it-x:hover{background:var(--surface-2);color:var(--text)}
+@media (pointer: coarse){
+  .it-go{position:relative}
+  .it-go::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
+  .it-x{position:relative}
+  .it-x::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
+}
+/* 手机：提醒横幅收成两行以内，「今天不再提醒」压成一个 ×，
+   否则图标和两个按钮会把标题区挤掉一大半 */
+@media (max-width: 560px){
+  .remind-bar{padding:9px 11px;gap:8px;font-size:11.5px}
+  .remind-body{min-width:0;gap:2px 10px;max-height:3.1em;overflow:hidden}
+  .remind-go{padding:4px 10px;font-size:11px}
+  .remind-x{font-size:0;width:26px;height:26px;padding:0;display:grid;place-items:center;flex:none}
+  .remind-x::after{content:'×';font-size:17px;line-height:1}
+  .install-tip{padding:9px 11px}
+  .it-body b{font-size:12px}
+}
+</style>
 
 
 
@@ -5208,8 +5252,10 @@ body.modal-open{overflow:hidden}
     try { return localStorage.getItem(REMIND_DISMISS_KEY) === todayStr(); } catch (e) { return false; }
   }
 
-  /* 三条规则：逾期用药 / 今日待服 / 喝水长时间没记。
-     统一在 9 点后才算，避免清早一打开就被催。 */
+  /* 四类提醒来源：用药、重复任务到点、过截止日的待办、该打卡的习惯。
+     统一在 9 点后才算，避免清早一打开就被催。
+     每条带一个稳定 key：系统通知按 key + 日期去重，同一天不会反复轰炸，
+     横幅和标签页计数也都读这一份，三处数字不会各算各的。 */
   function remindItems() {
     const d = todayStr();
     const now = new Date();
@@ -5222,8 +5268,42 @@ body.modal-open{overflow:hidden}
       if (doseAt(d, s.med.id, s.slot)) return;
       if (s.slot < hm) overdue++; else pending++;
     });
-    if (overdue) items.push({ text: '用药有 ' + overdue + ' 次已过时间还没记录', view: 'meds' });
-    if (pending) items.push({ text: '今天还有 ' + pending + ' 次用药待服', view: 'meds' });
+    if (overdue) items.push({ key: 'med-overdue', text: overdue + ' 次用药已过时间', view: 'meds' });
+    if (pending) items.push({ key: 'med-pending', text: pending + ' 次用药待服', view: 'meds' });
+
+    /* 待办 1：重复任务过了今天的提醒时刻还没做（repeatTime 之前只在表单里存着，没人读） */
+    const open = (state.tasks || []).filter(t => t && !t.archivedAt && t.status !== 'done');
+    const repeatDue = open.filter(t =>
+      t.repeat && t.repeat !== 'none' && String(t.repeatTime || '20:00') <= hm);
+    if (repeatDue.length) {
+      items.push({
+        key: 'task-' + repeatDue[0].id,
+        text: '「' + String(repeatDue[0].title || '待办') + '」到时间了' +
+          (repeatDue.length > 1 ? '，另有 ' + (repeatDue.length - 1) + ' 件' : ''),
+        view: 'board'
+      });
+    }
+    /* 待办 2：过截止日的单次任务合并成一条，别一个任务一条把横幅撑爆 */
+    const lateCount = open.filter(t =>
+      t.due && String(t.due) < d && (!t.repeat || t.repeat === 'none')).length;
+    if (lateCount) {
+      items.push({ key: 'task-late', text: lateCount + ' 件待办已逾期', view: 'today' });
+    }
+
+    /* 习惯：只有填了「建议时间」的才会被催（如 478 呼吸法 15:00） */
+    const habitDue = activeHabits(d).filter(h => {
+      if (h.med || h.type === 'quit') return false;
+      const st = String(h.suggestTime || '');
+      if (!/^\d{2}:\d{2}$/.test(st) || st > hm) return false;
+      return countOf(d, h.id) < (Number(h.target) || 1);
+    });
+    if (habitDue.length) {
+      items.push({
+        key: 'habit-' + habitDue[0].id,
+        text: '「' + String(habitDue[0].name || '习惯') + '」还没打卡',
+        view: 'habits'
+      });
+    }
 
     const water = (state.habits || []).find(h => h.id === 'h_water' && !isArchived(h));
     if (water) {
@@ -5236,6 +5316,7 @@ body.modal-open{overflow:hidden}
         const gap = last ? (Date.now() - new Date(last).getTime()) / 3600000 : null;
         if (gap === null || gap >= 1.5) {
           items.push({
+            key: 'water',
             text: '喝水还差 ' + (target - done) + ' ' + (water.unit || '杯') +
               (gap === null ? '，今天还没记' : '，已 ' + Math.floor(gap) + ' 小时没记'),
             view: 'today'
@@ -5246,15 +5327,20 @@ body.modal-open{overflow:hidden}
     return items;
   }
 
+  /* 最多铺 3 条，剩下的折成「还有 N 条」——
+     提醒来源从 3 类扩到 6 类之后，全铺开会把首屏整块顶下去 */
   function remindBannerHtml() {
     if (mode === 'landing' || !cloud.user) return '';
     if (remindDismissedOn()) return '';
     const items = remindItems();
     if (!items.length) return '';
+    const shown = items.slice(0, 3);
+    const rest = items.length - shown.length;
     return '<div class="remind-bar" role="status">' +
       '<span class="remind-ico">⏰</span>' +
       '<div class="remind-body">' +
-        items.map(i => '<span class="remind-item">' + esc(i.text) + '</span>').join('') +
+        shown.map(i => '<span class="remind-item">' + esc(i.text) + '</span>').join('') +
+        (rest > 0 ? '<span class="remind-item remind-more">还有 ' + rest + ' 条</span>' : '') +
       '</div>' +
       '<button type="button" class="remind-go" data-act="remind-go" data-view="' + esc(items[0].view) + '">去看看</button>' +
       '<button type="button" class="remind-x" data-act="remind-dismiss" title="今天不再提醒">今天不再提醒</button>' +
@@ -5276,6 +5362,134 @@ body.modal-open{overflow:hidden}
   function remindStop() {
     if (remindTimer) { clearInterval(remindTimer); remindTimer = null; }
     if (document.title !== BASE_TITLE) document.title = BASE_TITLE;
+  }
+
+  /* ============================================================
+     系统通知
+     浏览器只在页面还活着时才会跑定时器，所以「关掉网页也要响」
+     只能靠系统日历接管（设置页里导出 .ics）。
+     这里的通知补的是另一半场景：页面开着，但已经切到别的 App。
+     ============================================================ */
+  const NOTIFY_ON_KEY = 'lifeboard.notify.on';
+  const NOTIFY_SENT_KEY = 'lifeboard.notify.sent';
+  const INSTALL_TIP_KEY = 'lifeboard.install.dismissed';
+
+  function notifySupported() {
+    return typeof Notification !== 'undefined'
+      && 'serviceWorker' in navigator
+      && typeof ServiceWorkerRegistration !== 'undefined'
+      && 'showNotification' in ServiceWorkerRegistration.prototype;
+  }
+
+  function notifyWanted() {
+    try { return localStorage.getItem(NOTIFY_ON_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  /* off / granted / denied / default / unsupported —— 设置页按这个改文案 */
+  function notifyState() {
+    if (!notifySupported()) return 'unsupported';
+    if (!notifyWanted()) return 'off';
+    return Notification.permission;
+  }
+
+  function notifySentKeys() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(NOTIFY_SENT_KEY) || '{}');
+      return (raw && raw.d === todayStr() && Array.isArray(raw.keys)) ? raw.keys : [];
+    } catch (e) { return []; }
+  }
+
+  function notifyMarkSent(keys) {
+    const all = notifySentKeys().concat(keys)
+      .filter((k, i, arr) => arr.indexOf(k) === i).slice(-40);
+    try {
+      localStorage.setItem(NOTIFY_SENT_KEY, JSON.stringify({ d: todayStr(), keys: all }));
+    } catch (e) {}
+  }
+
+  async function notifyEnable() {
+    if (!notifySupported()) { toast('这个浏览器不支持系统通知'); return; }
+    if (location.protocol !== 'https:' && !/^localhost$|^127\.0\.0\.1$/.test(location.hostname)) {
+      toast('系统通知需要 HTTPS 才能开启');
+      return;
+    }
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
+    }
+    if (perm !== 'granted') {
+      try { localStorage.removeItem(NOTIFY_ON_KEY); } catch (e) {}
+      render();
+      toast(perm === 'denied' ? '浏览器拦下了通知，去站点设置里允许后再试' : '没有开启通知');
+      return;
+    }
+    try { localStorage.setItem(NOTIFY_ON_KEY, '1'); } catch (e) {}
+    render();
+    if (remindItems().length) await notifyPing(true);
+    toast('已开启 · 切到别的应用也会提醒');
+  }
+
+  function notifyDisable() {
+    try { localStorage.removeItem(NOTIFY_ON_KEY); } catch (e) {}
+    render();
+    toast('已关闭系统通知');
+  }
+
+  /* force=true 时忽略「今天已经发过」，用于刚给权限时立刻验证一次 */
+  async function notifyPing(force) {
+    if (!notifySupported() || !notifyWanted() || Notification.permission !== 'granted') return;
+    if (mode === 'landing' || !cloud.user || remindDismissedOn()) return;
+    const sent = notifySentKeys();
+    const items = remindItems().filter(i => force || sent.indexOf(i.key) < 0);
+    if (!items.length) return;
+    let reg = null;
+    try { reg = await navigator.serviceWorker.ready; } catch (e) { return; }
+    if (!reg || typeof reg.showNotification !== 'function') return;
+    items.slice(0, 3).forEach(it => {
+      try {
+        const p = reg.showNotification('晚风Todo', {
+          body: it.text,
+          tag: it.key,
+          icon: './icons/icon-192.png',
+          badge: './icons/icon-192.png',
+          data: { view: it.view }
+        });
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (e) { /* 被系统限制时静默跳过，不影响页面本身 */ }
+    });
+    /* 标记全部而不是只标记发出去的 3 条：否则 60 秒后的下一次检查
+       会把剩下几条当成新的补发一遍，连着弹两轮 */
+    notifyMarkSent(items.map(i => i.key));
+  }
+
+  /* ---------- 装到主屏 ---------- */
+  let deferredInstall = null;
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || navigator.standalone === true;
+  }
+
+  async function installApp() {
+    if (deferredInstall) {
+      const ev = deferredInstall;
+      deferredInstall = null;
+      try { ev.prompt(); await ev.userChoice; } catch (e) {}
+      render();
+      return;
+    }
+    toast(isIOS()
+      ? 'Safari 里点底部「分享」→「添加到主屏幕」'
+      : '浏览器菜单里找「安装应用」或「添加到主屏幕」');
+  }
+
+  function installTipDismissed() {
+    try { return localStorage.getItem(INSTALL_TIP_KEY) === '1'; } catch (e) { return true; }
   }
 
   function toast(msg) {
@@ -7827,6 +8041,73 @@ body.modal-open{overflow:hidden}
       '</div></div>';
   }
 
+  /* 今日页顶部的安装提示：只在没装、没被关掉时出现，点 × 之后永久不打扰 */
+  function installTipHtml() {
+    if (view !== 'today') return '';
+    if (mode === 'landing' || !cloud.user) return '';
+    if (isStandalone() || installTipDismissed()) return '';
+    return '<div class="install-tip">' +
+      '<span class="it-ico">📲</span>' +
+      '<div class="it-body"><b>装到手机桌面</b>' +
+        '<small>' + esc(isIOS() ? 'Safari 分享 → 添加到主屏幕' : '浏览器菜单 → 安装应用') +
+        ' · 打开更快，能收到到点提醒</small></div>' +
+      '<button type="button" class="it-go" data-act="app-install">安装</button>' +
+      '<button type="button" class="it-x" data-act="install-skip" aria-label="不再提示">×</button>' +
+    '</div>';
+  }
+
+  /* ---------- 提醒设置面板 ---------- */
+  function remindStatusText() {
+    const st = notifyState();
+    if (st === 'granted') return '已开启 · 页面开着时切到别的 App 也能收到';
+    if (st === 'denied') return '被浏览器拦下了，要去站点设置里允许通知';
+    if (st === 'unsupported') return '这个浏览器不支持系统通知';
+    return '未开启 · 只有打开这个页面时才会提醒';
+  }
+
+  function installBoxHtml() {
+    if (isStandalone()) {
+      return '<div class="ntf-box"><div class="ntf-head"><span class="ntf-dot on"></span><b>已经装到桌面</b>' +
+        '<span class="ntf-state">当前就是主屏图标打开的</span></div></div>';
+    }
+    const guide = isIOS()
+      ? '在 Safari 里点底部「分享」按钮，往下找到「添加到主屏幕」。装好后从桌面图标打开，通知和离线才生效。'
+      : (deferredInstall
+        ? '点下面的按钮直接安装，也可以从浏览器菜单里选「安装应用」。'
+        : '从浏览器菜单里选「安装应用」或「添加到主屏幕」。装好后从桌面图标打开，通知和离线才生效。');
+    return '<div class="ntf-box"><div class="ntf-head"><span class="ntf-dot"></span><b>装到手机桌面</b>' +
+      '<span class="ntf-state">像 App 一样打开</span></div>' +
+      '<p class="muted-sm" style="margin:0 0 10px">' + esc(guide) + '</p>' +
+      (deferredInstall ? '<div class="btn-row"><button class="btn primary" data-act="app-install">立即安装</button></div>' : '') +
+      '</div>';
+  }
+
+  function remindPanelHtml() {
+    const st = notifyState();
+    const on = st === 'granted';
+    const dot = on ? 'on' : (st === 'denied' || st === 'unsupported' ? 'bad' : '');
+    return '' +
+      '<p class="muted-sm" style="margin-bottom:4px">这个站默认只在你<b>打开页面</b>时提醒。下面两件事能让手机真的到点响一次：' +
+      '日历负责「网页关掉之后」，系统通知负责「页面开着但切到别的应用」。</p>' +
+      '<div class="ntf-box">' +
+        '<div class="ntf-head"><span class="ntf-dot ' + dot + '"></span><b>系统通知</b>' +
+          '<span class="ntf-state">' + esc(remindStatusText()) + '</span></div>' +
+        (st === 'unsupported' ? '' :
+          '<div class="btn-row">' + (on
+            ? '<button class="btn" data-act="notify-off">关闭系统通知</button>'
+            : '<button class="btn primary" data-act="notify-on">开启系统通知</button>') + '</div>') +
+      '</div>' +
+      '<div class="ntf-box">' +
+        '<div class="ntf-head"><span class="ntf-dot"></span><b>日历提醒</b>' +
+          '<span class="ntf-state">关掉网页也会响，最可靠的一条</span></div>' +
+        '<p class="muted-sm" style="margin:0 0 10px">导出 .ics 文件后用手机日历打开导入：' +
+        '用药时段、每天/每周/每月的任务、填了建议时间的习惯都会变成日历日程，由系统日历到点提醒。' +
+        '改了计划就再导一次，同一条日程会覆盖更新，不会越导越多。</p>' +
+        '<div class="btn-row"><button class="btn" data-act="ics-export">导出日历文件（.ics）</button></div>' +
+      '</div>' +
+      installBoxHtml();
+  }
+
   function viewSettings() {
     return '' +
       '<div class="page-head"><div><h2>设置</h2><p>外观、账号与数据。</p></div></div>' +
@@ -7886,6 +8167,7 @@ body.modal-open{overflow:hidden}
         '</div>' +
       '</div>' +
       cloudPanelHtml() +
+      '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       '<div class="panel"><h3>数据管理</h3>' +
         '<p class="muted-sm" style="margin-bottom:4px">数据保存在云端。定期导出 JSON 备份并妥善保存；导出的备份可以随时导入还原。导入会<b>整体替换</b>当前数据，建议先导出一次再操作。</p>' +
         '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
@@ -7902,7 +8184,7 @@ body.modal-open{overflow:hidden}
           '<li>每天花 10 秒打卡，晚上睡前补记也可以。</li>' +
           '<li>「戒烟」这类戒除型习惯，保持 0 次就会累积连续天数。</li>' +
           '<li>待办里的任务不必很多，3 件以内最容易真正完成。</li>' +
-          '<li>登录同一账号即可跨设备使用；所有修改会自动保存到云端。</li>' +
+          '<li>同一账号同一时间只允许一台设备在线；换设备登录会把上一台退出去。</li>' +
         '</ul>' +
       '</div>' +
       '</div>';
@@ -8159,7 +8441,7 @@ body.modal-open{overflow:hidden}
     }
     const themeBtn = $('#theme-btn');
     if (themeBtn) themeBtn.textContent = theme === 'dark' ? '切换浅色模式' : '切换深色模式';
-    $('#main').innerHTML = remindBannerHtml() + (VIEWS[view] || viewToday)() + siteFooter();
+    $('#main').innerHTML = remindBannerHtml() + installTipHtml() + (VIEWS[view] || viewToday)() + siteFooter();
     bindView();
     updateSyncIndicator();
     remindSync();
@@ -9442,6 +9724,205 @@ body.modal-open{overflow:hidden}
     setTimeout(() => URL.revokeObjectURL(url), 800);
   }
 
+  /* ============================================================
+     日历导出（.ics）
+     系统日历是唯一「关掉网页也会响」的通道，而且不需要推送服务器：
+     把用药时段、重复任务、带建议时间的习惯输出成标准 iCalendar，
+     导入后交给 iOS 日历 / 安卓日历 / Outlook 到点提醒。
+
+     两个细节决定它能不能真的用起来：
+     1) 时间统一转成 UTC（Z 后缀）。中国没有夏令时，+8 换算绝对可靠，
+        比写 TZID 再去定义 VTIMEZONE 稳得多。
+     2) UID 用「业务类型-业务 id」，同一条日程重复导入只会覆盖，
+        不会像流水账一样越导越多。
+     ============================================================ */
+  const ICS_DOMAIN = 'wanfeng-todo';
+  const ICS_TZ = 'Asia/Shanghai';
+  const ICS_WEEK = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  /* 北京时间固定 +8、没有夏令时，所以只要一个 STANDARD 块就够，
+     不用跟着日历 App 的时区库走 */
+  const ICS_VTIMEZONE = [
+    'BEGIN:VTIMEZONE',
+    'TZID:' + ICS_TZ,
+    'BEGIN:STANDARD',
+    'DTSTART:19700101T000000',
+    'TZOFFSETFROM:+0800',
+    'TZOFFSETTO:+0800',
+    'TZNAME:CST',
+    'END:STANDARD',
+    'END:VTIMEZONE'
+  ].join('\r\n');
+
+  function icsEsc(v) {
+    return String(v == null ? '' : v)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
+
+  /* RFC 5545 折行：每行不超过 75 字节，续行以单个空格开头。
+     中文一个字 3 字节，必须按字符累加字节数，不能按字符数切。 */
+  function icsFold(line) {
+    const enc = new TextEncoder();
+    if (enc.encode(line).length <= 75) return line;
+    const out = [];
+    let cur = '', curLen = 0;
+    for (const ch of line) {
+      const n = enc.encode(ch).length;
+      if (curLen + n > 74) { out.push(cur); cur = ' ' + ch; curLen = 1 + n; }
+      else { cur += ch; curLen += n; }
+    }
+    if (cur) out.push(cur);
+    return out.join('\r\n');
+  }
+
+  function icsUtc(d) {
+    return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) +
+      'T' + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + '00Z';
+  }
+
+  /* 本地时间字段，配合 DTSTART;TZID 使用。
+     为什么不用 UTC：07:00 的事件换算成 UTC 是前一天 23:00，
+     带 BYDAY 的每周重复就会被系统日历算到前一天去。 */
+  function icsLocal(d) {
+    return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) +
+      'T' + pad2(d.getHours()) + pad2(d.getMinutes()) + '00';
+  }
+
+  /* 按天推进但保留时分。全局 addDays() 只保留年月日，
+     直接用在日程上会把 08:00 的药变成半夜 00:00。 */
+  function icsAddDays(d, n) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes());
+  }
+
+  /* 把一个「北京时间的某天某时」换算成 UTC，供 RRULE 的 UNTIL 使用。
+     手工减 8 小时，不经过浏览器时区，免得在非东八区打开时偏掉。 */
+  function icsUtcCst(y, mo, day, hh, mm) {
+    const t = new Date(Date.UTC(y, mo - 1, day, hh - 8, mm));
+    return t.getUTCFullYear() + pad2(t.getUTCMonth() + 1) + pad2(t.getUTCDate()) +
+      'T' + pad2(t.getUTCHours()) + pad2(t.getUTCMinutes()) + '00Z';
+  }
+
+  function icsEvent(uidStr, start, end, summary, desc, rrule) {
+    const lines = [
+      'BEGIN:VEVENT',
+      'UID:' + uidStr + '@' + ICS_DOMAIN,
+      'DTSTAMP:' + icsUtc(new Date()),
+      'DTSTART;TZID=' + ICS_TZ + ':' + icsLocal(start),
+      'DTEND;TZID=' + ICS_TZ + ':' + icsLocal(end),
+      'SUMMARY:' + icsEsc(summary),
+      'DESCRIPTION:' + icsEsc(desc || '来自 晚风Todo'),
+      'TRANSP:TRANSPARENT'
+    ];
+    if (rrule) lines.push('RRULE:' + rrule);
+    lines.push(
+      'BEGIN:VALARM',
+      'TRIGGER:-PT0M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:' + icsEsc(summary),
+      'END:VALARM',
+      'END:VEVENT'
+    );
+    return lines.map(icsFold).join('\r\n');
+  }
+
+  function buildICS() {
+    const now = new Date();
+    const today = todayStr();
+    const out = [];
+    let count = 0;
+
+    out.push([
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//WanfengTodo//Reminder//CN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:' + icsEsc('晚风Todo 提醒'),
+      'X-WR-TIMEZONE:Asia/Shanghai'
+    ].map(icsFold).join('\r\n'));
+    out.push(ICS_VTIMEZONE);
+
+    /* 用药：每个服用时刻一条每日重复；有停药日就截止到那天 */
+    (state.meds || []).forEach(m => {
+      if (!m || m.status !== 'active') return;
+      const times = (Array.isArray(m.times) ? m.times : [])
+        .filter(t => /^\d{2}:\d{2}$/.test(String(t)));
+      if (!times.length) return;
+      const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(m.startDate || '')) ? m.startDate : today;
+      const endDay = /^\d{4}-\d{2}-\d{2}$/.test(String(m.endDate || '')) ? m.endDate : '';
+      const dose = (Number(m.doseAmount) || 1) + String(m.doseUnit || m.form || '片');
+      times.forEach(t => {
+        const hm = t.split(':').map(Number);
+        const base = parseD(startDay);
+        let start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hm[0], hm[1]);
+        while (start <= now) start = icsAddDays(start, 1);
+        let rrule = 'FREQ=DAILY';
+        if (endDay) {
+          const e = parseD(endDay);
+          const untilDate = new Date(e.getFullYear(), e.getMonth(), e.getDate(), hm[0], hm[1] + 15);
+          if (untilDate < start) return;         /* 疗程已经结束的药不进日历 */
+          rrule += ';UNTIL=' + icsUtcCst(e.getFullYear(), e.getMonth() + 1, e.getDate(),
+            hm[0], hm[1] + 15);
+        }
+        out.push(icsEvent('med-' + m.id + '-' + t.replace(':', ''), start,
+          new Date(start.getTime() + 15 * 60000),
+          '💊 ' + String(m.name || '用药') + ' ' + dose,
+          m.note || ('每天 ' + t), rrule));
+        count++;
+      });
+    });
+
+    /* 待办：单次任务只在还没过点时进日历；重复任务用 RRULE 表示 */
+    (state.tasks || []).forEach(t => {
+      if (!t || t.archivedAt || t.status === 'done') return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.due || ''))) return;
+      const repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';
+      const dueD = parseD(t.due);
+      let start, rrule = '';
+      if (repeat === 'none') {
+        if (String(t.due) < today) return;       /* 已经逾期的由横幅去催，别塞满日历 */
+        start = new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate(), 9, 0);
+        if (start <= now) return;
+      } else {
+        const hm = String(t.repeatTime || '20:00').split(':').map(Number);
+        start = new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate(), hm[0], hm[1]);
+        if (repeat === 'daily') {
+          rrule = 'FREQ=DAILY';
+        } else if (repeat === 'weekly') {
+          rrule = 'FREQ=WEEKLY;BYDAY=' + ICS_WEEK[clamp(Number(t.repeatWeekday) || dueD.getDay(), 0, 6)];
+        } else {
+          rrule = 'FREQ=MONTHLY;BYMONTHDAY=' + clamp(Number(t.repeatDay) || dueD.getDate(), 1, 31);
+        }
+        while (start <= now) {
+          if (repeat === 'daily') start = icsAddDays(start, 1);
+          else if (repeat === 'weekly') start = icsAddDays(start, 7);
+          else start = new Date(start.getFullYear(), start.getMonth() + 1, start.getDate(), hm[0], hm[1]);
+        }
+      }
+      out.push(icsEvent('task-' + t.id, start, new Date(start.getTime() + 15 * 60000),
+        '📌 ' + String(t.title || '待办'), t.note || '', rrule));
+      count++;
+    });
+
+    /* 习惯：只导出填了建议时间的（没有时间的打卡没法排进日历） */
+    (state.habits || []).forEach(h => {
+      if (!h || h.archivedAt || h.med || h.optional || h.type === 'quit') return;
+      const st = String(h.suggestTime || '');
+      if (!/^\d{2}:\d{2}$/.test(st)) return;
+      const hm = st.split(':').map(Number);
+      let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
+      while (start <= now) start = icsAddDays(start, 1);
+      out.push(icsEvent('habit-' + h.id, start, new Date(start.getTime() + 15 * 60000),
+        String(h.icon || '🔔') + ' ' + String(h.name || '习惯'), h.note || '', 'FREQ=DAILY'));
+      count++;
+    });
+
+    out.push('END:VCALENDAR');
+    return { text: out.join('\r\n') + '\r\n', count: count };
+  }
+
   /* 移动端悬浮「+」：一处进入所有新建动作 */
   function quickAddModal() {
     const items = [
@@ -9973,6 +10454,25 @@ body.modal-open{overflow:hidden}
       if (!input) { toast('导入组件未就绪，请刷新页面'); return; }
       input.click();
     },
+    'notify-on': () => { notifyEnable(); },
+    'notify-off': () => notifyDisable(),
+    'ics-export': () => {
+      if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
+      const built = buildICS();
+      if (!built.count) {
+        toast('没有可导出的日程：先填好用药时间、任务截止日或习惯建议时间');
+        return;
+      }
+      download('晚风Todo提醒-' + todayStr().replace(/-/g, '') + '.ics',
+        built.text, 'text/calendar;charset=utf-8');
+      toast('已导出 ' + built.count + ' 个日程 · 用手机日历打开导入');
+    },
+    'app-install': () => { installApp(); },
+    'install-skip': () => {
+      try { localStorage.setItem(INSTALL_TIP_KEY, '1'); } catch (e) {}
+      render();
+      toast('不再提示。想装的时候去「设置 → 提醒」');
+    },
     'history-open': () => historyModal(),
     'history-preview': el => historyPreviewModal(el.dataset.id),
     'history-restore': el => restoreHistory(el.dataset.id),
@@ -10074,19 +10574,23 @@ body.modal-open{overflow:hidden}
   /* ============================================================
      事件绑定
      ============================================================ */
+  /* 统一跳页入口：底部 tab、抽屉、通知点击都走这里，
+     免得三条路径各写一份状态同步逻辑 */
+  function goView(next, noScroll) {
+    if (!next || !VIEWS[next] || next === view) return;
+    if ($('#more-sheet')) closeModal();
+    view = next;
+    state.view = next;
+    save();
+    render();
+    if (!noScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   document.addEventListener('click', e => {
     const navEl = e.target.closest('[data-nav]');
     if (navEl) {
       /* 抽屉开着时点底部 tab：先关抽屉再切页，免得面板残留在新页面上 */
-      if ($('#more-sheet')) closeModal();
-      const next = navEl.dataset.nav;
-      if (next !== view) {
-        view = next;
-        state.view = next;
-        save();
-        render();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      goView(navEl.dataset.nav);
       return;
     }
     const el = e.target.closest('[data-act]');
@@ -10246,6 +10750,32 @@ body.modal-open{overflow:hidden}
     if (cloud.pending && cloud.user && !cloud.pushing && !cloud.conflict) cloudPush();
   }, 45000);
   setInterval(refreshAutoTheme, 60000);
+  /* 每分钟看一次有没有该提醒的；只在页面还活着时有效，关掉网页要靠日历订阅 */
+  setInterval(() => { notifyPing(false); }, 60000);
+
+  /* 浏览器主动问「要不要装」时先拦下来存着，改由设置页/今日页的按钮触发，
+     不然 Chrome 会自己弹一条很难看的横条 */
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstall = e;
+    if (view === 'settings' || view === 'today') render();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstall = null;
+    render();
+    toast('已装到桌面');
+  });
+
+  /* 从通知点进来时，服务线程会把目标页面发过来 */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', e => {
+      const d = e.data || {};
+      if (d.type === 'goto' && d.view && VIEWS[d.view]) {
+        if (mode === 'landing') return;   /* 还没登录先不动，等登录后回今日页 */
+        goView(d.view);
+      }
+    });
+  }
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     window.addEventListener('load', () => {
