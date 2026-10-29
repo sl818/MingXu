@@ -27,20 +27,26 @@ $now = new DateTimeImmutable('2026-10-25 10:00:00', $tz);
 
 $state = [
     'meds' => [
-        ['id' => 'm1', 'name' => '阿莫西林', 'status' => 'active', 'times' => ['08:00', '20:00'],
+        ['id' => 'm1', 'name' => '阿莫西林', 'status' => 'active', 'courseType' => 'long', 'times' => ['08:00', '20:00'],
          'startDate' => '2026-10-01', 'endDate' => '', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
-        ['id' => 'm2', 'name' => '维生素D', 'status' => 'active', 'times' => ['12:00'],
+        ['id' => 'm2', 'name' => '维生素D', 'status' => 'active', 'courseType' => 'long', 'times' => ['12:00'],
          'startDate' => '2026-10-01', 'endDate' => '', 'doseAmount' => 2, 'doseUnit' => '粒', 'note' => '随餐'],
-        ['id' => 'm3', 'name' => '头孢克肟', 'status' => 'active', 'times' => ['09:00'],
+        ['id' => 'm3', 'name' => '头孢克肟', 'status' => 'active', 'courseType' => 'short', 'times' => ['09:00'],
          'startDate' => '2026-10-20', 'endDate' => '2026-10-30', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
         // 疗程已经结束，不该进日历
-        ['id' => 'm4', 'name' => '过期疗程', 'status' => 'active', 'times' => ['09:00'],
+        ['id' => 'm4', 'name' => '过期疗程', 'status' => 'active', 'courseType' => 'short', 'times' => ['09:00'],
          'startDate' => '2026-10-01', 'endDate' => '2026-10-10', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
         // 已经停药
-        ['id' => 'm5', 'name' => '已停药', 'status' => 'stopped', 'times' => ['08:00'],
+        ['id' => 'm5', 'name' => '已停药', 'status' => 'stopped', 'courseType' => 'long', 'times' => ['08:00'],
          'startDate' => '2026-10-01', 'endDate' => '', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
-        ['id' => 'm6', 'name' => '没有时间', 'status' => 'active', 'times' => [],
+        ['id' => 'm6', 'name' => '没有时间', 'status' => 'active', 'courseType' => 'long', 'times' => [],
          'startDate' => '2026-10-01', 'endDate' => '', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
+        // 备用药（按需服用）：没有固定时刻，不该进日历
+        ['id' => 'm7', 'name' => '布洛芬', 'status' => 'active', 'courseType' => 'prn', 'times' => ['08:00'],
+         'startDate' => '2026-10-01', 'endDate' => '', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => '疼的时候吃'],
+        // 长期药却填了结束日：不该因此停（只有 short 才看 endDate）
+        ['id' => 'm8', 'name' => '长期药带结束日', 'status' => 'active', 'courseType' => 'long', 'times' => ['21:00'],
+         'startDate' => '2026-10-01', 'endDate' => '2026-10-10', 'doseAmount' => 1, 'doseUnit' => '片', 'note' => ''],
     ],
     'tasks' => [
         ['id' => 't1', 'title' => '每日复盘', 'status' => 'todo', 'due' => '2026-10-25',
@@ -88,12 +94,15 @@ chk('声明了刷新间隔（客户端据此决定多久来拉一次）',
 /* ---------------- 2. 事件数量 ---------------- */
 echo "\n[2] 事件筛选\n";
 $vevents = substr_count($text, 'BEGIN:VEVENT');
-chk('总事件数 9', $built['count'] === 9 && $vevents === 9, 'count=' . $built['count'] . ' vevent=' . $vevents);
-chk('在吃的药：4 条（阿莫西林×2 / 维生素D / 头孢）',
-    substr_count($text, 'UID:med-') === 4, (string)substr_count($text, 'UID:med-'));
+chk('总事件数 10', $built['count'] === 10 && $vevents === 10, 'count=' . $built['count'] . ' vevent=' . $vevents);
+chk('在吃的药：5 条（阿莫西林×2 / 维生素D / 头孢 / 长期药带结束日）',
+    substr_count($text, 'UID:med-') === 5, (string)substr_count($text, 'UID:med-'));
 chk('疗程结束后不进日历', strpos($text, '过期疗程') === false);
 chk('停药的不进日历', strpos($text, '已停药') === false);
 chk('没有时间的药不进日历', strpos($text, '没有时间') === false);
+/* 下面两条以前是错的：备用药被当成每日服药导出、长期药被 endDate 提前截断 */
+chk('备用药（按需服用）不进日历', strpos($text, '布洛芬') === false);
+chk('长期药填了结束日也不该停', strpos($text, '长期药带结束日') !== false);
 chk('待办：4 条（日/周/月重复 + 未来单次）',
     substr_count($text, 'UID:task-') === 4, (string)substr_count($text, 'UID:task-'));
 chk('已完成的不进日历', strpos($text, '已完成') === false);
@@ -107,7 +116,7 @@ chk('戒除型习惯不进日历', strpos($text, '戒烟') === false);
 /* ---------------- 3. 时间正确性 ---------------- */
 echo "\n[3] 时间\n";
 chk('DTSTART 一律带 TZID',
-    substr_count($text, 'DTSTART;TZID=Asia/Shanghai:') === 9,
+    substr_count($text, 'DTSTART;TZID=Asia/Shanghai:') === 10,
     (string)substr_count($text, 'DTSTART;TZID=Asia/Shanghai:'));
 chk('没有把时刻写成 UTC（否则 BYDAY 会偏一天）',
     !preg_match('/DTSTART[^:]*:\d{8}T\d{6}Z/', $text));
@@ -146,9 +155,9 @@ chk('UNTIL 是 UTC（以 Z 结尾）', (bool)preg_match('/UNTIL=\d{8}T\d{6}Z/', 
 
 /* ---------------- 5. 提醒 ---------------- */
 echo "\n[5] 提醒\n";
-chk('每个事件都带 VALARM', substr_count($text, 'BEGIN:VALARM') === 9,
+chk('每个事件都带 VALARM', substr_count($text, 'BEGIN:VALARM') === 10,
     (string)substr_count($text, 'BEGIN:VALARM'));
-chk('提醒零延迟触发', substr_count($text, 'TRIGGER:-PT0M') === 9);
+chk('提醒零延迟触发', substr_count($text, 'TRIGGER:-PT0M') === 10);
 
 /* ---------------- 6. 格式合规 ---------------- */
 echo "\n[6] 格式\n";

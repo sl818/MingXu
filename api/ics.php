@@ -234,6 +234,10 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         if (!is_array($m) || ($m['status'] ?? '') !== 'active') {
             continue;
         }
+        /* 备用药按需服用，没有固定时刻，不该进日历 */
+        if (($m['courseType'] ?? '') === 'prn') {
+            continue;
+        }
         $times = isset($m['times']) && is_array($m['times']) ? $m['times'] : [];
         $times = array_values(array_filter($times, static function ($t) {
             return is_string($t) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t);
@@ -242,7 +246,9 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             continue;
         }
         $startDay = lb_ics_is_date($m['startDate'] ?? '') ? (string)$m['startDate'] : $today;
-        $endDay = lb_ics_is_date($m['endDate'] ?? '') ? (string)$m['endDate'] : '';
+        /* 只有短期疗程才看结束日；长期服药填了 endDate 也不该提前停 */
+        $endDay = (($m['courseType'] ?? '') === 'short' && lb_ics_is_date($m['endDate'] ?? ''))
+            ? (string)$m['endDate'] : '';
         $amount = (int)($m['doseAmount'] ?? 0);
         if ($amount <= 0) {
             $amount = 1;

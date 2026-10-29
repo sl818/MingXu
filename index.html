@@ -10038,11 +10038,14 @@ body.modal-open{overflow:hidden}
     /* 用药：每个服用时刻一条每日重复；有停药日就截止到那天 */
     (state.meds || []).forEach(m => {
       if (!m || m.status !== 'active') return;
+      if (m.courseType === 'prn') return;        /* 备用药按需服用，没有固定时刻 */
       const times = (Array.isArray(m.times) ? m.times : [])
         .filter(t => /^\d{2}:\d{2}$/.test(String(t)));
       if (!times.length) return;
       const startDay = /^\d{4}-\d{2}-\d{2}$/.test(String(m.startDate || '')) ? m.startDate : today;
-      const endDay = /^\d{4}-\d{2}-\d{2}$/.test(String(m.endDate || '')) ? m.endDate : '';
+      /* 只有短期疗程才有结束日。长期服药即便填了 endDate 也不该停在日历里 */
+      const endDay = (m.courseType === 'short' && /^\d{4}-\d{2}-\d{2}$/.test(String(m.endDate || '')))
+        ? m.endDate : '';
       const dose = (Number(m.doseAmount) || 1) + String(m.doseUnit || m.form || '片');
       times.forEach(t => {
         const hm = t.split(':').map(Number);
