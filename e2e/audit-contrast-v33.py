@@ -15,9 +15,18 @@ JS = """
     const n=m.slice(0,3).map(Number); return /^color\\(/.test(t) ? n.map(v=>v*255) : n; };
   const bgOf = el => { let n=el;
     while(n && n!==document.documentElement){ const cs=getComputedStyle(n);
-      if(cs.backgroundImage && cs.backgroundImage!=='none') return null;
       const s=cs.backgroundColor, c=parse(s), a=String(s).match(/[\\d.]+/g);
-      if(c && (!a[3] || Number(a[3])>0.6)) return c; n=n.parentElement; }
+      if(c && (!a[3] || Number(a[3])>0.6)) return c;
+      /* 渐变背景取端点平均色。原来遇到渐变就放弃，导致 paper 等皮肤整体被跳过 */
+      const bi=cs.backgroundImage;
+      if(bi && bi!=='none'){
+        const cols=bi.match(/rgba?\\([^)]+\\)/g);
+        if(cols && cols.length){
+          const arrs=cols.map(x=>parse(x)).filter(Boolean);
+          if(arrs.length) return [0,1,2].map(i=>arrs.reduce((t,x)=>t+x[i],0)/arrs.length);
+        }
+      }
+      n=n.parentElement; }
     return null; };
   const out=[];
   sels.forEach(sel=>{ const el=document.querySelector(sel); if(!el) { out.push({sel, missing:true}); return; }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""库存盘点弹窗的对比度审计：9 皮肤 × 明暗。
+"""弹窗内容的对比度审计：库存盘点 + 月度小结，9 皮肤 × 明暗。
 
 新加的 .stock-flag 一开始用 var(--bad)，而 clay 皮肤的 --bad 是 #e08a7d，
 11.5px 小字在浅底上只有 2.2:1。这类问题肉眼看不出、功能测试也测不到，
@@ -30,9 +30,20 @@ JS = """
     const n=m.slice(0,3).map(Number); return /^color\\(/.test(t) ? n.map(v=>v*255) : n; };
   const bgOf = el => { let n=el;
     while(n && n!==document.documentElement){ const cs=getComputedStyle(n);
-      if(cs.backgroundImage && cs.backgroundImage!=='none') return null;
       const s=cs.backgroundColor, c=parse(s), a=String(s).match(/[\\d.]+/g);
-      if(c && (!a[3] || Number(a[3])>0.6)) return c; n=n.parentElement; }
+      if(c && (!a[3] || Number(a[3])>0.6)) return c;
+      /* 纯色取不到时，若是渐变就把各端点颜色平均。
+         paper / mist / forest / cyber 这几个皮肤的卡片背景是渐变，
+         原来直接放弃，结果这四个皮肤（含默认的 paper）整体被跳过。 */
+      const bi=cs.backgroundImage;
+      if(bi && bi!=='none'){
+        const cols=bi.match(/rgba?\\([^)]+\\)/g);
+        if(cols && cols.length){
+          const arrs=cols.map(x=>parse(x)).filter(Boolean);
+          if(arrs.length) return [0,1,2].map(i=>arrs.reduce((t,x)=>t+x[i],0)/arrs.length);
+        }
+      }
+      n=n.parentElement; }
     return null; };
   const out=[];
   sels.forEach(sel=>{ const el=document.querySelector(sel); if(!el) { out.push({sel, missing:true}); return; }
@@ -45,7 +56,9 @@ JS = """
 }
 """
 
-SELS = ['.stock-name', '.stock-now', '.stock-flag', '.stock-hint']
+SELS_STOCK = ['.stock-name', '.stock-now', '.stock-flag', '.stock-hint']
+SELS_SUMMARY = ['.sum-head span', '.sum-big', '.sum-lead', '.sum-table th',
+                '.sum-table td', '.sum-foot']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 bad, skipped, missing, checked = [], 0, [], 0
@@ -73,13 +86,21 @@ with sync_playwright() as p:
             pg.wait_for_timeout(600)
             pg.click('[data-act="stock-check"]')
             pg.wait_for_timeout(500)
-            res = pg.evaluate(JS, SELS)
+            res = pg.evaluate(JS, SELS_STOCK)
+            pg.click('[data-act="close-modal"]')
+            pg.wait_for_timeout(300)
+
+            nav(pg, 'stats')
+            pg.wait_for_timeout(700)
+            pg.click('[data-act="month-summary"]')
+            pg.wait_for_timeout(500)
+            res += pg.evaluate(JS, SELS_SUMMARY)
 
             for r in res:
                 checked += 1
                 if r.get('skip'):
                     skipped += 1
-                    skip_detail[r['sel']] = skip_detail.get(r['sel'], 0) + 1
+                    skip_detail['%s/%s' % (mode, skin)] = skip_detail.get('%s/%s' % (mode, skin), 0) + 1
                     continue
                 if r.get('missing'):
                     missing.append('%s/%s/%s' % (mode, skin, r['sel']))
@@ -91,7 +112,8 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）' % (len(SELS), checked))
+print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）'
+      % (len(SELS_STOCK) + len(SELS_SUMMARY), checked))
 print('跳过（渐变/透明背景）：%d  %s' % (skipped, skip_detail))
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

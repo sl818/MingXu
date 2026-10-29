@@ -1417,6 +1417,39 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .adh-big i{font-style:normal;font-size:12.5px;font-weight:400;color:var(--muted);margin-left:2px}
 .adh-delta{font-size:12px;color:var(--text)}
 .adh-note{font-size:12px;color:var(--muted)}
+/* 月度小结：为了打印而设计。屏幕上是一张卡片，打印时整页只有它 */
+.sum-head{border-bottom:2px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.sum-head h3{margin:0 0 4px}
+.sum-head span{font-size:12px;color:var(--muted)}
+.sum-sec{margin:0 0 16px}
+.sum-sec h4{font-size:13px;font-weight:600;color:var(--text);margin:0 0 6px}
+.sum-lead{font-size:12.5px;color:var(--text);margin:0 0 8px;line-height:1.6}
+.sum-big{font-size:24px;font-weight:600;color:var(--text);line-height:1.2;margin:0 0 6px}
+.sum-big small{font-size:12px;font-weight:400;color:var(--muted);margin-left:6px}
+.sum-table{width:100%;border-collapse:collapse;font-size:12px}
+.sum-table th,.sum-table td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;
+  color:var(--text);vertical-align:top}
+.sum-table th{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap}
+.sum-table .num{text-align:right;white-space:nowrap}
+.sum-foot{font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+@media print{
+  /* 打印时 body 下只保留模态根节点，其余（导航、页面、悬浮按钮、toast）全部收起 */
+  body > *:not(#modal-root){display:none !important}
+  html,body{background:#fff !important}
+  .modal-backdrop{position:static !important;display:block !important;padding:0 !important;
+    margin:0 !important;background:none !important;overflow:visible !important;
+    -webkit-backdrop-filter:none !important;backdrop-filter:none !important;height:auto !important}
+  .modal-card{max-width:none !important;width:100% !important;max-height:none !important;
+    box-shadow:none !important;border:0 !important;border-radius:0 !important;
+    padding:0 !important;margin:0 !important;background:#fff !important}
+  .no-print{display:none !important}
+  /* 深色主题下强行黑字白底，否则会打出一片深灰 */
+  .summary-card,.summary-card *{color:#111 !important;background:transparent !important}
+  .sum-table th,.sum-table td,.sum-head,.sum-foot{border-color:#c8c8c8 !important}
+  .sum-table tr{break-inside:avoid}
+  .sum-sec{break-inside:avoid}
+  @page{margin:14mm}
+}
 /* 库存盘点：用 flex 而不是 grid，手机上一行放不下时药名会自动换行，
    不会把数字输入框挤成一条缝 */
 .stock-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -7398,7 +7431,180 @@ body.modal-open{overflow:hidden}
           r.adherence === null ? '本月无排期' : '已服 ' + r.taken + ' / 应服 ' + r.sched + ' 次') +
       '</div>' +
       '<p class="rv-verdict">' + esc(r.verdict) + '</p>' +
+      '<div class="btn-row"><button class="btn" data-act="month-summary">生成月度小结</button></div>' +
     '</div>';
+  }
+
+  /* ---------- 月度健康小结 ----------
+     和「本月回顾」的区别：那边是一屏内的速览，这边是能打印出来交给医生的东西，
+     所以要有明细（每种药、每个习惯的完成情况）和生成时间。 */
+  function monthSummaryData() {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const today = todayStr();
+    const elapsed = now.getDate();
+    const days = [];
+    for (let i = 1; i <= elapsed; i++) days.push(fmt(new Date(y, m, i)));
+
+    let recorded = 0, qualified = 0, best = 0, run = 0;
+    days.forEach(d => {
+      if (hasRecords(d)) recorded++;
+      if (dayQualified(d)) {
+        qualified++;
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+    });
+
+    const ws = weightRecords().filter(w => w.date >= days[0] && w.date <= today);
+    const weight = ws.length ? {
+      first: ws[0],
+      last: ws[ws.length - 1],
+      count: ws.length,
+      delta: ws.length >= 2
+        ? Math.round((ws[ws.length - 1].weight - ws[0].weight) * 10) / 10
+        : null
+    } : null;
+
+    let sched = 0, taken = 0;
+    const byMed = [];
+    (state.meds || []).forEach(med => {
+      if (!med || isPrn(med)) return;
+      const slots = medDoseSlots(med);
+      if (!slots.length) return;
+      let s2 = 0, t2 = 0;
+      days.forEach(d => {
+        if (!medActiveOn(med, d)) return;
+        slots.forEach(slot => {
+          s2++;
+          if (doseAt(d, med.id, slot)) t2++;
+        });
+      });
+      if (!s2) return;
+      sched += s2;
+      taken += t2;
+      byMed.push({
+        name: med.name || '用药',
+        dose: (Number(med.doseAmount) || 1) + (med.doseUnit || med.form || '片'),
+        times: slots.join(' / '),
+        sched: s2, taken: t2,
+        pct: Math.round(t2 / s2 * 100)
+      });
+    });
+    byMed.sort((a, b) => a.pct - b.pct || a.name.localeCompare(b.name));
+
+    /* 备用药不排期，只报「这个月吃了几次」 */
+    const prn = [];
+    (state.meds || []).forEach(med => {
+      if (!med || !isPrn(med)) return;
+      let n = 0;
+      days.forEach(d => { n += prnKeys(d, med.id).length; });
+      if (n) prn.push({ name: med.name || '用药', count: n });
+    });
+
+    const habits = [];
+    state.habits.filter(h => !h.optional && !isArchived(h)).forEach(h => {
+      let done = 0, n = 0;
+      days.forEach(d => {
+        if (h.med && medScheduledCount(d) === 0) return;   /* 那天没药，这个习惯不计分母 */
+        n++;
+        if (met(h, d)) done++;
+      });
+      if (!n) return;
+      habits.push({ name: h.name || '习惯', done, n, pct: Math.round(done / n * 100) });
+    });
+    habits.sort((a, b) => a.pct - b.pct);
+
+    const t = new Date();
+    return {
+      label: y + ' 年 ' + (m + 1) + ' 月',
+      span: days[0] + ' 至 ' + today + '（' + elapsed + ' 天）',
+      elapsed, recorded, qualified, best,
+      avgRate: rateOver(days),
+      weight, med: { sched, taken, pct: sched ? Math.round(taken / sched * 100) : null, byMed, prn },
+      habits,
+      generatedAt: fmt(t) + ' ' + pad2(t.getHours()) + ':' + pad2(t.getMinutes())
+    };
+  }
+
+  function openMonthSummary() {
+    const r = monthSummaryData();
+    const pctOf = v => Math.round(v / r.elapsed * 100);
+
+    const medTable = r.med.byMed.length || r.med.prn.length
+      ? '<table class="sum-table">' +
+          '<tr><th>药品</th><th>剂量</th><th>时间</th><th class="num">应服</th>' +
+            '<th class="num">已服</th><th class="num">依从</th></tr>' +
+          r.med.byMed.map(x =>
+            '<tr><td>' + esc(x.name) + '</td><td>' + esc(x.dose) + '</td>' +
+            '<td>' + esc(x.times) + '</td>' +
+            '<td class="num">' + x.sched + '</td><td class="num">' + x.taken + '</td>' +
+            '<td class="num">' + x.pct + '%</td></tr>').join('') +
+          r.med.prn.map(x =>
+            '<tr><td>' + esc(x.name) + '</td><td>—</td><td>按需</td>' +
+            '<td class="num">—</td><td class="num">' + x.count + ' 次</td>' +
+            '<td class="num">—</td></tr>').join('') +
+        '</table>'
+      : '<p class="sum-lead">本月没有用药排期。</p>';
+
+    const habitTable = r.habits.length
+      ? '<table class="sum-table">' +
+          '<tr><th>习惯</th><th class="num">完成 / 应完成</th><th class="num">完成率</th></tr>' +
+          r.habits.map(x =>
+            '<tr><td>' + esc(x.name) + '</td>' +
+            '<td class="num">' + x.done + ' / ' + x.n + '</td>' +
+            '<td class="num">' + x.pct + '%</td></tr>').join('') +
+        '</table>'
+      : '<p class="sum-lead">本月没有需要打卡的习惯。</p>';
+
+    let weightTxt;
+    if (!r.weight) {
+      weightTxt = '<p class="sum-lead">本月没有体重记录。</p>';
+    } else if (r.weight.delta === null) {
+      weightTxt = '<p class="sum-lead">本月只记录了 1 次体重（' + r.weight.last.weight + ' kg）。</p>';
+    } else {
+      const d = r.weight.delta;
+      weightTxt = '<p class="sum-big">' + (d > 0 ? '+' : '') + d + '<small>kg</small></p>' +
+        '<p class="sum-lead">' + r.weight.first.date + ' 的 ' + r.weight.first.weight + ' kg → ' +
+        r.weight.last.date + ' 的 ' + r.weight.last.weight + ' kg，共 ' + r.weight.count + ' 次记录。</p>';
+    }
+
+    openModal(
+      '<div class="modal-card summary-card">' +
+        '<div class="sum-head"><h3>月度健康小结</h3><span>' + esc(r.label) + ' · ' + esc(r.span) + '</span></div>' +
+
+        '<div class="sum-sec"><h4>用药依从</h4>' +
+          (r.med.pct === null
+            ? '<p class="sum-lead">本月没有定时用药。</p>'
+            : '<p class="sum-big">' + r.med.pct + '<small>%</small></p>' +
+              '<p class="sum-lead">应服 ' + r.med.sched + ' 次，已记录 ' + r.med.taken + ' 次。</p>') +
+          medTable +
+        '</div>' +
+
+        '<div class="sum-sec"><h4>体重</h4>' + weightTxt + '</div>' +
+
+        '<div class="sum-sec"><h4>习惯完成</h4>' + habitTable + '</div>' +
+
+        '<div class="sum-sec"><h4>记录情况</h4>' +
+          '<p class="sum-lead">' + esc(r.label) + '已过 ' + r.elapsed + ' 天：有记录 <b>' + r.recorded +
+          '</b> 天（' + pctOf(r.recorded) + '%），达标 <b>' + r.qualified + '</b> 天，最长连续 <b>' +
+          r.best + '</b> 天。' +
+          (r.avgRate.days ? '有记录的日子里平均完成率 ' +
+            Math.round(r.avgRate.rate * 100) + '%。' : '') +
+          '</p>' +
+        '</div>' +
+
+        '<div class="sum-foot">晚风 Todo · 生成于 ' + esc(r.generatedAt) +
+          ' · 本页只反映记录内容，不构成医疗建议</div>' +
+
+        '<div class="btn-row no-print" style="margin-top:14px">' +
+          '<button class="btn primary" data-act="print-summary">打印 / 存为 PDF</button>' +
+          '<button class="btn" data-act="close-modal">关闭</button>' +
+        '</div>' +
+      '</div>'
+    );
   }
 
   function viewStats() {
@@ -10542,6 +10748,14 @@ body.modal-open{overflow:hidden}
     },
     'med-new': () => medFormModal(null),
     'stock-check': () => { openStockCheck(); },
+    'month-summary': () => { openMonthSummary(); },
+    'print-summary': () => {
+      try {
+        window.print();
+      } catch (e) {
+        toast('这个浏览器不允许直接打印，请用浏览器菜单里的「分享 → 打印」');
+      }
+    },
     'stock-check-save': () => { saveStockCheck(); },
     'med-edit': el => {
       const m = medById(el.dataset.id);
