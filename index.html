@@ -1408,6 +1408,29 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .med-group-head i{font-style:normal;font-size:11px;color:var(--muted)}
 /* 用药统计卡 */
 .med-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:12px;margin:6px 0 16px}
+/* 用药页头部两个按钮并排 */
+.page-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+/* 库存盘点：用 flex 而不是 grid，手机上一行放不下时药名会自动换行，
+   不会把数字输入框挤成一条缝 */
+.stock-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.stock-row:last-child{border-bottom:0}
+.stock-main{flex:1;min-width:0}
+.stock-name{display:block;font-size:13px;font-weight:500;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stock-now{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.stock-now i{font-style:normal;color:var(--muted)}
+/* 不用 var(--bad)：clay 皮肤的 --bad 是 #e08a7d，11.5px 小字在浅底上
+   对比度只有 2.2:1。和 .ics-warn 一样，靠加粗和文案表达，不靠颜色 */
+.stock-flag{color:var(--text);font-weight:500}
+.stock-input{flex:none;width:88px;box-sizing:border-box;padding:7px 9px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface);
+  color:var(--text);font:inherit;font-size:13px;text-align:right;
+  -moz-appearance:textfield;appearance:textfield}
+/* 手机上用不到上下箭头，留着只会让输入框显得挤 */
+.stock-input::-webkit-outer-spin-button,
+.stock-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stock-input:focus{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:1px}
+.stock-hint{font-size:11.5px;line-height:1.65;color:var(--muted);margin:10px 0 0}
 .ms-card{
   background:var(--surface);border:1px solid var(--line);border-radius:14px;
   padding:13px 15px;box-shadow:var(--shadow);
@@ -4883,6 +4906,74 @@ body.modal-open{overflow:hidden}
     const d = new Date(ms);
     return (d.getMonth() + 1) + '-' + d.getDate() + ' 登记';
   }
+  /* ---------- 库存盘点 ----------
+     以前想校正余量，得点进每个药的编辑表单改「基线数量」，四个药就是四次弹窗。
+     这里一次性填完：填「手里实际还剩多少」，以此为新的基线重新推算。 */
+  function openStockCheck() {
+    const list = (state.meds || []).filter(m => m.status === 'active' && medStockBase(m) !== null);
+    if (!list.length) {
+      toast('还没有可以盘点的药（需要有库存基线）');
+      return;
+    }
+    const rows = list.map(m => {
+      const remain = medStockRemain(m);
+      const unit = m.doseUnit || m.form || '片';
+      const since = medStockBaseLabel(m);
+      const flag = m.stockReview ? '<span class="stock-flag"> · 待核对</span>' : '';
+      return '<label class="stock-row">' +
+        '<span class="stock-main">' +
+          '<span class="stock-name">' + esc(m.name || '用药') + '</span>' +
+          '<span class="stock-now">算出剩 ' + remain + ' ' + esc(unit) + flag +
+            (since ? '<i> · ' + esc(since) + '</i>' : '') + '</span>' +
+        '</span>' +
+        '<input class="stock-input" type="number" min="0" step="0.5" inputmode="decimal" ' +
+          'data-stock-for="' + esc(m.id) + '" placeholder="' + remain + '">' +
+      '</label>';
+    }).join('');
+    openModal(
+      '<div class="modal-card">' +
+        '<h3>盘点库存</h3>' +
+        '<p class="muted-sm" style="margin:0 0 6px">把手里<b>实际还剩多少</b>填进来。' +
+        '系统会以此为新的基线，之后的余量从这一刻重新推算。留空的不动。</p>' +
+        '<div class="stock-list">' + rows + '</div>' +
+        '<p class="stock-hint">为什么要定期盘一次：余量是按服药记录推算的，' +
+        '如果你有几天没记录、或者多买了一盒，推算值就会慢慢偏离实际。' +
+        '盘一次等于校准，比让它一直错下去强。</p>' +
+        '<div class="btn-row">' +
+          '<button class="btn primary" data-act="stock-check-save">保存盘点</button>' +
+          '<button class="btn" data-act="close-modal">取消</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function saveStockCheck() {
+    const inputs = document.querySelectorAll('[data-stock-for]');
+    if (!inputs.length) return;
+    const now = new Date().toISOString();
+    let n = 0;
+    inputs.forEach(el => {
+      const raw = String(el.value || '').trim();
+      if (raw === '') return;                       /* 留空表示这个药不动 */
+      const v = Number(raw);
+      if (!isFinite(v) || v < 0) return;
+      const med = (state.meds || []).find(m => m.id === el.dataset.stockFor);
+      if (!med) return;
+      med.stockBase = Math.round(Math.max(0, v) * 100) / 100;
+      med.stockBaseAt = now;
+      med.stockReview = false;                      /* 刚盘过，自然不再「待核对」 */
+      n++;
+    });
+    if (!n) {
+      toast('没有填任何数字');
+      return;
+    }
+    closeModal();
+    save();
+    render();
+    toast('已更新 ' + n + ' 种药的库存');
+  }
+
   function medCourseLabelOn(med, d) {
     if (d >= todayStr()) {
       if (med.status === 'paused') return '已暂停';
@@ -7828,7 +7919,10 @@ body.modal-open{overflow:hidden}
 
     return '' +
       '<div class="page-head"><div><h2>用药</h2><p>' + esc(sub) + '</p></div>' +
-        '<button class="btn primary" data-act="med-new">＋ 添加用药</button></div>' +
+        '<div class="page-acts">' +
+          '<button class="btn" data-act="stock-check">盘点库存</button>' +
+          '<button class="btn primary" data-act="med-new">＋ 添加用药</button>' +
+        '</div></div>' +
       (list.length
         ? statsHtml + groups + '<p class="hint">点时间胶囊记录服药，再点一次撤销。进行中的药会出现在今日页的用药卡里。</p>'
         : '<div class="panel"><div class="empty-box">还没有用药记录。点右上角「添加用药」，添加后会在今日页出现「用药」卡。</div></div>' +
@@ -10341,6 +10435,8 @@ body.modal-open{overflow:hidden}
       toast('已恢复为待办');
     },
     'med-new': () => medFormModal(null),
+    'stock-check': () => { openStockCheck(); },
+    'stock-check-save': () => { saveStockCheck(); },
     'med-edit': el => {
       const m = medById(el.dataset.id);
       if (m) medFormModal(m);
