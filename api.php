@@ -35,7 +35,12 @@ require __DIR__ . '/api/bootstrap.php';
 require __DIR__ . '/api/backup.php';
 require __DIR__ . '/api/ics.php';
 
-lb_session_start();
+/* 订阅请求用不上会话：系统日历不带 Cookie，不需要登录态。
+   而 session_start() 每次都会新建/锁定一个文件 —— 实测每个订阅请求都会在
+   session 目录留下一个 0 字节的空文件，纯属白费 IO。 */
+if ($action !== 'ics') {
+    lb_session_start();
+}
 
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
