@@ -76,6 +76,14 @@ chk('声明了版本', strpos($text, 'VERSION:2.0') !== false);
 chk('带 VTIMEZONE', substr_count($text, 'BEGIN:VTIMEZONE') === 1);
 chk('时区偏移 +0800', strpos($text, 'TZOFFSETTO:+0800') !== false);
 chk('日历名已转义写入', strpos($text, 'X-WR-CALNAME:') !== false);
+chk('第一行就是 BEGIN:VCALENDAR（前面没有 BOM 或空行）', strpos($text, 'BEGIN:VCALENDAR') === 0);
+chk('全程 CRLF，没有裸 LF', preg_match("/(?<!\r)\n/", $text) === 0);
+/* 下面两条是小米日历不认订阅的直接原因，别再改回去 */
+chk('不带 METHOD（订阅源不需要，带上会被当成会议邀请）',
+    strpos($text, 'METHOD:') === false);
+chk('声明了刷新间隔（客户端据此决定多久来拉一次）',
+    strpos($text, 'REFRESH-INTERVAL;VALUE=DURATION:PT6H') !== false
+    && strpos($text, 'X-PUBLISHED-TTL:PT6H') !== false);
 
 /* ---------------- 2. 事件数量 ---------------- */
 echo "\n[2] 事件筛选\n";

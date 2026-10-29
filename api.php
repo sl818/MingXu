@@ -6,6 +6,13 @@ define('LIFEBOARD_API', true);
 $lockFile = __DIR__ . '/install.lock';
 $action = isset($_GET['action']) ? (string)$_GET['action'] : '';
 
+/* 订阅地址做成单参数 ?ics=<token>：有些安卓日历把 URL 里的 & 当截断点，
+   ?action=ics&token=... 会被切成 action=ics，token 直接丢掉，于是报「导入失败」。
+   老的 ?action=ics&token= 仍然支持，已经加进日历的地址继续能用。 */
+if ($action === '' && isset($_GET['ics'])) {
+    $action = 'ics';
+}
+
 /* 安装状态：不依赖数据库和配置，未安装时前端据此处跳转安装向导 */
 if ($action === 'status') {
     header('Content-Type: application/json; charset=utf-8');
@@ -49,7 +56,7 @@ function lb_ics_url(string $token): string
         $host = '';
     }
     $scheme = lb_is_https() ? 'https' : 'http';
-    return $scheme . '://' . $host . '/api.php?action=ics&token=' . $token;
+    return $scheme . '://' . $host . '/api.php?ics=' . $token;
 }
 
 function lb_prune_revisions(PDO $pdo, int $uid, int $now): void
@@ -263,10 +270,17 @@ try {
             break;
 
         case 'ics':
-            if ($method !== 'GET') {
+            /* HEAD 也要放行：安卓上的日历客户端添加订阅前经常先发一个 HEAD 探测，
+               只认 GET 会直接被判成「地址无效」——小米、华为自带的日历都有这个行为。 */
+            if ($method !== 'GET' && $method !== 'HEAD') {
                 lb_fail('请使用 GET', 405, 'method_not_allowed');
             }
-            $token = isset($_GET['token']) ? (string)$_GET['token'] : '';
+            $token = '';
+            if (isset($_GET['token'])) {
+                $token = (string)$_GET['token'];
+            } elseif (isset($_GET['ics'])) {
+                $token = (string)$_GET['ics'];
+            }
             /* 格式不对和不存在统一回 404，别给探测者区分信号 */
             if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
                 http_response_code(404);
@@ -298,9 +312,19 @@ try {
             $built = lb_ics_build($state);
             http_response_code(200);
             header('Content-Type: text/calendar; charset=utf-8');
-            header('Content-Disposition: inline; filename=\"wanfeng-todo.ics\"');
-            header('Cache-Control: no-store');
+            /* 引号必须是普通的双引号。写成 \" 的话发出去就是字面带反斜杠的值，
+               宽松的客户端（Google）会忽略，严格的（小米日历）直接判定格式错误。 */
+            header('Content-Disposition: inline; filename="wanfeng-todo.ics"');
+            /* 显式给出长度：不写可能变成 chunked 传输，部分国产 ROM 的日历
+               对分块响应处理有问题，会直接报「导入失败」 */
+            header('Content-Length: ' . strlen($built['text']));
+            /* 允许短暂缓存。no-store 更安全，但有些订阅客户端会把它理解成
+               「这个源不可缓存」而拒绝保存 */
+            header('Cache-Control: private, max-age=300');
             header('X-Content-Type-Options: nosniff');
+            if ($method === 'HEAD') {
+                exit;   /* 只要响应头，正文不输出 */
+            }
             echo $built['text'];
             exit;
 

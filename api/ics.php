@@ -191,9 +191,12 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         'VERSION:2.0',
         'PRODID:-//WanfengTodo//Reminder//CN',
         'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
+        /* 不写 METHOD:PUBLISH：METHOD 是 iTIP 消息（会议邀请）用的，
+           订阅源带上它，部分客户端会当成一次性邀请而不是可订阅的日历 */
         'X-WR-CALNAME:' . lb_ics_escape('晚风Todo 提醒'),
         'X-WR-TIMEZONE:' . LB_ICS_TZ,
+        'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+        'X-PUBLISHED-TTL:PT6H',
     ];
     $out[] = implode("\r\n", array_map('lb_ics_fold', $head));
     $out[] = lb_ics_vtimezone();

@@ -9919,9 +9919,10 @@ body.modal-open{overflow:hidden}
       'VERSION:2.0',
       'PRODID:-//WanfengTodo//Reminder//CN',
       'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
       'X-WR-CALNAME:' + icsEsc('晚风Todo 提醒'),
-      'X-WR-TIMEZONE:Asia/Shanghai'
+      'X-WR-TIMEZONE:Asia/Shanghai',
+      'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+      'X-PUBLISHED-TTL:PT6H'
     ].map(icsFold).join('\r\n'));
     out.push(ICS_VTIMEZONE);
 
