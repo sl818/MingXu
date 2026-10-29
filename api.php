@@ -26,6 +26,7 @@ if (!is_file($lockFile)) {
 ini_set('display_errors', '0');
 require __DIR__ . '/api/bootstrap.php';
 require __DIR__ . '/api/backup.php';
+require __DIR__ . '/api/ics.php';
 
 lb_session_start();
 
@@ -38,6 +39,18 @@ $method = isset($_SERVER['REQUEST_METHOD']) ? (string)$_SERVER['REQUEST_METHOD']
 /* 每天一份整站快照落到 backups/：数据库和文件分开存，一边出事另一边还能捞。
    内部自带 try/catch，任何异常都不会影响正常的读写请求。 */
 lb_daily_backup();
+
+/* 订阅地址。Host 只用来拼给自己看的链接，仍然过滤一遍字符，
+   免得被伪造的 Host 头把奇怪内容带进页面 */
+function lb_ics_url(string $token): string
+{
+    $host = isset($_SERVER['HTTP_HOST']) ? (string)$_SERVER['HTTP_HOST'] : '';
+    if (!preg_match('/^[A-Za-z0-9.\-]+(:\d+)?$/', $host)) {
+        $host = '';
+    }
+    $scheme = lb_is_https() ? 'https' : 'http';
+    return $scheme . '://' . $host . '/api.php?action=ics&token=' . $token;
+}
 
 function lb_prune_revisions(PDO $pdo, int $uid, int $now): void
 {
@@ -220,6 +233,76 @@ try {
             lb_session_logout();
             lb_json(['ok' => true]);
             break;
+
+        /* ---------- 日历订阅 ----------
+           两条路由要分清楚：
+           ics_status / ics_reset 需要登录，只给自己看链接；
+           ics 必须免登录 —— 系统日历不会带 Cookie，只能靠 URL 里的令牌认人。 */
+        case 'ics_status':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $user = lb_auth();
+            $st = lb_db()->prepare('SELECT ics_token FROM users WHERE id = ? LIMIT 1');
+            $st->execute([(int)$user['id']]);
+            $token = (string)$st->fetchColumn();
+            lb_json([
+                'ok' => true,
+                'url' => $token !== '' ? lb_ics_url($token) : null,
+            ]);
+            break;
+
+        case 'ics_reset':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $token = bin2hex(random_bytes(32));
+            $up = lb_db()->prepare('UPDATE users SET ics_token = ? WHERE id = ?');
+            $up->execute([$token, (int)$user['id']]);
+            lb_json(['ok' => true, 'url' => lb_ics_url($token)]);
+            break;
+
+        case 'ics':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $token = isset($_GET['token']) ? (string)$_GET['token'] : '';
+            /* 格式不对和不存在统一回 404，别给探测者区分信号 */
+            if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+                http_response_code(404);
+                header('Content-Type: text/plain; charset=utf-8');
+                header('Cache-Control: no-store');
+                echo '这个订阅地址不可用。';
+                exit;
+            }
+            $st = lb_db()->prepare(
+                'SELECT b.data FROM users u INNER JOIN boards b ON b.user_id = u.id '
+                . 'WHERE u.ics_token = ? AND u.status = \'active\' LIMIT 1'
+            );
+            $st->execute([$token]);
+            $raw = $st->fetchColumn();
+            if (!is_string($raw) || $raw === '') {
+                http_response_code(404);
+                header('Content-Type: text/plain; charset=utf-8');
+                header('Cache-Control: no-store');
+                echo '这个订阅地址不可用。';
+                exit;
+            }
+            $state = json_decode($raw, true);
+            if (!is_array($state)) {
+                http_response_code(500);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo '数据损坏';
+                exit;
+            }
+            $built = lb_ics_build($state);
+            http_response_code(200);
+            header('Content-Type: text/calendar; charset=utf-8');
+            header('Content-Disposition: inline; filename=\"wanfeng-todo.ics\"');
+            header('Cache-Control: no-store');
+            header('X-Content-Type-Options: nosniff');
+            echo $built['text'];
+            exit;
 
         case 'load':
             if ($method !== 'GET') {

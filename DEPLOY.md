@@ -316,6 +316,20 @@ php tools/restore_backup.php backups/2026-10-29.php --yes    # 确认后真写
 
 恢复会把该用户的 `rev` 加 1，已经打开的页面刷新后拿到的就是恢复后的数据。
 
+### 8.1b 日历订阅（可选，手机上到点响的最省事办法）
+
+设置 → 提醒 → 日历订阅，点「生成订阅链接」，把地址粘进手机日历：
+
+- iPhone：设置 → 日历 → 账户 → 添加账户 → 其他 → 添加已订阅的日历
+- 安卓：Google 日历 → 添加其他日历 → 通过网址添加
+
+之后用药时段、重复任务、带建议时间的习惯都由系统日历负责提醒，
+计划改了系统自己来拉，不用再重新导出。刷新频率由系统决定（一般几小时一次），
+但事件时间本身是准的，只有「临时新加的日程」可能赶不上。
+
+地址里那串 token 等于你日程的钥匙，别发给别人；泄露了点「重新生成」，旧地址立刻失效。
+这个功能需要先执行 `db/migrations/2026-10-29_ics_token.sql`（给 users 表加一列）。
+
 ### 8.2 数据库级备份（建议配上）
 
 应用快照挡得住误删和程序故障，挡不住整台服务器出事，所以再加一层数据库 dump：
@@ -354,6 +368,10 @@ gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboa
 - 备份文件含所有用户的用药数据，权限设为 600/640，不要放网站根目录。
 
 ## 10. 更新代码
+
+> 如果这次更新包含 `db/migrations/` 里的新文件，先执行 SQL 再传代码：
+> 例如 v36 的日历订阅需要 `ALTER TABLE users ADD COLUMN ics_token ...`。
+> 顺序反了不会崩（接口会报 500），但订阅功能用不了。
 
 1. 备份数据库。
 2. 覆盖 `index.html`、`api.php`、`api/bootstrap.php`、`install/`、`db/schema.sql`、`db/migrations/`（保留 `api/config.php` 和 `install.lock`）。

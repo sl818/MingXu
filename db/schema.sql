@@ -10,10 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin TINYINT(1) NOT NULL DEFAULT 0,
   status ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
   session_epoch INT UNSIGNED NOT NULL DEFAULT 0,
+  ics_token VARCHAR(64) NULL DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email)
+  UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_ics_token (ics_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS boards (

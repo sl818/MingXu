@@ -30,7 +30,7 @@ JS = """
 }
 """
 
-SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm']
+SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 

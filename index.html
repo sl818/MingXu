@@ -2879,6 +2879,14 @@ body.modal-open{overflow:hidden}
 .ntf-dot.bad{background:var(--bad);opacity:1}
 .ntf-state{font-size:12px;color:var(--muted);font-weight:400;line-height:1.5}
 .ntf-box .btn-row{margin-top:10px}
+.ics-url{width:100%;box-sizing:border-box;margin:0 0 2px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:9px;background:var(--surface);color:var(--text);font-size:11.5px;line-height:1.5;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.ics-url:focus{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:1px}
+.ics-hint,.ics-warn{font-size:11.5px;line-height:1.65;margin:9px 0 0;color:var(--muted)}
+/* 不用 opacity 压暗：opacity 会同时降低对比度，而对比度审计读的是 color，
+   查不出来。这里直接用正文色 + 加粗 + 图标来区分。 */
+.ics-warn{color:var(--text);font-weight:500}
 .install-tip{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;
   border:1px dashed var(--line);border-radius:12px;background:var(--surface-2)}
 .it-ico{font-size:18px;line-height:1;flex:none}
@@ -4260,6 +4268,7 @@ body.modal-open{overflow:hidden}
   }
 
   async function cloudLogout() {
+    icsUrl = undefined;   /* 换账号后订阅地址不能沿用 */
     if (cloud.pending) await cloudPush(false, true);
     if (cloud.pending && !confirm('还有修改没有保存到云端。退出后这些修改会丢失，继续吗？')) return;
     try {
@@ -8056,6 +8065,62 @@ body.modal-open{overflow:hidden}
     '</div>';
   }
 
+  /* ---------- 日历订阅 ----------
+     订阅地址由服务端发：系统日历不带 Cookie，只能靠 URL 里的令牌认人。
+     icsUrl 三态：undefined = 还没问过；null = 没有链接；string = 已有。 */
+  let icsUrl;
+  let icsLoading = false;
+
+  function icsStateText() {
+    if (icsUrl === undefined) return '读取中';
+    return icsUrl ? '已生成 · 系统日历会自己来拉' : '还没生成';
+  }
+
+  async function icsLoad() {
+    if (icsLoading || icsUrl !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    icsLoading = true;
+    try {
+      const r = await cloudApi('ics_status');
+      icsUrl = (r && r.ok && typeof r.url === 'string' && r.url) ? r.url : null;
+    } catch (e) {
+      icsUrl = null;
+    }
+    icsLoading = false;
+    if (view === 'settings') render();
+  }
+
+  async function icsReset() {
+    if (icsUrl && !confirm('重新生成会让旧链接立刻失效，已经订阅的日历要重新添加一次。继续吗？')) return;
+    try {
+      const r = await cloudApi('ics_reset', {});
+      if (r && r.ok && typeof r.url === 'string' && r.url) {
+        icsUrl = r.url;
+        render();
+        toast('订阅链接已生成 · 复制后去日历里添加');
+      } else {
+        toast('生成失败，请稍后再试');
+      }
+    } catch (e) {
+      toast('网络连接失败');
+    }
+  }
+
+  async function icsCopy() {
+    if (!icsUrl) return;
+    try {
+      await navigator.clipboard.writeText(icsUrl);
+      toast('已复制，去日历里粘贴');
+      return;
+    } catch (e) { /* 没有剪贴板权限时退到选中 */ }
+    const el = document.getElementById('ics-url');
+    if (el) {
+      el.focus();
+      el.select();
+      toast('已选中，按 Ctrl/⌘ + C 复制');
+    }
+  }
+
   /* ---------- 提醒设置面板 ---------- */
   function remindStatusText() {
     const st = notifyState();
@@ -8098,17 +8163,32 @@ body.modal-open{overflow:hidden}
             : '<button class="btn primary" data-act="notify-on">开启系统通知</button>') + '</div>') +
       '</div>' +
       '<div class="ntf-box">' +
-        '<div class="ntf-head"><span class="ntf-dot"></span><b>日历提醒</b>' +
-          '<span class="ntf-state">关掉网页也会响，最可靠的一条</span></div>' +
-        '<p class="muted-sm" style="margin:0 0 10px">导出 .ics 文件后用手机日历打开导入：' +
-        '用药时段、每天/每周/每月的任务、填了建议时间的习惯都会变成日历日程，由系统日历到点提醒。' +
-        '改了计划就再导一次，同一条日程会覆盖更新，不会越导越多。</p>' +
-        '<div class="btn-row"><button class="btn" data-act="ics-export">导出日历文件（.ics）</button></div>' +
+        '<div class="ntf-head"><span class="ntf-dot ' + (icsUrl ? 'on' : '') + '"></span><b>日历订阅</b>' +
+          '<span class="ntf-state">' + esc(icsStateText()) + '</span></div>' +
+        '<p class="muted-sm" style="margin:0 0 10px">订阅之后，用药时段、每天/每周/每月的任务、' +
+        '填了建议时间的习惯都会变成日历日程；计划改了系统自己来拉，不用再重新导出。</p>' +
+        (icsUrl === undefined
+          ? ''
+          : (icsUrl
+            ? '<input class="ics-url" id="ics-url" readonly value="' + esc(icsUrl) + '">' +
+              '<div class="btn-row">' +
+                '<button class="btn primary" data-act="ics-copy">复制链接</button>' +
+                '<button class="btn" data-act="ics-reset">重新生成</button>' +
+                '<button class="btn" data-act="ics-export">导出文件</button>' +
+              '</div>'
+            : '<div class="btn-row">' +
+                '<button class="btn primary" data-act="ics-reset">生成订阅链接</button>' +
+                '<button class="btn" data-act="ics-export">导出文件</button>' +
+              '</div>')) +
+        '<p class="ics-hint">iPhone：设置 → 日历 → 账户 → 添加账户 → 其他 → 添加已订阅的日历，把地址粘进去。' +
+        '安卓：Google 日历 → 添加其他日历 → 通过网址添加。</p>' +
+        '<p class="ics-warn">⚠️ 这个地址等于你日程的钥匙，别发给别人。万一泄露就点「重新生成」，旧地址立刻失效。</p>' +
       '</div>' +
       installBoxHtml();
   }
 
   function viewSettings() {
+    icsLoad();
     return '' +
       '<div class="page-head"><div><h2>设置</h2><p>外观、账号与数据。</p></div></div>' +
       '<div class="settings-wrap">' +
@@ -10457,6 +10537,8 @@ body.modal-open{overflow:hidden}
     },
     'notify-on': () => { notifyEnable(); },
     'notify-off': () => notifyDisable(),
+    'ics-copy': () => { icsCopy(); },
+    'ics-reset': () => { icsReset(); },
     'ics-export': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const built = buildICS();
