@@ -1418,6 +1418,15 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .adh-delta{font-size:12px;color:var(--text)}
 .adh-note{font-size:12px;color:var(--muted)}
 /* 月度小结：为了打印而设计。屏幕上是一张卡片，打印时整页只有它 */
+/* 命令面板：命令命中时把那条结果做成一张明显的卡，和普通搜索结果区分开 */
+.se-cmd{display:flex;flex-direction:column;gap:2px;padding:11px 13px;border-radius:10px;
+  background:var(--accent-soft);border:1px solid var(--accent);text-align:left}
+.se-cmd .se-title{font-size:13.5px;font-weight:600;color:var(--text)}
+/* 说明文字不能用 --muted：这块底是 --accent-soft，mono/clay/mist/neu 四个皮肤下
+   11.5px 的 --muted 只有 4.20–4.49，差一点不到 4.5。层次靠字号和字重区分就够了 */
+.se-cmd .se-meta{font-size:11.5px;color:var(--text)}
+.se-cmd.is-bad{background:transparent;border-color:var(--line);border-style:dashed}
+.se-cmd.is-bad .se-title{font-weight:500}
 .sum-head{border-bottom:2px solid var(--line);padding-bottom:10px;margin-bottom:14px}
 .sum-head h3{margin:0 0 4px}
 .sum-head span{font-size:12px;color:var(--muted)}
@@ -5275,11 +5284,174 @@ body.modal-open{overflow:hidden}
     return esc(src.slice(0, at)) + '<mark>' + esc(src.slice(at, at + q.length)) + '</mark>' + esc(src.slice(at + q.length));
   }
 
+  /* ---------- 命令面板 ----------
+     Ctrl+K 原来只能搜。现在同一个输入框直接认命令：
+       +1 喝水 / -1 喝水      给习惯打卡
+       记 体重 68.5           记录今天的体重
+       新任务 交报告 明天      新建待办
+     认不出来就当搜索词，所以老用法一点没变。
+     解析和执行分开，是为了解析能单测（不碰 state）。 */
+  function findHabitByName(q) {
+    const t = String(q || '').trim().toLowerCase();
+    if (!t) return null;
+    /* h_med 是「用药」这个虚拟习惯，它的对勾由药品记录驱动，
+       手动 +1 不会影响完成判定，所以不参与命令匹配 */
+    const list = state.habits.filter(h => !h.optional && !isArchived(h) && !h.med);
+    const exact = list.find(h => String(h.name || '').toLowerCase() === t);
+    if (exact) return exact;
+    return list.find(h => String(h.name || '').toLowerCase().indexOf(t) >= 0) || null;
+  }
+
+  const CMD_DUE_WORDS = [['大后天', 3], ['后天', 2], ['明天', 1], ['今天', 0], ['今日', 0]];
+
+  function parseCommand(raw) {
+    const txt = String(raw || '').trim();
+    if (!txt) return null;
+
+    /* +1 喝水 ／ -2 看书 ／ +喝水（数字省略按 1） */
+    let m = txt.match(/^([+\-])\s*(\d+(?:\.\d+)?)?\s*(\S.*)$/);
+    if (m) {
+      const h = findHabitByName(m[3]);
+      if (!h) return null;                    /* 不认识的习惯名 → 交回搜索 */
+      const n = m[2] ? Number(m[2]) : 1;
+      const delta = m[1] === '-' ? -n : n;
+      if (!delta) return { kind: 'error', label: '数量不能是 0' };
+      return {
+        kind: 'habit', habit: h, delta: delta,
+        label: h.name + ' ' + (delta > 0 ? '+' : '') + delta,
+        detail: '今天已记录 ' + countOf(todayStr(), h.id) + ' 次 · 回车执行'
+      };
+    }
+
+    /* 记 体重 68.5 ／ 体重 68.5 ／ 68.5 体重 */
+    m = txt.match(/^(?:记|记录|写下)?\s*(?:体重)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:kg|公斤)?$/i);
+    if (m) {
+      const v = Number(m[1]);
+      if (!isFinite(v) || v < 1 || v > 500) {
+        return { kind: 'error', label: '体重要在 1–500 kg 之间' };
+      }
+      const p = normalizeBodyProfile(state.bodyProfile);
+      if (!p.age || !p.height) {
+        return { kind: 'error', label: '先补充身体档案（年龄和身高），否则算不了 BMI' };
+      }
+      return { kind: 'weight', value: Math.round(v * 10) / 10, label: '记录体重 ' + v + ' kg', detail: '写进今天 · 回车执行' };
+    }
+
+    /* 新任务 交报告 明天 */
+    m = txt.match(/^(?:新任务|新建任务|待办|todo)\s+(\S.*)$/i);
+    if (m) {
+      let body = m[1].trim();
+      let due = todayStr();
+      for (let i = 0; i < CMD_DUE_WORDS.length; i++) {
+        const kw = CMD_DUE_WORDS[i][0];
+        if (body.length > kw.length && body.slice(-kw.length) === kw) {
+          body = body.slice(0, -kw.length).trim();
+          due = fmt(addDays(new Date(), CMD_DUE_WORDS[i][1]));
+          break;
+        }
+      }
+      if (!body) return { kind: 'error', label: '任务标题不能为空' };
+      /* 「新任务 今天」这种只有日期的，当成标题会把日期当名字建出来，提示一下更清楚 */
+      if (CMD_DUE_WORDS.some(w => w[0] === body)) {
+        return { kind: 'error', label: '任务标题不能只有一个日期，加上要做什么' };
+      }
+      return {
+        kind: 'task', title: body, due: due,
+        label: '新建待办「' + body + '」',
+        detail: '截止 ' + due + ' · 回车执行'
+      };
+    }
+
+    return null;
+  }
+
+  function runCommand(cmd) {
+    if (!cmd) return false;
+    if (cmd.kind === 'error') {
+      toast(cmd.label);
+      return true;
+    }
+    const d = todayStr();
+
+    if (cmd.kind === 'habit') {
+      const h = cmd.habit;
+      const cur = countOf(d, h.id);
+      const next = Math.max(0, cur + cmd.delta);
+      if (next === cur) {
+        toast(cur === 0 ? '已经是 0 了' : '无法再减');
+        return true;
+      }
+      logHabit(h.id, cmd.delta);
+      setCount(d, h.id, next);
+      closeModal();
+      render();
+      toast(h.name + (cmd.delta > 0 ? ' +' : ' ') + cmd.delta);
+      return true;
+    }
+
+    if (cmd.kind === 'weight') {
+      const p = normalizeBodyProfile(state.bodyProfile);
+      const list = Array.isArray(state.weights) ? state.weights : (state.weights = []);
+      let rec = list.find(w => w && w.date === d);
+      if (!rec) {
+        rec = { id: 'w_' + uid(), date: d, createdAt: new Date().toISOString() };
+        list.push(rec);
+      }
+      rec.date = d;
+      rec.age = p.age;
+      rec.height = p.height;
+      rec.weight = cmd.value;
+      rec.bmi = calcBmi(cmd.value, p.height);
+      save();
+      closeModal();
+      render();
+      toast('体重已记 ' + cmd.value + ' kg');
+      return true;
+    }
+
+    if (cmd.kind === 'task') {
+      state.tasks.unshift({
+        id: uid(),
+        title: cmd.title,
+        note: '',
+        tag: '其他',
+        priority: '中',
+        status: 'todo',
+        due: cmd.due,
+        repeat: 'none',
+        repeatTime: '20:00',
+        createdAt: new Date().toISOString(),
+        doneAt: null,
+        prevStatus: ''
+      });
+      save();
+      closeModal();
+      render();
+      toast('已添加待办「' + cmd.title + '」');
+      return true;
+    }
+
+    return false;
+  }
+
   function searchBodyHtml() {
+    const cmd = parseCommand(searchTerm);
+    if (cmd) {
+      return '<button type="button" class="se-item se-cmd' +
+          (cmd.kind === 'error' ? ' is-bad' : '') + '" data-act="cmd-run">' +
+          '<span class="se-title">' + esc(cmd.label) + '</span>' +
+          '<span class="se-meta">' + esc(cmd.detail || '回车执行') + '</span>' +
+        '</button>';
+    }
     const results = searchResults(searchTerm);
     if (!String(searchTerm).trim()) {
       return '<div class="se-hint">可以搜待办标题与备注、随笔正文、药名与用途、习惯名称。<br>' +
-        '↑↓ 选择，回车跳转，Esc 关闭。</div>';
+        '↑↓ 选择，回车跳转，Esc 关闭。</div>' +
+        '<div class="se-group" style="margin-top:12px">⌘ 也能直接执行</div>' +
+        '<div class="se-hint" style="margin-top:6px">' +
+          '<code>+1 喝水</code> 给习惯打卡　<code>-1 看书</code> 撤销<br>' +
+          '<code>记 体重 68.5</code> 记录体重　<code>新任务 交报告 明天</code> 新建待办' +
+        '</div>';
     }
     if (!results.length) {
       return '<div class="se-hint">没有匹配「' + esc(searchTerm) + '」的内容。</div>';
@@ -5308,12 +5480,13 @@ body.modal-open{overflow:hidden}
       '<div class="modal-card se-card">' +
         '<div class="se-head">' +
           '<span class="se-ico">🔍</span>' +
-          '<input type="text" id="search-input" placeholder="搜索待办 / 随笔 / 用药 / 习惯…" ' +
+          '<input type="text" id="search-input" placeholder="搜索，或输入 +1 喝水 / 记 体重 68.5 / 新任务 …" ' +
             'autocomplete="off" spellcheck="false" value="' + esc(searchTerm) + '">' +
           '<button class="icon-btn" data-act="close-modal" title="关闭">✕</button>' +
         '</div>' +
         '<div class="se-body" id="search-body">' + searchBodyHtml() + '</div>' +
-        '<div class="se-foot"><span>↑↓ 选择 · 回车跳转 · Esc 关闭</span><span id="se-count"></span></div>' +
+        '<div class="se-foot"><span id="se-hint">↑↓ 选择 · 回车跳转 · Esc 关闭</span>' +
+          '<span id="se-count"></span></div>' +
       '</div>');
     const input = $('#search-input');
     if (input) {
@@ -5325,6 +5498,15 @@ body.modal-open{overflow:hidden}
 
   function searchSyncCount() {
     const box = $('#se-count');
+    const hint = $('#se-hint');
+    /* 命令模式下没有「搜索结果」，右下角再显示「无结果」会误导用户，
+       左下角也不该再说「回车跳转」 */
+    if (parseCommand(searchTerm)) {
+      if (box) box.textContent = '';
+      if (hint) hint.textContent = '回车执行 · Esc 关闭';
+      return;
+    }
+    if (hint) hint.textContent = '↑↓ 选择 · 回车跳转 · Esc 关闭';
     if (!box) return;
     const n = searchResults(searchTerm).length;
     box.textContent = String(searchTerm).trim() ? (n ? n + ' 条结果' : '无结果') : '';
@@ -10860,6 +11042,10 @@ body.modal-open{overflow:hidden}
       render();
     },
     'search-open': () => openSearch(),
+    'cmd-run': () => {
+      const cmd = parseCommand(searchTerm);
+      if (cmd) runCommand(cmd);
+    },
     'search-pick': el => {
       const items = searchResults(searchTerm);
       const it = items[Number(el.dataset.i)];
@@ -11312,6 +11498,13 @@ body.modal-open{overflow:hidden}
       return;
     }
     if (e.key === 'Enter') {
+      /* 命令优先：认得出来就执行，认不出来才当搜索跳转 */
+      const cmd = parseCommand(searchTerm);
+      if (cmd) {
+        e.preventDefault();
+        runCommand(cmd);
+        return;
+      }
       const items = searchResults(searchTerm);
       if (!items.length) return;
       e.preventDefault();
