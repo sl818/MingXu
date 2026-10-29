@@ -1410,6 +1410,13 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .med-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:12px;margin:6px 0 16px}
 /* 用药页头部两个按钮并排 */
 .page-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+/* 依从率趋势的头部：大数字 + 环比。环比刻意不用红绿，
+   一来这是健康数据不是行情，二来 --bad 在 clay 皮肤下对比度不够 */
+.adh-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.adh-big{font-size:26px;font-weight:600;color:var(--text);line-height:1.15}
+.adh-big i{font-style:normal;font-size:12.5px;font-weight:400;color:var(--muted);margin-left:2px}
+.adh-delta{font-size:12px;color:var(--text)}
+.adh-note{font-size:12px;color:var(--muted)}
 /* 库存盘点：用 flex 而不是 grid，手机上一行放不下时药名会自动换行，
    不会把数字输入框挤成一条缝 */
 .stock-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -7274,6 +7281,104 @@ body.modal-open{overflow:hidden}
     return { elapsed, recorded, qualified, best, rate, wDelta, adherence, taken, sched, verdict, monthLabel: (m + 1) + ' 月' };
   }
 
+  /* ---------- 用药依从率（按天，不是按区间汇总） ----------
+     区间汇总（本月回顾里那个 adherence）只能回答「这个月怎么样」，
+     回答不了「哪天漏了」「这个月比上个月好还是差」。 */
+  function medAdherenceDay(d) {
+    let sched = 0, taken = 0;
+    (state.meds || []).forEach(med => {
+      if (isPrn(med)) return;
+      const slots = medDoseSlots(med);
+      if (!slots.length) return;
+      if (!medActiveOn(med, d)) return;          /* 当天没排期的药不算分母 */
+      slots.forEach(slot => {
+        sched++;
+        if (doseAt(d, med.id, slot)) taken++;
+      });
+    });
+    return { sched, taken, pct: sched ? Math.round(taken / sched * 100) : null };
+  }
+
+  function medAdherenceRange(days) {
+    let sched = 0, taken = 0;
+    days.forEach(d => {
+      const r = medAdherenceDay(d);
+      sched += r.sched;
+      taken += r.taken;
+    });
+    return { sched, taken, pct: sched ? Math.round(taken / sched * 100) : null };
+  }
+
+  /* 本月 vs 上月「同期」——不是拿半截月份去比整月。
+     上个月可能没有 31 号，所以取上月的实际天数。 */
+  function medAdherenceMoM() {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const passed = now.getDate();
+    const thisDays = [];
+    for (let i = passed - 1; i >= 0; i--) thisDays.push(fmt(addDays(now, -i)));
+    const prevLen = new Date(y, m, 0).getDate();
+    const prevDays = [];
+    for (let i = 1; i <= Math.min(passed, prevLen); i++) {
+      prevDays.push(fmt(new Date(y, m - 1, i)));
+    }
+    const a = medAdherenceRange(thisDays);
+    const b = medAdherenceRange(prevDays);
+    return { thisPct: a.pct, prevPct: b.pct, days: passed };
+  }
+
+  function medTrendPanel(range, rangeDays) {
+    const cur = medAdherenceRange(rangeDays);
+    const mom = medAdherenceMoM();
+
+    let delta;
+    if (cur.pct === null) {
+      delta = '<span class="adh-note">这 ' + range + ' 天没有用药排期</span>';
+    } else if (mom.prevPct === null) {
+      delta = '<span class="adh-note">上月同期没有用药排期，无从比较</span>';
+    } else {
+      const diff = mom.thisPct - mom.prevPct;
+      /* 头部只放结论。两个百分比的完整口径挪到下方说明里——
+         全塞进头部后手机上会撑成三行，第一屏就看不见图了。 */
+      const momTxt = '（' + mom.thisPct + '% / ' + mom.prevPct + '%）';
+      delta = diff === 0
+        ? '<span class="adh-delta">与上月同期持平' + momTxt + '</span>'
+        : '<span class="adh-delta">' + (diff > 0 ? '↑ 比上月同期多 ' : '↓ 比上月同期少 ')
+          + Math.abs(diff) + ' 个点' + momTxt + '</span>';
+    }
+
+    const labelStep = Math.max(1, Math.ceil(rangeDays.length / 10));
+    const cols = rangeDays.map((ds, bi) => {
+      const r = medAdherenceDay(ds);
+      const has = r.sched > 0;
+      const showLabel = (rangeDays.length - 1 - bi) % labelStep === 0;
+      const label = showLabel ? String(parseD(ds).getDate()) : '';
+      const h = has ? Math.max(4, r.pct) : 0;
+      const cls = !has ? 'zero' : (r.pct >= 80 ? '' : 'low');
+      return '<div class="bar-col' + (ds === todayStr() ? ' is-today' : '') + '" title="' + ds +
+          (has ? ' 已服 ' + r.taken + '/' + r.sched + ' 次（' + r.pct + '%）' : ' 当天没有用药排期') + '">' +
+        '<div class="bar-wrap"><i class="' + cls + '"' + (has ? ' style="height:' + h + '%"' : '') + '></i></div>' +
+        '<span>' + label + '</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="panel">' +
+      '<h3>用药依从趋势 <span class="muted-sm">（近 ' + range + ' 天）</span></h3>' +
+      '<div class="adh-head">' +
+        '<b class="adh-big">' + (cur.pct === null ? '—' : cur.pct + '<i>%</i>') + '</b>' +
+        delta +
+      '</div>' +
+      '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + cols + '</div>' +
+      '<p class="hint">每天一根柱，高度 = 当天已服次数 ÷ 应服次数（只算当天有排期的药）。' +
+      '空柱表示那天没药；浅色表示低于 80%。' +
+      (cur.sched ? '这 ' + range + ' 天共应服 ' + cur.sched + ' 次，已服 ' + cur.taken + ' 次。' : '') +
+      (mom.prevPct === null || cur.pct === null ? ''
+        : '括号里的环比是<b>本月已过 ' + mom.days + ' 天</b>对上月同期：本月 ' +
+          mom.thisPct + '%，上月同期 ' + mom.prevPct + '%。') +
+      '</p>' +
+    '</div>';
+  }
+
   function monthReviewPanel() {
     const r = monthReviewData();
     const cell = (label, value, unit, sub) =>
@@ -7477,8 +7582,9 @@ body.modal-open{overflow:hidden}
         '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
         '<div class="stat-card"><small>已完成任务</small><b>' + doneTasks.length + ' <i>条</i></b><span>近 7 天 +' + weekDone + ' · 今天 +' + doneToday + '</span></div>' +
       '</div>' +
-      '<div class="panel"><h3>近 ' + range + ' 天完成率</h3><div class="chart" style="gap:' + (range > 30 ? '2px' : '8px') + '">' + bars + '</div></div>' +
+      '<div class="panel"><h3>近 ' + range + ' 天完成率</h3><div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div></div>' +
       monthReviewPanel() +
+      medTrendPanel(range, rangeDays) +
       '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +
         (hstats || '<div class="empty-box">还没有习惯数据。</div>') +
       '</div>' +

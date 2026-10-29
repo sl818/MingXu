@@ -32,10 +32,25 @@ JS = """
 
 SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go']
+# .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
+# 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
+SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
 board['data']['habits'][2]['suggestTime'] = '09:00'
+
+# 让统计页的「环比」那一条出现（.adh-delta）。默认数据里没有上月记录，
+# 走的是「上月同期没有用药排期」那个分支，取样会一直报元素缺失。
+for m in board['data']['meds']:
+    if m['id'] in ('m_long1', 'm_long2'):
+        m['startDate'] = '2026-09-01'
+for day in range(1, 31):
+    ds = '2026-09-%02d' % day
+    board['data']['doses'][ds] = {
+        'm_long1': {'08:00': {'at': ds + 'T08:00:00+08:00'}},
+        'm_long2': {'12:00': {'at': ds + 'T12:00:00+08:00'}},
+    }
 
 bad, skipped, missing, checked = [], 0, [], 0
 with sync_playwright() as p:
@@ -61,6 +76,9 @@ with sync_playwright() as p:
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
+            nav(pg, 'stats')
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_STATS)
 
             for r in res:
                 checked += 1
@@ -77,7 +95,7 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个新元素（共 %d 次取样）' % (len(SELS_SETTINGS) + len(SELS_TODAY), checked))
+print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）' % (len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))
