@@ -200,7 +200,7 @@ with sync_playwright() as p:
             ovf: document.documentElement.scrollWidth - innerWidth
           };
         }""")
-        rec(tag + ' 底部 4 个 tab', mb['tabs'] == ['今日', '用药', '待办', '设置'], str(mb['tabs']))
+        rec(tag + ' 底部 4 个 tab（末位为「更多」抽屉入口）', mb['tabs'] == ['今日', '用药', '待办', '更多'], str(mb['tabs']))
         rec(tag + ' 中间有悬浮加号且凸出', mb['hasAdd'] and mb['addAboveBar'], '%s top-out=%s' % (mb['addSize'], mb['addAboveBar']))
         rec(tag + ' 无横向溢出', mb['ovf'] <= 1, 'ovf=%d' % mb['ovf'])
 
@@ -221,7 +221,10 @@ with sync_playwright() as p:
         pg.click('[data-act="close-modal"]'); pg.wait_for_timeout(500)
 
         # 设置页「更多页面」5 项（仅手机显示）
-        pg.click('.mobile-tab:has-text("设置")'); pg.wait_for_timeout(1100)
+        # 底部最后一个 tab 已改为「更多」抽屉，设置页从抽屉进入
+        pg.click('[data-act="more-open"]'); pg.wait_for_timeout(600)
+        pg.evaluate("""() => { const b = document.querySelector('[data-act="more-go"][data-view="settings"]'); if (b) b.click(); }""")
+        pg.wait_for_timeout(1100)
         mp = pg.evaluate("""() => {
           const q = s => document.querySelector(s);
           const mo = q('.mobile-only');

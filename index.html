@@ -2320,6 +2320,31 @@ body.modal-open{overflow:hidden}
 .habit-row.archived{opacity:.7}
 .habit-row.archived .habit-row-info small{color:var(--muted)}
 .mobile-tabbar{display:none}
+/* 手机端「更多」抽屉：贴底弹出，一屏看全所有页面。
+   类名用 ps- 前缀，避免和 560px 断点里那条 .more-grid{1fr} 的历史规则撞车。 */
+.page-sheet{
+  position:fixed;left:50%;bottom:0;transform:translateX(-50%);
+  width:100%;max-width:460px;margin:0;
+  border-radius:22px 22px 0 0;
+  padding:8px 18px calc(16px + env(safe-area-inset-bottom,0px));
+  animation:psUp .2s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes psUp{from{transform:translate(-50%,18px);opacity:.5}to{transform:translate(-50%,0);opacity:1}}
+.ps-grip{display:block;width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:2px auto 14px}
+.page-sheet h3{font-size:15px;margin-bottom:14px}
+.ps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ps-cell{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:14px 6px 12px;border-radius:14px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit;
+  transition:border-color .16s,background .16s,color .16s;
+}
+.ps-cell:hover,.ps-cell:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+.ps-cell.active{border-color:var(--accent);background:var(--accent-soft);color:color-mix(in srgb,var(--accent) 70%,var(--text))}
+.ps-ico svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ps-label{font-size:12px;font-weight:500}
+.page-sheet .modal-actions{margin-top:14px}
+
 .sync-indicator{position:fixed;right:18px;bottom:20px;z-index:70;display:inline-flex;align-items:center;gap:6px;max-width:min(300px,calc(100vw - 36px));padding:7px 11px;border:1px solid var(--line-strong);border-radius:999px;background:color-mix(in srgb,var(--surface) 94%,transparent);color:var(--muted);font:inherit;font-size:10px;line-height:1.2;box-shadow:0 8px 24px -14px rgba(0,0,0,.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer}
 .sync-indicator[hidden]{display:none!important}
 .sync-indicator i{width:7px;height:7px;border-radius:50%;background:var(--line-strong);flex:none}
@@ -7748,6 +7773,38 @@ body.modal-open{overflow:hidden}
           '<div class="btn-row" style="justify-content:center"><button class="btn primary" data-act="essay-new">写第一篇</button></div></div>');
   }
 
+  /* 手机端「更多」抽屉：一次列出所有页面，不必再进设置往下找。
+     桌面端不显示（桌面侧栏本来就有全部页面），但留着也无害。 */
+  function morePagesSheet() {
+    const items = MORE_PAGES.concat([{ key: 'settings', label: '设置', icon: 'settings' }]);
+    const cells = items.map(function (p2) {
+      return '<button type="button" class="ps-cell' + (view === p2.key ? ' active' : '') + '"' +
+        ' data-act="more-go" data-view="' + p2.key + '">' +
+        '<span class="ps-ico">' + icon(p2.icon) + '</span>' +
+        '<span class="ps-label">' + esc(p2.label) + '</span>' +
+      '</button>';
+    }).join('');
+    openModal('' +
+      '<div class="modal-card page-sheet" id="more-sheet">' +
+        '<span class="ps-grip"></span>' +
+        '<h3>去哪个页面</h3>' +
+        '<div class="ps-grid">' + cells + '</div>' +
+      '</div>');
+    /* 抽屉和遮罩都让出底部导航的高度：这样抽屉开着时，底部 4 个 tab 仍然能直接点，
+       不必先关抽屉再切页。点遮罩空白处依然会关闭。 */
+    requestAnimationFrame(function () {
+      const sheet = $('#more-sheet');
+      if (!sheet) return;
+      const barEl = $('#mobile-nav');
+      const shown = barEl && getComputedStyle(barEl).display !== 'none';
+      const h = shown ? Math.round(barEl.getBoundingClientRect().height) : 0;
+      /* 注意：遮罩带 backdrop-filter，会形成包含块，里面的 fixed 元素是相对遮罩定位的。
+         所以只把遮罩的底边抬起来，抽屉自己保持 bottom:0，就会正好落在导航条上方。 */
+      const back = sheet.parentElement;
+      if (back && h) back.style.bottom = h + 'px';
+    });
+  }
+
   function viewMore() {
     const items = [
       ['meds', 'pill', '用药', '进行中的药、疗程进度和库存'],
@@ -7818,7 +7875,7 @@ body.modal-open{overflow:hidden}
         '</div>' +
       '</div>' +
       '<div class="panel mobile-only"><h3>更多页面</h3>' +
-        '<p class="muted-sm" style="margin-bottom:9px">底部只放了 4 个常用入口，其余页面从这里进。</p>' +
+        '<p class="muted-sm" style="margin-bottom:9px">底部「更多」一点就能跳到全部页面；这里也留一份，方便从设置页连着看。</p>' +
         '<div class="page-links">' +
           MORE_PAGES.map(p =>
             '<button type="button" class="page-link" data-nav="' + p.key + '">' +
@@ -7870,7 +7927,9 @@ body.modal-open{overflow:hidden}
     { key: 'meds', label: '用药', icon: 'pill' },
     { key: '__add', label: '新建', icon: 'plus' },
     { key: 'board', label: '待办', icon: 'board' },
-    { key: 'settings', label: '设置', icon: 'settings' }
+    /* 原来这里是「设置」，其余 5 个页面藏在设置页里，手机上要「进设置 → 往下滑」才能到。
+       改成「更多」，一点就在底部弹出所有页面，任何页面两步可达。 */
+    { key: '__more', label: '更多', icon: 'more' }
   ];
   const MORE_PAGES = [
     { key: 'habits', label: '习惯', icon: 'habits', desc: '每日习惯与常驻卡' },
@@ -8087,6 +8146,11 @@ body.modal-open{overflow:hidden}
       mnav.innerHTML = MOBILE_NAV.map(n => {
         if (n.key === '__add') {
           return '<button class="mobile-add" data-act="quick-add" aria-label="新建">' + icon('plus') + '</button>';
+        }
+        if (n.key === '__more') {
+          const moreActive = view === 'settings' || MORE_PAGES.some(function (pg) { return pg.key === view; });
+          return '<button class="mobile-tab ' + (moreActive ? 'active' : '') + '" data-act="more-open" aria-label="更多页面">' +
+            icon('more') + '<span>更多</span></button>';
         }
         const active = view === n.key;
         return '<button class="mobile-tab ' + (active ? 'active' : '') + '" data-nav="' + n.key + '" aria-label="' + n.label + '">' +
@@ -9633,6 +9697,19 @@ body.modal-open{overflow:hidden}
     'med-card-prev': () => { medCardIdx -= 1; render(); },
     'med-card-next': () => { medCardIdx += 1; render(); },
     'med-card-pick': el => { medCardIdx = Number(el.dataset.idx) || 0; render(); },
+    'more-open': () => morePagesSheet(),
+    'more-go': el => {
+      const target = el.dataset.view;
+      if (!target || !VIEWS[target]) return;
+      closeModal();
+      if (target !== view) {
+        view = target;
+        state.view = target;
+        save();
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    },
     'quick-add': () => quickAddModal(),
     'med-next': () => {
       const nx = medNextDose(selectedDate);
@@ -10000,6 +10077,8 @@ body.modal-open{overflow:hidden}
   document.addEventListener('click', e => {
     const navEl = e.target.closest('[data-nav]');
     if (navEl) {
+      /* 抽屉开着时点底部 tab：先关抽屉再切页，免得面板残留在新页面上 */
+      if ($('#more-sheet')) closeModal();
       const next = navEl.dataset.nav;
       if (next !== view) {
         view = next;
