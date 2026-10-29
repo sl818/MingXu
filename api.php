@@ -25,6 +25,7 @@ if (!is_file($lockFile)) {
 
 ini_set('display_errors', '0');
 require __DIR__ . '/api/bootstrap.php';
+require __DIR__ . '/api/backup.php';
 
 lb_session_start();
 
@@ -33,6 +34,10 @@ header('Referrer-Policy: same-origin');
 header('X-Content-Type-Options: nosniff');
 
 $method = isset($_SERVER['REQUEST_METHOD']) ? (string)$_SERVER['REQUEST_METHOD'] : 'GET';
+
+/* 每天一份整站快照落到 backups/：数据库和文件分开存，一边出事另一边还能捞。
+   内部自带 try/catch，任何异常都不会影响正常的读写请求。 */
+lb_daily_backup();
 
 function lb_prune_revisions(PDO $pdo, int $uid, int $now): void
 {

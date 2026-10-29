@@ -12,6 +12,7 @@
 ├── api.php                 # 云同步 / 账号接口
 ├── api/
 │   ├── bootstrap.php
+│   ├── backup.php          # 每日快照（写入 ../backups/）
 │   └── config.php          # 安装向导生成（不要公开）
 ├── install/
 │   └── index.php           # 安装向导（装完删除）
@@ -19,13 +20,17 @@
 │   ├── schema.sql          # 安装器读取，用于建表
 │   └── migrations/         # 已有站点的增量迁移 SQL
 ├── tools/
-│   └── create_user.php     # 命令行救援账号（可选）
+│   ├── create_user.php     # 命令行救援账号（可选）
+│   └── restore_backup.php  # 从每日快照恢复看板
+├── backups/                # 每日快照，自动生成；含隐私，勿公开勿入库
 ├── manifest.json           # PWA 清单
 ├── service-worker.js       # PWA 外壳缓存
 ├── icons/                  # 192 / 512 / maskable 图标
 ├── install.lock            # 安装完成后生成
 └── DEPLOY.md
 ```
+
+> `db/` 只在安装时用得到。装完可以把整个目录删掉，省得被人下载到表结构。
 
 数据流：
 
@@ -281,7 +286,39 @@ session.cookie_samesite = Lax
 
 ## 8. 备份
 
-数据全在 MySQL，备份数据库即可：
+备份分两层，互相独立，任何一层都能单独把数据救回来。
+
+### 8.1 应用自带的每日快照（已内置，不用配）
+
+`api/backup.php` 会在**任意一次 API 请求**时顺手检查：今天备过没有，没有就往站点根目录的 `backups/` 写一份。
+
+- 文件名形如 `2026-10-29.php`，保留 30 天，过期的自动删掉
+- 一天最多写一份；当天已有且不到 30 分钟会跳过，不会每次保存都落盘
+- 内容是**所有用户的看板数据**，不含账号和密码哈希
+- **不依赖 cron**，不用在宝塔里配计划任务
+
+备份文件故意写成 `.php`，第一行是 `<?php exit; ?>`：即使 `backups/` 被公网访问到，PHP 也只会执行 exit，不会把数据吐出去。取回时删掉第一行，剩下的就是纯 JSON。
+
+**部署后确认一次**：打开站点随便点几下，然后到宝塔文件管理器看 `/www/wwwroot/todo/backups/` 有没有今天的文件。没有的话通常是目录不可写：
+
+```bash
+cd /www/wwwroot/todo
+mkdir -p backups && chown -R www:www backups && chmod 750 backups
+```
+
+**恢复**（只覆盖该用户的看板，不动账号和登录态）：
+
+```bash
+cd /www/wwwroot/todo
+php tools/restore_backup.php backups/2026-10-29.php          # 预演，只列不写
+php tools/restore_backup.php backups/2026-10-29.php --yes    # 确认后真写
+```
+
+恢复会把该用户的 `rev` 加 1，已经打开的页面刷新后拿到的就是恢复后的数据。
+
+### 8.2 数据库级备份（建议配上）
+
+应用快照挡得住误删和程序故障，挡不住整台服务器出事，所以再加一层数据库 dump：
 
 ```bash
 mkdir -p /www/backup
@@ -297,9 +334,11 @@ gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboa
 
 另外：
 
-- 宝塔 → 数据库 → 备份 → 设置计划任务，每天备份，保留 7–14 天。
+- 宝塔 → 数据库 → 备份 → 设置计划任务，每天一次，保留 7–14 天。
 - 阿里云控制台给轻量服务器做定期快照。
-- 应用内「设置 → 数据管理 → 导出备份 JSON」仍保留，可作为单用户额外备份。
+- 应用内「设置 → 数据管理 → 导出备份 JSON」保留，适合导一份到自己电脑长期存。
+
+**别把 `backups/` 提交进 git**（`.gitignore` 已排除）：里面是整站隐私数据，只留在服务器和本机。
 
 ## 9. 安全清单
 

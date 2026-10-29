@@ -10,6 +10,8 @@ e2e/live-shots/
 # 敏感信息：绝不能入库
 api/config.php
 install.lock
+# 每日快照：整站隐私数据，只存在服务器和本机，不进版本库
+backups/
 
 # 非项目代码
 beifen-dsh/

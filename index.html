@@ -8169,7 +8169,8 @@ body.modal-open{overflow:hidden}
       cloudPanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       '<div class="panel"><h3>数据管理</h3>' +
-        '<p class="muted-sm" style="margin-bottom:4px">数据保存在云端。定期导出 JSON 备份并妥善保存；导出的备份可以随时导入还原。导入会<b>整体替换</b>当前数据，建议先导出一次再操作。</p>' +
+        '<p class="muted-sm" style="margin-bottom:4px">数据存在云端，服务器每天还会自动留一份快照（保留 30 天），所以不必天天手动导出。但建议偶尔导一次 JSON 存到自己电脑上——整个站点万一出问题，手里那份才是最后的保险。</p>' +
+        '<p class="muted-sm" style="margin-bottom:4px">导入会<b>整体替换</b>当前数据，导入前先导出一份更稳妥。</p>' +
         '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
         '<div class="btn-row">' +
           '<button class="btn" data-act="history-open">历史版本</button>' +
