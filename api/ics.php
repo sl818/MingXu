@@ -177,6 +177,33 @@ function lb_ics_clock($v, string $fallback): array
     return [(int)$m[1], (int)$m[2]];
 }
 
+/* 订阅地址无效时输出一个「空日历」而不是 404。
+   原因：线上 Nginx 配了 error_page 404，会把 PHP 的 404 换成自己的 HTML 页面。
+   日历客户端收到 HTML 只会报「格式错误 / 无法添加」，比空日历还难排查。
+   返回一个合法但没事件的日历，客户端会正常添加，日历名里直接写清问题。 */
+function lb_ics_emit_empty(string $why): void
+{
+    $lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//WanfengTodo//Reminder//CN',
+        'CALSCALE:GREGORIAN',
+        'X-WR-CALNAME:' . lb_ics_escape('晚风Todo（' . $why . '）'),
+        'X-WR-TIMEZONE:' . LB_ICS_TZ,
+        'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+        'X-PUBLISHED-TTL:PT6H',
+        'END:VCALENDAR',
+    ];
+    $text = implode("\r\n", array_map('lb_ics_fold', $lines)) . "\r\n";
+    http_response_code(200);
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Length: ' . strlen($text));
+    header('Cache-Control: private, max-age=300');
+    header('X-Content-Type-Options: nosniff');
+    echo $text;
+    exit;
+}
+
 /* 主流程：把一份 state 转成 iCalendar 文本 */
 function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
 {

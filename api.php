@@ -61,7 +61,9 @@ function lb_ics_url(string $token): string
         $host = '';
     }
     $scheme = lb_is_https() ? 'https' : 'http';
-    return $scheme . '://' . $host . '/api.php?ics=' . $token;
+    /* 末尾带 .ics：不少安卓日历（含小米）会按后缀判断这是不是一个日历源，
+       没有后缀就直接报「无法添加」。这个后缀纯属给客户端看的，服务端会剥掉。 */
+    return $scheme . '://' . $host . '/api.php?ics=' . $token . '.ics';
 }
 
 function lb_prune_revisions(PDO $pdo, int $uid, int $now): void
@@ -286,13 +288,13 @@ try {
             } elseif (isset($_GET['ics'])) {
                 $token = (string)$_GET['ics'];
             }
+            /* 地址末尾的 .ics 只是给客户端看的，校验前剥掉 */
+            if (substr($token, -4) === '.ics') {
+                $token = substr($token, 0, -4);
+            }
             /* 格式不对和不存在统一回 404，别给探测者区分信号 */
             if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
-                http_response_code(404);
-                header('Content-Type: text/plain; charset=utf-8');
-                header('Cache-Control: no-store');
-                echo '这个订阅地址不可用。';
-                exit;
+                lb_ics_emit_empty('订阅地址无效，请在设置页重新生成');
             }
             $st = lb_db()->prepare(
                 'SELECT b.data FROM users u INNER JOIN boards b ON b.user_id = u.id '
@@ -301,11 +303,7 @@ try {
             $st->execute([$token]);
             $raw = $st->fetchColumn();
             if (!is_string($raw) || $raw === '') {
-                http_response_code(404);
-                header('Content-Type: text/plain; charset=utf-8');
-                header('Cache-Control: no-store');
-                echo '这个订阅地址不可用。';
-                exit;
+                lb_ics_emit_empty('订阅地址已失效，请在设置页重新生成');
             }
             $state = json_decode($raw, true);
             if (!is_array($state)) {
@@ -668,6 +666,13 @@ try {
                     'site_name' => $siteName,
                 ],
             ]);
+            break;
+
+        case '':
+            /* 有些客户端（尤其安卓日历）在添加订阅前会先探一下服务是否活着。
+               线上 Nginx 配了 error_page 404，这里返回 404 会被换成 HTML 页面，
+               客户端一看到 HTML 就判定服务不可用。给个 200 把探测打发掉。 */
+            lb_json(['ok' => true, 'api' => 'wanfeng-todo', 'hint' => '请使用具体接口']);
             break;
 
         default:

@@ -35,7 +35,7 @@ def _post(self):
         n = int(self.headers.get('Content-Length', 0))
         if n:
             self.rfile.read(n)
-        MOCK['url'] = ('https://todo.csl88.top/api.php?ics=%064x' % MOCK['reset'])
+        MOCK['url'] = ('https://todo.csl88.top/api.php?ics=%064x.ics' % MOCK['reset'])
         self._j({'ok': True, 'url': MOCK['url']})
         return
     _orig_post(self)
@@ -101,8 +101,9 @@ with sync_playwright() as p:
     val = inp.input_value() if inp.count() else ''
     chk('地址是单参数形式（不带 & ，免得被客户端截断）',
         '?ics=' in val and '&' not in val, val[:70])
+    chk('地址以 .ics 结尾（安卓日历会按后缀判断）', val.endswith('.ics'), val[-16:])
     chk('token 是 64 位十六进制',
-        bool(__import__('re').search(r'ics=[0-9a-f]{64}$', val)), val[-20:])
+        bool(__import__('re').search(r'ics=[0-9a-f]{64}\.ics$', val)), val[-24:])
     chk('输入框只读', inp.get_attribute('readonly') is not None if inp.count() else False)
     chk('有复制按钮', pg.locator('[data-act="ics-copy"]').count() == 1)
     chk('有重新生成按钮', pg.locator('[data-act="ics-reset"]').count() == 1)
@@ -133,8 +134,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1000)
     second = pg.locator('#ics-url').input_value()
     chk('确认后地址变了', second != first, second[-16:])
-    chk('新地址同样是 64 位 token',
-        bool(__import__('re').search(r'ics=[0-9a-f]{64}$', second)))
+    chk('新地址同样是 64 位 token 且带 .ics',
+        bool(__import__('re').search(r'ics=[0-9a-f]{64}\.ics$', second)))
 
     DIALOG['accept'] = False
     pg.locator('[data-act="ics-reset"]').click()

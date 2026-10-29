@@ -159,10 +159,21 @@ try:
     chk('HEAD 也带 Content-Length', hd.get('Content-Length') is not None)
     st, _, _ = req('%s?ics=%s' % (BASE, TOKEN), method='POST')
     chk('POST 返回 405', st == 405, 'status=%d' % st)
-    st, _, _ = req('%s?ics=%s' % (BASE, 'z' * 10))
-    chk('坏令牌返回 404', st == 404, 'status=%d' % st)
+    st, _, body = req('%s?ics=%s' % (BASE, 'z' * 10))
+    chk('坏令牌返回 200 + 空日历（404 会被上游换成 HTML）',
+        st == 200 and b'BEGIN:VCALENDAR' in body and b'VEVENT' not in body,
+        'status=%d' % st)
+    chk('空日历里写明地址已失效', '订阅地址无效'.encode('utf-8') in body)
+    st, _, body = req('%s?ics=%s' % (BASE, ''))
+    chk('空令牌也是 200 空日历', st == 200 and b'VEVENT' not in body, 'status=%d' % st)
     st, _, _ = req('%s?action=ics&token=%s' % (BASE, TOKEN))
     chk('旧的 ?action=ics&token= 仍可用', st == 200, 'status=%d' % st)
+    st, hd, body = req('%s?ics=%s.ics' % (BASE, TOKEN))
+    chk('地址带 .ics 后缀也能取到（安卓日历按后缀判断）',
+        st == 200 and body.startswith(b'BEGIN:VCALENDAR'), 'status=%d' % st)
+    st, _, body = req('%s?ics=%s.ics' % (BASE, 'z' * 10))
+    chk('带后缀的坏令牌同样 200 空日历', st == 200 and b'VEVENT' not in body,
+        'status=%d' % st)
 
     print('\n[3] 订阅不产生会话文件')
     req(BASE + '?action=me')          # 先制造一个会话文件，否则下面的计数为 0 是假通过
@@ -182,9 +193,12 @@ try:
     chk('me 会创建会话（说明会话没被整体跳过）', count_sessions() > after,
         'now=%d' % count_sessions())
 
-    print('\n[5] 备份模块不影响主流程')
+    print('\n[5] 探测与未知路径')
+    st, _, body = req(BASE)
+    chk('不带 action 的探测返回 200 JSON（客户端会先探活）',
+        st == 200 and b'"ok":true' in body, 'status=%d' % st)
     st, _, _ = req(BASE + '?action=nosuch')
-    chk('未知 action 返回 404 JSON', st == 404, 'status=%d' % st)
+    chk('未知 action 仍是 404', st == 404, 'status=%d' % st)
 
 finally:
     proc.terminate()
