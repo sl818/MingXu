@@ -461,6 +461,10 @@ gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboa
 > - v36 日历订阅：`ALTER TABLE users ADD COLUMN ics_token ...`
 > - v39 手机推送：`ALTER TABLE users ADD COLUMN push_webhook / push_enabled`
 >   ＋ 建 `push_sent` 表，见 `db/migrations/2026-10-29_push.sql`
+> - v45 推送中心：`ALTER TABLE push_sent ADD COLUMN content TEXT`
+>   （给发送记录留正文，见 `db/migrations/2026-10-30_push_content.sql`）。
+>   不跑也不会崩——代码会检测列是否存在，没有就退回不写正文的旧写法，
+>   只是「推送中心」的发送记录看不到具体内容。
 >
 > 推送还需要在宝塔里加一个**每分钟**的计划任务，见 8.1c。
 
