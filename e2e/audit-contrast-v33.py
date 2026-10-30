@@ -73,6 +73,10 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
+# 日历：月视图格子里的待办、底部三卡
+SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3']
+# 日历：周视图时间线
+SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
@@ -117,6 +121,14 @@ with sync_playwright() as p:
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_STATS)
+            nav(pg, 'calendar')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_CAL_MONTH)
+            # 周视图：切过去再取一遍，时间线上的小字最容易踩对比度
+            if pg.locator('[data-act="cal-mode"][data-mode="week"]').count():
+                pg.click('[data-act="cal-mode"][data-mode="week"]')
+                pg.wait_for_timeout(900)
+                res += pg.evaluate(JS, SELS_CAL_WEEK)
 
             for r in res:
                 checked += 1
@@ -133,7 +145,9 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）' % (len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS), checked))
+print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）'
+      % (len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
+         + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

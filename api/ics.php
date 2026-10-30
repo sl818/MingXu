@@ -310,8 +310,17 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         $title = (string)($t['title'] ?? '待办');
         $note = (string)($t['note'] ?? '');
 
-        /* 通知时间统一用 notifyTime，默认 09:00 */
-        [$hh, $mm] = lb_ics_clock($t['notifyTime'] ?? '', '09:00');
+        /* 日历是「日程」语义：填了开始时间就按它画，否则退回通知时间（默认 09:00） */
+        $timeSrc = (string)($t['startTime'] ?? '');
+        if ($timeSrc === '') {
+            $timeSrc = (string)($t['notifyTime'] ?? '');
+        }
+        [$hh, $mm] = lb_ics_clock($timeSrc, '09:00');
+        /* 有真实时长就按它画，否则沿用 15 分钟的短块 */
+        $durMin = (int)($t['duration'] ?? 0);
+        if ($durMin < 15 || $durMin > 720) {
+            $durMin = 15;
+        }
 
         if ($repeat === 'none') {
             if ($due < $today) {
@@ -351,7 +360,7 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         }
         $out[] = lb_ics_event(
             'task-' . (string)($t['id'] ?? ''),
-            $start, $start->modify('+15 minutes'),
+            $start, $start->modify('+' . $durMin . ' minutes'),
             '📌 ' . $title, $note, $rrule
         );
         $count++;

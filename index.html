@@ -943,7 +943,10 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 }
 
 /* ---------- 日历（改为热力格） ---------- */
-.cal-wrap{max-width:780px;margin-left:auto;margin-right:auto}
+/* width:100% 不能省：.main 是 flex 容器，不给宽度时 item 会退化成 max-content，
+   周视图 620px 的时间线会把整个面板撑出屏幕 */
+/* 右栏那两个面板挪走后，日历不必再挤在 780 里：宽屏用 1040，7 列才够舒展 */
+.cal-wrap{max-width:1040px;width:100%;margin-left:auto;margin-right:auto;min-width:0}
 .cal-top{margin-bottom:18px}
 .month-nav b{font-size:15px;font-weight:600;letter-spacing:.01em;min-width:120px}
 .month-nav .arrow{
@@ -960,12 +963,31 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .cal-wd-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
 .cal-wd{font-size:10px;letter-spacing:.12em;color:var(--muted);padding:4px 0 8px}
 .cal-cell{
-  position:relative;aspect-ratio:auto;height:74px;text-align:left;
+  position:relative;aspect-ratio:auto;height:92px;text-align:left;
   display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;
   padding:9px 10px;border:1px solid var(--line);border-radius:13px;
   background:var(--surface);overflow:hidden;
   transition:transform .12s,border-color .15s,box-shadow .15s;
 }
+/* 格子里的待办：桌面显示标题，手机（见媒体查询）换成「N 项」 */
+.cal-tasks{
+  display:flex;flex-direction:column;gap:1px;
+  margin:2px 0 1px;min-height:0;flex:1 1 auto;overflow:hidden;z-index:1;
+}
+.cal-task{
+  display:block;font-style:normal;font-size:9.5px;line-height:1.45;
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding-left:7px;position:relative;
+}
+.cal-task::before{
+  content:"";position:absolute;left:0;top:50%;margin-top:-1.5px;
+  width:3px;height:3px;border-radius:50%;background:var(--accent);
+}
+.cal-task-more{
+  display:block;font-style:normal;font-size:9px;line-height:1.35;
+  color:var(--muted);padding-left:7px;letter-spacing:.02em;
+}
+.cal-tasks-num{display:none;font-size:9.5px;font-weight:500;color:var(--text);line-height:1.4}
 .cal-cell.blank{background:transparent;border-color:transparent}
 .cal-fill{
   position:absolute;inset:0;background:var(--accent);opacity:0;
@@ -1640,31 +1662,24 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .task.cancelled{background:var(--surface-2);opacity:.82}
 .task.cancelled h4{text-decoration:line-through;color:var(--muted)}
 
-/* ---------- 日历：右侧月报 ---------- */
-.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+/* ---------- 日历：视图 + 底部三卡 ----------
+   原来右侧挂「本月习惯」「本月用药」再用 :nth-child 钉在 6 列网格上。
+   那两个挪去统计页之后，这里不再需要定位技巧：上下两段，上面日历（月或周），
+   下面三卡等宽横排。 */
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
 .cal-layout .panel{margin-bottom:0}
-.cal-side{display:flex;flex-direction:column;gap:18px;min-width:0}
-.cal-side-panel{padding:18px 20px;min-width:0}
-
-/* 宽屏：日历 + 右侧习惯/用药，底部三卡（小结 / 心情 / 体重） */
-@media (min-width:1181px){
-  .cal-layout{grid-template-columns:repeat(6,minmax(0,1fr));gap:18px;align-items:start}
-  .cal-wrap{grid-column:1/5;grid-row:1/3;width:100%;max-width:none;margin:0;align-self:stretch;display:flex;flex-direction:column}
-  .cal-grid{flex:1 1 auto;grid-auto-rows:minmax(74px,1fr)}
-  .cal-grid .cal-cell{height:auto}
-  .cal-side{display:contents}
-  .cal-side > .cal-side-panel:nth-child(1){grid-column:5/7;grid-row:1}
-  .cal-side > .cal-side-panel:nth-child(2){grid-column:5/7;grid-row:2}
-  .cal-side > .cal-side-panel:nth-child(3){grid-column:1/3;grid-row:3}
-  .cal-side > .cal-side-panel:nth-child(4){grid-column:3/5;grid-row:3}
-  .cal-side > .cal-side-panel:nth-child(5){grid-column:5/7;grid-row:3}
-  /* 底部三卡等高：拉伸到同行高，内容纵向分布、说明贴底 */
-  .cal-side > .cal-side-panel:nth-child(3),
-  .cal-side > .cal-side-panel:nth-child(4),
-  .cal-side > .cal-side-panel:nth-child(5){align-self:stretch;display:flex;flex-direction:column}
-  .cal-side > .cal-side-panel:nth-child(3) > .cal-hint,
-  .cal-side > .cal-side-panel:nth-child(4) > .cal-hint,
-  .cal-side > .cal-side-panel:nth-child(5) > .cal-hint{margin-top:auto}
+.cal-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;min-width:0}
+.cal-side-panel{padding:18px 20px;min-width:0;margin:0;
+  display:flex;flex-direction:column;align-self:stretch}
+.cal-side-panel > .cal-hint{margin-top:auto}
+@media (max-width:1180px){
+  .cal-cards{grid-template-columns:1fr 1fr}
+  .cal-cards > .cal-side-panel:nth-child(3){grid-column:1/-1}
+  .cal-grid{grid-auto-rows:minmax(92px,auto)}
+}
+@media (max-width:700px){
+  .cal-cards{grid-template-columns:minmax(0,1fr)}
+  .cal-cards > .cal-side-panel:nth-child(3){grid-column:auto}
 }
 .cal-highlight{display:flex;align-items:baseline;gap:8px;margin:2px 0 12px}
 .cal-highlight b{
@@ -1713,11 +1728,6 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 [data-theme="dark"] .mood.happy{--mood:#5fbf9c}
 
 /* ---------- 响应式 ---------- */
-@media (max-width:1180px){
-  .cal-layout{grid-template-columns:1fr}
-  .cal-side{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  .cal-side > .cal-side-panel:last-child{grid-column:1/-1}
-}
 @media (max-width:1280px){
   .board{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -2979,6 +2989,105 @@ body.modal-open{overflow:hidden}
   .it-x{position:relative}
   .it-x::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
 }
+/* ============ 日历：月 / 周切换 ============ */
+.cal-tabs{display:inline-flex;gap:2px;padding:2px;margin-right:8px;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface-2)}
+.cal-tab{border:0;background:none;font:inherit;font-size:12px;line-height:1;
+  color:var(--text);padding:5px 12px;border-radius:7px;cursor:pointer}
+.cal-tab.active{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
+/* ============ 周视图：时间线 ============ */
+.wk-scroll{overflow:auto;max-height:68vh;border-radius:12px;min-width:0;
+  border:1px solid var(--line);background:var(--surface)}
+.wk-inner{min-width:660px}
+/* 三块共用同一套列宽，保证日期条、全天行、时间网格严格对齐 */
+.wk-head,.wk-allday{display:grid;grid-template-columns:46px repeat(7,minmax(0,1fr))}
+.wk-head{position:sticky;top:0;z-index:4;background:var(--surface);
+  border-bottom:1px solid var(--line)}
+.wk-gutter-head{height:44px}
+.wk-day{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;padding:6px 0;border-left:1px solid var(--line)}
+.wk-wd{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.wk-num{font-size:14px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.wk-day.is-today .wk-num{color:var(--accent)}
+.wk-day.is-today{background:var(--accent-soft)}
+.wk-day.is-future .wk-num{color:var(--muted);font-weight:500}
+
+.wk-allday{position:sticky;top:44px;z-index:3;background:var(--surface);
+  border-bottom:1px solid var(--line);min-height:26px}
+.wk-gutter-ad{font-size:9.5px;color:var(--muted);padding-top:6px;text-align:right;
+  padding-right:8px;letter-spacing:.04em}
+.wk-ad-cell{padding:3px;display:flex;flex-direction:column;gap:2px;min-width:0;
+  border-left:1px solid var(--line)}
+.wk-ad-item{border:0;background:var(--accent-soft);color:var(--text);
+  font:inherit;font-size:9.5px;line-height:1.35;text-align:left;
+  padding:1px 5px;border-radius:5px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-ad-more{font-size:9px;color:var(--muted);padding-left:4px}
+
+.wk-body{display:grid;grid-template-columns:46px minmax(0,1fr);align-items:start}
+.wk-gutter{display:flex;flex-direction:column}
+.wk-hour{height:44px;flex:none;font-size:9.5px;color:var(--muted);
+  text-align:right;padding:4px 6px 0 0;line-height:1;
+  font-variant-numeric:tabular-nums}
+.wk-cols{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  border-left:1px solid var(--line)}
+.wk-col{position:relative;border-left:1px solid var(--line)}
+.wk-col:first-child{border-left:0}
+.wk-col.is-today{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.wk-slot{height:44px;border-top:1px solid var(--line)}
+.wk-col .wk-slot:first-child{border-top:0}
+
+/* 事件块：浅底 + 左侧色条，文字一律用 --text（--muted 在彩色底上不够 4.5） */
+.wk-ev{position:absolute;left:2px;right:2px;z-index:2;
+  border:0;border-left:3px solid var(--accent);border-radius:5px;
+  background:var(--accent-soft);color:var(--text);
+  font:inherit;font-size:9.5px;line-height:1.25;text-align:left;
+  padding:1px 4px;cursor:pointer;overflow:hidden;
+  display:flex;align-items:center;min-height:16px}
+.wk-ev b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-ev-med{background:color-mix(in srgb,#4c7f96 16%,var(--surface));border-left-color:#4c7f96}
+.wk-ev-habit{background:color-mix(in srgb,#b5733f 16%,var(--surface));border-left-color:#b5733f}
+.wk-ev.is-done{opacity:.55}
+.wk-ev:hover{filter:brightness(1.04)}
+
+.wk-now{position:absolute;left:0;right:0;height:2px;z-index:3;
+  background:var(--bad);pointer-events:none;opacity:.85}
+
+.wk-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-top:14px;font-size:10px;color:var(--muted);letter-spacing:.03em}
+.wk-legend .leg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.wk-legend i{width:12px;height:12px;border-radius:3px;display:block;border:1px solid var(--line)}
+.wk-legend i.wk-l-med{background:color-mix(in srgb,#4c7f96 16%,var(--surface));border-left:3px solid #4c7f96}
+.wk-legend i.wk-l-task{background:var(--accent-soft);border-left:3px solid var(--accent)}
+.wk-legend i.wk-l-habit{background:color-mix(in srgb,#b5733f 16%,var(--surface));border-left:3px solid #b5733f}
+.wk-legend .leg-note{flex-basis:100%;font-size:10px;line-height:1.5}
+
+.wk-detail-list{margin:8px 0 14px;padding-left:18px;
+  font-size:13px;line-height:1.9;color:var(--text)}
+.wk-swipe-hint{display:none}
+
+/* 手机上时间线横向滚动，列宽固定住（否则 7 列各 40px 什么也放不下） */
+@media (max-width:560px){
+  /* 列宽比屏宽大，右边自然被截一半，用户一看就知道还能往右滑 */
+  .wk-inner{min-width:700px}
+  .wk-scroll{max-height:64vh}
+  .wk-tab,.cal-tab{position:relative}
+  .cal-tab::after{content:'';position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);width:max(100%,40px);height:max(100%,36px)}
+  .wk-ev{position:absolute}
+  .wk-ev::after{content:'';position:absolute;left:0;top:50%;
+    transform:translateY(-50%);width:100%;height:max(100%,28px)}
+  .wk-swipe-hint{display:block;font-weight:500}
+}
+
+/* 手机：日历格子放不下待办标题，换成「N 项」；格子也压矮一点 */
+@media (max-width:560px){
+  .cal-cell{height:76px;padding:7px 6px}
+  .cal-task,.cal-task-more{display:none}
+  .cal-tasks-num{display:block}
+  .cal-tasks{margin:1px 0 0}
+}
 /* 手机：提醒横幅收成两行以内，「今天不再提醒」压成一个 ×，
    否则图标和两个按钮会把标题区挤掉一大半 */
 @media (max-width: 560px){
@@ -3441,6 +3550,11 @@ body.modal-open{overflow:hidden}
       t.notify = t.notify !== false;
       t.notifyTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.notifyTime || '')) ? t.notifyTime : '09:00';
       t.notifyNote = String(t.notifyNote || '');
+      /* 时间块：填了才在周视图里画真实色块，没填的落在「全天」行。
+         时长按 15 分钟对齐，范围 15 分钟–12 小时；0 表示没设。 */
+      t.startTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.startTime || '')) ? t.startTime : '';
+      const tDur = Number(t.duration);
+      t.duration = (isFinite(tDur) && tDur >= 15 && tDur <= 720) ? Math.round(tDur / 15) * 15 : 0;
     });
     if (Array.isArray(data.meds)) data.meds = data.meds.filter(m => m && typeof m === 'object');
     data.weights = Array.isArray(data.weights) ? data.weights.map(normalizeWeightRecord).filter(Boolean) : [];
@@ -3516,6 +3630,10 @@ body.modal-open{overflow:hidden}
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  /* 日历的两种视图。calWeek 是周视图的锚点（任意一天，渲染时归到那周的周一）。
+     这两个都是纯视图状态，不进 state——切视图不该触发云同步。 */
+  let calMode = 'month';
+  let calWeek = new Date();
   let statsRange = 30;
   let essayTag = '';
 
@@ -7217,7 +7335,10 @@ body.modal-open{overflow:hidden}
     return rows || '<div class="empty-box">本月还没有用药数据。</div>';
   }
 
-  function monthSide(y, m) {
+  /* 本月习惯的统计口径：只算「已经过去且当天有记录」的日子，
+     未到的日期和空白日不进分母，否则月初数字永远很难看。
+     日历页（本月小结）和统计页（本月习惯）共用这一份计算。 */
+  function monthHabitsInfo(y, m) {
     const days = new Date(y, m + 1, 0).getDate();
     const now = todayStr();
     let rec = 0, best = 0, run = 0;
@@ -7257,7 +7378,13 @@ body.modal-open{overflow:hidden}
       if (!weakRow || r.rate < weakRow.rate) weakRow = r;
     });
 
-    const habitRows = rows.map(r => {
+    return { rec: rec, best: best, rows: rows, bestRow: bestRow, weakRow: weakRow };
+  }
+
+  /* 本月习惯的逐条进度：统计页用 */
+  function monthHabitRowsHtml(y, m) {
+    const rows = monthHabitsInfo(y, m).rows;
+    const html = rows.map(r => {
       const pct = Math.round(r.rate * 100);
       const num = r.h.type === 'quit'
         ? '保持 ' + r.hit + ' / ' + r.total + ' 天'
@@ -7271,6 +7398,16 @@ body.modal-open{overflow:hidden}
         '</div>' +
       '</div>';
     }).join('');
+    return html || '<div class="empty-box">本月还没有习惯数据。</div>';
+  }
+
+  /* 日历页底部的三卡：小结 / 心情 / 体重 */
+  function monthOverview(y, m) {
+    const days = new Date(y, m + 1, 0).getDate();
+    const now = todayStr();
+    const info = monthHabitsInfo(y, m);
+    const rec = info.rec, best = info.best;
+    const bestRow = info.bestRow, weakRow = info.weakRow;
 
     const statLine = rec
       ? (bestRow ? '最稳：<b>' + esc(bestRow.h.name) + '</b>（' + Math.round(bestRow.rate * 100) + '%）' : '')
@@ -7297,14 +7434,6 @@ body.modal-open{overflow:hidden}
     }).join('');
 
     return '' +
-      '<section class="panel cal-side-panel">' +
-        '<h3>本月习惯</h3>' +
-        (habitRows || '<div class="empty-box">还没有习惯。</div>') +
-      '</section>' +
-      '<section class="panel cal-side-panel">' +
-        '<h3>本月用药</h3>' +
-        monthMedPanel(y, m) +
-      '</section>' +
       '<section class="panel cal-side-panel">' +
         '<h3>本月小结</h3>' +
         '<div class="cal-highlight"><b>' + best + '</b><span>天最长连续达标</span></div>' +
@@ -7344,7 +7473,288 @@ body.modal-open{overflow:hidden}
     '</section>';
   }
 
+  /* 某一天到期的待办（月视图格子用）。
+     口径与「今日待办」不同：这里只要 due 正好是这一天，不看是否已逾期。
+     排序按「优先级 → 开始时间」，让格子里优先露出最要紧的两条。 */
+  function dayTasks(ds) {
+    const rank = { '高': 0, '中': 1, '低': 2 };
+    const list = liveTasks().filter(t =>
+      t.due === ds && t.status !== 'done' && t.status !== 'cancelled');
+    list.sort((a, b) => {
+      const ra = rank[a.priority] === undefined ? 1 : rank[a.priority];
+      const rb = rank[b.priority] === undefined ? 1 : rank[b.priority];
+      if (ra !== rb) return ra - rb;
+      return String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99'));
+    });
+    return list;
+  }
+
+  /* 格子里只放得下很短一行，超长的截断 */
+  function calTaskTitle(v) {
+    const txt = String(v || '').trim();
+    return txt.length > 8 ? txt.slice(0, 8) + '…' : txt;
+  }
+
+  /* ============ 周视图 ============
+     0:00–24:00 的时间线。同一时刻的同类条目合并成一块（不然 08:00 十一个药
+     会挤成十一条线），点开看清单。数据全部是现算的，没有新增存储。 */
+
+  const WK_HOUR_H = 44;        /* 每小时 44px，24 小时共 1056px */
+
+  /* 那一周的周一（周日 getDay()=0，要往前回 6 天） */
+  function weekStartOf(d) {
+    const base = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return addDays(base, -((base.getDay() + 6) % 7));
+  }
+
+  function hhmmMin(v) {
+    const s = String(v || '');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return -1;
+    return Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  }
+
+  /* 某条待办是否「命中」这一天。单次看 due，重复按规则展开
+     ——周视图要能看到「每周一的例会」，否则未来几周全是空的。
+     规则与 nextRepeatDate 保持一致（weekly 用 0-6，monthly 取当月最后一天兜底）。 */
+  function taskHitsDay(t, ds) {
+    if (!t || t.archivedAt || t.status === 'done' || t.status === 'cancelled') return false;
+    const repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';
+    if (repeat === 'none') return t.due === ds;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.due || ''))) return false;
+    if (ds < t.due) return false;
+    const d = parseD(ds);
+    if (repeat === 'daily') return true;
+    if (repeat === 'weekly') {
+      return d.getDay() === clamp(Number(t.repeatWeekday) || 0, 0, 6);
+    }
+    const md = clamp(Number(t.repeatDay) || 1, 1, 31);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return d.getDate() === Math.min(md, last);
+  }
+
+  /* 一天里的所有安排：blocks 是有时间的，allday 是没时间的待办 */
+  function weekDayBlocks(ds) {
+    const blocks = [];
+    const allday = [];
+
+    /* 待办：填了开始时间才画时间块，否则进「全天」行 */
+    (state.tasks || []).forEach(t => {
+      if (!taskHitsDay(t, ds)) return;
+      const st = String(t.startTime || '');
+      const title = String(t.title || '待办');
+      if (hhmmMin(st) < 0) {
+        allday.push({ kind: 'task', title: title, items: [t] });
+        return;
+      }
+      const dur = (Number(t.duration) >= 15 && Number(t.duration) <= 720) ? Number(t.duration) : 30;
+      blocks.push({ startMin: hhmmMin(st), durMin: dur, kind: 'task', title: title, done: false });
+    });
+
+    /* 用药：每个服药时刻 15 分钟（和日历订阅的约定一致） */
+    medScheduledFor(ds).forEach(it => {
+      blocks.push({
+        startMin: hhmmMin(it.slot), durMin: 15, kind: 'med',
+        title: String(it.med.name || '药'), done: !!doseAt(ds, it.med.id, it.slot)
+      });
+    });
+
+    /* 习惯：跳过用药占位卡；按通知频率决定这天要不要出现 */
+    activeHabits(ds).forEach(h => {
+      if (h.med) return;
+      const st = String(h.suggestTime || '');
+      if (hhmmMin(st) < 0) return;
+      const freq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
+      const d = parseD(ds);
+      if (freq === 'weekly' && d.getDay() !== clamp(Number(h.notifyWeekday) || 1, 0, 6)) return;
+      if (freq === 'monthly') {
+        const md = clamp(Number(h.notifyMonthday) || 1, 1, 31);
+        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        if (d.getDate() !== Math.min(md, last)) return;
+      }
+      blocks.push({
+        startMin: hhmmMin(st), durMin: 30, kind: 'habit',
+        title: String(h.name || '习惯'), done: countOf(ds, h.id) > 0
+      });
+    });
+
+    /* 同一时刻 + 同一类型合并成一块：08:00 十一个药 → 「用药 ×11」 */
+    const merged = {};
+    blocks.forEach(b => {
+      const key = b.startMin + '|' + b.kind;
+      if (!merged[key]) {
+        merged[key] = { startMin: b.startMin, durMin: b.durMin, kind: b.kind,
+                        titles: [], count: 0, finished: 0 };
+      }
+      merged[key].titles.push(b.title);
+      merged[key].count++;
+      if (b.done) merged[key].finished++;
+      if (b.durMin > merged[key].durMin) merged[key].durMin = b.durMin;
+    });
+
+    const list = Object.keys(merged).map(k => merged[k])
+      .sort((a, b) => a.startMin - b.startMin || a.kind.localeCompare(b.kind));
+
+    /* 碰撞就往下挪：块是绝对定位的，两个同起点的块叠在一起会互相遮住 */
+    const placed = [];
+    list.forEach(b => {
+      let top = (b.startMin / 60) * WK_HOUR_H;
+      const h = Math.max(18, (b.durMin / 60) * WK_HOUR_H);
+      let guard = 0;
+      while (guard < 60) {
+        const hit = placed.find(p => top < p.bottom && top + h > p.top);
+        if (!hit) break;
+        top = hit.bottom + 1;
+        guard++;
+      }
+      placed.push({ top: top, bottom: top + h });
+      b.top = Math.round(top);
+      b.height = Math.round(h);
+    });
+
+    return { blocks: list, allday: allday };
+  }
+
+  const WK_KIND_CN = { med: '用药', task: '待办', habit: '习惯' };
+
+  function calTabsHtml() {
+    return '<div class="cal-tabs">' +
+      '<button class="cal-tab' + (calMode === 'month' ? ' active' : '') + '" data-act="cal-mode" data-mode="month">月</button>' +
+      '<button class="cal-tab' + (calMode === 'week' ? ' active' : '') + '" data-act="cal-mode" data-mode="week">周</button>' +
+    '</div>';
+  }
+
+  function viewWeek() {
+    const ws = weekStartOf(calWeek);
+    const today = todayStr();
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const days = [];
+    let taskCount = 0, medCount = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i);
+      const ds = fmt(d);
+      const data = weekDayBlocks(ds);
+      data.blocks.forEach(b => {
+        if (b.kind === 'task') taskCount += b.count;
+        if (b.kind === 'med') medCount += b.count;
+      });
+      taskCount += data.allday.length;
+      days.push({ date: ds, d: d, data: data });
+    }
+
+    const we = addDays(ws, 6);
+    /* 同一个月就只写一次月份，手机上才不会折成两行 */
+    const rangeText = (ws.getMonth() === we.getMonth())
+      ? (ws.getMonth() + 1) + '月' + ws.getDate() + '–' + we.getDate() + '日'
+      : (ws.getMonth() + 1) + '月' + ws.getDate() + '日 – '
+        + (we.getMonth() + 1) + '月' + we.getDate() + '日';
+
+    /* 顶部日期条 */
+    let head = '<div class="wk-gutter wk-gutter-head"></div>';
+    days.forEach(day => {
+      const isToday = day.date === today;
+      const isFuture = day.date > today;
+      head += '<div class="wk-day' + (isToday ? ' is-today' : '') + (isFuture ? ' is-future' : '') + '">' +
+        '<span class="wk-wd">周' + WEEK_CN[day.d.getDay()] + '</span>' +
+        '<b class="wk-num">' + day.d.getDate() + '</b>' +
+      '</div>';
+    });
+
+    /* 全天行 */
+    let allday = '<div class="wk-gutter wk-gutter-ad">全天</div>';
+    days.forEach(day => {
+      const list = day.data.allday;
+      const shown = list.slice(0, 2);
+      const rest = list.length - shown.length;
+      allday += '<div class="wk-ad-cell">' +
+        shown.map(t => '<button class="wk-ad-item" data-act="wk-open" data-date="' + day.date +
+          '" data-kind="task" data-start="-1" title="' + esc(t.title) + '">' + esc(t.title) + '</button>').join('') +
+        (rest > 0 ? '<span class="wk-ad-more">+' + rest + '</span>' : '') +
+      '</div>';
+    });
+
+    /* 时间刻度 + 7 列 */
+    let gutter = '';
+    for (let h = 0; h < 24; h++) {
+      gutter += '<div class="wk-hour">' + pad2(h) + ':00</div>';
+    }
+
+    let cols = '';
+    days.forEach(day => {
+      let slots = '';
+      for (let h = 0; h < 24; h++) slots += '<div class="wk-slot"></div>';
+      const evs = day.data.blocks.map(b => {
+        const label = b.count > 1
+          ? WK_KIND_CN[b.kind] + ' ×' + b.count
+          : b.titles[0];
+        const cls = 'wk-ev wk-ev-' + b.kind + (b.finished >= b.count ? ' is-done' : '');
+        return '<button class="' + cls + '" style="top:' + b.top + 'px;height:' + b.height + 'px"' +
+          ' data-act="wk-open" data-date="' + day.date + '" data-kind="' + b.kind + '"' +
+          ' data-start="' + b.startMin + '" title="' + esc(b.titles.join('、')) + '">' +
+          '<b>' + esc(label) + '</b>' +
+        '</button>';
+      }).join('');
+      /* 今天那条红线，让人一眼看到现在几点了 */
+      const nowLine = day.date === today
+        ? '<span class="wk-now" style="top:' + Math.round((nowMin / 60) * WK_HOUR_H) + 'px"></span>'
+        : '';
+      cols += '<div class="wk-col' + (day.date === today ? ' is-today' : '') + '">' +
+        slots + evs + nowLine +
+      '</div>';
+    });
+
+    return {
+      head: '<div class="page-head">' +
+        '<div><h2>日历</h2><p>月视图看完成度与待办，周视图看每天几点有什么事。点任意一块可以看细节。</p></div>' +
+      '</div>',
+      panel: '<div class="panel cal-wrap">' +
+        '<div class="cal-top">' +
+          '<div class="month-nav">' +
+            calTabsHtml() +
+            '<button class="arrow" data-act="week-shift" data-delta="-1" aria-label="上一周">‹</button>' +
+            '<b>' + rangeText + '</b>' +
+            '<button class="arrow" data-act="week-shift" data-delta="1" aria-label="下一周">›</button>' +
+            '<button class="btn sm ghost" data-act="week-today">本周</button>' +
+          '</div>' +
+          '<div class="cal-summary">' +
+            '<span>待办 <b>' + taskCount + '</b> 项</span>' +
+            '<span>用药 <b>' + medCount + '</b> 次</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wk-scroll" id="wk-scroll">' +
+          '<div class="wk-inner">' +
+            '<div class="wk-head">' + head + '</div>' +
+            '<div class="wk-allday">' + allday + '</div>' +
+            '<div class="wk-body">' +
+              '<div class="wk-gutter">' + gutter + '</div>' +
+              '<div class="wk-cols">' + cols + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="wk-legend">' +
+          '<span class="leg"><i class="wk-l-med"></i>用药</span>' +
+          '<span class="leg"><i class="wk-l-task"></i>待办</span>' +
+          '<span class="leg"><i class="wk-l-habit"></i>习惯</span>' +
+          '<span class="leg-note">同一时刻同类型的条目会合并成一块（如「用药 ×11」），点开看全部</span>' +
+          '<span class="leg-note wk-swipe-hint">左右滑动可看完整一周</span>' +
+        '</div>' +
+      '</div>'
+    };
+  }
+
+  /* 两个视图共用底部三卡：底部卡看的是「正在浏览的那个月」，
+     所以周视图翻到别的月份时，也要把 calMonth 跟着走（见 week-shift）。 */
   function viewCalendar() {
+    const v = calMode === 'week' ? viewWeek() : viewMonth();
+    const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    return v.head +
+      '<div class="cal-layout">' + v.panel +
+        '<div class="cal-cards">' + monthOverview(y, m) + '</div>' +
+      '</div>';
+  }
+
+  function viewMonth() {
     const y = calMonth.getFullYear();
     const m = calMonth.getMonth();
     const first = new Date(y, m, 1);
@@ -7380,14 +7790,28 @@ body.modal-open{overflow:hidden}
       const moodKey = (state.moods && state.moods[ds]) || '';
       const moodInfo = MOOD_MAP[moodKey];
       const wr = wmap[ds];
+      /* 待办：桌面显示最多 2 条标题，手机上 CSS 换成「N 项」 */
+      const dt = dayTasks(ds);
+      const dtShown = dt.slice(0, 2);
+      const dtRest = dt.length - dtShown.length;
+      const dtHtml = dt.length
+        ? '<span class="cal-tasks">' +
+            '<b class="cal-tasks-num">' + dt.length + ' 项</b>' +
+            dtShown.map(x => '<i class="cal-task">' + esc(calTaskTitle(x.title)) + '</i>').join('') +
+            (dtRest > 0 ? '<i class="cal-task-more">+' + dtRest + '</i>' : '') +
+          '</span>'
+        : '';
+
       cells += '<button class="cal-cell ' + (rec ? 'has-data' : '') + (ds === now ? ' is-today' : '') +
         (ds === selectedDate ? ' is-sel' : '') + (future ? ' is-future' : '') + (wr ? ' has-weight' : '') +
         '" data-level="' + level + '" data-act="pick-day" data-date="' + ds + '"' + (future ? ' disabled' : '') +
         ' title="' + ds + ' · 完成 ' + st.done + '/' + st.total + (rec ? '' : '（无记录）') +
           (moodInfo ? ' · 心情：' + moodInfo.label : '') +
-          (wr ? ' · 体重 ' + wr.weight + ' kg · BMI ' + wr.bmi : '') + '">' +
+          (wr ? ' · 体重 ' + wr.weight + ' kg · BMI ' + wr.bmi : '') +
+          (dt.length ? ' · 待办 ' + dt.length + ' 项：' + dt.map(x => x.title).join('、') : '') + '">' +
         '<span class="cal-fill"></span>' +
         '<span class="cal-num">' + day + '</span>' +
+        dtHtml +
         '<span class="cal-foot">' +
           (wr ? '<span class="cal-weight-dot" title="体重 ' + wr.weight + ' kg · BMI ' + wr.bmi + '"></span>' : '') +
           '<span class="cal-pct">' + (rec && !future ? pct + '%' : '') + '</span>' +
@@ -7397,16 +7821,15 @@ body.modal-open{overflow:hidden}
     }
 
     const avg = recorded ? Math.round(sum / recorded * 100) : 0;
-    const side = monthSide(y, m);
 
-    return '' +
-      '<div class="page-head">' +
-        '<div><h2>打卡日历</h2><p>颜色越深，当天完成度越高；日期右下角是当天心情。点击任意一天可以补记。</p></div>' +
-      '</div>' +
-      '<div class="cal-layout">' +
-      '<div class="panel cal-wrap">' +
+    return {
+      head: '<div class="page-head">' +
+        '<div><h2>日历</h2><p>颜色越深，当天完成度越高；格子里是当天到期的待办，右下角是心情。点击任意一天可以补记。</p></div>' +
+      '</div>',
+      panel: '<div class="panel cal-wrap">' +
         '<div class="cal-top">' +
           '<div class="month-nav">' +
+            calTabsHtml() +
             '<button class="arrow" data-act="month-shift" data-delta="-1" aria-label="上个月">‹</button>' +
             '<b>' + y + ' 年 ' + (m + 1) + ' 月</b>' +
             '<button class="arrow" data-act="month-shift" data-delta="1" aria-label="下个月">›</button>' +
@@ -7433,9 +7856,8 @@ body.modal-open{overflow:hidden}
           '<span class="leg"><i class="l4"></i>100%</span>' +
           '<span class="leg-note">≥ 75% 记为达标日；右下角小表情为当天心情</span>' +
         '</div>' +
-      '</div>' +
-      '<aside class="cal-side">' + side + '</aside>' +
-      '</div>';
+      '</div>'
+    };
   }
 
   /* ============================================================
@@ -7981,6 +8403,14 @@ body.modal-open{overflow:hidden}
       '</div>' +
       '<div class="panel"><h3>近 ' + range + ' 天完成率</h3><div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div></div>' +
       monthReviewPanel() +
+      /* 这两个原来在日历右栏。挪到统计页是因为它们本质是「本月的汇总」，
+         和「看哪一天发生了什么」无关，而且占掉了时间线要用的宽度。 */
+      '<div class="panel"><h3>本月用药 <span class="muted-sm">（按应服次数）</span></h3>' +
+        monthMedPanel(now.getFullYear(), now.getMonth()) +
+      '</div>' +
+      '<div class="panel"><h3>本月习惯 <span class="muted-sm">（只看有记录的日子）</span></h3>' +
+        monthHabitRowsHtml(now.getFullYear(), now.getMonth()) +
+      '</div>' +
       medTrendPanel(range, rangeDays) +
       '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +
         (hstats || '<div class="empty-box">还没有习惯数据。</div>') +
@@ -9274,6 +9704,20 @@ body.modal-open{overflow:hidden}
       bindBoard();
       bindBoardContext();
     }
+    /* 周视图：打开时滚到当前时刻附近。0:00 起算的话一进来全是空白，
+       得手动往下拖很久才看到今天的事。只有这一周包含今天才滚。 */
+    if (view === 'calendar' && calMode === 'week') {
+      const box = $('#wk-scroll');
+      if (box) {
+        const ws = weekStartOf(calWeek);
+        const today = todayStr();
+        const inWeek = today >= fmt(ws) && today <= fmt(addDays(ws, 6));
+        if (inWeek) {
+          const n = new Date();
+          box.scrollTop = Math.max(0, (n.getHours() * 60 + n.getMinutes()) / 60 * WK_HOUR_H - 120);
+        }
+      }
+    }
   }
 
   function bindBoardContext() {
@@ -9635,6 +10079,19 @@ body.modal-open{overflow:hidden}
     };
     repeat.addEventListener('change', sync);
     sync();
+    /* 填了「开始时间」但没手动动过通知时间时，通知时间自动跟着走：
+       下午的事不会在早上 9 点响，同时保留了手动提前提醒的余地
+       （一旦手动改过通知时间，就不再自动同步）。 */
+    const stEl = form.querySelector('[name="startTime"]');
+    const ntEl = form.querySelector('[name="notifyTime"]');
+    if (stEl && ntEl) {
+      let touched = false;
+      ntEl.addEventListener('input', () => { touched = true; });
+      stEl.addEventListener('input', () => {
+        if (touched || !stEl.value) return;
+        ntEl.value = stEl.value;
+      });
+    }
   }
 
   function bindHabitForm() {
@@ -9673,7 +10130,8 @@ body.modal-open{overflow:hidden}
     const t = task || {
       title: '', note: '', tag: '健康', priority: '中',
       status: presetStatus || 'todo', due: todayStr(), repeat: 'none', repeatTime: '20:00',
-      repeatWeekday: parseD(todayStr()).getDay(), repeatDay: parseD(todayStr()).getDate()
+      repeatWeekday: parseD(todayStr()).getDay(), repeatDay: parseD(todayStr()).getDate(),
+      startTime: '', duration: 0
     };
     const tagOpts = Object.keys(TAGS).map(k =>
       '<option value="' + k + '"' + (t.tag === k ? ' selected' : '') + '>' + k + '</option>').join('');
@@ -9706,6 +10164,12 @@ body.modal-open{overflow:hidden}
               '<button type="button" class="chip" data-due-quick="3">三日</button>' +
             '</div>' +
           '</div>' +
+          '<label class="field"><span>开始时间</span><input type="time" name="startTime" value="' + esc(t.startTime || '') + '"></label>' +
+          '<label class="field"><span>时长</span><select name="duration">' +
+            [[0, '不设时长'], [30, '30 分钟'], [60, '1 小时'], [90, '1.5 小时'], [120, '2 小时'], [180, '3 小时']]
+              .map(pair => '<option value="' + pair[0] + '"' +
+                ((Number(t.duration) || 0) === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>').join('') +
+          '</select></label>' +
           '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
             '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
             '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
@@ -10177,6 +10641,11 @@ body.modal-open{overflow:hidden}
     const repeatTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(repeatTimeRaw) ? repeatTimeRaw : '20:00';
     const notifyTimeRaw = get('notifyTime');
     const notifyTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(notifyTimeRaw) ? notifyTimeRaw : '09:00';
+    const startTimeRaw = get('startTime');
+    const startTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(startTimeRaw) ? startTimeRaw : '';
+    const durRaw = parseInt(get('duration'), 10);
+    const duration = (Number.isFinite(durRaw) && durRaw >= 15 && durRaw <= 720)
+      ? Math.round(durRaw / 15) * 15 : 0;
     const repeatRaw = get('repeat');
     const repeat = ['daily', 'weekly', 'monthly'].indexOf(repeatRaw) >= 0 ? repeatRaw : 'none';
     const due = get('due') || (repeat !== 'none' ? todayStr() : '');
@@ -10198,7 +10667,9 @@ body.modal-open{overflow:hidden}
       repeatDay: repeatDay,
       notify: get('notify') !== '0',
       notifyTime: notifyTime,
-      notifyNote: get('notifyNote')
+      notifyNote: get('notifyNote'),
+      startTime: startTime,
+      duration: duration
     };
     if (id) {
       const t = state.tasks.find(x => x.id === id);
@@ -10760,7 +11231,10 @@ body.modal-open{overflow:hidden}
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.due || ''))) return;
       const repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';
       const dueD = parseD(t.due);
-      const hm = String(t.notifyTime || '09:00').split(':').map(Number);
+      /* 日历是「日程」语义：填了开始时间就按它画，否则退回通知时间 */
+      const hm = String(t.startTime || t.notifyTime || '09:00').split(':').map(Number);
+      const durMin = (Number(t.duration) >= 15 && Number(t.duration) <= 720)
+        ? Number(t.duration) : 15;
       let start, rrule = '';
       if (repeat === 'none') {
         if (String(t.due) < today) return;       /* 已经逾期的由横幅去催，别塞满日历 */
@@ -10781,7 +11255,7 @@ body.modal-open{overflow:hidden}
           else start = new Date(start.getFullYear(), start.getMonth() + 1, start.getDate(), hm[0], hm[1]);
         }
       }
-      out.push(icsEvent('task-' + t.id, start, new Date(start.getTime() + 15 * 60000),
+      out.push(icsEvent('task-' + t.id, start, new Date(start.getTime() + durMin * 60000),
         '📌 ' + String(t.title || '待办'), t.note || '', rrule));
       count++;
     });
@@ -10961,6 +11435,60 @@ body.modal-open{overflow:hidden}
     'month-shift': el => {
       calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + (Number(el.dataset.delta) || 0), 1);
       render();
+    },
+    'cal-mode': el => {
+      const mode = el.dataset.mode === 'week' ? 'week' : 'month';
+      if (mode === calMode) return;
+      calMode = mode;
+      /* 从月切到周时，让周视图落在月视图正在看的那个月里，
+         否则用户刚翻到 9 月，一切周视图却跳回本周。 */
+      if (mode === 'week') {
+        const t = todayStr();
+        const firstOfMonth = fmt(calMonth);
+        const inMonth = t.slice(0, 7) === firstOfMonth.slice(0, 7);
+        calWeek = inMonth ? new Date() : new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
+      }
+      render();
+    },
+    'week-shift': el => {
+      calWeek = addDays(weekStartOf(calWeek), (Number(el.dataset.delta) || 0) * 7);
+      /* 底部三卡按 calMonth 算，滚到别的月份时让它跟着走 */
+      calMonth = new Date(calWeek.getFullYear(), calWeek.getMonth(), 1);
+      render();
+    },
+    'week-today': () => {
+      const n = new Date();
+      calWeek = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+      calMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+      render();
+    },
+    'wk-open': el => {
+      const ds = el.dataset.date || '';
+      const kind = el.dataset.kind || 'task';
+      const start = Number(el.dataset.start);
+      const data = weekDayBlocks(ds);
+      let head = '';
+      let titles = [];
+      if (start < 0) {
+        head = ds + ' · 全天';
+        titles = data.allday.map(x => x.title);
+      } else {
+        const hit = data.blocks.find(b => b.kind === kind && b.startMin === start);
+        if (!hit) return;
+        head = ds + ' ' + pad2(Math.floor(start / 60)) + ':' + pad2(start % 60) + ' · ' + (WK_KIND_CN[kind] || kind);
+        titles = hit.titles;
+      }
+      if (!titles.length) return;
+      openModal('' +
+        '<div class="modal-card wk-detail">' +
+          '<h3>' + esc(head) + '</h3>' +
+          '<ul class="wk-detail-list">' +
+            titles.map(t => '<li>' + esc(t) + '</li>').join('') +
+          '</ul>' +
+          '<div class="modal-actions"><span class="spacer"></span>' +
+            '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
+          '</div>' +
+        '</div>');
     },
     'habit-inc': el => {
       const h = currentHabit(el.dataset.id);

@@ -278,6 +278,31 @@ $hMonthly2['id'] = 'h13';
 $hMonthly2['notifyMonthday'] = ($dm === 31 ? 1 : $dm + 1);
 chk('monthly 非今天不提醒', count(lb_schedule_day(['habits' => [$hMonthly2]], D)) === 0);
 
+/* ---------------- 待办时间块：推送正文带上「14:30–16:00」 ---------------- */
+$block = ['tasks' => [[
+    'id' => 'tb1', 'title' => '项目评审会', 'status' => 'todo', 'due' => D,
+    'notifyTime' => '09:00', 'startTime' => '14:30', 'duration' => 90,
+]]];
+$planB = lb_schedule_day($block, D);
+chk('有时间块的待办仍按通知时间 09:00 推送（不是开始时间）',
+    has($planB, '09:00 task:tb1'), implode(' | ', times($planB)));
+$bodyB = $planB[0]['body'] ?? '';
+chk('正文带时间段 14:30–16:00', strpos($bodyB, '14:30–16:00') !== false, $bodyB);
+chk('正文仍有标题', strpos($bodyB, '项目评审会') !== false);
+
+$noDur = ['tasks' => [[
+    'id' => 'tb2', 'title' => '只看时间', 'status' => 'todo', 'due' => D,
+    'notifyTime' => '10:00', 'startTime' => '15:00', 'duration' => 0,
+]]];
+$bodyC = (lb_schedule_day($noDur, D)[0]['body'] ?? '');
+chk('没设时长时只写开始时间', strpos($bodyC, '15:00') !== false && strpos($bodyC, '–') === false, $bodyC);
+
+$notBlock = ['tasks' => [[
+    'id' => 'tb3', 'title' => '纯提醒', 'status' => 'todo', 'due' => D, 'notifyTime' => '11:00',
+]]];
+$bodyD = (lb_schedule_day($notBlock, D)[0]['body'] ?? '');
+chk('没有时间块时正文不带时间行', strpos($bodyD, '11:00') === false, $bodyD);
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

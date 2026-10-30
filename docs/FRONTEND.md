@@ -159,7 +159,7 @@ render()
 | `habits` | `viewHabits()` | 习惯管理 | `.habit-row` `.habit-sort` |
 | `weight` | `viewWeight()` | 体重 | `.weight-row` `.chart` |
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
-| `calendar` | `viewCalendar()` | 打卡日历（热力格） | `.cal-layout` `.cal-grid` `.cal-cell` `.cal-fill` |
+| `calendar` | `viewCalendar()` | 日历（月 / 周两种） | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` |
 | `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` |
 | `settings` | `viewSettings()` | 设置 | `.ntf-box` `.pc-row` |
 | `more` | `viewMore()` | 「更多」页 | `.more-grid` `.more-card` |
@@ -302,6 +302,28 @@ document.addEventListener('click', e => {
 
 **弹窗机制**：内容渲染到 `#modal-root`（`body` 的直接子元素），
 所以打印样式可以只保留它、其余全部隐藏。焦点在打开前记录、关闭时归还。
+
+### 7.6b 日历（月 / 周）
+
+| 函数 | 作用 |
+|---|---|
+| `viewCalendar()` | 入口，按 `calMode` 分派到月或周，并在下方统一挂三卡 |
+| `viewMonth()` | 月视图：格子 = 完成度染色 + 待办 + 百分比 + 心情 |
+| `viewWeek()` | 周视图：0:00–24:00 时间线 |
+| `dayTasks(ds)` | 某天到期的未完成待办，按「优先级 → 开始时间」排 |
+| `weekDayBlocks(ds)` | 某天的全部安排：`blocks`（有时间）+ `allday`（没时间） |
+| `taskHitsDay(t, ds)` | 重复任务在某天是否命中（周视图靠它展开未来几周） |
+| `monthHabitsInfo(y,m)` | 本月习惯统计，日历三卡和统计页共用 |
+| `monthOverview(y,m)` | 日历页底部三卡（小结 / 心情 / 体重） |
+
+**周视图的两个关键设计**：
+
+1. **同一时刻 + 同一类型合并成一块**。08:00 有十一个药时，并排分列每列不到 5px
+   什么都看不见，所以合并成「用药 ×11」，点开看清单。
+2. **块是绝对定位的**（`top = 开始分钟 / 60 × 44`），同列碰撞时往下挪，
+   避免两个块互相遮住。
+
+`calMode` / `calWeek` 是模块级变量，**不进 state**（切视图不该触发云同步）。
 
 ### 7.7 搜索与命令
 

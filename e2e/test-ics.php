@@ -56,6 +56,9 @@ $state = [
         ['id' => 't3', 'title' => '交房租', 'status' => 'todo', 'due' => '2026-10-25',
          'repeat' => 'monthly', 'notifyTime' => '10:30', 'repeatDay' => 1],
         ['id' => 't4', 'title' => '三天后体检', 'status' => 'todo', 'due' => '2026-10-28', 'note' => '空腹'],
+        // 填了时间块的：日历按开始时间画、按时长定长度（不是通知时间）
+        ['id' => 't8', 'title' => '项目评审会', 'status' => 'todo', 'due' => '2026-10-28',
+         'notifyTime' => '09:00', 'startTime' => '14:30', 'duration' => 90],
         // 今天 9 点已过，单次任务不再进日历
         ['id' => 't5', 'title' => '今天已过点', 'status' => 'todo', 'due' => '2026-10-25'],
         ['id' => 't6', 'title' => '已完成', 'status' => 'done', 'due' => '2026-10-28'],
@@ -94,8 +97,8 @@ chk('声明了刷新间隔（客户端据此决定多久来拉一次）',
 /* ---------------- 2. 事件数量 ---------------- */
 echo "\n[2] 事件筛选\n";
 $vevents = substr_count($text, 'BEGIN:VEVENT');
-chk('总事件数 10', $built['count'] === 10 && $vevents === 10, 'count=' . $built['count'] . ' vevent=' . $vevents);
-chk('在吃的药：5 条（阿莫西林×2 / 维生素D / 头孢 / 长期药带结束日）',
+chk('总事件数 11', $built['count'] === 11 && $vevents === 11, 'count=' . $built['count'] . ' vevent=' . $vevents);
+chk('在吃的药仍是 5 条（新增的时间块用例是待办，不影响药）',
     substr_count($text, 'UID:med-') === 5, (string)substr_count($text, 'UID:med-'));
 chk('疗程结束后不进日历', strpos($text, '过期疗程') === false);
 chk('停药的不进日历', strpos($text, '已停药') === false);
@@ -103,10 +106,20 @@ chk('没有时间的药不进日历', strpos($text, '没有时间') === false);
 /* 下面两条以前是错的：备用药被当成每日服药导出、长期药被 endDate 提前截断 */
 chk('备用药（按需服用）不进日历', strpos($text, '布洛芬') === false);
 chk('长期药填了结束日也不该停', strpos($text, '长期药带结束日') !== false);
-chk('待办：4 条（日/周/月重复 + 未来单次）',
-    substr_count($text, 'UID:task-') === 4, (string)substr_count($text, 'UID:task-'));
+chk('待办：5 条（日/周/月重复 + 未来单次 + 时间块）',
+    substr_count($text, 'UID:task-') === 5, (string)substr_count($text, 'UID:task-'));
 chk('已完成的不进日历', strpos($text, '已完成') === false);
 chk('逾期的单次任务不进日历', strpos($text, '逾期任务') === false);
+/* 时间块：日历按「开始时间」画，不是通知时间；长度按 duration，不是固定 15 分钟 */
+$ev8 = '';
+if (preg_match('/BEGIN:VEVENT.*?项目评审会.*?END:VEVENT/s', $text, $mm8)) {
+    $ev8 = $mm8[0];
+}
+chk('有开始时间的任务进了日历', $ev8 !== '');
+chk('DTSTART 用开始时间 14:30 而不是通知时间 09:00',
+    strpos($ev8, 'T143000') !== false, $ev8 === '' ? '(没有这条事件)' : substr($ev8, 0, 200));
+chk('DTEND 按 90 分钟算（16:00）', strpos($ev8, 'T160000') !== false,
+    $ev8 === '' ? '' : substr($ev8, 0, 200));
 chk('今天已过点的单次任务不进日历', strpos($text, '今天已过点') === false);
 chk('习惯：只导出有建议时间的 1 条',
     substr_count($text, 'UID:habit-') === 1, (string)substr_count($text, 'UID:habit-'));
@@ -116,7 +129,7 @@ chk('戒除型习惯不进日历', strpos($text, '戒烟') === false);
 /* ---------------- 3. 时间正确性 ---------------- */
 echo "\n[3] 时间\n";
 chk('DTSTART 一律带 TZID',
-    substr_count($text, 'DTSTART;TZID=Asia/Shanghai:') === 10,
+    substr_count($text, 'DTSTART;TZID=Asia/Shanghai:') === 11,
     (string)substr_count($text, 'DTSTART;TZID=Asia/Shanghai:'));
 chk('没有把时刻写成 UTC（否则 BYDAY 会偏一天）',
     !preg_match('/DTSTART[^:]*:\d{8}T\d{6}Z/', $text));
@@ -155,9 +168,9 @@ chk('UNTIL 是 UTC（以 Z 结尾）', (bool)preg_match('/UNTIL=\d{8}T\d{6}Z/', 
 
 /* ---------------- 5. 提醒 ---------------- */
 echo "\n[5] 提醒\n";
-chk('每个事件都带 VALARM', substr_count($text, 'BEGIN:VALARM') === 10,
+chk('每个事件都带 VALARM', substr_count($text, 'BEGIN:VALARM') === 11,
     (string)substr_count($text, 'BEGIN:VALARM'));
-chk('提醒零延迟触发', substr_count($text, 'TRIGGER:-PT0M') === 10);
+chk('提醒零延迟触发', substr_count($text, 'TRIGGER:-PT0M') === 11);
 
 /* ---------------- 6. 格式合规 ---------------- */
 echo "\n[6] 格式\n";

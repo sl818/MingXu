@@ -141,7 +141,20 @@ function lb_schedule_day(array $state, string $date): array
         }
         $note = trim((string)($t['note'] ?? ''));
         $notifyNote = trim((string)($t['notifyNote'] ?? ''));
-        $body = $title . ($note !== '' ? "\n" . $note : '')
+        /* 填了时间块的，正文里带上「14:00–15:00」，让人一眼知道这事占多久。
+           推送时刻仍然用 notifyTime（那是「什么时候提醒」，和时间块是两回事）。 */
+        $slotLabel = '';
+        $st = (string)($t['startTime'] ?? '');
+        if (preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $sm)) {
+            $slotLabel = $st;
+            $dur = (int)($t['duration'] ?? 0);
+            if ($dur >= 15) {
+                $endMin = (int)$sm[1] * 60 + (int)$sm[2] + $dur;
+                $slotLabel .= '–' . sprintf('%02d:%02d', intdiv($endMin, 60) % 24, $endMin % 60);
+            }
+        }
+        $body = $title . ($slotLabel !== '' ? "\n" . $slotLabel : '')
+            . ($note !== '' ? "\n" . $note : '')
             . ($notifyNote !== '' ? "\n" . $notifyNote : '');
         $out[] = [
             'time' => $slot,

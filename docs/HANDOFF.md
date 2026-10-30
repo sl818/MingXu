@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v46（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v46'`） |
+| 代码版本 | v47（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v47'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -67,6 +67,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v44 | 10-30 | 习惯 / 待办接入推送：通知开关、频率、备注 + 三时段待办汇报 |
 | v45 | 10-30 | 推送中心：今日推送计划预览 + 发送记录（含正文） |
 | v46 | 10-30 | 删设置页多余的「更多页面」入口，PC 导航顺序调整 |
+| v47 | 10-30 | 日历重构：月视图加待办、新增周视图时间线、本月习惯/用药挪到统计页 |
 
 ### 两次值得记住的事故
 
@@ -98,6 +99,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | 前后端等价 | `e2e/verify-ics-subscribe.py` | 9 项 |
 | 前端 E2E | `regression-v3` / `verify-v15` / `verify-mobile-nav` / `verify-batch2~4` | 40 / 44 / 44 / 51 / 60 / 20 |
 | 单功能 | `verify-{ics-ui,push-ui,trend-v41,summary-v42,cmd-v43,stockcheck-v40}` | 各 24–43 项 |
+| 日历重构 | `verify-calendar-v47.py` | 48 项（月视图待办 / 周视图时间线 / 布局重排 / 手机适配） |
 | 对比度 | `audit-contrast-v33` / `audit-stock-contrast` / `audit-cmd-contrast` | 468 次取样 |
 | 线上 | `e2e/live/full-v43.py` / `mobile-v43.py` | 32 / 12 项 |
 

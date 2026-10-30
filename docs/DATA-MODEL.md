@@ -100,8 +100,14 @@
 | `repeatFrom` | string | `''` | 由哪条重复任务生成 |
 | `archivedAt` | ISO string \| `''` | `''` | 非空 = 已归档 |
 | `notify` | boolean | `true` | 通知开关 |
-| `notifyTime` | `'HH:MM'` | `'09:00'` | **通知时间** |
+| `notifyTime` | `'HH:MM'` | `'09:00'` | **通知时间**（什么时候提醒） |
 | `notifyNote` | string | `''` | 通知备注 |
+| `startTime` | `'HH:MM'` \| `''` | `''` | **时间块的开始时刻**，周视图据此画色块；空 = 落在「全天」行 |
+| `duration` | number | `0` | **时间块时长（分钟）**，按 15 对齐，范围 15–720；`0` 表示没设 |
+
+> `notifyTime` 和 `startTime` 是两件事：前者决定「什么时候响」，后者决定
+> 「这件事几点到几点」。表单里填了开始时间、又没手动改过通知时间时，
+> 通知时间会自动跟随（见 `bindTaskForm`），避免下午的事早上 9 点响。
 
 ### 3.1 重复任务的语义
 
@@ -294,6 +300,8 @@ notes = {}                            // 旧版随记，保留但无界面
 |---|---|---|
 | 库存余量 | `medStockRemain` | 基线 − 基线之后的记录剂量和 |
 | 库存可吃天数 | `medStockDays` | 余量 ÷ 每日剂量 |
+| 某天的待办 | `dayTasks(ds)` | `liveTasks()` 里 due 正好是那天、且未完成/未取消的 |
+| 周视图的事件块 | `weekDayBlocks(ds)` | 待办 + 用药 + 习惯，同一时刻同类合并 |
 | 今日应服次数 | `medScheduledCount(d)` | 当天有排期的药的时段总数 |
 | 今日已服次数 | `medTakenCount(d)` | 当天 `doses` 的记录数 |
 | 今日依从率 | `medAdherenceDay(d)` | 已服 ÷ 应服 |
