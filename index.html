@@ -2463,23 +2463,6 @@ body.modal-open{overflow:hidden}
 .qa-ico svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .qa-item b{font-size:14px;font-weight:600;flex:1;min-width:0}
 .qa-item small{font-size:10.5px;color:var(--muted);white-space:nowrap}
-/* 设置页：移动端「更多页面」入口（桌面隐藏，桌面导航已有全部页面） */
-.mobile-only{display:none}
-.page-links{display:flex;flex-direction:column;gap:6px}
-.page-link{
-  display:flex;align-items:center;gap:11px;width:100%;
-  padding:10px 12px;border:1px solid var(--line);border-radius:12px;
-  background:var(--surface-2);color:var(--text);cursor:pointer;text-align:left;font-family:inherit;
-  transition:border-color .16s,background .16s;
-}
-.page-link:hover{border-color:var(--accent);background:var(--accent-soft)}
-.pl-ico{
-  width:30px;height:30px;border-radius:9px;flex:none;
-  display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--accent);
-}
-.pl-ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.page-link b{font-size:13.5px;font-weight:600;flex:1;min-width:0}
-.page-link small{font-size:10.5px;color:var(--muted);white-space:nowrap}
 @media (max-width:960px){
   .sidebar .nav{display:none}
   .mobile-tabbar:not(:empty){
@@ -2503,7 +2486,6 @@ body.modal-open{overflow:hidden}
   }
   .mobile-add svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
   .mobile-add:active{transform:scale(.93)}
-  .mobile-only{display:block}
   .main{padding-bottom:96px}
   .sync-indicator{bottom:calc(82px + env(safe-area-inset-bottom))}
 }
@@ -9005,17 +8987,6 @@ body.modal-open{overflow:hidden}
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="panel mobile-only"><h3>更多页面</h3>' +
-        '<p class="muted-sm" style="margin-bottom:9px">底部「更多」一点就能跳到全部页面；这里也留一份，方便从设置页连着看。</p>' +
-        '<div class="page-links">' +
-          MORE_PAGES.map(p =>
-            '<button type="button" class="page-link" data-nav="' + p.key + '">' +
-              '<span class="pl-ico">' + icon(p.icon) + '</span>' +
-              '<b>' + p.label + '</b><small>' + p.desc + '</small>' +
-            '</button>'
-          ).join('') +
-        '</div>' +
-      '</div>' +
       cloudPanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       '<div class="panel"><h3>数据管理</h3>' +
@@ -9046,9 +9017,9 @@ body.modal-open{overflow:hidden}
     { key: 'today', label: '今日', icon: 'today', group: '记录', wideLabel: '今日' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
     { key: 'board', label: '待办', icon: 'board', group: '记录', wideLabel: '待办看板' },
-    { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
-    { key: 'weight', label: '体重', icon: 'weight', group: '记录', wideLabel: '体重与 BMI' },
     { key: 'habits', label: '习惯', icon: 'habits', group: '记录', wideLabel: '习惯' },
+    { key: 'weight', label: '体重', icon: 'weight', group: '记录', wideLabel: '体重与 BMI' },
+    { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
     { key: 'calendar', label: '日历', icon: 'calendar', group: '回顾', wideLabel: '打卡日历' },
     { key: 'stats', label: '统计', icon: 'stats', group: '回顾', wideLabel: '数据统计' },
     { key: 'settings', label: '设置', icon: 'settings', group: '回顾', wideLabel: '设置' }

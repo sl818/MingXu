@@ -105,7 +105,7 @@ def login(pg, layout='top'):
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
 
-EXPECT_NAV = ['今日', '用药', '待办', '随笔', '体重', '习惯', '日历', '统计', '设置']
+EXPECT_NAV = ['今日', '用药', '待办', '习惯', '体重', '随笔', '日历', '统计', '设置']
 
 with sync_playwright() as p:
     br = p.chromium.launch(channel='chrome', headless=True)
@@ -120,7 +120,7 @@ with sync_playwright() as p:
         tag = '[%s]' % layout
 
         nav = pg.evaluate("() => [...document.querySelectorAll('.nav-item')].map(e => e.textContent.trim())")
-        expect = EXPECT_NAV if layout != 'wide' else ['今日', '用药管理', '待办看板', '随笔', '体重与 BMI', '习惯', '打卡日历', '数据统计', '设置']
+        expect = EXPECT_NAV if layout != 'wide' else ['今日', '用药管理', '待办看板', '习惯', '体重与 BMI', '随笔', '打卡日历', '数据统计', '设置']
         rec(tag + ' 导航顺序正确', nav == expect, str(nav))
 
         # 用药卡：只剩一条
@@ -220,25 +220,20 @@ with sync_playwright() as p:
         rec(tag + ' 新建面板可打开待办表单', pg.locator('#task-form').count() == 1, '')
         pg.click('[data-act="close-modal"]'); pg.wait_for_timeout(500)
 
-        # 设置页「更多页面」5 项（仅手机显示）
-        # 底部最后一个 tab 已改为「更多」抽屉，设置页从抽屉进入
+        # 设置页已不再有「更多页面」区块：底部「更多」抽屉已覆盖全部页面，
+        # 这个入口是底部导航改版前的过渡产物，已删除。
         pg.click('[data-act="more-open"]'); pg.wait_for_timeout(600)
         pg.evaluate("""() => { const b = document.querySelector('[data-act="more-go"][data-view="settings"]'); if (b) b.click(); }""")
         pg.wait_for_timeout(1100)
         mp = pg.evaluate("""() => {
           const q = s => document.querySelector(s);
-          const mo = q('.mobile-only');
-          return {disp: mo ? getComputedStyle(mo).display : 'absent',
-                  links: [...document.querySelectorAll('.page-link')].map(e => e.querySelector('b').textContent.trim())};
+          return {mobileOnly: q('.mobile-only') ? 'present' : 'absent',
+                  links: document.querySelectorAll('.page-link').length};
         }""")
-        rec(tag + ' 手机显示「更多页面」区块', mp['disp'] == 'block', mp['disp'])
-        rec(tag + ' 更多页面 5 个入口', mp['links'] == ['习惯', '随笔', '体重', '日历', '统计'], str(mp['links']))
+        rec(tag + ' 设置页已没有「更多页面」区块', mp['mobileOnly'] == 'absent', str(mp['mobileOnly']))
+        rec(tag + ' 无 page-link 残留', mp['links'] == 0, str(mp['links']))
         if w == 390:
             pg.screenshot(path='design/shots/v15-mobile-settings.png')
-            # 点「日历」跳转
-            pg.locator('.page-link:has-text("日历")').click(); pg.wait_for_timeout(1100)
-            jumped = pg.evaluate("() => document.body.dataset.view")
-            rec(tag + ' 更多页面可跳转', jumped == 'calendar', jumped)
         rec(tag + ' 无 JS 异常', not errs, str(errs[:1]))
         ctx.close()
 
