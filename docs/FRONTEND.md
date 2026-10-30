@@ -272,22 +272,22 @@ document.addEventListener('click', e => {
 
 `craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
 `quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
-`craveTriggers(hid)` `quitWeek(h)` `quitSaved(h)` `quitNextMile(streak)` `quitRingHtml(h)`
-`quitAxisHtml(h,d)`（今日 24 小时轴）
+`craveTriggers(hid)` `quitSaved(h)` `quitNextMile(streak)`
+`currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)`
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
 
-- 骨架照抄运动卡：`vital-top` / `move-body`（左文字 + 右环）/ `move-foot` / 底部动作
-- 环量的是**本周无烟天数**（`quitRingHtml`），和运动卡「本周完成 0/7」是同一套语义
-- 底部是**两个等权重按钮**（`quit-btn smoke` / `quit-btn resist`），不是一主一次。
-  把「点一根」做成次要操作，人就不好意思点，数据立刻失真
-- 常驻卡为奇数张时，最后一张 `grid-column:span 2` 变宽卡。宽卡靠两样东西撑住横向空间：
-  **放大的环**（132 → 176）和**横贯整卡的 24 小时轴**（`quitAxisHtml`，`grid-column:1/-1`）
-- 24 小时轴替代了原来的标签行：同一分钟的多条合并成一个点（有点一根就红），
-  空的时候显示虚线框 + 「今天还没有记录」，不是一条光秃秃的灰带子
+- **主视觉是「一包 20 支」的格子（`packGridHtml`），不是进度环。**
+  环是「完成度」语义（运动卡那样），戒烟是「消耗」语义，硬套会拧
+- 尺寸跟其他常驻卡一致，**不跨列**。常驻卡为奇数张时最后一张 `grid-column:1/-1`
+  + `justify-self:center`，居中而不是贴左（右边不留空块）
+- 每格一支烟：滤嘴在上 34%，抽掉的加 `.out`（`opacity:.22 + grayscale`）。
+  **熄灭不要做粒子特效**——抽一根如果看着爽，就成了游戏
+- 没有买烟记录时格子里放「开一包」按钮（`pack-open`），否则提示文字是死路
 - 按钮行三格：`点一根 / 忍一次 / 撤销`。撤销窄一格、底色更淡，
   无记录时 `disabled`。**不要加二次确认**——撤错再点一次就补回来了
+- `addCraving` 的去重窗口只有 **1 秒**：再宽会挡住「补记今天抽了几支」那种连点
 - 涨落：`QUIT_MILESTONES` = 1/3/7/14/30/60/90/180/365，文案在 `QUIT_MILE_CN`
 
 要点：

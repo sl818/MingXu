@@ -13,7 +13,7 @@
 ```js
 {
   version: 2,              // 早期字段，保留兼容
-  schemaVersion: 5,        // 迁移版本号，见第 9 节
+  schemaVersion: 6,        // 迁移版本号，见第 9 节
   view: 'today',           // 上次停留的页面
 
   habits: [],              // 习惯（含 4 个内置常驻卡）
@@ -23,7 +23,8 @@
   checks: {},              // 习惯打卡：{日期: {习惯id: 次数}}
   doses: {},               // 服药记录：{日期: {药品id: {时段: 记录}}}
   events: [],              // 操作日志（习惯 + 服药），上限 1000 条
-  cravings: [],            // 戒烟事件流（抽了 / 忍住了），见第 5.4 节
+  cravings: [],            // 戒烟事件流（点一根 / 忍一次），见第 5.4 节
+  packs: [],               // 买烟记录：一包一条，见第 5.5 节
 
   weights: [],             // 体重记录
   bodyProfile: {},         // 身体档案（年龄 / 身高 / 目标体重）
@@ -269,11 +270,31 @@ cravings: [
    事件流没有 `delta`，同一秒两条会互相顶掉。
 
 派生函数：`quitStreak` / `quitTotal` / `quitBest` / `quitRange` / `craveHours` / `craveTriggers` /
-`quitWeek`（本周 7 天状态）/ `quitSaved`（省钱）/ `quitNextMile`（下一个里程碑）/ `quitRingHtml`。
+`quitSaved`（省钱）/ `quitNextMile`（下一个里程碑）/ `currentPack` / `packUsed` / `packSpan`。
 
-> **`quitWeek` 的 `started` 和 `future` 两个标记不能省**：
-> `started` 是「戒烟起点之后」——起点之前的日子不该算无烟，否则刚建习惯就显示满环；
-> `future` 是「还没到的日子」——不算进去的话，周三就会显示 6/7，是假的。
+### 5.5 `packs[]` —— 买烟记录
+
+```js
+packs: [{ id: 'pk1', at: 1761824520, name: '黄鹤楼', price: 25, size: 20 }]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `at` | 开包时刻（秒）。“当前这包” = `at` 最大的那条 |
+| `name` / `price` | 烟名、一包多少钱。可以不填（迁移补的包 `price: 0`） |
+| `size` | 一包几支，默认 20 |
+
+**绝不存「还剩几支」。** 那是派生量：
+
+```js
+剩余 = pack.size - packUsed(h, pack).length
+packUsed = 开包之后所有 k === 's' 的事件
+```
+
+存了剩余量，多端一合并必然对不上（跟药品库存是同一个道理，见 4.2）。
+
+`packSpan(h, pack)` 算「这包抽了多久」：抽完了算到最后一次，没抽完算到现在。
+这是戒烟卡上信息量最大的一个数——比「连续几天没抽」更能反映还在抽的人的进度。
 
 > **口径**：`craveHours`（时段图）和 `craveTriggers`（诱因）**只统计 `k === 's'`**。
 > 把「忍住了」混进去会出现「压力 7 次」但其实只抽了 3 根的矛盾，
@@ -403,6 +424,7 @@ MED_PHASES    进行中 / 未开始 / 暂停 / 已停用   （按 status + 日�
 | v2 → v3 | `migrateWater`（8 杯 → 9 杯 / 250ml）、`ensureBreathingHabit` |
 | v3 → v4 | 库存从"绝对数逐次扣减"改为"基线 + 推算" |
 | v4 → v5 | `migrateQuitCravings`：老 `checks` 里的戒烟次数转成 `s` 事件，清掉「保持 0 次」备注 |
+| v5 → v6 | `migrateQuitPack`：给有戒烟习惯但没有买烟记录的账号补一包（开包时间 = 戒烟起点） |
 | 每次加载 | `migrateStock()` —— **幂等补齐，不依赖版本号** |
 
 ### 9.1 两条规则
@@ -429,6 +451,7 @@ MED_PHASES    进行中 / 未开始 / 暂停 / 已停用   （按 status + 日�
 | `notes` | 按日期，本地优先 |
 | `events` | 按 `at` + `id` + `delta` 去重并集 |
 | `cravings` | 按 `id` 去重并集，合并后按 `t` 排序。**单独一段，不复用 `events` 的判重键** |
+| `packs` | 按 `id` 去重并集，合并后按 `at` 排序。同样单独一段 |
 | `bodyProfile` | 浅合并，本地优先 |
 | `view` | 以远程为准（`out = {...remote}`） |
 

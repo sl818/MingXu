@@ -96,11 +96,10 @@ SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-s
 SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend']
 # 戒烟常驻卡（v50）：两个按钮、状态字、数据行、里程碑、今日记录
 # .cl-item 的底色是 rgba 浅红/浅绿，文字一律 --text，不单独取样
-# .quit-mile-bar 是纯色块、没有文字，测它的 color/background 会得到假阳性，
-# 换成同位置真正有字的 .move-foot
+# 时间轴和里程碑进度条都换成了 20 支格子，格子是纯色块没有文字，
+# 取样的选择器只留真正有字的（按钮、状态、数据行、里程碑脚注）
 SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
-                   '.quit-card .move-lines > span', '.quit-card .move-foot',
-                   '.quit-axis .qa-label', '.quit-axis .qa-scale']
+                   '.quit-card .move-lines > span', '.quit-card .move-foot']
 # 统计页：勋章墙 + 时段图坐标轴
 SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']

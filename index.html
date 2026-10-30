@@ -3147,6 +3147,25 @@ body.modal-open{overflow:hidden}
    结构照抄运动卡（左文字 / 右环 / 底部动作），只有两处不同：
    环量的是「本周无烟天数」，底部是两个等权重按钮。
    等权是有意的——把「点一根」做成次要操作，人就不会记，数据立刻失真。 */
+/* 一包 20 支：每格一支烟，抽掉的熄灭。
+   这是这张卡的主视觉——环是「完成度」语义（运动卡那样），
+   戒烟是「消耗」语义，所以不套环。 */
+.pack-grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));
+  gap:5px;margin:12px 0 9px}
+.pk{position:relative;height:32px;border-radius:3px 3px 2px 2px;
+  /* 上 34% 是滤嘴，加深一档，否则整根看着就是一块白 */
+  background:linear-gradient(180deg,#c2a877 0 34%,color-mix(in srgb,#f7f2e7 82%,var(--surface)) 34% 100%);
+  border:1px solid color-mix(in srgb,var(--text) 14%,transparent);
+  transition:opacity .5s ease,filter .5s ease,transform .35s ease}
+/* 熄灭要「沉」，不要做粒子特效——抽一根如果看着爽，就成了游戏 */
+.pk.out{opacity:.22;filter:grayscale(1);transform:scale(.88)}
+.pack-grid.is-empty{display:flex;align-items:center;justify-content:center;
+  height:78px;border:1px dashed var(--line);border-radius:10px;
+  font-size:11px;color:var(--muted);grid-template-columns:none}
+.pack-open{border:1px solid var(--line);background:var(--surface-2);color:var(--text);
+  font:inherit;font-size:11.5px;font-weight:600;padding:7px 16px;border-radius:9px;cursor:pointer}
+.pack-open:hover{background:var(--accent-soft);border-color:var(--accent)}
+.quit-head{margin-top:5px}
 .quit-actions{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:auto;padding-top:7px}
 .quit-btn{
   min-height:44px;border-radius:10px;font-size:13px;font-weight:600;
@@ -3161,47 +3180,13 @@ body.modal-open{overflow:hidden}
 .quit-btn.undo{min-height:40px;padding:0 14px;font-size:12px;font-weight:500;
   background:transparent;color:var(--text);border-color:var(--line);opacity:.75}
 .quit-btn.undo:hover{opacity:1;background:var(--surface-2)}
-/* 今日 24 小时轴：把「几点犯的瘾」搬到卡片正面。
-   比原来堆在中间的标签更能填满宽度，也不用再去统计页翻。 */
-.quit-axis{display:flex;align-items:center;gap:10px;margin:4px 0 0;grid-column:1/-1}
-.qa-label{font-size:10px;color:var(--muted);flex:none;letter-spacing:.04em}
-.qa-wrap{flex:1;min-width:0}
-.qa-track{position:relative;height:16px;border-radius:99px;
-  background:var(--surface-2);border:1px solid var(--line)}
-.qa-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
-  transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--surface)}
-.qa-dot.s{background:var(--bad)}
-.qa-dot.r{background:var(--accent)}
-/* 当前时刻：让人一眼看出「现在在这条轴的哪儿」 */
-.qa-now{position:absolute;top:-1px;bottom:-1px;width:1.5px;background:var(--text);opacity:.3}
-.qa-scale{display:flex;justify-content:space-between;margin-top:5px;
-  font-size:9px;color:var(--muted);letter-spacing:.03em}
-/* 一条没有任何点的空带子看着像坏了，改成虚框 + 一句提示 */
-.quit-axis.is-empty .qa-track{background:transparent;border-style:dashed}
-.qa-empty{position:absolute;inset:0;display:grid;place-items:center;
-  font-size:10px;color:var(--muted);letter-spacing:.02em}
 .quit-btn.resist:hover{background:var(--accent-soft);border-color:var(--accent)}
 .quit-btn:disabled{opacity:.4;pointer-events:none}
-.quit-ring circle.miss{stroke:var(--bad)}
-.quit-mile-bar{height:6px;border-radius:99px;
-  background:color-mix(in srgb,var(--text) 13%,var(--surface-2));
-  overflow:hidden;margin-top:7px;max-width:400px}
-.quit-mile-bar i{display:block;height:100%;border-radius:99px;background:var(--hc)}
-/* 常驻卡为奇数时，最后一张铺满两列（5 张时不会剩一个孤零零的格子）。
-   宽卡不能只是把窄卡拉宽——那样左半边堆满字、中间一大片空白。
-   现在靠两样东西撑住横向空间：右上角放大的环，和横贯整卡的 24 小时轴。 */
+/* 常驻卡是奇数张时，最后一张独占一行。让它居中而不是贴左——
+   卡片本身还是正常宽度（跟上面几张一样），只是整行居中，右边不再空一块。 */
 @media (min-width:701px){
-  .vital-grid > .vital-card:last-child:nth-child(odd){grid-column:span 2}
-  .vital-card.quit-card .move-body{grid-template-columns:minmax(0,1fr) auto}
-  /* 宽卡把字放大一档，否则 1136px 里 19px 看着像个标签 */
-  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .mv-status{font-size:24px}
-  /* 环也要放大，132px 在 1136px 的卡里撑不起右侧 */
-  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring{width:176px;height:176px}
-  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring .move-ring-txt b{font-size:31px}
-  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring .move-ring-txt small{font-size:11px}
-  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .move-lines > span{font-size:11px}
-  .vital-grid > .vital-card:last-child:nth-child(odd) .quit-actions{
-    grid-template-columns:repeat(2,minmax(0,300px)) auto;justify-content:center}
+  .vital-grid > .vital-card:last-child:nth-child(odd){
+    grid-column:1/-1;justify-self:center;width:min(100%,560px)}
 }
 /* 统计页：里程碑勋章墙 */
 .qmile{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
@@ -3375,6 +3360,9 @@ body.modal-open{overflow:hidden}
          刻意不并进 checks——checks 是「今天做了几次」的计数语义，
          混进去会让完成度、连续天数、月历每一处都要再判一次类型。 */
       cravings: [],
+      /* 买烟记录：一包一条。当前这包还剩几支不存，靠「开包时间之后的 s 事件数」推算，
+         跟药品库存一样，不存派生量。 */
+      packs: [],
       bodyProfile: { age: 0, height: 0 },
       weights: [],
       essays: [],
@@ -3647,6 +3635,31 @@ body.modal-open{overflow:hidden}
     return out;
   }
 
+  /* 买烟记录：{id, at(秒), name, price, size}
+     不存「剩余几支」——那是派生量，存在多端合并时必然对不上。 */
+  function normalizePacks(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (p) {
+      if (!p || typeof p !== 'object') return;
+      const id = String(p.id || '');
+      const at = Number(p.at);
+      if (!id || !isFinite(at) || at <= 0) return;
+      if (seen[id]) return;
+      seen[id] = 1;
+      out.push({
+        id: id,
+        at: Math.round(at),
+        name: String(p.name || ''),
+        price: clamp(Math.round((Number(p.price) || 0) * 100) / 100, 0, 99999),
+        size: clamp(Math.round(Number(p.size) || 20), 1, 50)
+      });
+    });
+    out.sort(function (a, b) { return a.at - b.at; });
+    return out;
+  }
+
   function normalizeMoods(raw) {
     if (!isPlainObject(raw)) return {};
     const out = {};
@@ -3702,6 +3715,22 @@ body.modal-open{overflow:hidden}
         }
       });
     });
+  }
+
+  /* 补一包：只给有戒烟习惯、但一条买烟记录都没有的账号补，用戒烟起点当开包时间。
+     幂等（有 packs 就跳过），多端各自迁移也只会生成同一个确定性 id。 */
+  function migrateQuitPack(data) {
+    const q = (data.habits || []).find(function (h) {
+      return h && h.type === 'quit' && !h.archivedAt;
+    });
+    if (!q) return;
+    if (Array.isArray(data.packs) && data.packs.length) return;
+    const start = String(q.quitStart || (q.createdAt ? String(q.createdAt).slice(0, 10) : ''));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return;
+    data.packs = [{
+      id: 'p-init', at: Math.round(parseD(start).getTime() / 1000),
+      name: '', price: 0, size: 20
+    }];
   }
 
   function migrateWater(data) {
@@ -3765,6 +3794,7 @@ body.modal-open{overflow:hidden}
     data.moods = normalizeMoods(data.moods);
     data.events = Array.isArray(data.events) ? data.events : [];
     data.cravings = normalizeCravings(data.cravings);
+    data.packs = normalizePacks(data.packs);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
     return Object.assign(seedState(), data);
@@ -3775,7 +3805,7 @@ body.modal-open{overflow:hidden}
      补一个字段可能让另一处判断以为数据已经升级过。
      现在按 state.schemaVersion 顺序执行，每一步只跑一次。
      没有版本号的旧数据一律当作 v1，走完整链路，跑完打上当前版本。 */
-  const SCHEMA_VERSION = 5;
+  const SCHEMA_VERSION = 6;
 
   function migrateState(data) {
     if (!data || typeof data !== 'object') return data;
@@ -3798,6 +3828,12 @@ body.modal-open{overflow:hidden}
       /* v3 → v4：库存从「绝对数逐次扣减」改为「基线 + 按记录推算」
          （具体补齐在下面的 migrateStock 里，它是幂等的，每次加载都会跑） */
       v = 4;
+    }
+    if (v < 6) {
+      /* v5 → v6：戒烟卡改成「一包 20 支」的视角，需要一包做锚点。
+         老用户没有买烟记录，就按他的戒烟起点补一包（多数人这时候一包是满的）。 */
+      migrateQuitPack(data);
+      v = 6;
     }
     if (v < 5) {
       /* v4 → v5：戒烟从「每天记几次」改成事件流（抽了 / 忍住了）。
@@ -4431,6 +4467,15 @@ body.modal-open{overflow:hidden}
     rCr.forEach(function (e) { if (e && e.id) seenCr[e.id] = 1; });
     out.cravings = rCr.concat(lCr.filter(function (e) { return e && e.id && !seenCr[e.id]; }));
     out.cravings.sort(function (a, b) { return Number(a.t) - Number(b.t); });
+
+    /* 买烟记录：按 id 去重并集。跟 cravings 一样单独一段——
+       它有自己的时间轴（at），套 events 的判重键会互相顶掉。 */
+    const rPk = Array.isArray(remote.packs) ? remote.packs : [];
+    const lPk = Array.isArray(local.packs) ? local.packs : [];
+    const seenPk = {};
+    rPk.forEach(function (p) { if (p && p.id) seenPk[p.id] = 1; });
+    out.packs = rPk.concat(lPk.filter(function (p) { return p && p.id && !seenPk[p.id]; }));
+    out.packs.sort(function (a, b) { return Number(a.at) - Number(b.at); });
 
     // 打卡日志：去重并集
     const rEv = Array.isArray(remote.events) ? remote.events : [];
@@ -5193,23 +5238,52 @@ body.modal-open{overflow:hidden}
     }).sort(function (a, b) { return b.n - a.n; });
   }
 
-  /* 本周 7 天（周一起）。started = 戒烟起点之后的日子——
-     起点之前那些天不算「无烟」，否则刚建习惯就显示满环，假的。 */
-  function quitWeek(h) {
-    const today = todayStr();
-    const dow = (parseD(today).getDay() + 6) % 7;
-    const monday = addDays(parseD(today), -dow);
-    const startDay = quitStartDay(h);
-    const out = [];
-    for (let i = 0; i < 7; i++) {
-      const ds = fmt(addDays(monday, i));
-      const hasSmoke = dayCravings(h.id, ds).some(function (e) { return e.k === 's'; });
-      out.push({
-        ds: ds, done: !hasSmoke, today: ds === today,
-        future: ds > today, started: ds >= startDay
-      });
+  /* 当前这包：packs 按 at 升序排好，最后一条就是正在抽的那包 */
+  function currentPack() {
+    const list = Array.isArray(state.packs) ? state.packs : [];
+    return list.length ? list[list.length - 1] : null;
+  }
+  /* 这包已经抽掉几支：开包之后的所有「点一根」。
+     刻意不存「剩余 N 支」——那是派生量，多端一合并就会对不上。 */
+  function packUsed(h, pack) {
+    if (!pack) return [];
+    const t0 = Number(pack.at) || 0;
+    return cravingsOf(h.id).filter(function (e) {
+      return e.k === 's' && Number(e.t) >= t0;
+    });
+  }
+  function packSpanText(sec) {
+    const m = Math.max(0, Math.round(sec / 60));
+    if (m < 60) return m + ' 分钟';
+    const hh = Math.floor(m / 60), mm = m % 60;
+    if (hh < 24) return hh + ' 小时' + (mm ? ' ' + mm + ' 分' : '');
+    const dd = Math.floor(hh / 24), rh = hh % 24;
+    /* 超过一周后小时粒度没意义，反而像在报秒表 */
+    if (dd >= 7) return dd + ' 天';
+    return dd + ' 天' + (rh ? ' ' + rh + ' 小时' : '');
+  }
+  /* 这包抽了多久：抽完了算到最后一次，没抽完算到现在。
+     这是戒烟卡里最有信息量的一个数——比「连续几天没抽」更能反映进度。 */
+  function packSpan(h, pack) {
+    if (!pack) return '';
+    const list = packUsed(h, pack);
+    const done = list.length >= pack.size;
+    const end = done ? Number(list[list.length - 1].t) : Math.round(Date.now() / 1000);
+    return packSpanText(Math.max(0, end - Number(pack.at)));
+  }
+  function packGridHtml(h) {
+    const pack = currentPack();
+    if (!pack) {
+      return '<div class="pack-grid is-empty">' +
+        '<button type="button" class="pack-open" data-act="pack-open">开一包</button>' +
+      '</div>';
     }
-    return out;
+    const used = packUsed(h, pack).length;
+    let cells = '';
+    for (let i = 0; i < pack.size; i++) {
+      cells += '<i class="pk' + (i < used ? ' out' : '') + '"></i>';
+    }
+    return '<div class="pack-grid">' + cells + '</div>';
   }
 
   /* 省钱：按「累计无烟天数」折算，不用「连续」——
@@ -5232,64 +5306,6 @@ body.modal-open{overflow:hidden}
     return { days: next, left: next - streak, pct: pct };
   }
 
-  function quitRingHtml(h) {
-    const week = quitWeek(h);
-    /* 只数已经过去的日子（含今天）。未来的日子没抽烟不代表「守住了」，
-       不排除的话周三就会显示 6/7，是假的。 */
-    const okN = week.filter(function (w) { return w.started && w.done && !w.future; }).length;
-    const R = 52, C = 2 * Math.PI * R, seg = C / 7, dash = seg - 12.7;
-    const circles = week.map(function (w, i) {
-      const cls = (!w.started || w.future) ? 'future' : (w.done ? 'done' : 'miss');
-      return '<circle class="' + cls + '" cx="66" cy="66" r="' + R + '"' +
-        ' stroke-dasharray="' + dash.toFixed(2) + ' ' + (C - dash).toFixed(2) + '"' +
-        ' stroke-dashoffset="' + (-i * seg).toFixed(2) + '"/>';
-    }).join('');
-    return '<div class="move-ring quit-ring">' +
-      '<svg viewBox="0 0 132 132" aria-hidden="true">' +
-        '<g transform="rotate(-90 66 66)" fill="none" stroke-width="9" stroke-linecap="round">' + circles + '</g>' +
-      '</svg>' +
-      '<div class="move-ring-txt"><b>' + okN + '/7</b><small>本 周</small></div>' +
-    '</div>';
-  }
-
-  /* 今日 24 小时轴：把「几点犯的瘾」搬到卡片正面。
-     同一分钟的多条合并成一个点（有点一根就红），否则连点几次会糊成一片。 */
-  function quitAxisHtml(h, d) {
-    const evs = dayCravings(h.id, d);
-    const bins = {};
-    const cnt = {};
-    evs.forEach(function (e) {
-      const dt = new Date(Number(e.t) * 1000);
-      const m = dt.getHours() * 60 + dt.getMinutes();
-      if (bins[m] !== 's') bins[m] = e.k;   /* 同一分钟里有点一根就算红 */
-      cnt[m] = cnt[m] || { s: 0, r: 0 };
-      cnt[m][e.k]++;
-    });
-    const dots = Object.keys(bins).map(function (k) {
-      const m = Number(k);
-      const c = cnt[m];
-      const tip = pad2(Math.floor(m / 60)) + ':' + pad2(m % 60) +
-        ' · ' + (c.s ? '点 ' + c.s : '') + (c.s && c.r ? ' / ' : '') + (c.r ? '忍 ' + c.r : '');
-      return '<i class="qa-dot ' + bins[k] + '" style="left:' +
-        (m / 1440 * 100).toFixed(3) + '%" title="' + tip + '"></i>';
-    }).join('');
-    let nowLine = '';
-    if (d === todayStr()) {
-      const n = new Date();
-      nowLine = '<i class="qa-now" style="left:' +
-        (((n.getHours() * 60 + n.getMinutes()) / 1440) * 100).toFixed(3) + '%"></i>';
-    }
-    return '<div class="quit-axis' + (evs.length ? '' : ' is-empty') + '">' +
-      '<span class="qa-label">' + (d === todayStr() ? '今日' : Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10))) + '</span>' +
-      '<div class="qa-wrap">' +
-        '<div class="qa-track">' +
-          (evs.length ? dots : '<span class="qa-empty">今天还没有记录</span>') + nowLine +
-        '</div>' +
-        '<div class="qa-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>' +
-      '</div>' +
-    '</div>';
-  }
-
   function addCraving(hid, kind) {
     const h = (state.habits || []).find(function (x) { return x.id === hid; });
     if (!h || h.type !== 'quit') return;
@@ -5297,8 +5313,9 @@ body.modal-open{overflow:hidden}
     if (!Array.isArray(state.cravings)) state.cravings = [];
     const now = Math.round(Date.now() / 1000);
     const last = state.cravings[state.cravings.length - 1];
-    /* 手抖双击：3 秒内同一种结局不重复记，否则一次犯瘾会被记成两次 */
-    if (last && last.h === hid && last.k === kind && now - last.t < 3) {
+    /* 手抖双击挡掉，但别挡「补记今天抽了几支」——那种是一分钟连点几次的。
+       1 秒以内才算误触；有撤销兜底，漏记比错记更难忍。 */
+    if (last && last.h === hid && last.k === kind && now - last.t < 1) {
       toast('刚刚已经记过了');
       return;
     }
@@ -6517,9 +6534,10 @@ body.modal-open{overflow:hidden}
     '</div>');
   }
 
-  /* 戒烟常驻卡。骨架照抄运动卡（左文字 / 右环 / 底部动作），
-     三处不同：环量的是「本周无烟天数」；底部是两个等权重按钮；多一条里程碑进度。
-     等权是有意的——把「点一根」做成次要操作，人就不好意思点，数据立刻失真。 */
+  /* 戒烟常驻卡。主视觉是「一包 20 支」，不是进度环——
+     环是「完成度」语义（运动卡那样），戒烟是「消耗」语义，硬套会拧。
+     20 支格子直接对着烟民的真实单位说话：这包还剩几支。
+     卡的尺寸跟其他常驻卡一致，不跨列。 */
   function quitCard(h, d) {
     const today = d === todayStr();
     const evs = dayCravings(h.id, d);
@@ -6530,6 +6548,8 @@ body.modal-open{overflow:hidden}
     const best = quitBest(h);
     const saved = quitSaved(h);
     const mile = quitNextMile(streak);
+    const pack = currentPack();
+    const used = pack ? packUsed(h, pack).length : 0;
     const color = esc(h.color || '#7a8471');
 
     /* 文案不能有羞辱感。抽了就写「记了 N 次」，不要写「破戒」「失败」——
@@ -6547,22 +6567,22 @@ body.modal-open{overflow:hidden}
     }
 
     const lines = [];
-    if (total > 0) {
-      lines.push('<span><i></i>累计 ' + total + ' 天' + (best > streak ? ' · 最长 ' + best + ' 天' : '') + '</span>');
-    } else {
-      lines.push('<span><i class="dim"></i>还没有完整的无烟日</span>');
+    if (pack) {
+      const left = Math.max(0, pack.size - used);
+      lines.push('<span><i' + (left ? '' : ' class="dim"') + '></i>这包开了 ' +
+        packSpan(h, pack) + ' · 还剩 ' + left + ' 支</span>');
     }
     if (saved) {
       lines.push('<span><i></i>少抽 ' + saved.sticks + ' 支 · 省了 ¥' + Math.round(saved.money) + '</span>');
-    } else {
-      lines.push('<span><i class="dim"></i>今日 点 ' + ns + ' 次 · 忍 ' + nr + ' 次</span>');
+    } else if (total > 0) {
+      lines.push('<span><i class="dim"></i>累计 ' + total + ' 天' +
+        (best > streak ? ' · 最长 ' + best + ' 天' : '') + '</span>');
     }
 
     const foot = streak === 0
       ? '先撑过今天 · 头三天最难受，挺过去就顺了'
       : (mile
-          ? '里程碑 ' + (QUIT_MILE_CN[mile.days] || (mile.days + ' 天')) + ' · 还差 ' + mile.left + ' 天' +
-            '<div class="quit-mile-bar"><i style="width:' + mile.pct + '%"></i></div>'
+          ? '里程碑 ' + (QUIT_MILE_CN[mile.days] || (mile.days + ' 天')) + ' · 还差 ' + mile.left + ' 天'
           : '已走完全部里程碑 · 现在是第 ' + streak + ' 天');
 
     return '<article class="vital-card quit-card' + (ns === 0 && streak > 0 ? ' is-done' : '') +
@@ -6572,14 +6592,11 @@ body.modal-open{overflow:hidden}
         '<div class="vital-title"><b>' + esc(h.name) + '</b><small>戒除 · 每天保持 0 根</small></div>' +
         '<span class="pin-tag">常驻</span>' +
       '</div>' +
-      '<div class="move-body">' +
-        '<div class="move-left">' + status +
-          '<div class="vital-sub">' + sub + '</div>' +
-          '<div class="move-lines">' + lines.join('') + '</div>' +
-        '</div>' +
-        quitRingHtml(h) +
-        quitAxisHtml(h, d) +
+      '<div class="quit-head">' + status +
+        '<div class="vital-sub">' + sub + '</div>' +
       '</div>' +
+      packGridHtml(h) +
+      '<div class="move-lines">' + lines.join('') + '</div>' +
       '<div class="move-foot">' + foot + '</div>' +
       (today
         ? '<div class="quit-actions">' +
@@ -12185,6 +12202,15 @@ body.modal-open{overflow:hidden}
             '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
           '</div>' +
         '</div>');
+    },
+    'pack-open': el => {
+      const h = (state.habits || []).find(function (x) { return x.type === 'quit' && !x.archivedAt; });
+      if (!h) return;
+      if (!Array.isArray(state.packs)) state.packs = [];
+      state.packs.push({ id: uid(), at: Math.round(Date.now() / 1000), name: '', price: 0, size: 20 });
+      save();
+      render();
+      toast('开了一包 · 20 支');
     },
     'crave-smoke': el => addCraving(el.dataset.id, 's'),
     'crave-resist': el => addCraving(el.dataset.id, 'r'),
