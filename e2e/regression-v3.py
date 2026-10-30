@@ -59,7 +59,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             a = self.path.split('action=')[-1].split('&')[0]
             if a == 'status': self._j({'ok': True, 'installed': True, 'registration_open': False})
             elif a == 'me': self._j({'ok': True, 'user': sessions.get(self._sid()), 'csrf': 'x', 'registration_open': False})
-            elif a == 'push_status': self._j({'ok': True, 'enabled': False, 'webhook': '', 'sent_today': 0, 'last_sent': ''})
+            elif a == 'push_status': self._j({'ok': True, 'enabled': False, 'webhook': '', 'sent_today': 0, 'last_sent': '', 'recent': []})
+            elif a == 'push_preview': self._j({'ok': True, 'date': '2026-10-25', 'items': []})
             elif a == 'ics_status': self._j({'ok': True, 'url': None})
             elif a == 'load': self._j({'ok': True, 'data': board['data'], 'rev': board['rev'], 'updated_at': 1792813000000})
             else: self._j({'ok': False, 'error': '?'}, 404)

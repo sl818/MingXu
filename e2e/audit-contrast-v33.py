@@ -7,6 +7,34 @@ head = open(os.path.join(ROOT, 'e2e', 'verify-batch4.py'), encoding='utf-8').rea
 sys.argv = [sys.argv[0]]
 exec(head)
 
+# 让推送面板处于「已配置 + 有记录」状态，否则 pc-* 元素不会渲染，会被记成缺失
+_og_get = H.do_GET
+
+
+def _get_push(self):
+    if 'action=push_status' in self.path:
+        self._j({'ok': True, 'enabled': True,
+                 'webhook': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test',
+                 'sent_today': 3, 'last_sent': '2026-10-25 08:00:00',
+                 'recent': [
+                     {'key': 'k1', 'kind': 'med', 'at': '2026-10-25 08:00:00',
+                      'text': '该吃药了\n阿莫西林 1片（每天 08:00）'},
+                     {'key': 'k2', 'kind': 'report', 'at': '2026-10-25 08:20:00',
+                      'text': '今日待办早报\n未完成 2 项'},
+                 ]})
+        return
+    if 'action=push_preview' in self.path:
+        self._j({'ok': True, 'date': '2026-10-25', 'items': [
+            {'time': '08:00', 'kind': 'med', 'title': '该吃药了', 'body': '阿莫西林 1片（每天 08:00）'},
+            {'time': '08:20', 'kind': 'report', 'title': '今日待办早报', 'body': '未完成 2 项\n· 工作 1 项'},
+            {'time': '20:00', 'kind': 'report', 'title': '今日小结', 'body': '今日完成 1 项待办\n明日待办 2 条'},
+        ]})
+        return
+    _og_get(self)
+
+
+H.do_GET = _get_push
+
 JS = """
 (sels) => {
   const lum = c => { const [r,g,b] = c.map(v => { v/=255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); });
@@ -39,7 +67,8 @@ JS = """
 }
 """
 
-SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn']
+SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
+                 '.pc-sec-head', '.pc-count', '.pc-time', '.pc-tag', '.pc-txt b', '.pc-txt small']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。

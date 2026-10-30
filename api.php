@@ -358,12 +358,28 @@ try {
                 'SELECT sent_at FROM push_sent WHERE user_id = ? ORDER BY sent_at DESC LIMIT 1'
             );
             $last->execute([(int)$user['id']]);
+            /* 最近 10 条发送记录，给「推送中心」展示。
+               SELECT * 是为了兼容还没加 content 列的旧库（那一列取不到就当空）。 */
+            $recentSt = lb_db()->prepare(
+                'SELECT * FROM push_sent WHERE user_id = ? ORDER BY sent_at DESC LIMIT 10'
+            );
+            $recentSt->execute([(int)$user['id']]);
+            $recent = [];
+            foreach ($recentSt->fetchAll() as $s) {
+                $recent[] = [
+                    'key' => (string)($s['slot_key'] ?? ''),
+                    'kind' => (string)($s['kind'] ?? ''),
+                    'at' => (string)($s['sent_at'] ?? ''),
+                    'text' => (string)($s['content'] ?? ''),
+                ];
+            }
             lb_json([
                 'ok' => true,
                 'enabled' => (int)($row['push_enabled'] ?? 0) === 1,
                 'webhook' => (string)($row['push_webhook'] ?? ''),
                 'sent_today' => (int)$cnt->fetchColumn(),
                 'last_sent' => (string)($last->fetchColumn() ?: ''),
+                'recent' => $recent,
             ]);
             break;
 
@@ -419,6 +435,39 @@ try {
             lb_db()->prepare('UPDATE users SET push_enabled = 0 WHERE id = ?')
                 ->execute([(int)$user['id']]);
             lb_json(['ok' => true]);
+            break;
+
+        /* 今日推送计划：把这一天所有会推的时间点列出来，供「推送中心」预览。
+           只读，不写库、不发消息、不消耗去重记录——纯粹回答「今天几点会推什么」。 */
+        case 'push_preview':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $user = lb_auth();
+            $bd = lb_db()->prepare('SELECT data FROM boards WHERE user_id = ? LIMIT 1');
+            $bd->execute([(int)$user['id']]);
+            $state = json_decode((string)$bd->fetchColumn(), true);
+            $today = (new DateTimeImmutable('now', lb_ics_tz()))->format('Y-m-d');
+            $plan = [];
+            if (is_array($state)) {
+                $plan = array_merge(
+                    lb_schedule_day($state, $today),
+                    lb_schedule_reports($state, $today)
+                );
+            }
+            usort($plan, static function ($a, $b) {
+                return strcmp((string)$a['time'], (string)$b['time']);
+            });
+            $items = [];
+            foreach ($plan as $it) {
+                $items[] = [
+                    'time' => (string)($it['time'] ?? ''),
+                    'kind' => (string)($it['kind'] ?? ''),
+                    'title' => (string)($it['title'] ?? ''),
+                    'body' => (string)($it['body'] ?? ''),
+                ];
+            }
+            lb_json(['ok' => true, 'date' => $today, 'items' => $items]);
             break;
 
         case 'load':

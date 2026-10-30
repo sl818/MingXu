@@ -36,6 +36,28 @@ def _get(self):
             'webhook': MOCK['webhook'],
             'sent_today': 3 if MOCK['enabled'] else 0,
             'last_sent': '2026-10-25 08:00:00' if MOCK['enabled'] else '',
+            'recent': ([
+                {'key': '2026-10-25|med|m1|08:00', 'kind': 'med',
+                 'at': '2026-10-25 08:00:00',
+                 'text': '\u8be5\u5403\u836f\u4e86\n\u963f\u83ab\u897f\u6797 1\u7247\uff08\u6bcf\u5929 08:00\uff09'},
+                {'key': '2026-10-25|report|morning|08:20', 'kind': 'report',
+                 'at': '2026-10-25 08:20:00',
+                 'text': '\u4eca\u65e5\u5f85\u529e\u65e9\u62a5\n\u672a\u5b8c\u6210 2 \u9879'},
+            ] if MOCK['enabled'] else []),
+        })
+        return
+    if self.path.startswith('/api.php') and 'action=push_preview' in self.path:
+        self._j({
+            'ok': True,
+            'date': '2026-10-25',
+            'items': ([
+                {'time': '08:00', 'kind': 'med', 'title': '\u8be5\u5403\u836f\u4e86',
+                 'body': '\u963f\u83ab\u897f\u6797 1\u7247\uff08\u6bcf\u5929 08:00\uff09'},
+                {'time': '08:20', 'kind': 'report', 'title': '\u4eca\u65e5\u5f85\u529e\u65e9\u62a5',
+                 'body': '\u672a\u5b8c\u6210 2 \u9879\n\u00b7 \u5de5\u4f5c 1 \u9879'},
+                {'time': '20:00', 'kind': 'report', 'title': '\u4eca\u65e5\u5c0f\u7ed3',
+                 'body': '\u4eca\u65e5\u5b8c\u6210 1 \u9879\u5f85\u529e\n\u660e\u65e5\u5f85\u529e 2 \u6761'},
+            ] if MOCK['enabled'] else []),
         })
         return
     _orig_get(self)
@@ -174,9 +196,9 @@ with sync_playwright() as p:
     chk('状态变成已开启', st and ('已开启' in st['state']), st)
     chk('状态点点亮', st and st['on'])
     chk('出现「暂停推送」按钮', pg.locator('[data-act="push-off"]').count() == 1)
-    # 刚配置完还没真发过，这里不该出现「最近一次发送」——它只在有记录时显示
-    chk('还没有发送记录时不显示时间',
-        '最近一次发送' not in pg.evaluate(
+    # 刚配置完还没真发过（mock 的 enabled 仍为 False），最近发送是空态
+    chk('没有记录时显示空态',
+        '还没有发送记录' in pg.evaluate(
             """() => { const b=[...document.querySelectorAll('.ntf-box')]
                  .find(x=>/手机推送/.test(x.textContent)); return b ? b.textContent : ''; }"""))
 
@@ -223,8 +245,16 @@ with sync_playwright() as p:
     txt = pg.evaluate(
         """() => { const b=[...document.querySelectorAll('.ntf-box')]
              .find(x=>/手机推送/.test(x.textContent)); return b ? b.textContent : ''; }""")
-    chk('有记录时显示最近一次发送时间', '最近一次发送' in txt, txt[-60:])
-    chk('显示今天已发条数', '今天已发 3 条' in txt, txt[-60:])
+    chk('显示最近发送区', '最近发送' in txt, txt[-100:])
+    chk('显示今天已发条数', '今天已发 3 条' in txt, txt[-100:])
+    chk('发送记录带正文', '阿莫西林' in txt, txt[-140:])
+
+    print('\n[7b] 今日推送计划')
+    chk('显示今日推送计划', '今日推送计划' in txt, txt[:140])
+    chk('计划里有 3 条', '3 条' in txt, txt[:120])
+    chk('计划里出现用药', '用药' in txt, txt[:180])
+    chk('计划里出现汇报', '汇报' in txt, txt[:180])
+    chk('计划里出现时间 08:20', '08:20' in txt, txt[:180])
 
     print('\n[8] 手机端的排版')
     pg.set_viewport_size({'width': 390, 'height': 844})

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS push_sent (
   slot_key VARCHAR(120) NOT NULL,
   kind VARCHAR(12) NOT NULL DEFAULT '',
   sent_at DATETIME NOT NULL,
+  content TEXT NULL DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_push_sent (user_id, slot_key),
   KEY idx_push_sent_time (sent_at),

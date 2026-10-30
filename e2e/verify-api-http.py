@@ -203,12 +203,16 @@ try:
     print('\n[4b] 推送接口的鉴权与降级')
     st, _, _ = req(BASE + '?action=push_status')
     chk('push_status 未登录返回 401', st == 401, 'status=%d' % st)
+    st, _, _ = req(BASE + '?action=push_preview')
+    chk('push_preview 未登录返回 401', st == 401, 'status=%d' % st)
     # 写接口先校验方法再校验身份，所以要用 POST 才能看到 401
     for act in ('push_save', 'push_test', 'push_off'):
         st, _, _ = req('%s?action=%s' % (BASE, act), method='POST')
         chk('%s 未登录返回 401' % act, st == 401, 'status=%d' % st)
     st, _, _ = req(BASE + '?action=push_status', method='POST')
     chk('push_status 用 POST 返回 405', st == 405, 'status=%d' % st)
+    st, _, _ = req(BASE + '?action=push_preview', method='POST')
+    chk('push_preview 用 POST 返回 405', st == 405, 'status=%d' % st)
     st, _, _ = req(BASE + '?action=push_save')
     chk('push_save 用 GET 返回 405', st == 405, 'status=%d' % st)
 

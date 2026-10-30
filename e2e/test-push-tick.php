@@ -218,6 +218,27 @@ $r = lb_push_tick_run($pdo8, D, '08:00', $sender);
 chk('坏数据被跳过，好用户照常发', $r['sent'] === 1, 'sent=' . $r['sent']);
 chk('没有因为坏数据抛异常', $r['failed'] === 0);
 
+/* ------------------------------------------------------------------ */
+echo PHP_EOL . "[10] 发送记录留痕（content 列）" . PHP_EOL;
+/* 带 content 列的库：写入正文。db() 建的表故意没有这列，用来验证旧库兼容。 */
+$pdoC = new PDO('sqlite::memory:');
+$pdoC->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdoC->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+$pdoC->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, status TEXT DEFAULT "active", push_webhook TEXT, push_enabled INTEGER DEFAULT 0)');
+$pdoC->exec('CREATE TABLE boards (user_id INTEGER PRIMARY KEY, data TEXT, rev INTEGER, updated_at INTEGER)');
+$pdoC->exec('CREATE TABLE push_sent (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, slot_key TEXT, kind TEXT, sent_at TEXT, content TEXT)');
+$pdoC->exec('CREATE UNIQUE INDEX uq_push_sent ON push_sent (user_id, slot_key)');
+add_user($pdoC, 1, HOOK, state_one_med());
+$got = [];
+$ok = true;
+$r = lb_push_tick_run($pdoC, D, '08:00', $sender);
+chk('有 content 列时正常发送', $r['sent'] === 1, 'sent=' . $r['sent']);
+$row = $pdoC->query('SELECT content FROM push_sent LIMIT 1')->fetch();
+chk('正文存进了 content', $row && strpos((string)$row['content'], '阿莫西林') !== false,
+    $row ? (string)$row['content'] : '无');
+
+/* 旧库（db() 建的表无 content 列）不能因此崩——上面所有用例已经跑过这情况 */
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

@@ -2964,6 +2964,18 @@ body.modal-open{overflow:hidden}
 /* 不用 opacity 压暗：opacity 会同时降低对比度，而对比度审计读的是 color，
    查不出来。这里直接用正文色 + 加粗 + 图标来区分。 */
 .ics-warn{color:var(--text);font-weight:500}
+/* ---------- 推送中心：今日计划 + 最近发送 ---------- */
+.pc-sec{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.pc-sec-head{display:flex;align-items:baseline;gap:8px;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px}
+.pc-count{font-size:11px;font-weight:400;color:var(--muted);margin-left:auto}
+.pc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:250px;overflow:auto}
+.pc-row{display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5}
+.pc-time{flex:none;font-variant-numeric:tabular-nums;color:var(--text);font-weight:600;font-size:12px;min-width:42px}
+.pc-tag{flex:none;font-size:10.5px;padding:1px 6px;border-radius:6px;border:1px solid var(--line);color:var(--text);background:var(--surface)}
+.pc-txt{min-width:0;color:var(--muted)}
+.pc-txt b{display:block;font-weight:600;color:var(--text)}
+.pc-txt small{display:block;color:var(--muted);font-size:11px;line-height:1.5;word-break:break-word}
+.pc-empty{font-size:11.5px;color:var(--muted);padding:3px 0}
 .install-tip{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;
   border:1px dashed var(--line);border-radius:12px;background:var(--surface-2)}
 .it-ico{font-size:18px;line-height:1;flex:none}
@@ -8749,8 +8761,17 @@ body.modal-open{overflow:hidden}
         enabled: !!(r && r.enabled),
         webhook: (r && typeof r.webhook === 'string') ? r.webhook : '',
         sentToday: (r && Number(r.sent_today)) || 0,
-        lastSent: (r && r.last_sent) ? String(r.last_sent) : ''
+        lastSent: (r && r.last_sent) ? String(r.last_sent) : '',
+        recent: (r && Array.isArray(r.recent)) ? r.recent : [],
+        plan: []
       };
+      /* 今日计划是独立的只读接口；它失败不该影响配置区显示 */
+      try {
+        const p = await cloudApi('push_preview');
+        pushCfg.plan = (p && Array.isArray(p.items)) ? p.items : [];
+      } catch (e) {
+        pushCfg.plan = [];
+      }
     } catch (e) {
       pushCfg = null;
     }
@@ -8807,7 +8828,37 @@ body.modal-open{overflow:hidden}
     const cfg = pushCfg;
     const hook = cfg && cfg.webhook ? cfg.webhook : '';
     const on = !!(cfg && cfg.enabled);
-    return '<div class="ntf-box">' +
+    const plan = (cfg && Array.isArray(cfg.plan)) ? cfg.plan : [];
+    const recent = (cfg && Array.isArray(cfg.recent)) ? cfg.recent : [];
+    const KIND_LABEL = { med: '用药', task: '待办', habit: '习惯', report: '汇报' };
+
+    /* 今日计划：时间 + 类型 + 标题/正文 */
+    const planHtml = plan.length
+      ? plan.map(function (it) {
+          const k = String(it.kind || '');
+          const body = String(it.body || '').replace(/\n/g, ' · ');
+          return '<li class="pc-row">' +
+            '<span class="pc-time">' + esc(it.time) + '</span>' +
+            '<span class="pc-tag pc-tag-' + esc(k) + '">' + esc(KIND_LABEL[k] || k) + '</span>' +
+            '<span class="pc-txt"><b>' + esc(it.title) + '</b>' +
+              (body ? '<small>' + esc(body) + '</small>' : '') + '</span>' +
+          '</li>';
+        }).join('')
+      : '<li class="pc-empty">今天没有要推送的内容</li>';
+
+    /* 最近发送：只有时间 + 正文（正文依赖 content 列，旧库为空时退回 slot_key） */
+    const recentHtml = recent.length
+      ? recent.map(function (r) {
+          const txt = String(r.text || '').replace(/\n/g, ' · ');
+          const at = String(r.at || '');
+          return '<li class="pc-row">' +
+            '<span class="pc-time">' + esc(at.slice(11, 16) || at) + '</span>' +
+            '<span class="pc-txt"><small>' + esc(txt || r.key || '') + '</small></span>' +
+          '</li>';
+        }).join('')
+      : '<li class="pc-empty">还没有发送记录</li>';
+
+    return '<div class="ntf-box push-center">' +
       '<div class="ntf-head"><span class="ntf-dot ' + (on ? 'on' : '') + '"></span><b>手机推送</b>' +
         '<span class="ntf-state">' + esc(pushStateText()) + '</span></div>' +
       '<p class="muted-sm" style="margin:0 0 10px">用药、到点的任务、习惯会直接发到你的微信。' +
@@ -8819,15 +8870,22 @@ body.modal-open{overflow:hidden}
       '<div class="btn-row">' +
         '<button class="btn primary" data-act="push-test">保存并发一条测试</button>' +
         (on ? '<button class="btn" data-act="push-off">暂停推送</button>' : '') +
+        '<button class="btn ghost" data-act="push-refresh">刷新</button>' +
       '</div>' +
       '<p class="ics-hint">企业微信 → 建一个只有自己的<b>内部群</b>（外部群加不了机器人）→ ' +
       '群设置 → 群机器人 → 添加 → 复制 webhook 地址粘到这里。</p>' +
       '<p class="ics-warn">⚠️ 这个地址等于往你群里发消息的钥匙，别贴到公开的地方。' +
       '万一泄露，在企业微信里删掉机器人再重新添加一个就是新地址。</p>' +
-      (cfg && cfg.lastSent
-        ? '<p class="ics-hint">最近一次发送：' + esc(cfg.lastSent) +
-          (cfg.sentToday ? ' · 今天已发 ' + cfg.sentToday + ' 条' : '') + '</p>'
-        : '') +
+      '<div class="pc-sec">' +
+        '<div class="pc-sec-head">今日推送计划<span class="pc-count">' + plan.length + ' 条</span></div>' +
+        '<ul class="pc-list">' + planHtml + '</ul>' +
+      '</div>' +
+      '<div class="pc-sec">' +
+        '<div class="pc-sec-head">最近发送' +
+          (cfg && cfg.sentToday ? '<span class="pc-count">今天已发 ' + cfg.sentToday + ' 条</span>' : '') +
+        '</div>' +
+        '<ul class="pc-list">' + recentHtml + '</ul>' +
+      '</div>' +
     '</div>';
   }
 
@@ -11338,6 +11396,7 @@ body.modal-open{overflow:hidden}
     'ics-reset': () => { icsReset(); },
     'push-test': () => { pushTest(); },
     'push-off': () => { pushSave(false); },
+    'push-refresh': () => { pushCfg = undefined; pushLoad(); },
     'ics-export': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const built = buildICS();

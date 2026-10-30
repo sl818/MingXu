@@ -220,6 +220,31 @@ function lb_push_send(string $webhook, string $content, ?string &$err = null, st
 }
 
 /**
+ * 检测 push_sent 有没有 content 列。
+ * 旧库没跑迁移时不写正文就好，绝不能因为一个可选列让整轮推送崩掉——
+ * 那意味着所有提醒都发不出去。
+ *
+ * 刻意不用 static 缓存：一轮只查一次，开销可忽略，但缓存会在「同一进程里
+ * 先查了没列的表、再查有列的表」时给出错误答案（测试里的多实例就会踩）。
+ */
+function lb_push_sent_has_content(PDO $pdo): bool
+{
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            foreach ($pdo->query("PRAGMA table_info(push_sent)")->fetchAll() as $c) {
+                if (($c['name'] ?? '') === 'content') {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return $pdo->query("SHOW COLUMNS FROM push_sent LIKE 'content'")->fetchAll() !== [];
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/**
  * 跑一轮推送：算出现在该发什么，逐条发出去。
  *
  * 逻辑和 IO 分开是有意的——发送器由调用方传入，测试时可以塞一个假的，
@@ -255,13 +280,18 @@ function lb_push_tick_run(
 
     $ins = null;
     $del = null;
+    $hasContent = false;
     if (!$dry) {
         /* SQLite 不认 MySQL 的 INSERT IGNORE，但它是我们唯一能在本地跑起来的
            真实数据库——去重逻辑只有在真库上验过才算数，所以两种写法都留着。 */
         $verb = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
             ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+        /* content 列可能还没加（旧库）。有就写正文，没有就退回老写法 */
+        $hasContent = lb_push_sent_has_content($pdo);
         $ins = $pdo->prepare(
-            $verb . ' INTO push_sent (user_id, slot_key, kind, sent_at) VALUES (?, ?, ?, ?)'
+            $verb . ($hasContent
+                ? ' INTO push_sent (user_id, slot_key, kind, sent_at, content) VALUES (?, ?, ?, ?, ?)'
+                : ' INTO push_sent (user_id, slot_key, kind, sent_at) VALUES (?, ?, ?, ?)')
         );
         $del = $pdo->prepare('DELETE FROM push_sent WHERE user_id = ? AND slot_key = ?');
     }
@@ -297,7 +327,9 @@ function lb_push_tick_run(
             /* 先占位再看结果：唯一索引保证同一条只可能插进去一次，
                比「先查再插」在并发和延迟下都可靠 */
             try {
-                $ins->execute([$uid, $key, $item['kind'], $stamp]);
+                $ins->execute($hasContent
+                    ? [$uid, $key, $item['kind'], $stamp, $text]
+                    : [$uid, $key, $item['kind'], $stamp]);
             } catch (PDOException $e) {
                 $out['failed']++;
                 $entry['why'] = '写发送记录失败：' . $e->getMessage();
