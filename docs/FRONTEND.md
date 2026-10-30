@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v46（2026-10-30）
+最后更新：v53（2026-10-30）
 
 ---
 
@@ -97,7 +97,7 @@ localStorage / 云端 JSON
       ▼
 normalizeState(data)        ← 类型校验 + 补默认值（每个字段都有）
       ▼
-migrateState(data)          ← 按 schemaVersion 顺序迁移（v1→v4）
+migrateState(data)          ← 按 schemaVersion 顺序迁移（v1→v6）
       ▼
 Object.assign(seedState(), data)   ← 用种子兜住缺失的顶层字段
 ```
@@ -170,7 +170,7 @@ render()
 **导航相关常量**（都在主脚本顶部附近）：
 
 ```js
-NAV         // PC 侧栏：[今日, 用药, 待办, 习惯, 体重, 随笔, 日历, 统计, 设置]
+NAV         // PC 侧栏：[今日, 用药, 戒烟, 待办, 习惯, 体重, 随笔, 日历, 统计, 设置]
 MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more)]
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
