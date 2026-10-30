@@ -273,6 +273,7 @@ document.addEventListener('click', e => {
 `craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
 `quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
 `craveTriggers(hid)` `quitWeek(h)` `quitSaved(h)` `quitNextMile(streak)` `quitRingHtml(h)`
+`quitAxisHtml(h,d)`（今日 24 小时轴）
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
@@ -281,8 +282,12 @@ document.addEventListener('click', e => {
 - 环量的是**本周无烟天数**（`quitRingHtml`），和运动卡「本周完成 0/7」是同一套语义
 - 底部是**两个等权重按钮**（`quit-btn smoke` / `quit-btn resist`），不是一主一次。
   把「点一根」做成次要操作，人就不好意思点，数据立刻失真
-- 常驻卡为奇数张时，最后一张 `grid-column:span 2` 变宽卡；宽卡里
-  `move-body` 多一列「今日记录」，窄卡（手机）隐藏 `.quit-log`
+- 常驻卡为奇数张时，最后一张 `grid-column:span 2` 变宽卡。宽卡靠两样东西撑住横向空间：
+  **放大的环**（132 → 176）和**横贯整卡的 24 小时轴**（`quitAxisHtml`，`grid-column:1/-1`）
+- 24 小时轴替代了原来的标签行：同一分钟的多条合并成一个点（有点一根就红），
+  空的时候显示虚线框 + 「今天还没有记录」，不是一条光秃秃的灰带子
+- 按钮行三格：`点一根 / 忍一次 / 撤销`。撤销窄一格、底色更淡，
+  无记录时 `disabled`。**不要加二次确认**——撤错再点一次就补回来了
 - 涨落：`QUIT_MILESTONES` = 1/3/7/14/30/60/90/180/365，文案在 `QUIT_MILE_CN`
 
 要点：

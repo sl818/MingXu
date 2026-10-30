@@ -3147,7 +3147,7 @@ body.modal-open{overflow:hidden}
    结构照抄运动卡（左文字 / 右环 / 底部动作），只有两处不同：
    环量的是「本周无烟天数」，底部是两个等权重按钮。
    等权是有意的——把「点一根」做成次要操作，人就不会记，数据立刻失真。 */
-.quit-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;padding-top:7px}
+.quit-actions{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:auto;padding-top:7px}
 .quit-btn{
   min-height:44px;border-radius:10px;font-size:13px;font-weight:600;
   background:color-mix(in srgb,var(--text) 7%,var(--surface-2));
@@ -3157,27 +3157,51 @@ body.modal-open{overflow:hidden}
 .quit-btn:active{transform:scale(.985)}
 /* 两个都不实心、都不加粗强调：红边只是「承认」这条是记录，不是警告 */
 .quit-btn.smoke:hover{background:rgba(221,90,90,.08);border-color:var(--bad)}
+/* 撤销：窄一格、底色更淡，不跟前面两个抢视觉，但一直在那儿 */
+.quit-btn.undo{min-height:40px;padding:0 14px;font-size:12px;font-weight:500;
+  background:transparent;color:var(--text);border-color:var(--line);opacity:.75}
+.quit-btn.undo:hover{opacity:1;background:var(--surface-2)}
+/* 今日 24 小时轴：把「几点犯的瘾」搬到卡片正面。
+   比原来堆在中间的标签更能填满宽度，也不用再去统计页翻。 */
+.quit-axis{display:flex;align-items:center;gap:10px;margin:4px 0 0;grid-column:1/-1}
+.qa-label{font-size:10px;color:var(--muted);flex:none;letter-spacing:.04em}
+.qa-wrap{flex:1;min-width:0}
+.qa-track{position:relative;height:16px;border-radius:99px;
+  background:var(--surface-2);border:1px solid var(--line)}
+.qa-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+  transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--surface)}
+.qa-dot.s{background:var(--bad)}
+.qa-dot.r{background:var(--accent)}
+/* 当前时刻：让人一眼看出「现在在这条轴的哪儿」 */
+.qa-now{position:absolute;top:-1px;bottom:-1px;width:1.5px;background:var(--text);opacity:.3}
+.qa-scale{display:flex;justify-content:space-between;margin-top:5px;
+  font-size:9px;color:var(--muted);letter-spacing:.03em}
+/* 一条没有任何点的空带子看着像坏了，改成虚框 + 一句提示 */
+.quit-axis.is-empty .qa-track{background:transparent;border-style:dashed}
+.qa-empty{position:absolute;inset:0;display:grid;place-items:center;
+  font-size:10px;color:var(--muted);letter-spacing:.02em}
 .quit-btn.resist:hover{background:var(--accent-soft);border-color:var(--accent)}
 .quit-btn:disabled{opacity:.4;pointer-events:none}
 .quit-ring circle.miss{stroke:var(--bad)}
-.quit-mile-bar{height:6px;border-radius:99px;background:var(--surface-2);
+.quit-mile-bar{height:6px;border-radius:99px;
+  background:color-mix(in srgb,var(--text) 13%,var(--surface-2));
   overflow:hidden;margin-top:7px;max-width:400px}
 .quit-mile-bar i{display:block;height:100%;border-radius:99px;background:var(--hc)}
 /* 常驻卡为奇数时，最后一张铺满两列（5 张时不会剩一个孤零零的格子）。
    宽卡不能只是把窄卡拉宽——那样左半边堆满字、中间一大片空白。
-   这里把内容拆成「状态 / 数据」两栏，环仍在最右，三个重心均匀分布。 */
-/* 今日记录栏只在宽卡显示：手机上加这几行会把卡片拉得太长 */
-.quit-log{display:none}
+   现在靠两样东西撑住横向空间：右上角放大的环，和横贯整卡的 24 小时轴。 */
 @media (min-width:701px){
   .vital-grid > .vital-card:last-child:nth-child(odd){grid-column:span 2}
-  .vital-card.quit-card .move-body{grid-template-columns:minmax(0,1fr) minmax(0,.95fr) auto}
-  .vital-card.quit-card .quit-log{
-    display:flex;flex-wrap:wrap;gap:6px;align-content:center;justify-content:center}
+  .vital-card.quit-card .move-body{grid-template-columns:minmax(0,1fr) auto}
   /* 宽卡把字放大一档，否则 1136px 里 19px 看着像个标签 */
   .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .mv-status{font-size:24px}
+  /* 环也要放大，132px 在 1136px 的卡里撑不起右侧 */
+  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring{width:176px;height:176px}
+  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring .move-ring-txt b{font-size:31px}
+  .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .quit-ring .move-ring-txt small{font-size:11px}
   .vital-grid > .vital-card.quit-card:last-child:nth-child(odd) .move-lines > span{font-size:11px}
   .vital-grid > .vital-card:last-child:nth-child(odd) .quit-actions{
-    grid-template-columns:repeat(2,minmax(0,300px));justify-content:center}
+    grid-template-columns:repeat(2,minmax(0,300px)) auto;justify-content:center}
 }
 /* 统计页：里程碑勋章墙 */
 .qmile{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
@@ -5121,10 +5145,15 @@ body.modal-open{overflow:hidden}
   }
   /* 最长连续无烟段：扫全部「抽了」事件，求相邻两条之间的最大间隔 */
   function quitBest(h) {
-    const list = cravingsOf(h.id).filter(function (e) { return e.k === 's'; });
+    /* 只算戒烟起点之后的「点一根」。起点之前的记录属于上一轮，
+       混进来会出现「累计 0 天 · 最长 4 天」这种自相矛盾。 */
+    const startMs = parseD(quitStartDay(h)).getTime();
+    const list = cravingsOf(h.id).filter(function (e) {
+      return e.k === 's' && parseD(tsDay(e.t)).getTime() >= startMs;
+    });
     if (!list.length) return quitStreak(h);
     let best = 0;
-    let prev = parseD(quitStartDay(h)).getTime();
+    let prev = startMs;
     list.forEach(function (e) {
       const cur = parseD(tsDay(e.t)).getTime();
       best = Math.max(best, Math.round((cur - prev) / 86400000));
@@ -5220,6 +5249,44 @@ body.modal-open{overflow:hidden}
         '<g transform="rotate(-90 66 66)" fill="none" stroke-width="9" stroke-linecap="round">' + circles + '</g>' +
       '</svg>' +
       '<div class="move-ring-txt"><b>' + okN + '/7</b><small>本 周</small></div>' +
+    '</div>';
+  }
+
+  /* 今日 24 小时轴：把「几点犯的瘾」搬到卡片正面。
+     同一分钟的多条合并成一个点（有点一根就红），否则连点几次会糊成一片。 */
+  function quitAxisHtml(h, d) {
+    const evs = dayCravings(h.id, d);
+    const bins = {};
+    const cnt = {};
+    evs.forEach(function (e) {
+      const dt = new Date(Number(e.t) * 1000);
+      const m = dt.getHours() * 60 + dt.getMinutes();
+      if (bins[m] !== 's') bins[m] = e.k;   /* 同一分钟里有点一根就算红 */
+      cnt[m] = cnt[m] || { s: 0, r: 0 };
+      cnt[m][e.k]++;
+    });
+    const dots = Object.keys(bins).map(function (k) {
+      const m = Number(k);
+      const c = cnt[m];
+      const tip = pad2(Math.floor(m / 60)) + ':' + pad2(m % 60) +
+        ' · ' + (c.s ? '点 ' + c.s : '') + (c.s && c.r ? ' / ' : '') + (c.r ? '忍 ' + c.r : '');
+      return '<i class="qa-dot ' + bins[k] + '" style="left:' +
+        (m / 1440 * 100).toFixed(3) + '%" title="' + tip + '"></i>';
+    }).join('');
+    let nowLine = '';
+    if (d === todayStr()) {
+      const n = new Date();
+      nowLine = '<i class="qa-now" style="left:' +
+        (((n.getHours() * 60 + n.getMinutes()) / 1440) * 100).toFixed(3) + '%"></i>';
+    }
+    return '<div class="quit-axis' + (evs.length ? '' : ' is-empty') + '">' +
+      '<span class="qa-label">' + (d === todayStr() ? '今日' : Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10))) + '</span>' +
+      '<div class="qa-wrap">' +
+        '<div class="qa-track">' +
+          (evs.length ? dots : '<span class="qa-empty">今天还没有记录</span>') + nowLine +
+        '</div>' +
+        '<div class="qa-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -6470,7 +6537,7 @@ body.modal-open{overflow:hidden}
     let status, sub;
     if (ns > 0) {
       status = '<span class="mv-status">今天记了 ' + ns + ' 次</span>';
-      sub = '连续从今天重新数 · 之前攒的天数还在';
+      sub = '连续从今天重新数' + (total > 0 ? ' · 累计的 ' + total + ' 天还在' : '');
     } else if (streak > 0) {
       status = '<span class="mv-status ok">连续 ' + streak + ' 天没抽</span>';
       sub = today ? '今天还一次没记，保持住' : '这一天没有记录';
@@ -6480,8 +6547,11 @@ body.modal-open{overflow:hidden}
     }
 
     const lines = [];
-    lines.push('<span><i' + (streak ? '' : ' class="dim"') + '></i>累计 ' + total + ' 天' +
-      (best > streak ? ' · 最长 ' + best + ' 天' : '') + '</span>');
+    if (total > 0) {
+      lines.push('<span><i></i>累计 ' + total + ' 天' + (best > streak ? ' · 最长 ' + best + ' 天' : '') + '</span>');
+    } else {
+      lines.push('<span><i class="dim"></i>还没有完整的无烟日</span>');
+    }
     if (saved) {
       lines.push('<span><i></i>少抽 ' + saved.sticks + ' 支 · 省了 ¥' + Math.round(saved.money) + '</span>');
     } else {
@@ -6507,25 +6577,19 @@ body.modal-open{overflow:hidden}
           '<div class="vital-sub">' + sub + '</div>' +
           '<div class="move-lines">' + lines.join('') + '</div>' +
         '</div>' +
-        '<div class="quit-log">' +
-          (evs.length
-            ? evs.slice(-4).map(function (e) {
-                return '<button class="cl-item ' + e.k + '" data-act="crave-tag" data-eid="' + e.id +
-                  '" title="点一下补原因和强度">' + tsHHMM(e.t) + ' ' + CRAVE_CN[e.k] + '</button>';
-              }).join('') +
-              (evs.length > 4 ? '<span class="cl-more">+' + (evs.length - 4) + '</span>' : '')
-            : '<span class="crave-none">今天还没有记录</span>') +
-        '</div>' +
         quitRingHtml(h) +
+        quitAxisHtml(h, d) +
       '</div>' +
       '<div class="move-foot">' + foot + '</div>' +
       (today
         ? '<div class="quit-actions">' +
             '<button class="quit-btn smoke" data-act="crave-smoke" data-id="' + h.id + '">点一根</button>' +
             '<button class="quit-btn resist" data-act="crave-resist" data-id="' + h.id + '">忍一次</button>' +
+            '<button class="quit-btn undo" data-act="crave-undo" data-id="' + h.id + '"' +
+              (evs.length ? '' : ' disabled') + '>撤销</button>' +
           '</div>'
-        : '<div class="quit-actions"><button class="quit-btn" disabled>只能记今天 · ' +
-            Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '</button></div>') +
+        : '<div class="quit-actions"><button class="quit-btn" style="grid-column:1/-1" disabled>' +
+            '只能记今天 · ' + Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '</button></div>') +
     '</article>';
   }
 
