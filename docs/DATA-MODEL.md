@@ -60,6 +60,9 @@
 | `color` | string | — | 卡片强调色 |
 | `note` | string | `''` | 备注。`quit` 类型为空时卡片显示一句引导语 |
 | `quitStart` | `'YYYY-MM-DD'` | 无 | 只 `quit` 用：戒烟起点。没有就退回 `createdAt` 的日期 |
+| `quitPerDay` | number | 0 | 只 `quit` 用：原来每天几支。0 = 不折算省钱 |
+| `quitPackPrice` | number | 0 | 只 `quit` 用：一包多少钱（元）。0 = 不折算省钱 |
+| `quitPackSize` | number | 20 | 只 `quit` 用：一包几支，用来把包价换算成单价 |
 | `createdAt` | ISO string | — | |
 | `archivedAt` | ISO string \| `''` | `''` | 非空 = 已归档 |
 | `optional` | boolean | 无（falsy） | **可选项**：不催、不计入完成率分母以外的统计 |
@@ -265,7 +268,12 @@ cravings: [
 3. **合并走独立的 `id` 并集**（见第 10 节）。不要套 `events` 的 `at|id|delta` 判重键，
    事件流没有 `delta`，同一秒两条会互相顶掉。
 
-派生函数：`quitStreak` / `quitTotal` / `quitBest` / `quitRange` / `craveHours` / `craveTriggers`。
+派生函数：`quitStreak` / `quitTotal` / `quitBest` / `quitRange` / `craveHours` / `craveTriggers` /
+`quitWeek`（本周 7 天状态）/ `quitSaved`（省钱）/ `quitNextMile`（下一个里程碑）/ `quitRingHtml`。
+
+> **`quitWeek` 的 `started` 和 `future` 两个标记不能省**：
+> `started` 是「戒烟起点之后」——起点之前的日子不该算无烟，否则刚建习惯就显示满环；
+> `future` 是「还没到的日子」——不算进去的话，周三就会显示 6/7，是假的。
 
 > **口径**：`craveHours`（时段图）和 `craveTriggers`（诱因）**只统计 `k === 's'`**。
 > 把「忍住了」混进去会出现「压力 7 次」但其实只抽了 3 根的矛盾，

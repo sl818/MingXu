@@ -272,8 +272,18 @@ document.addEventListener('click', e => {
 
 `craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
 `quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
-`craveTriggers(hid)` `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)`
-`tsDay(ts)` `tsHHMM(ts)`
+`craveTriggers(hid)` `quitWeek(h)` `quitSaved(h)` `quitNextMile(streak)` `quitRingHtml(h)`
+`addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
+
+**常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
+
+- 骨架照抄运动卡：`vital-top` / `move-body`（左文字 + 右环）/ `move-foot` / 底部动作
+- 环量的是**本周无烟天数**（`quitRingHtml`），和运动卡「本周完成 0/7」是同一套语义
+- 底部是**两个等权重按钮**（`quit-btn smoke` / `quit-btn resist`），不是一主一次。
+  把「点一根」做成次要操作，人就不好意思点，数据立刻失真
+- 常驻卡为奇数张时，最后一张 `grid-column:span 2` 变宽卡；宽卡里
+  `move-body` 多一列「今日记录」，窄卡（手机）隐藏 `.quit-log`
+- 涨落：`QUIT_MILESTONES` = 1/3/7/14/30/60/90/180/365，文案在 `QUIT_MILE_CN`
 
 要点：
 
