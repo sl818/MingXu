@@ -2,6 +2,7 @@
 design/
 e2e/shots/
 e2e/live-shots/
+e2e/live/shots/
 
 # 打包与二进制
 *.zip
