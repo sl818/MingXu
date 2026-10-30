@@ -31,28 +31,44 @@ try {
 
 $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
-/* 1. 检测唯一索引是否存在 */
-$hasUnique = false;
+/* 1. 检测唯一索引：既要名字对，也要真的 unique（Non_unique=0 / unique=1）。
+   之前只查名字，漏了「同名但只是普通索引」——那 INSERT IGNORE 照样不去重，
+   日志会表现为每分钟都「发出」而不是「跳过」。 */
+$hasUnique = false;     // 真正的唯一索引
+$hasNonUnique = false;  // 同名但非唯一的索引
 if ($driver === 'mysql') {
     foreach ($pdo->query("SHOW INDEX FROM push_sent")->fetchAll() as $row) {
         if (($row['Key_name'] ?? '') === 'uq_push_sent') {
-            $hasUnique = true;
-            break;
+            if (((int)($row['Non_unique'] ?? 1)) === 0) {
+                $hasUnique = true;
+            } else {
+                $hasNonUnique = true;
+            }
         }
     }
 } else {
     foreach ($pdo->query("PRAGMA index_list('push_sent')")->fetchAll() as $row) {
         if (($row['name'] ?? '') === 'uq_push_sent') {
-            $hasUnique = true;
-            break;
+            if (((int)($row['unique'] ?? 0)) === 1) {
+                $hasUnique = true;
+            } else {
+                $hasNonUnique = true;
+            }
         }
     }
 }
 
 if ($hasUnique) {
-    echo '唯一索引 uq_push_sent 已存在，无需修复。' . PHP_EOL;
+    echo '唯一索引 uq_push_sent 已存在且是唯一的，无需修复。' . PHP_EOL;
 } else {
-    echo '未找到唯一索引 uq_push_sent，开始修复…' . PHP_EOL;
+    if ($hasNonUnique) {
+        echo '发现同名索引 uq_push_sent 但不是唯一的（INSERT IGNORE 不去重），先删除。' . PHP_EOL;
+        $pdo->exec($driver === 'mysql'
+            ? 'ALTER TABLE push_sent DROP INDEX uq_push_sent'
+            : 'DROP INDEX uq_push_sent');
+    } else {
+        echo '未找到唯一索引 uq_push_sent，开始修复…' . PHP_EOL;
+    }
 
     /* 2. 清理重复：每个 (user_id, slot_key) 只保留 id 最小的一条。
        派生表写法和 MySQL / SQLite 都兼容。 */
@@ -77,18 +93,18 @@ if ($driver === 'mysql') {
 }
 echo '清理 7 天前旧记录：' . (int)$old . ' 条' . PHP_EOL;
 
-/* 5. 复核：再跑一次检测，确认索引已就位 */
+/* 5. 复核：再跑一次检测，确认唯一索引已就位（同样要验证「真的唯一」） */
 $ok = false;
 if ($driver === 'mysql') {
     foreach ($pdo->query("SHOW INDEX FROM push_sent")->fetchAll() as $row) {
-        if (($row['Key_name'] ?? '') === 'uq_push_sent') {
+        if (($row['Key_name'] ?? '') === 'uq_push_sent' && ((int)($row['Non_unique'] ?? 1)) === 0) {
             $ok = true;
             break;
         }
     }
 } else {
     foreach ($pdo->query("PRAGMA index_list('push_sent')")->fetchAll() as $row) {
-        if (($row['name'] ?? '') === 'uq_push_sent') {
+        if (($row['name'] ?? '') === 'uq_push_sent' && ((int)($row['unique'] ?? 0)) === 1) {
             $ok = true;
             break;
         }
