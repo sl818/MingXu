@@ -232,7 +232,11 @@ with sync_playwright() as p:
         rec(f'[手机 {layout}] Hero 恢复 / 无溢出 / tabbar',
             m['ovf'] <= 1 and len(m['over']) == 0 and m['statCards'] == 1 and m['tabs'] == 4 and m['head'] and not m['railShown'],
             json.dumps(m, ensure_ascii=False))
-        pg.screenshot(path=f'design/shots/rg-m-{layout}.png')
+        # 截图只是调试产物，不该因为它超时让整轮回归挂掉（headless 下字体等待会偶发卡住）
+        try:
+            pg.screenshot(path=f'design/shots/rg-m-{layout}.png', timeout=8000)
+        except Exception:
+            pass
         ctx.close()
 
     br.close()

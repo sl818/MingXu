@@ -13,7 +13,7 @@
 ```js
 {
   version: 2,              // 早期字段，保留兼容
-  schemaVersion: 4,        // 迁移版本号，见第 9 节
+  schemaVersion: 5,        // 迁移版本号，见第 9 节
   view: 'today',           // 上次停留的页面
 
   habits: [],              // 习惯（含 4 个内置常驻卡）
@@ -23,6 +23,7 @@
   checks: {},              // 习惯打卡：{日期: {习惯id: 次数}}
   doses: {},               // 服药记录：{日期: {药品id: {时段: 记录}}}
   events: [],              // 操作日志（习惯 + 服药），上限 1000 条
+  cravings: [],            // 戒烟事件流（抽了 / 忍住了），见第 5.4 节
 
   weights: [],             // 体重记录
   bodyProfile: {},         // 身体档案（年龄 / 身高 / 目标体重）
@@ -53,11 +54,12 @@
 | `id` | string | `h_xxx` | 内置的用固定 id，自建的随机 |
 | `name` | string | — | 习惯名 |
 | `icon` | string | `✅` | emoji |
-| `type` | `'build'` \| `'quit'` | `'build'` | quit 类型记录 0 次算成功 |
+| `type` | `'build'` \| `'quit'` | `'build'` | quit 走事件流，见第 5.4 节；`build` 看次数 |
 | `target` | number | 1 | 每日目标次数 |
 | `unit` | string | `'次'` | 单位 |
 | `color` | string | — | 卡片强调色 |
-| `note` | string | `''` | 备注 |
+| `note` | string | `''` | 备注。`quit` 类型为空时卡片显示一句引导语 |
+| `quitStart` | `'YYYY-MM-DD'` | 无 | 只 `quit` 用：戒烟起点。没有就退回 `createdAt` 的日期 |
 | `createdAt` | ISO string | — | |
 | `archivedAt` | ISO string \| `''` | `''` | 非空 = 已归档 |
 | `optional` | boolean | 无（falsy） | **可选项**：不催、不计入完成率分母以外的统计 |
@@ -237,6 +239,38 @@ else { Math.max(次数) }
 
 **加新的按天数据时，先想清楚它是两层还是三层。**
 
+### 5.4 `cravings[]` —— 戒烟事件流
+
+```js
+cravings: [
+  { id: 'k3x9a', t: 1761824520, k: 's', h: 'h_drink', g: 'stress', s: 0 }
+]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 合并去重用的键 |
+| `t` | **秒级**时间戳。不用 ISO 字符串——一天几十条、一年上万条，而同步是全量快照 |
+| `k` | `'s'` 抽了 / `'r'` 忍住了 |
+| `h` | 习惯 id。只有 `type === 'quit'` 的习惯会产生事件 |
+| `g` | 诱因 key（`CRAVE_TRIGGERS`：meal / stress / social / bored / drive / drink / other），空串 = 没标 |
+| `s` | 强度 0–5，**预留字段，当前未使用** |
+
+三条硬规则：
+
+1. **不进 `checks`**。`checks` 是「今天做了几次」的计数语义，事件是「此刻发生了什么」。
+   混进去会让 `met()`、`habitStreak()`、月历、统计页每一处都要再判一次类型——
+   这正是 `type === 'quit'` 现在有十几处特判的原因，不要再加深。
+2. **「抽了」和「忍住了」都记**。只让用户记失败的话，人会因为不想承认而少记，数据就废了。
+3. **合并走独立的 `id` 并集**（见第 10 节）。不要套 `events` 的 `at|id|delta` 判重键，
+   事件流没有 `delta`，同一秒两条会互相顶掉。
+
+派生函数：`quitStreak` / `quitTotal` / `quitBest` / `quitRange` / `craveHours` / `craveTriggers`。
+
+> **口径**：`craveHours`（时段图）和 `craveTriggers`（诱因）**只统计 `k === 's'`**。
+> 把「忍住了」混进去会出现「压力 7 次」但其实只抽了 3 根的矛盾，
+> 而且这两件事回答的是不同的问题：什么是危险场景 vs 什么场景能扛住。
+
 ---
 
 ## 6. 其他实体
@@ -306,7 +340,13 @@ notes = {}                            // 旧版随记，保留但无界面
 | 今日已服次数 | `medTakenCount(d)` | 当天 `doses` 的记录数 |
 | 今日依从率 | `medAdherenceDay(d)` | 已服 ÷ 应服 |
 | 习惯今日计数 | `countOf(d, id)` | `checks[d][id]` |
-| 习惯是否达标 | `met(h, d)` | 次数 ≥ target；**`h_med` 特殊** |
+| 习惯是否达标 | `met(h, d)` | 次数 ≥ target；`h_med` / `quit` 特殊（quit 看当天有无 `s` 事件）|
+| 连续无烟天数 | `quitStreak(h)` | 今天 − 最后一次「抽了」那天；从没抽过则从 `quitStart` 算 |
+| 累计无烟天数 | `quitTotal(h)` | 起点到今天的天数 − 有「抽了」的天数 |
+| 最长无烟段 | `quitBest(h)` | 扫全部 `s` 事件求最大相邻间隔 |
+| 抵御率 | `quitRange(h, N)` | 忍住 ÷ (忍住 + 抽了)，`rate` 字段 |
+| 时段分布 | `craveHours(hid)` | 24 个桶，**只数 `s`** |
+| 失守诱因 | `craveTriggers(hid)` | 按 `g` 计数，**只数 `s`** |
 | 当日统计 | `dayStats(d)` | 见下 |
 | 连续天数 | `habitStreak(h)` / `overallStreak()` | 从今天往回数 |
 | 未完成任务 | `liveTasks()` / `pendingTasks(d)` | 过滤 done/cancelled/archived |
@@ -354,6 +394,7 @@ MED_PHASES    进行中 / 未开始 / 暂停 / 已停用   （按 status + 日�
 | v1 → v2 | `migrateColors` / `migratePinned` / `migrateMeds` / `migrateQuitHabit` |
 | v2 → v3 | `migrateWater`（8 杯 → 9 杯 / 250ml）、`ensureBreathingHabit` |
 | v3 → v4 | 库存从"绝对数逐次扣减"改为"基线 + 推算" |
+| v4 → v5 | `migrateQuitCravings`：老 `checks` 里的戒烟次数转成 `s` 事件，清掉「保持 0 次」备注 |
 | 每次加载 | `migrateStock()` —— **幂等补齐，不依赖版本号** |
 
 ### 9.1 两条规则
@@ -379,6 +420,7 @@ MED_PHASES    进行中 / 未开始 / 暂停 / 已停用   （按 status + 日�
 | `moods` | 按日期，本地优先 |
 | `notes` | 按日期，本地优先 |
 | `events` | 按 `at` + `id` + `delta` 去重并集 |
+| `cravings` | 按 `id` 去重并集，合并后按 `t` 排序。**单独一段，不复用 `events` 的判重键** |
 | `bodyProfile` | 浅合并，本地优先 |
 | `view` | 以远程为准（`out = {...remote}`） |
 

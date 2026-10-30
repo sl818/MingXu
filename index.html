@@ -3099,6 +3099,49 @@ body.modal-open{overflow:hidden}
   .install-tip{padding:9px 11px}
   .it-body b{font-size:12px}
 }
+
+/* ============ v49 戒烟：事件流 ============
+   两个按钮，不给 +/−：犯瘾时没人在读符号。
+   颜色只做弱提示——「抽了」用红边、「忍住了」用 accent 边，
+   底色都不压深，小字一律 var(--text)，避免重蹈 clay 皮肤对比度不足。 */
+.crave-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 8px}
+.crave-btn{display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:44px;padding:10px 8px;border-radius:11px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--text);font:inherit;font-size:13px;
+  font-weight:600;cursor:pointer;transition:background .15s,border-color .15s}
+.crave-btn i{font-style:normal;font-size:15px;line-height:1}
+.crave-btn.smoke:hover{background:rgba(221,90,90,.1);border-color:var(--bad)}
+.crave-btn.resist:hover{background:var(--accent-soft);border-color:var(--accent)}
+.crave-btn:active{transform:scale(.985)}
+.crave-btn:disabled{opacity:.4;pointer-events:none}
+.crave-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--text);margin-bottom:8px}
+.crave-meta b{font-size:13px;font-weight:700}
+.crave-none{color:var(--muted)}
+.crave-log{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.cl-item{border:0;background:var(--surface-2);color:var(--text);
+  font:inherit;font-size:10.5px;padding:3px 8px;border-radius:99px;cursor:pointer}
+.cl-item.s{background:rgba(221,90,90,.1)}
+.cl-item.r{background:var(--accent-soft)}
+.cl-more{font-size:10.5px;color:var(--muted);padding:3px 4px}
+.cl-item.undo{background:none;color:var(--muted);text-decoration:underline}
+.ct-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+/* 选中态拉向 --text：clay / mono 上 --accent 落在 4.0 出头，9.5px 过不了 AA */
+.ct-chips .tag-chip.on{background:var(--accent-soft);border-color:var(--accent);
+  color:var(--text);font-weight:600}
+.crave-tag-card .modal-sub{font-size:12px;color:var(--text);line-height:1.55;margin:4px 0 0}
+/* 戒烟分析：24 小时热力 */
+.qh-wrap{margin:10px 0 2px}
+.qh-bars{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;
+  height:56px;border-bottom:1px solid var(--line)}
+.qh-bar{background:color-mix(in srgb,var(--accent) 32%,var(--surface-2));border-radius:3px 3px 0 0}
+.qh-bar.zero{background:none}
+.qh-bar.on{background:var(--accent)}
+.qh-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:5px}
+@media (pointer: coarse){
+  .cl-item{position:relative}
+  .cl-item::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
+}
 </style>
 
 
@@ -3237,7 +3280,7 @@ body.modal-open{overflow:hidden}
         { id: 'h_water', name: '喝水', icon: '💧', type: 'build', target: 9, unit: '杯', color: '#4c7f96', note: '每天 9 杯 · 共 2300 ml', perMl: 250, goalMl: 2300, createdAt: iso, pinned: true },
         { id: 'h_move',  name: '运动', icon: '🏃', type: 'build', target: 1, unit: '次', color: '#b5733f', note: '30 分钟以上', createdAt: iso, pinned: true },
         { id: 'h_breathe', name: '478呼吸法', icon: '🌬️', type: 'build', target: 1, unit: '组', color: '#5b8f8a', note: '4-7-8 呼吸', breatheCycles: 4, suggestTime: '15:00', createdAt: iso, pinned: true },
-        { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'quit',  target: 1, unit: '次', color: '#9c5a5a', note: '保持 0 次', createdAt: iso, pinned: false }
+        { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'quit',  target: 1, unit: '次', color: '#9c5a5a', note: '', createdAt: iso, pinned: false }
       ],
       checks: {},
       notes: {}, // 保留旧版备份中的随记数据；当前版本没有随记界面
@@ -3247,6 +3290,10 @@ body.modal-open{overflow:hidden}
         { id: 'med_default', name: '吃药', purpose: '其他', form: '片', strength: '', doseAmount: 1, doseUnit: '片', times: ['08:00', '20:00'], courseType: 'long', startDate: t, endDate: '', reviewDate: '', status: 'active', stock: '', note: '早晚各一次', createdAt: iso }
       ],
       doses: {},
+      /* 戒烟事件流：一次「想抽」要么抽了要么忍住，两边都记。
+         刻意不并进 checks——checks 是「今天做了几次」的计数语义，
+         混进去会让完成度、连续天数、月历每一处都要再判一次类型。 */
+      cravings: [],
       bodyProfile: { age: 0, height: 0 },
       weights: [],
       essays: [],
@@ -3491,6 +3538,34 @@ body.modal-open{overflow:hidden}
     return out;
   }
 
+  /* 戒烟事件：{id, t(秒), k:'s'抽了|'r'忍住了, h(习惯id), g(诱因), s(强度0-5)}
+     t 用秒级时间戳而不是 ISO 字符串——一天几十条，一年上万条，
+     而同步是全量快照，字段长度直接决定每次 PUT 的体积。 */
+  function normalizeCravings(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (e) {
+      if (!e || typeof e !== 'object') return;
+      const id = String(e.id || '');
+      const k = e.k === 's' ? 's' : (e.k === 'r' ? 'r' : '');
+      const t = Number(e.t);
+      if (!id || !k || !isFinite(t) || t <= 0) return;
+      if (seen[id]) return;
+      seen[id] = 1;
+      out.push({
+        id: id,
+        t: Math.round(t),
+        k: k,
+        h: String(e.h || ''),
+        g: String(e.g || ''),
+        s: clamp(Math.round(Number(e.s) || 0), 0, 5)
+      });
+    });
+    out.sort(function (a, b) { return a.t - b.t; });
+    return out;
+  }
+
   function normalizeMoods(raw) {
     if (!isPlainObject(raw)) return {};
     const out = {};
@@ -3510,6 +3585,40 @@ body.modal-open{overflow:hidden}
 
   /* 喝水改毫升制：旧数据（8 杯）一次性升级到 9 杯 / 250 ml / 共 2300 ml。
      只在没有 perMl 时执行，幂等；checks 里存的仍是「次数」，历史记录无需迁移。 */
+  /* 老戒烟记录 → 事件流。用确定性 id（q-习惯id-日期-序号）保证幂等：
+     迁移跑两次不会长出重复事件，云合并时也不会被当成新事件。 */
+  function migrateQuitCravings(data) {
+    if (!Array.isArray(data.habits) || !isPlainObject(data.checks)) return;
+    const quitIds = data.habits.filter(function (h) { return h && h.type === 'quit'; })
+                              .map(function (h) { return h.id; });
+    if (!quitIds.length) return;
+    /* 「保持 0 次」是计数时代留下的备注，事件流下它只会误导 */
+    data.habits.forEach(function (h) {
+      if (h && h.type === 'quit' && String(h.note || '') === '保持 0 次') h.note = '';
+    });
+    if (!Array.isArray(data.cravings)) data.cravings = [];
+    const seen = {};
+    data.cravings.forEach(function (e) { if (e && e.id) seen[e.id] = 1; });
+    Object.keys(data.checks).forEach(function (ds) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+      const day = data.checks[ds];
+      if (!isPlainObject(day)) return;
+      quitIds.forEach(function (id) {
+        const n = Number(day[id]) || 0;
+        if (n <= 0) return;
+        for (let i = 0; i < n && i < 40; i++) {
+          const cid = 'q-' + id + '-' + ds + '-' + i;
+          if (seen[cid]) continue;
+          seen[cid] = 1;
+          const base = parseD(ds);
+          base.setHours(12, i, 0, 0);
+          data.cravings.push({ id: cid, t: Math.round(base.getTime() / 1000),
+                               k: 's', h: id, g: '', s: 0 });
+        }
+      });
+    });
+  }
+
   function migrateWater(data) {
     (data.habits || []).forEach(h => {
       if (!h || h.id !== 'h_water') return;
@@ -3570,6 +3679,7 @@ body.modal-open{overflow:hidden}
     data.notes = isPlainObject(data.notes) ? data.notes : {};
     data.moods = normalizeMoods(data.moods);
     data.events = Array.isArray(data.events) ? data.events : [];
+    data.cravings = normalizeCravings(data.cravings);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
     return Object.assign(seedState(), data);
@@ -3580,7 +3690,7 @@ body.modal-open{overflow:hidden}
      补一个字段可能让另一处判断以为数据已经升级过。
      现在按 state.schemaVersion 顺序执行，每一步只跑一次。
      没有版本号的旧数据一律当作 v1，走完整链路，跑完打上当前版本。 */
-  const SCHEMA_VERSION = 4;
+  const SCHEMA_VERSION = 5;
 
   function migrateState(data) {
     if (!data || typeof data !== 'object') return data;
@@ -3603,6 +3713,13 @@ body.modal-open{overflow:hidden}
       /* v3 → v4：库存从「绝对数逐次扣减」改为「基线 + 按记录推算」
          （具体补齐在下面的 migrateStock 里，它是幂等的，每次加载都会跑） */
       v = 4;
+    }
+    if (v < 5) {
+      /* v4 → v5：戒烟从「每天记几次」改成事件流（抽了 / 忍住了）。
+         老数据里 checks[日期][戒烟习惯id] = 那天抽了几次，
+         转成同样条数的 s 事件；checks 里的旧值保留不删，新代码不再读它。 */
+      migrateQuitCravings(data);
+      v = 5;
     }
     data.schemaVersion = SCHEMA_VERSION;
     /* 幂等补齐：不依赖版本号，任何缺少 stockBase 的药品都会被补成基线，
@@ -4219,6 +4336,16 @@ body.modal-open{overflow:hidden}
 
     // 随记
     out.notes = Object.assign({}, isPlainObject(remote.notes) ? remote.notes : {}, isPlainObject(local.notes) ? local.notes : {});
+
+    /* 戒烟事件：按 id 去重并集。
+       单独一段，不并进上面的 events——events 按 at|id|delta 判重，
+       事件流没有 delta，套那个键会让同一秒的两条互相顶掉。 */
+    const rCr = Array.isArray(remote.cravings) ? remote.cravings : [];
+    const lCr = Array.isArray(local.cravings) ? local.cravings : [];
+    const seenCr = {};
+    rCr.forEach(function (e) { if (e && e.id) seenCr[e.id] = 1; });
+    out.cravings = rCr.concat(lCr.filter(function (e) { return e && e.id && !seenCr[e.id]; }));
+    out.cravings.sort(function (a, b) { return Number(a.t) - Number(b.t); });
 
     // 打卡日志：去重并集
     const rEv = Array.isArray(remote.events) ? remote.events : [];
@@ -4860,6 +4987,142 @@ body.modal-open{overflow:hidden}
     if (Object.keys(state.checks[d]).length === 0) delete state.checks[d];
     save();
   }
+  /* ============================================================
+     戒烟：事件流
+     一次「想抽」只有两种结局：抽了(s) / 忍住了(r)。两个都要记——
+     它们回答的不是同一个问题：s 是失守，r 是胜利。
+     只让用户记 s 的话，人会因为「不想承认」而少记，数据就废了。
+     不参与 checks 计数：checks 是「今天做了几次」的计数语义，
+     混进去会让完成度、连续天数、月历每一处都要再判一次类型。
+     ============================================================ */
+  const CRAVE_TRIGGERS = [
+    { k: 'meal',   label: '饭后' },
+    { k: 'stress', label: '压力' },
+    { k: 'social', label: '社交' },
+    { k: 'bored',  label: '无聊' },
+    { k: 'drive',  label: '开车' },
+    { k: 'drink',  label: '喝酒' },
+    { k: 'other',  label: '其他' }
+  ];
+  const CRAVE_CN = { s: '抽了', r: '忍住了' };
+
+  function craveList() {
+    return Array.isArray(state.cravings) ? state.cravings : [];
+  }
+  /* 秒级时间戳 → 'YYYY-MM-DD' / 'HH:MM'（本地时区，和 todayStr 同一口径） */
+  function tsDay(ts) { return fmt(new Date(Number(ts) * 1000)); }
+  function tsHHMM(ts) {
+    const d = new Date(Number(ts) * 1000);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function cravingsOf(hid) {
+    return craveList().filter(function (e) { return e.h === hid; });
+  }
+  function dayCravings(hid, ds) {
+    return cravingsOf(hid).filter(function (e) { return tsDay(e.t) === ds; });
+  }
+  function lastSmokeTs(hid) {
+    const list = cravingsOf(hid);
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].k === 's') return list[i].t;
+    return 0;
+  }
+  /* 戒烟起点：优先显式设置，否则退回习惯创建日 */
+  function quitStartDay(h) {
+    const s = String(h.quitStart || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    return h.createdAt ? String(h.createdAt).slice(0, 10) : todayStr();
+  }
+  /* 连续无烟天数：今天 - 最后一次「抽了」那天。今天抽过就是 0；
+     从没抽过则从戒烟起点算（含当天，所以 +1）。 */
+  function quitStreak(h) {
+    const last = lastSmokeTs(h.id);
+    const diff = Math.round((parseD(todayStr()) - parseD(last ? tsDay(last) : quitStartDay(h))) / 86400000);
+    return Math.max(0, last ? diff : diff + 1);
+  }
+  /* 区间统计。days=0 表示只看今天，days>0 表示最近 N 天。 */
+  function quitRange(h, days) {
+    const t0 = parseD(todayStr()).getTime();
+    let smoke = 0, resist = 0;
+    cravingsOf(h.id).forEach(function (e) {
+      const diff = Math.round((t0 - parseD(tsDay(e.t)).getTime()) / 86400000);
+      if (days > 0 ? (diff >= days || diff < 0) : diff !== 0) return;
+      if (e.k === 's') smoke++; else resist++;
+    });
+    const total = smoke + resist;
+    return { smoke: smoke, resist: resist, total: total, rate: total ? resist / total : 0 };
+  }
+  /* 最长连续无烟段：扫全部「抽了」事件，求相邻两条之间的最大间隔 */
+  function quitBest(h) {
+    const list = cravingsOf(h.id).filter(function (e) { return e.k === 's'; });
+    if (!list.length) return quitStreak(h);
+    let best = 0;
+    let prev = parseD(quitStartDay(h)).getTime();
+    list.forEach(function (e) {
+      const cur = parseD(tsDay(e.t)).getTime();
+      best = Math.max(best, Math.round((cur - prev) / 86400000));
+      prev = cur;
+    });
+    return Math.max(best, quitStreak(h));
+  }
+  /* 累计无烟天数：起点到今天的天数 - 有「抽了」的天数 */
+  function quitTotal(h) {
+    const start = parseD(quitStartDay(h)).getTime();
+    const span = Math.max(0, Math.round((parseD(todayStr()) - start) / 86400000)) + 1;
+    const badDays = {};
+    cravingsOf(h.id).forEach(function (e) { if (e.k === 's') badDays[tsDay(e.t)] = 1; });
+    return Math.max(0, span - Object.keys(badDays).length);
+  }
+  /* 24 小时分布：只数「抽了」——想抽但忍住的那个时段，其实不是危险时段 */
+  function craveHours(hid) {
+    const bins = new Array(24).fill(0);
+    cravingsOf(hid).forEach(function (e) {
+      if (e.k !== 's') return;
+      bins[new Date(Number(e.t) * 1000).getHours()]++;
+    });
+    return bins;
+  }
+  /* 失守诱因排行：只数「抽了」。
+     把「忍住了」的诱因也混进来会出现「压力 7 次」但其实只抽了 3 根的矛盾，
+     而且两件事回答的是不同的问题：什么是危险场景 vs 什么场景能扛住。 */
+  function craveTriggers(hid) {
+    const map = {};
+    cravingsOf(hid).forEach(function (e) {
+      if (!e.g || e.k !== 's') return;
+      map[e.g] = (map[e.g] || 0) + 1;
+    });
+    return Object.keys(map).map(function (k) {
+      const t = CRAVE_TRIGGERS.find(function (x) { return x.k === k; });
+      return { k: k, label: t ? t.label : k, n: map[k] };
+    }).sort(function (a, b) { return b.n - a.n; });
+  }
+
+  function addCraving(hid, kind) {
+    const h = (state.habits || []).find(function (x) { return x.id === hid; });
+    if (!h || h.type !== 'quit') return;
+    if (kind !== 's' && kind !== 'r') return;
+    if (!Array.isArray(state.cravings)) state.cravings = [];
+    const now = Math.round(Date.now() / 1000);
+    const last = state.cravings[state.cravings.length - 1];
+    /* 手抖双击：3 秒内同一种结局不重复记，否则一次犯瘾会被记成两次 */
+    if (last && last.h === hid && last.k === kind && now - last.t < 3) {
+      toast('刚刚已经记过了');
+      return;
+    }
+    state.cravings.push({ id: uid(), t: now, k: kind, h: hid, g: '', s: 0 });
+    save();
+    render();
+    toast(kind === 's' ? '已记一次 · 连续天数从今天重新算' : '扛住了 💪 已记一次');
+  }
+  function undoCraving(hid) {
+    const list = cravingsOf(hid);
+    if (!list.length) return;
+    const last = list[list.length - 1];
+    state.cravings = craveList().filter(function (e) { return e.id !== last.id; });
+    save();
+    render();
+    toast('已撤销：' + tsHHMM(last.t) + ' ' + CRAVE_CN[last.k]);
+  }
+
   function logHabit(id, delta) {
     if (!delta) return;
     if (!Array.isArray(state.events)) state.events = [];
@@ -5211,8 +5474,13 @@ body.modal-open{overflow:hidden}
       const sched = medScheduledCount(d);
       return sched > 0 && medTakenCount(d) >= sched;
     }
+    /* 戒烟看事件不看计数：今天只要有一条「抽了」就不算达标。
+       老数据里 checks 的残值不再参与判断（v5 迁移时已转成事件）。 */
+    if (h.type === 'quit') {
+      return !dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
+    }
     const c = countOf(d, h.id);
-    return h.type === 'quit' ? c === 0 : c >= Math.max(1, Number(h.target) || 1);
+    return c >= Math.max(1, Number(h.target) || 1);
   }
   function activeHabits(d) {
     return state.habits.filter(h => !h.optional && !isArchived(h) && !(h.med && medScheduledCount(d) === 0));
@@ -5245,6 +5513,7 @@ body.modal-open{overflow:hidden}
     return n;
   }
   function habitStreak(h) {
+    if (h.type === 'quit') return quitStreak(h);
     let d = new Date(), n = 0;
     const created = h.createdAt ? String(h.createdAt).slice(0, 10) : todayStr();
     const ok = ds => {
@@ -5959,15 +6228,40 @@ body.modal-open{overflow:hidden}
     const done = met(h, d);
     const streak = habitStreak(h);
     const target = Math.max(1, Number(h.target) || 1);
-    const pct = h.type === 'quit' ? (c === 0 ? 100 : 0) : clamp(c / target, 0, 1) * 100;
+    const pct = h.type === 'quit' ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
 
     let control = '';
     if (h.type === 'quit') {
-      control = '<div class="quit-ctrl">' +
-        '<span class="state-pill ' + (c === 0 ? 'ok' : 'bad') + '">' + (c === 0 ? '保持中' : '已记录 ' + c + ' 次') + '</span>' +
-        '<button class="mini-btn" data-act="habit-inc" data-id="' + h.id + '">记一次</button>' +
-        (c > 0 ? '<button class="mini-btn ghost" data-act="habit-dec" data-id="' + h.id + '">撤销</button>' : '') +
-        '</div>';
+      /* 两个按钮，不是 +/−：犯瘾时没人在读符号，只会看字。
+         抽了和忍住了都记——只记失败的话人会为了不自责而少记。 */
+      const evs = dayCravings(h.id, d);
+      const isToday = d === todayStr();
+      const ns = evs.filter(function (e) { return e.k === 's'; }).length;
+      const nr = evs.length - ns;
+      const rate = evs.length ? Math.round(nr / evs.length * 100) : null;
+      control = '<div class="crave-pair">' +
+          '<button class="crave-btn smoke" data-act="crave-smoke" data-id="' + h.id + '"' +
+            (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '><i>🚬</i>抽了</button>' +
+          '<button class="crave-btn resist" data-act="crave-resist" data-id="' + h.id + '"' +
+            (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '><i>🛡️</i>忍住了</button>' +
+        '</div>' +
+        '<div class="crave-meta">' +
+          '<span>' + (isToday ? '今日' : (Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)))) + '</span>' +
+          '<span>抽 <b>' + ns + '</b></span>' +
+          '<span>忍 <b>' + nr + '</b></span>' +
+          (rate === null ? '<span class="crave-none">还没有记录</span>'
+                         : '<span>抵御率 <b>' + rate + '%</b></span>') +
+        '</div>' +
+        (evs.length
+          ? '<div class="crave-log">' +
+              evs.slice(-6).map(function (e) {
+                return '<button class="cl-item ' + e.k + '" data-act="crave-tag" data-eid="' + e.id +
+                  '" title="点一下补记诱因">' + tsHHMM(e.t) + ' ' + CRAVE_CN[e.k] + '</button>';
+              }).join('') +
+              (evs.length > 6 ? '<span class="cl-more">+' + (evs.length - 6) + '</span>' : '') +
+              (isToday ? '<button class="cl-item undo" data-act="crave-undo" data-id="' + h.id + '">撤销</button>' : '') +
+            '</div>'
+          : '');
     } else if (target <= 6) {
       let pips = '';
       for (let i = 1; i <= target; i++) {
@@ -5987,7 +6281,7 @@ body.modal-open{overflow:hidden}
     }
 
     const sub = h.type === 'quit'
-      ? (c === 0 ? '已保持 ' + streak + ' 天' : '今天已记录，明天重新开始')
+      ? ('连续 ' + streak + ' 天无烟' + (streak === 0 ? ' · 今天已记一次' : ''))
       : (h.target > 0 ? '目标 ' + target + ' ' + esc(h.unit || '次') + (streak ? ' · 连续 ' + streak + ' 天' : '') : '');
 
     return '<article class="habit-card ' + (done ? 'is-done' : '') + '" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
@@ -5997,9 +6291,33 @@ body.modal-open{overflow:hidden}
         '<span class="habit-check">✓</span>' +
       '</div>' +
       control +
-      (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '') +
+      (h.type === 'quit'
+        ? '<div class="habit-note">' + esc(h.note || '想抽的时候点一下 · 抽了和忍住了都记') + '</div>'
+        : (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '')) +
       '<div class="habit-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
       '</article>';
+  }
+
+  /* 补记诱因：点卡片上的时间条目进来。
+     不放在「抽了 / 忍住了」的点击流程里——犯瘾那一刻没人有耐心填表单，
+     先一键记录，事后再补标签。 */
+  function craveTagModal(eid) {
+    const e = craveList().find(function (x) { return x.id === eid; });
+    if (!e) return;
+    const opts = CRAVE_TRIGGERS.map(function (t) {
+      return '<button type="button" class="tag-chip' + (e.g === t.k ? ' on' : '') +
+        '" data-act="crave-set-tag" data-eid="' + eid + '" data-tag="' + t.k + '">' + t.label + '</button>';
+    }).join('');
+    openModal('<div class="modal-card crave-tag-card">' +
+      '<h3>' + tsHHMM(e.t) + ' · ' + CRAVE_CN[e.k] + '</h3>' +
+      '<p class="modal-sub">当时是什么情况？补一下，两三周就能看出主因。</p>' +
+      '<div class="ct-chips">' + opts + '</div>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn ghost" data-act="crave-del" data-eid="' + eid + '">删掉这条</button>' +
+        '<span class="spacer"></span>' +
+        '<button type="button" class="btn primary" data-act="close-modal">完成</button>' +
+      '</div>' +
+    '</div>');
   }
 
   function isPinned(h) {
@@ -7338,6 +7656,57 @@ body.modal-open{overflow:hidden}
   /* 本月习惯的统计口径：只算「已经过去且当天有记录」的日子，
      未到的日期和空白日不进分母，否则月初数字永远很难看。
      日历页（本月小结）和统计页（本月习惯）共用这一份计算。 */
+  /* 戒烟分析面板。只对 quit 习惯出现，没有戒烟习惯就完全不渲染。
+     时段分布只数「抽了」——「想抽但忍住」的那个时段其实不是危险时段，
+     混进去会把真正容易破防的点位稀释掉。 */
+  function quitPanel(range) {
+    const h = (state.habits || []).find(function (x) {
+      return x && x.type === 'quit' && !x.archivedAt;
+    });
+    if (!h) return '';
+    const streak = quitStreak(h), total = quitTotal(h), best = quitBest(h);
+    const q = quitRange(h, range);
+    const bins = craveHours(h.id);
+    let max = 0;
+    bins.forEach(function (n) { if (n > max) max = n; });
+    const bars = bins.map(function (n, i) {
+      if (!n) return '<i class="qh-bar zero" title="' + pad2(i) + ':00 · 0 次"></i>';
+      const hp = max ? Math.max(4, Math.round(n / max * 100)) : 4;
+      return '<i class="qh-bar' + (n === max ? ' on' : '') +
+        '" style="height:' + hp + '%" title="' + pad2(i) + ':00 · ' + n + ' 次"></i>';
+    }).join('');
+    const peak = max ? bins.indexOf(max) : -1;
+    const smokeN = q.smoke;
+    /* 样本太少时「最容易破防」只是噪声——3 条记录里 1 条也能当峰值 */
+    const peakText = peak < 0
+      ? '还没有「抽了」的记录，时段图还看不出规律'
+      : (smokeN < 5
+          ? '记录还少（' + smokeN + ' 次），多记几次才看得出规律'
+          : '最容易破防：<b>' + pad2(peak) + ':00–' + pad2((peak + 1) % 24) + ':00</b>');
+    const trig = craveTriggers(h.id).slice(0, 3);
+    return '<div class="panel"><h3>戒烟分析 <span class="muted-sm">（累计）</span></h3>' +
+      '<div class="cal-summary" style="margin:0">' +
+        '<span>连续无烟 <b>' + streak + '</b> 天</span>' +
+        '<span>累计 <b>' + total + '</b> 天</span>' +
+        '<span>最长 <b>' + best + '</b> 天</span>' +
+        '<span>抵御率 <b>' + (q.total ? Math.round(q.rate * 100) + '%' : '—') + '</b></span>' +
+      '</div>' +
+      '<div class="qh-wrap"><div class="qh-bars">' + bars + '</div>' +
+        '<div class="qh-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>' +
+      '</div>' +
+      '<div class="crave-meta" style="margin:10px 0 0">' +
+        '<span>' + peakText + '</span>' +
+        '<span>近 ' + range + ' 天 抽 <b>' + q.smoke + '</b> · 忍 <b>' + q.resist + '</b></span>' +
+      '</div>' +
+      (trig.length
+        ? '<div class="crave-meta" style="margin:6px 0 0">' +
+            '<span class="crave-none">失守诱因</span>' +
+            trig.map(function (t) { return '<span>' + esc(t.label) + ' <b>' + t.n + '</b></span>'; }).join('') +
+          '</div>'
+        : '') +
+    '</div>';
+  }
+
   function monthHabitsInfo(y, m) {
     const days = new Date(y, m + 1, 0).getDate();
     const now = todayStr();
@@ -7357,12 +7726,16 @@ body.modal-open{overflow:hidden}
 
     const rows = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
       let hit = 0, total = 0, lapse = 0;
+      const isQuit = h.type === 'quit';
       for (let day = 1; day <= days; day++) {
         const ds = fmt(new Date(y, m, day));
-        if (ds > now || !hasRecords(ds)) continue;
+        if (ds > now) continue;
+        /* 戒烟的有无记录看事件流，不看 checks——事件不写进 checks */
+        const dayEv = isQuit ? dayCravings(h.id, ds) : null;
+        if (isQuit ? !dayEv.length : !hasRecords(ds)) continue;
         total++;
-        if (h.type === 'quit') {
-          if (countOf(ds, h.id) > 0) lapse++;
+        if (isQuit) {
+          if (dayEv.some(function (e) { return e.k === 's'; })) lapse++;
           else hit++;
         } else if (met(h, ds)) {
           hit++;
@@ -8260,25 +8633,40 @@ body.modal-open{overflow:hidden}
     }).join('');
 
     const hstats = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
+      const isQuit = h.type === 'quit';
+      /* 戒烟的点阵按事件算：有「抽了」= miss，只有「忍住了」= ok，
+         一条都没有 = 空（没记录 ≠ 成功，不能混为一谈）。 */
       const dots = rangeDays.map(ds => {
-        const rec = hasRecords(ds);
-        const ok = rec && met(h, ds);
+        let rec, ok, tip;
+        if (isQuit) {
+          const evs = dayCravings(h.id, ds);
+          const ns = evs.filter(function (e) { return e.k === 's'; }).length;
+          const nr = evs.length - ns;
+          rec = evs.length > 0;
+          ok = rec && ns === 0;
+          tip = ds + ' · ' + (rec ? ns + ' 抽 / ' + nr + ' 忍' : '无记录');
+        } else {
+          rec = hasRecords(ds);
+          ok = rec && met(h, ds);
+          tip = ds + ' · ' + countOf(ds, h.id) + ' ' + esc(h.unit || '次');
+        }
         const cls = rec ? (ok ? 'ok' : 'miss') : '';
-        return '<i class="' + cls + '" title="' + ds + ' · ' + countOf(ds, h.id) + ' ' + esc(h.unit || '次') + '"></i>';
+        return '<i class="' + cls + '" title="' + tip + '"></i>';
       }).join('');
 
       let detail;
-      if (h.type === 'quit') {
-        detail = '每天保持 0 次';
+      if (isQuit) {
+        detail = '戒除 · 连续 ' + quitStreak(h) + ' 天'
+          + (quitTotal(h) > quitStreak(h) ? ' · 累计 ' + quitTotal(h) + ' 天' : '');
       } else {
         detail = '每天 ' + (h.target || 1) + ' ' + (h.unit || '次');
       }
 
       let hitText = '';
-      if (h.type === 'quit') {
-        let lapse = 0;
-        rangeDays.forEach(ds => { lapse += countOf(ds, h.id); });
-        hitText = '近 ' + range + ' 天记录 <b>' + lapse + '</b> 次';
+      if (isQuit) {
+        const q = quitRange(h, range);
+        hitText = '近 ' + range + ' 天 抽 <b>' + q.smoke + '</b> · 忍 <b>' + q.resist + '</b>'
+          + (q.total ? ' · 抵御率 <b>' + Math.round(q.rate * 100) + '%</b>' : '');
       } else {
         let hit = 0;
         rangeDays.forEach(ds => {
@@ -8411,6 +8799,7 @@ body.modal-open{overflow:hidden}
       '<div class="panel"><h3>本月习惯 <span class="muted-sm">（只看有记录的日子）</span></h3>' +
         monthHabitRowsHtml(now.getFullYear(), now.getMonth()) +
       '</div>' +
+      quitPanel(range) +
       medTrendPanel(range, rangeDays) +
       '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +
         (hstats || '<div class="empty-box">还没有习惯数据。</div>') +
@@ -11489,6 +11878,27 @@ body.modal-open{overflow:hidden}
             '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
           '</div>' +
         '</div>');
+    },
+    'crave-smoke': el => addCraving(el.dataset.id, 's'),
+    'crave-resist': el => addCraving(el.dataset.id, 'r'),
+    'crave-undo': el => undoCraving(el.dataset.id),
+    'crave-tag': el => craveTagModal(el.dataset.eid),
+    'crave-set-tag': el => {
+      const e = craveList().find(function (x) { return x.id === el.dataset.eid; });
+      if (!e) return;
+      const tag = String(el.dataset.tag || '');
+      e.g = (e.g === tag) ? '' : tag;   /* 再点一次取消 */
+      save();
+      render();
+      craveTagModal(e.id);
+    },
+    'crave-del': el => {
+      const eid = el.dataset.eid;
+      state.cravings = craveList().filter(function (x) { return x.id !== eid; });
+      save();
+      render();
+      closeModal();
+      toast('已删除这条记录');
     },
     'habit-inc': el => {
       const h = currentHabit(el.dataset.id);

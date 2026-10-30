@@ -33,6 +33,23 @@ def _get_push(self):
     _og_get(self)
 
 
+# 戒烟卡片与「戒烟分析」面板只有在存在 quit 习惯时才渲染。
+# mock 数据里补一条 + 今天两条事件，否则新增的 7 个选择器全是「元素缺失」，审计等于没做。
+import time as _time
+_now = _time.time()
+_d = _time.localtime(_now)
+_t8 = int(_time.mktime((_d.tm_year, _d.tm_mon, _d.tm_mday, 8, 0, 0, 0, 0, -1)))
+board['data']['habits'].append({
+    'id': 'h_quit', 'name': '戒烟', 'icon': '🚭', 'type': 'quit',
+    'target': 1, 'unit': '次', 'color': '#9c5a5a', 'note': '',
+    'createdAt': '2026-09-01T00:00:00Z', 'notify': True,
+})
+board['data']['cravings'] = [
+    {'id': 'cq1', 't': _t8, 'k': 'r', 'h': 'h_quit', 'g': 'meal', 's': 0},
+    {'id': 'cq2', 't': _t8 + 3600, 'k': 'r', 'h': 'h_quit', 'g': 'bored', 's': 0},
+    {'id': 'cq3', 't': _t8 + 7200, 'k': 's', 'h': 'h_quit', 'g': 'stress', 's': 0},
+]
+
 H.do_GET = _get_push
 
 JS = """
@@ -77,6 +94,10 @@ SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
 SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3']
 # 日历：周视图时间线
 SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend']
+# 戒烟：两个按钮、数字行、引导语、分析面板的坐标轴
+# （.cl-item / .qh-bar 需要真实事件数据才会渲染，色值是 rgba 底 + --text 字，不在这里测）
+SELS_QUIT_TODAY = ['.crave-btn', '.crave-meta', '.crave-meta b', '.crave-none', '.habit-note']
+SELS_QUIT_STATS = ['.qh-axis', '.cal-summary b', '.crave-meta .crave-none']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
@@ -115,12 +136,14 @@ with sync_playwright() as p:
             pg.wait_for_timeout(2400)
 
             res = pg.evaluate(JS, SELS_TODAY)
+            res += pg.evaluate(JS, SELS_QUIT_TODAY)
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_STATS)
+            res += pg.evaluate(JS, SELS_QUIT_STATS)
             nav(pg, 'calendar')
             pg.wait_for_timeout(900)
             res += pg.evaluate(JS, SELS_CAL_MONTH)

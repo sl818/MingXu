@@ -268,6 +268,22 @@ document.addEventListener('click', e => {
 `countOf(d,id)` `setCount(d,id,v)` `logHabit(id,delta)` `met(h,d)` `activeHabits(d)`
 `dayStats(d)` `rateOver(days)` `dayQualified(d)` `overallStreak()` `habitStreak(h)`
 
+**戒烟（`type === 'quit'`）走事件流，不走 `checks`**，函数是一套独立的：
+
+`craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
+`quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
+`craveTriggers(hid)` `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)`
+`tsDay(ts)` `tsHHMM(ts)`
+
+要点：
+
+- `met()` 对 quit 的判断是「当天没有 `s` 事件」，不是「次数 = 0」
+- `habitStreak()` 开头就 `if (h.type === 'quit') return quitStreak(h)`，别往下走通用循环
+- `addCraving` 有 **3 秒同类型去重**：手抖双击不该记成两次犯瘾
+- 卡片按钮是 `crave-smoke` / `crave-resist`（`data-id` = 习惯 id），
+  撤销是 `crave-undo`，补诱因是 `crave-tag`（`data-eid` = 事件 id）
+- `craveHours` / `craveTriggers` **只统计 `s`**，口径要和「抵御率」区分开
+
 ### 7.3 用药与库存
 
 `medById(id)` `isPrn(med)` `medActiveOn(med,d)` `medDoseSlots(med)` `medScheduledFor(d)`
@@ -286,6 +302,7 @@ document.addEventListener('click', e => {
 `habitCard(h,d)` `vitalCard(h,d)` `medCard(h,d)` `breathingCard(h,d)` `moveCardHtml(h,d)`
 `taskRow(t,d)` `taskCard(t)` `taskDetailHtml(t)` `medRowHtml(med)` `medSheetHtml(d)`
 `monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
+`quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
 `weightLineChart(list,profile)` `weightSummaryHtml(list)`
 `waterWeekHtml(h)` `waterDistHtml(h,d)` `moveRingHtml(h,d)` `breathWavePath(cycles)`
 `ring(ratio,size,stroke,color,track)` `icon(name)` `esc(s)`
