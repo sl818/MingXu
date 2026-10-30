@@ -3,16 +3,19 @@
 一个部署在自己服务器上的个人生活面板：**习惯打卡 + 用药记录 + 待办清单 + 体重 / 随笔 / 日历 / 统计**。
 多设备共用一份数据，能装成手机 App（PWA），到点通过企业微信把提醒推到手机。
 
-- 部署步骤看 [DEPLOY.md](DEPLOY.md)
-- 技术结构看 [ARCHITECTURE.md](ARCHITECTURE.md)（分册：[FRONTEND](FRONTEND.md) / [BACKEND](BACKEND.md) / [DATA-MODEL](DATA-MODEL.md)）
-- 版本流水看 [HANDOFF.md](HANDOFF.md)
-- 写新皮肤看 [THEME-SPEC.md](THEME-SPEC.md) / [AI-THEME-GUIDE.md](AI-THEME-GUIDE.md)
+> 除了本文件，其余文档都在 [`docs/`](docs/README.md) 目录。
+
+- 部署步骤看 [DEPLOY.md](docs/DEPLOY.md)
+- 技术结构看 [ARCHITECTURE.md](docs/ARCHITECTURE.md)（分册：[FRONTEND](docs/FRONTEND.md) / [BACKEND](docs/BACKEND.md) / [DATA-MODEL](docs/DATA-MODEL.md)）
+- 版本流水看 [HANDOFF.md](docs/HANDOFF.md)
+- 写新皮肤看 [THEME-SPEC.md](docs/THEME-SPEC.md) / [AI-THEME-GUIDE.md](docs/AI-THEME-GUIDE.md)
+- 全部文档索引看 [docs/README.md](docs/README.md)
 
 ---
 
 ## 快速开始
 
-1. 按 [DEPLOY.md](DEPLOY.md) 部署到自己的服务器。
+1. 按 [DEPLOY.md](docs/DEPLOY.md) 部署到自己的服务器。
 2. 打开域名，先看到功能介绍页；点「登录」或「注册（需要邀请码）」。
 3. 注册密码至少 8 位；忘记密码点登录框右下角「找回密码」，按提示联系管理员。
 4. 登录后进入看板，修改自动保存到云端。
@@ -377,7 +380,7 @@
 - **JSON 导出**用于备份；**不支持导入**。
 - **每日自动快照**：服务器每天把整站数据写一份到 `backups/`，保留 30 天。
   文件写成 `.php` 且首行是 `<?php exit; ?>`，所以放在站点目录里也不会被公网读取。
-  恢复命令见 [DEPLOY.md](DEPLOY.md)。
+  恢复命令见 [DEPLOY.md](docs/DEPLOY.md)。
 - 清缓存、换浏览器、换设备不会影响云端数据，但退出登录后需要重新登录。
 - 「清空全部数据」会恢复初始示例习惯和默认用药，同时清空任务、打卡、心情、
   用药、体重和随笔记录，不可撤销。
@@ -424,7 +427,7 @@
 | [`_check_script.mjs`](_check_script.mjs) | 内联脚本与 `data-act` 自检 |
 
 **详细的内部结构**（六个 `<style>` 块各管什么、106 个交互怎么分发、23 个接口的鉴权）
-请看 [ARCHITECTURE.md](ARCHITECTURE.md)。
+请看 [ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 改完代码跑一次自检（需要 Node.js）：
 

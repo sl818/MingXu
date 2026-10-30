@@ -16,7 +16,7 @@
 | 23 个接口、鉴权、三套提醒、推送、备份 | [BACKEND.md](BACKEND.md) |
 | 数据字段、迁移、多端合并规则 | [DATA-MODEL.md](DATA-MODEL.md) |
 | 部署到宝塔、Nginx、HTTPS、备份、cron | [DEPLOY.md](DEPLOY.md) |
-| 功能怎么用（给用户看） | [README.md](README.md) |
+| 功能怎么用（给用户看） | [README.md](../README.md) |
 | 版本流水、当前线上状态、技术债 | [HANDOFF.md](HANDOFF.md) |
 | 写新皮肤 | [THEME-SPEC.md](THEME-SPEC.md) / [AI-THEME-GUIDE.md](AI-THEME-GUIDE.md) |
 

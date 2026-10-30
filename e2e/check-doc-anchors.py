@@ -14,8 +14,12 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DOCS = ['ARCHITECTURE.md', 'FRONTEND.md', 'BACKEND.md', 'DATA-MODEL.md',
-        'README.md', 'HANDOFF.md', 'SITE-STRUCTURE.md']
+# 文档都在 docs/ 下（根目录只留 README.md 作入口）
+DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
+        'docs/DATA-MODEL.md', 'docs/README.md', 'docs/HANDOFF.md',
+        'docs/SITE-STRUCTURE.md', 'docs/DEPLOY.md',
+        'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
+        'README.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
 NOT_CODE = {
@@ -131,6 +135,16 @@ def main():
             # 占位符（YYYY / xx / ...）是说明用的，不是真文件
             if 'YYYY' in p or 'XX' in p or '...' in p:
                 continue
+            # 以 ../ 开头的按「文档所在目录」解析（文档在 docs/ 下时指向仓库根）
+            if p.startswith('../'):
+                if os.path.exists(os.path.normpath(os.path.join(ROOT, os.path.dirname(doc), p))):
+                    continue
+                problems.append((doc, '文件不存在', p))
+                continue
+            # 示例文件名：形如 2026-10-29.php 的备份快照举例
+            base = os.path.basename(p)
+            if re.match(r'^\d{4}-\d{2}-\d{2}\.', base):
+                continue
             if os.path.exists(os.path.join(ROOT, p.replace('/', os.sep))):
                 continue
             # 只写了文件名（没有目录）且项目里存在同名文件 → 算通过
@@ -141,6 +155,10 @@ def main():
 
         # 5. CSS 类
         for cls in re.findall(r'`\.([a-zA-Z][a-zA-Z0-9_-]{2,})`', text):
+            # .gitignore / .env / .htaccess 这类是文件名，不是 CSS 类
+            if cls.lower() in ('gitignore', 'env', 'htaccess', 'user', 'project',
+                               'svn', 'ds', 'lock', 'ini', 'json', 'php', 'md', 'py'):
+                continue
             if ('.' + cls) not in all_css:
                 problems.append((doc, 'CSS 类不存在', '.' + cls))
 

@@ -178,6 +178,8 @@ io.open(p, 'w', encoding='utf-8', newline='').write(s.replace('\n', nl))
 
 ## 6. 文档地图
 
+**所有文档都在 `docs/` 下**，项目根目录只留 `README.md` 作入口。
+
 | 文档 | 管什么 | 什么时候读 |
 |---|---|---|
 | **ARCHITECTURE.md**（本文） | 骨架、文件职责、不变量 | 第一次接触项目 |
@@ -186,9 +188,14 @@ io.open(p, 'w', encoding='utf-8', newline='').write(s.replace('\n', nl))
 | **DATA-MODEL.md** | `state` 全部字段、迁移、合并规则 | 加字段、改合并、查数据 |
 | `DEPLOY.md` | 宝塔部署、Nginx、HTTPS、备份、cron | 上线时 |
 | `THEME-SPEC.md` / `AI-THEME-GUIDE.md` | 写新皮肤 | 加主题时 |
-| `README.md` | 功能说明（给用户看的） | 想知道"这功能是干什么的" |
+| `docs/README.md` | 目录索引 | 不知道该看哪份 |
+| `../README.md` | 功能说明（给用户看的） | 想知道"这功能是干什么的" |
 | `HANDOFF.md` | 版本流水与交接 | 想知道"哪些版本改了什么" |
 | `SITE-STRUCTURE.md` | 已并入本文，保留为指路牌 | — |
+| `reports/` | 历史测试报告与事故复盘 | 想知道"当时为什么这么改" |
+
+> 本文里出现的 `api/ics.php`、`index.html`、`e2e/xxx.py` 这类路径，**一律相对项目根**，
+> 不是相对 `docs/`。看到它们时从仓库根目录找。
 
 ---
 
