@@ -122,27 +122,33 @@ function lb_schedule_day(array $state, string $date): array
         if ((string)$t['due'] !== $date) {
             continue;
         }
+        /* 通知开关：默认开，显式关掉才不提醒 */
+        if (($t['notify'] ?? true) === false) {
+            continue;
+        }
         $tid = (string)($t['id'] ?? '');
         if ($tid === '') {
             continue;
         }
-        $repeat = in_array(($t['repeat'] ?? 'none'), ['daily', 'weekly', 'monthly'], true);
-        /* 重复任务用自己设定的时间；单次任务沿用日历里那个 09:00 */
-        $slot = $repeat ? (string)($t['repeatTime'] ?? '20:00') : '09:00';
+        /* 通知时间统一用 notifyTime，默认 09:00 */
+        $slot = (string)($t['notifyTime'] ?? '09:00');
         if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
-            $slot = $repeat ? '20:00' : '09:00';
+            $slot = '09:00';
         }
         $title = trim((string)($t['title'] ?? '待办'));
         if ($title === '') {
             $title = '待办';
         }
         $note = trim((string)($t['note'] ?? ''));
+        $notifyNote = trim((string)($t['notifyNote'] ?? ''));
+        $body = $title . ($note !== '' ? "\n" . $note : '')
+            . ($notifyNote !== '' ? "\n" . $notifyNote : '');
         $out[] = [
             'time' => $slot,
             'kind' => 'task',
             'id' => $tid,
             'title' => '该做这件事了',
-            'body' => $title . ($note !== '' ? "\n" . $note : ''),
+            'body' => $body,
         ];
     }
 
@@ -158,6 +164,10 @@ function lb_schedule_day(array $state, string $date): array
         if (($h['type'] ?? '') === 'quit') {
             continue;
         }
+        /* 通知开关：默认开，显式关掉才不提醒 */
+        if (($h['notify'] ?? true) === false) {
+            continue;
+        }
         $hid = (string)($h['id'] ?? '');
         if ($hid === '') {
             continue;
@@ -165,6 +175,21 @@ function lb_schedule_day(array $state, string $date): array
         $slot = (string)($h['suggestTime'] ?? '');
         if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
             continue;
+        }
+        /* 通知频率：daily 每天；weekly 只在 notifyWeekday；monthly 只在 notifyMonthday。
+           打卡仍是每天，这里只决定「今天要不要提醒」。notifyWeekday 用 0-6（0=周日），
+           和任务的 repeatWeekday、date('w') 一致。 */
+        $freq = (string)($h['notifyFreq'] ?? 'daily');
+        if ($freq === 'weekly') {
+            $wd = max(0, min(6, (int)($h['notifyWeekday'] ?? 1)));
+            if ((int)date('w', strtotime($date)) !== $wd) {
+                continue;
+            }
+        } elseif ($freq === 'monthly') {
+            $md = max(1, min(31, (int)($h['notifyMonthday'] ?? 1)));
+            if ((int)date('j', strtotime($date)) !== $md) {
+                continue;
+            }
         }
         /* 今天已经打过卡就不再催 */
         if (isset($checks[$hid]) && (float)$checks[$hid] > 0) {
@@ -179,6 +204,10 @@ function lb_schedule_day(array $state, string $date): array
         $body = $target > 1
             ? '今天还差 ' . (string)(int)$target . ($unit !== '' ? $unit : '次')
             : '今天的习惯还没打卡';
+        $notifyNote = trim((string)($h['notifyNote'] ?? ''));
+        if ($notifyNote !== '') {
+            $body .= "\n" . $notifyNote;
+        }
         $icon = (string)($h['icon'] ?? '');
         $out[] = [
             'time' => $slot,
@@ -223,4 +252,80 @@ function lb_schedule_due(array $plan, string $now, int $grace = 3): array
         }
     }
     return $out;
+}
+
+/**
+ * 待办「汇报」：不挂在某个对象上，而是按固定时间推一条汇总。
+ * 这是和单条提醒并列的第二类推送，kind 固定为 'report'，用 id 区分时段，
+ * 去重 key 也因此独立，不会和单条提醒打架。
+ *
+ * 三个固定时段（写死，不进设置）：
+ *   08:20 早报 —— 未完成汇总（总数 + 逾期 + 按 tag 分组）
+ *   12:30 午报 —— 同上（方便午休时看一眼还剩什么）
+ *   20:00 晚报 —— 今日完成数 + 明日待办数
+ *
+ * 口径：未完成 = 所有没做完的待办（含未来几天，不含已取消/已归档）。
+ *
+ * @return array<int, array{time:string, kind:string, id:string, title:string, body:string}>
+ */
+function lb_schedule_reports(array $state, string $date): array
+{
+    $pending = [];   // 未完成（按 tag 分组）
+    $total = 0;      // 未完成总数
+    $overdue = 0;    // 已逾期
+    $doneToday = 0;  // 今日完成
+    $tomorrow = 0;   // 明日待办
+
+    $tomorrowDate = date('Y-m-d', strtotime($date . ' +1 day'));
+
+    foreach ((array)($state['tasks'] ?? []) as $t) {
+        if (!is_array($t) || !empty($t['archivedAt'])) {
+            continue;
+        }
+        $st = (string)($t['status'] ?? '');
+        $due = (string)($t['due'] ?? '');
+        if ($st === 'done') {
+            if (($t['doneAt'] ?? '') === $date) {
+                $doneToday++;
+            }
+            continue;
+        }
+        if ($st === 'cancelled') {
+            continue;
+        }
+        /* 未完成 */
+        $total++;
+        if ($due !== '' && $due < $date) {
+            $overdue++;
+        }
+        if ($due === $tomorrowDate) {
+            $tomorrow++;
+        }
+        $tag = trim((string)($t['tag'] ?? ''));
+        if ($tag === '') {
+            $tag = '其他';
+        }
+        $pending[$tag] = ($pending[$tag] ?? 0) + 1;
+    }
+
+    $summary = '未完成 ' . $total . ' 项'
+        . ($overdue > 0 ? '，已逾期 ' . $overdue . ' 项' : '');
+    if ($pending) {
+        foreach ($pending as $tag => $n) {
+            $summary .= "\n· " . $tag . ' ' . $n . ' 项';
+        }
+    } else {
+        $summary .= "\n· 全部完成，没有待办";
+    }
+
+    return [
+        ['time' => '08:20', 'kind' => 'report', 'id' => 'morning',
+         'title' => '今日待办早报', 'body' => $summary],
+        ['time' => '12:30', 'kind' => 'report', 'id' => 'noon',
+         'title' => '待办进度午报', 'body' => $summary],
+        ['time' => '20:00', 'kind' => 'report', 'id' => 'evening',
+         'title' => '今日小结',
+         'body' => '今日完成 ' . $doneToday . ' 项待办' . "\n"
+             . '明日待办 ' . $tomorrow . ' 条'],
+    ];
 }

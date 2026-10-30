@@ -50,11 +50,11 @@ $state = [
     ],
     'tasks' => [
         ['id' => 't1', 'title' => '每日复盘', 'status' => 'todo', 'due' => '2026-10-25',
-         'repeat' => 'daily', 'repeatTime' => '07:30'],
+         'repeat' => 'daily', 'notifyTime' => '07:30'],
         ['id' => 't2', 'title' => '周报', 'status' => 'todo', 'due' => '2026-10-25',
-         'repeat' => 'weekly', 'repeatTime' => '18:00', 'repeatWeekday' => 3],
+         'repeat' => 'weekly', 'notifyTime' => '18:00', 'repeatWeekday' => 3],
         ['id' => 't3', 'title' => '交房租', 'status' => 'todo', 'due' => '2026-10-25',
-         'repeat' => 'monthly', 'repeatTime' => '10:30', 'repeatDay' => 1],
+         'repeat' => 'monthly', 'notifyTime' => '10:30', 'repeatDay' => 1],
         ['id' => 't4', 'title' => '三天后体检', 'status' => 'todo', 'due' => '2026-10-28', 'note' => '空腹'],
         // 今天 9 点已过，单次任务不再进日历
         ['id' => 't5', 'title' => '今天已过点', 'status' => 'todo', 'due' => '2026-10-25'],

@@ -110,9 +110,9 @@ $plan = lb_schedule_day(['tasks' => [$once]], D);
 chk('单次任务在 09:00 提醒', has($plan, '09:00 task:t1'), implode(' | ', times($plan)));
 
 $daily = ['id' => 't2', 'title' => '吃药打卡', 'status' => 'todo', 'due' => D,
-    'repeat' => 'daily', 'repeatTime' => '20:00', 'note' => '别忘了'];
+    'repeat' => 'daily', 'repeatTime' => '20:00', 'notifyTime' => '20:00', 'note' => '别忘了'];
 $plan = lb_schedule_day(['tasks' => [$daily]], D);
-chk('重复任务用自己的时间', has($plan, '20:00 task:t2'), implode(' | ', times($plan)));
+chk('任务用通知时间（notifyTime）', has($plan, '20:00 task:t2'), implode(' | ', times($plan)));
 chk('正文包含待办标题', strpos($plan[0]['body'], '吃药打卡') !== false, $plan[0]['body']);
 chk('正文带上备注', strpos($plan[0]['body'], '别忘了') !== false);
 
@@ -137,6 +137,17 @@ chk('已取消的不提醒', count(lb_schedule_day(['tasks' => [$cancelled]], D)
 $archived = $once;
 $archived['archivedAt'] = '2026-10-28T10:00:00';
 chk('已归档的不提醒', count(lb_schedule_day(['tasks' => [$archived]], D)) === 0);
+
+$noNotify = $once;
+$noNotify['notify'] = false;
+chk('关闭通知的待办不提醒', count(lb_schedule_day(['tasks' => [$noNotify]], D)) === 0);
+
+$custom = $once;
+$custom['notifyTime'] = '11:30';
+$custom['notifyNote'] = '记得带材料';
+$plan = lb_schedule_day(['tasks' => [$custom]], D);
+chk('自定义通知时间生效', has($plan, '11:30 task:t1'), implode(' | ', times($plan)));
+chk('通知备注附加到正文', strpos($plan[0]['body'], '记得带材料') !== false, $plan[0]['body']);
 
 /* ------------------------------------------------------------------ 习惯 */
 echo PHP_EOL . "[3] 习惯" . PHP_EOL;
@@ -196,6 +207,76 @@ chk('空 state 不崩', lb_schedule_day([], D) === []);
 chk('times 里有垃圾值被忽略', count(lb_schedule_day([
     'meds' => [array_merge($med, ['times' => ['08:00', 'bad', '', '25:00', '7:00']])],
 ], D)) === 1);
+
+echo PHP_EOL . "[6] 待办汇报" . PHP_EOL;
+$rtasks = [
+    ['id' => 'r1', 'title' => '写周报', 'status' => 'todo', 'due' => D, 'tag' => '工作'],
+    ['id' => 'r2', 'title' => '买菜', 'status' => 'todo', 'due' => '2026-10-30', 'tag' => '生活'],
+    ['id' => 'r3', 'title' => '交房租', 'status' => 'todo', 'due' => '2026-10-20', 'tag' => '生活'],
+    ['id' => 'r4', 'title' => '已完成', 'status' => 'done', 'due' => D, 'doneAt' => D, 'tag' => '工作'],
+    ['id' => 'r5', 'title' => '取消', 'status' => 'cancelled', 'due' => D, 'tag' => '工作'],
+    ['id' => 'r6', 'title' => '归档', 'status' => 'todo', 'due' => D, 'tag' => '工作', 'archivedAt' => '2026-10-01'],
+];
+$reports = lb_schedule_reports(['tasks' => $rtasks], D);
+$find = static function (array $list, string $id) {
+    foreach ($list as $x) {
+        if ($x['id'] === $id) return $x;
+    }
+    return null;
+};
+
+$morning = $find($reports, 'morning');
+chk('早报在 08:20', $morning !== null && $morning['time'] === '08:20',
+    $morning ? $morning['time'] : '无');
+chk('早报统计未完成 3 项', $morning && strpos($morning['body'], '未完成 3 项') !== false,
+    $morning['body']);
+chk('早报统计逾期 1 项', $morning && strpos($morning['body'], '已逾期 1 项') !== false,
+    $morning['body']);
+chk('早报按 tag 分组', $morning
+    && strpos($morning['body'], '工作 1 项') !== false
+    && strpos($morning['body'], '生活 2 项') !== false, $morning['body']);
+
+$noon = $find($reports, 'noon');
+chk('午报在 12:30', $noon !== null && $noon['time'] === '12:30');
+
+$evening = $find($reports, 'evening');
+chk('晚报在 20:00', $evening !== null && $evening['time'] === '20:00');
+chk('晚报今日完成 1 项', $evening && strpos($evening['body'], '今日完成 1 项') !== false,
+    $evening['body']);
+chk('晚报明日待办 1 条', $evening && strpos($evening['body'], '明日待办 1 条') !== false,
+    $evening['body']);
+
+$empty = lb_schedule_reports([], D);
+$emptyMorning = $find($empty, 'morning');
+chk('无待办时早报说全部完成', $emptyMorning && strpos($emptyMorning['body'], '全部完成') !== false,
+    $emptyMorning['body']);
+
+echo PHP_EOL . "[7] 习惯通知" . PHP_EOL;
+$dw = (int)date('w', strtotime(D));   // D 那天的星期几（0=周日）
+$dm = (int)date('j', strtotime(D));   // D 的几号
+
+$hOff = ['id' => 'h9', 'name' => '不通知', 'suggestTime' => '15:00', 'target' => 1, 'notify' => false];
+chk('关闭通知的习惯不提醒', count(lb_schedule_day(['habits' => [$hOff]], D)) === 0);
+
+$hWeekly = ['id' => 'h10', 'name' => '称体重', 'suggestTime' => '08:25', 'target' => 1,
+    'notifyFreq' => 'weekly', 'notifyWeekday' => $dw, 'notifyNote' => '空腹称'];
+$plan = lb_schedule_day(['habits' => [$hWeekly]], D);
+chk('weekly 今天命中会提醒', has($plan, '08:25 habit:h10'), implode(' | ', times($plan)));
+chk('习惯通知备注附加正文', strpos($plan[0]['body'], '空腹称') !== false, $plan[0]['body']);
+
+$hWeekly2 = $hWeekly;
+$hWeekly2['id'] = 'h11';
+$hWeekly2['notifyWeekday'] = ($dw + 1) % 7;   // 明天，不是今天
+chk('weekly 非今天不提醒', count(lb_schedule_day(['habits' => [$hWeekly2]], D)) === 0);
+
+$hMonthly = ['id' => 'h12', 'name' => '交房租', 'suggestTime' => '09:00', 'target' => 1,
+    'notifyFreq' => 'monthly', 'notifyMonthday' => $dm];
+chk('monthly 今天命中会提醒', has(lb_schedule_day(['habits' => [$hMonthly]], D), '09:00 habit:h12'));
+
+$hMonthly2 = $hMonthly;
+$hMonthly2['id'] = 'h13';
+$hMonthly2['notifyMonthday'] = ($dm === 31 ? 1 : $dm + 1);
+chk('monthly 非今天不提醒', count(lb_schedule_day(['habits' => [$hMonthly2]], D)) === 0);
 
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;

@@ -373,6 +373,11 @@ h1,h2,h3,h4,p{margin:0}
 .field textarea{resize:vertical;min-height:56px}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
 .field input[type="color"]{padding:3px;cursor:pointer}
+.due-row{display:flex;align-items:center;gap:6px}
+.due-row input{flex:1;min-width:0}
+.due-row .chip{flex:none;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
+.due-row .chip:hover{border-color:var(--accent);color:var(--accent)}
+.notify-grid{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
 .hint{margin:10px 0 0}
 .modal-actions{display:flex;align-items:center;gap:8px}
 .modal-actions .spacer{flex:1}
@@ -3419,6 +3424,13 @@ body.modal-open{overflow:hidden}
     data.habits = data.habits.filter(h => h && typeof h === 'object');
     data.habits.forEach(h => {
       h.archivedAt = h.archivedAt ? String(h.archivedAt) : (h.archived === true ? new Date().toISOString() : '');
+      h.notify = h.notify !== false;
+      h.notifyFreq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
+      const nwd = Number(h.notifyWeekday);
+      h.notifyWeekday = (nwd >= 0 && nwd <= 6) ? Math.round(nwd) : 1;
+      const nmd = Number(h.notifyMonthday);
+      h.notifyMonthday = (nmd >= 1 && nmd <= 31) ? Math.round(nmd) : 1;
+      h.notifyNote = String(h.notifyNote || '');
     });
     data.tasks = data.tasks.filter(t => t && typeof t === 'object');
     data.tasks.forEach(t => {
@@ -3432,6 +3444,9 @@ body.modal-open{overflow:hidden}
       t.repeatNextId = String(t.repeatNextId || '');
       t.repeatFrom = String(t.repeatFrom || '');
       t.archivedAt = t.archivedAt ? String(t.archivedAt) : '';
+      t.notify = t.notify !== false;
+      t.notifyTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.notifyTime || '')) ? t.notifyTime : '09:00';
+      t.notifyNote = String(t.notifyNote || '');
     });
     if (Array.isArray(data.meds)) data.meds = data.meds.filter(m => m && typeof m === 'object');
     data.weights = Array.isArray(data.weights) ? data.weights.map(normalizeWeightRecord).filter(Boolean) : [];
@@ -9610,6 +9625,18 @@ body.modal-open{overflow:hidden}
     };
     type.addEventListener('change', sync);
     sync();
+    /* 通知频率联动：weekly 显示「每周几」，monthly 显示「每月几号」 */
+    const freq = form.querySelector('[name="notifyFreq"]');
+    if (freq) {
+      const syncFreq = () => {
+        form.querySelectorAll('[data-habit-freq]').forEach(field => {
+          const kind = field.dataset.habitFor || '';
+          field.style.display = kind === freq.value ? '' : 'none';
+        });
+      };
+      freq.addEventListener('change', syncFreq);
+      syncFreq();
+    }
   }
 
   function taskModal(task, presetStatus) {
@@ -9643,7 +9670,13 @@ body.modal-open{overflow:hidden}
           '<label class="field"><span>状态</span><select name="status">' + statusOpts + '</select></label>' +
           '<label class="field"><span>分类</span><select name="tag">' + tagOpts + '</select></label>' +
           '<label class="field"><span>优先级</span><select name="priority">' + prioOpts + '</select></label>' +
-          '<label class="field"><span>截止日期</span><input type="date" name="due" value="' + esc(t.due || '') + '"></label>' +
+          '<div class="field"><span>截止日期</span>' +
+            '<div class="due-row">' +
+              '<input type="date" name="due" value="' + esc(t.due || '') + '">' +
+              '<button type="button" class="chip" data-due-quick="tomorrow">明日</button>' +
+              '<button type="button" class="chip" data-due-quick="3">三日</button>' +
+            '</div>' +
+          '</div>' +
           '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
             '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
             '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
@@ -9654,7 +9687,15 @@ body.modal-open{overflow:hidden}
           '<label class="field" data-repeat-field data-repeat-for="weekly"><span>每周几</span><select name="repeatWeekday">' + weekOpts + '</select></label>' +
           '<label class="field" data-repeat-field data-repeat-for="monthly"><span>每月几号</span><input type="number" name="repeatDay" min="1" max="31" step="1" value="' + repeatDay + '"></label>' +
         '</div>' +
-        '<p class="hint">重复任务完成后会自动生成下一次待办；时间只用于显示，不会发送系统通知。每月遇到小月时取当月最后一天。</p>' +
+        '<div class="form-grid notify-grid">' +
+          '<label class="field"><span>通知提醒</span><select name="notify">' +
+            '<option value="1"' + (t.notify !== false ? ' selected' : '') + '>通知</option>' +
+            '<option value="0"' + (t.notify === false ? ' selected' : '') + '>不通知</option>' +
+          '</select></label>' +
+          '<label class="field"><span>通知时间</span><input type="time" name="notifyTime" value="' + esc(t.notifyTime || '09:00') + '"></label>' +
+          '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(t.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
+        '</div>' +
+        '<p class="hint">重复任务完成后会自动生成下一次待办；通知在「通知时间」发送，仅当天到期才提醒。每月遇到小月时取当月最后一天。</p>' +
         '<div class="modal-actions">' +
           (isNew ? '' : '<button type="button" class="btn danger" data-act="task-del" data-id="' + t.id + '">删除</button>') +
           '<span class="spacer"></span>' +
@@ -9667,6 +9708,9 @@ body.modal-open{overflow:hidden}
   function habitModal(habit) {
     const isNew = !habit;
     const h = habit || { name: '', icon: '✅', type: 'build', target: 1, unit: '次', color: '#2f6f5e', note: '' };
+    const hWeek = Number.isFinite(Number(h.notifyWeekday)) ? clamp(Number(h.notifyWeekday), 0, 6) : 1;
+    const weekOpts = WEEK_CN.map((label, i) =>
+      '<option value="' + i + '"' + (hWeek === i ? ' selected' : '') + '>周' + label + '</option>').join('');
     openModal('' +
       '<form class="modal-card" id="habit-form" data-id="' + esc(h.id || '') + '">' +
         '<h3>' + (isNew ? '添加习惯' : '编辑习惯') + '</h3>' +
@@ -9680,11 +9724,25 @@ body.modal-open{overflow:hidden}
           '<label class="field"><span>目标次数 / 天</span><input name="target" type="number" min="1" max="99" value="' + (Number(h.target) || 1) + '"></label>' +
           '<label class="field"><span>单位</span><input name="unit" maxlength="4" value="' + esc(h.unit || '次') + '"></label>' +
           (h.id === 'h_breathe'
-            ? '<label class="field"><span>建议时间</span><input name="suggestTime" type="time" value="' + esc(h.suggestTime || '15:00') + '"></label>' +
-              '<label class="field"><span>每组循环数</span><input name="breatheCycles" type="number" min="1" max="8" value="' + (Number(h.breatheCycles) || 4) + '"></label>'
+            ? '<label class="field"><span>每组循环数</span><input name="breatheCycles" type="number" min="1" max="8" value="' + (Number(h.breatheCycles) || 4) + '"></label>'
             : '') +
           '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(h.color || '#2f6f5e') + '"></label>' +
           '<label class="field"><span>备注</span><input name="note" maxlength="40" value="' + esc(h.note || '') + '" placeholder="可选"></label>' +
+        '</div>' +
+        '<div class="form-grid notify-grid">' +
+          '<label class="field"><span>通知提醒</span><select name="notify">' +
+            '<option value="1"' + (h.notify !== false ? ' selected' : '') + '>通知</option>' +
+            '<option value="0"' + (h.notify === false ? ' selected' : '') + '>不通知</option>' +
+          '</select></label>' +
+          '<label class="field"><span>通知时间</span><input type="time" name="suggestTime" value="' + esc(h.suggestTime || '15:00') + '"></label>' +
+          '<label class="field"><span>通知频率</span><select name="notifyFreq">' +
+            '<option value="daily"' + ((h.notifyFreq || 'daily') === 'daily' ? ' selected' : '') + '>每天</option>' +
+            '<option value="weekly"' + (h.notifyFreq === 'weekly' ? ' selected' : '') + '>每周</option>' +
+            '<option value="monthly"' + (h.notifyFreq === 'monthly' ? ' selected' : '') + '>每月</option>' +
+          '</select></label>' +
+          '<label class="field" data-habit-freq data-habit-for="weekly"><span>每周几</span><select name="notifyWeekday">' + weekOpts + '</select></label>' +
+          '<label class="field" data-habit-freq data-habit-for="monthly"><span>每月几号</span><input type="number" name="notifyMonthday" min="1" max="31" value="' + (Number(h.notifyMonthday) || 1) + '"></label>' +
+          '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
         '</div>' +
         '<p class="hint">「戒除」类型不需要目标次数，记录 0 次即视为保持成功，破戒时点「记一次」。</p>' +
         (isPinned(h) ? '<p class="hint">常驻习惯不能删除，可以在这里修改名称、目标和颜色。</p>' : '') +
@@ -10088,6 +10146,8 @@ body.modal-open{overflow:hidden}
     if (!title) return;
     const repeatTimeRaw = get('repeatTime');
     const repeatTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(repeatTimeRaw) ? repeatTimeRaw : '20:00';
+    const notifyTimeRaw = get('notifyTime');
+    const notifyTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(notifyTimeRaw) ? notifyTimeRaw : '09:00';
     const repeatRaw = get('repeat');
     const repeat = ['daily', 'weekly', 'monthly'].indexOf(repeatRaw) >= 0 ? repeatRaw : 'none';
     const due = get('due') || (repeat !== 'none' ? todayStr() : '');
@@ -10106,7 +10166,10 @@ body.modal-open{overflow:hidden}
       repeat: repeat,
       repeatTime: repeatTime,
       repeatWeekday: repeatWeekday,
-      repeatDay: repeatDay
+      repeatDay: repeatDay,
+      notify: get('notify') !== '0',
+      notifyTime: notifyTime,
+      notifyNote: get('notifyNote')
     };
     if (id) {
       const t = state.tasks.find(x => x.id === id);
@@ -10152,11 +10215,16 @@ body.modal-open{overflow:hidden}
       target: type === 'quit' ? 1 : clamp(parseInt(get('target'), 10) || 1, 1, 99),
       unit: get('unit') || '次',
       color: get('color') || '#2f6f5e',
-      note: get('note')
+      note: get('note'),
+      notify: get('notify') !== '0',
+      notifyFreq: get('notifyFreq') || 'daily',
+      notifyWeekday: clamp(parseInt(get('notifyWeekday'), 10) || 1, 0, 6),
+      notifyMonthday: clamp(parseInt(get('notifyMonthday'), 10) || 1, 1, 31),
+      notifyNote: get('notifyNote')
     };
-    if (form.querySelector('[name="suggestTime"]')) {
-      const st = get('suggestTime');
-      payload.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : '15:00';
+    const st = get('suggestTime');
+    payload.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : '15:00';
+    if (form.querySelector('[name="breatheCycles"]')) {
       payload.breatheCycles = clamp(parseInt(get('breatheCycles'), 10) || 4, 1, 8);
     }
     if (!payload.name) return;
@@ -10659,16 +10727,17 @@ body.modal-open{overflow:hidden}
     /* 待办：单次任务只在还没过点时进日历；重复任务用 RRULE 表示 */
     (state.tasks || []).forEach(t => {
       if (!t || t.archivedAt || t.status === 'done') return;
+      if (t.notify === false) return;            /* 通知开关：默认开 */
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.due || ''))) return;
       const repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';
       const dueD = parseD(t.due);
+      const hm = String(t.notifyTime || '09:00').split(':').map(Number);
       let start, rrule = '';
       if (repeat === 'none') {
         if (String(t.due) < today) return;       /* 已经逾期的由横幅去催，别塞满日历 */
-        start = new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate(), 9, 0);
+        start = new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate(), hm[0], hm[1]);
         if (start <= now) return;
       } else {
-        const hm = String(t.repeatTime || '20:00').split(':').map(Number);
         start = new Date(dueD.getFullYear(), dueD.getMonth(), dueD.getDate(), hm[0], hm[1]);
         if (repeat === 'daily') {
           rrule = 'FREQ=DAILY';
@@ -10691,13 +10760,26 @@ body.modal-open{overflow:hidden}
     /* 习惯：只导出填了建议时间的（没有时间的打卡没法排进日历） */
     (state.habits || []).forEach(h => {
       if (!h || h.archivedAt || h.med || h.optional || h.type === 'quit') return;
+      if (h.notify === false) return;            /* 通知开关：默认开 */
       const st = String(h.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st)) return;
       const hm = st.split(':').map(Number);
       let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
-      while (start <= now) start = icsAddDays(start, 1);
+      const freq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
+      let rrule = 'FREQ=DAILY';
+      if (freq === 'weekly') {
+        const wd = clamp(Number(h.notifyWeekday) || 1, 0, 6);
+        rrule = 'FREQ=WEEKLY;BYDAY=' + ICS_WEEK[wd];
+        while (start <= now) start = icsAddDays(start, 7);
+      } else if (freq === 'monthly') {
+        const md = clamp(Number(h.notifyMonthday) || 1, 1, 31);
+        rrule = 'FREQ=MONTHLY;BYMONTHDAY=' + md;
+        while (start <= now) start = new Date(start.getFullYear(), start.getMonth() + 1, start.getDate(), hm[0], hm[1]);
+      } else {
+        while (start <= now) start = icsAddDays(start, 1);
+      }
       out.push(icsEvent('habit-' + h.id, start, new Date(start.getTime() + 15 * 60000),
-        String(h.icon || '🔔') + ' ' + String(h.name || '习惯'), h.note || '', 'FREQ=DAILY'));
+        String(h.icon || '🔔') + ' ' + String(h.name || '习惯'), h.note || '', rrule));
       count++;
     });
 
@@ -11391,6 +11473,16 @@ body.modal-open{overflow:hidden}
     if (navEl) {
       /* 抽屉开着时点底部 tab：先关抽屉再切页，免得面板残留在新页面上 */
       goView(navEl.dataset.nav);
+      return;
+    }
+    /* 待办表单里「明日 / 三日」快捷填截止日 */
+    const dueQuick = e.target.closest('[data-due-quick]');
+    if (dueQuick) {
+      const dueInput = document.querySelector('#task-form [name="due"]');
+      if (dueInput) {
+        const days = dueQuick.dataset.dueQuick === 'tomorrow' ? 1 : 3;
+        dueInput.value = fmt(addDays(new Date(), days));
+      }
       return;
     }
     const el = e.target.closest('[data-act]');

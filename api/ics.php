@@ -296,6 +296,10 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         if (!is_array($t) || !empty($t['archivedAt']) || ($t['status'] ?? '') === 'done') {
             continue;
         }
+        /* 通知开关：默认开，显式关掉才不提醒 */
+        if (($t['notify'] ?? true) === false) {
+            continue;
+        }
         if (!lb_ics_is_date($t['due'] ?? '')) {
             continue;
         }
@@ -306,17 +310,19 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         $title = (string)($t['title'] ?? '待办');
         $note = (string)($t['note'] ?? '');
 
+        /* 通知时间统一用 notifyTime，默认 09:00 */
+        [$hh, $mm] = lb_ics_clock($t['notifyTime'] ?? '', '09:00');
+
         if ($repeat === 'none') {
             if ($due < $today) {
                 continue;   // 逾期的交给页内提醒，别塞满日历
             }
-            $start = $dueDate->setTime(9, 0);
+            $start = $dueDate->setTime($hh, $mm);
             if ($start <= $now) {
                 continue;
             }
             $rrule = '';
         } else {
-            [$hh, $mm] = lb_ics_clock($t['repeatTime'] ?? '', '20:00');
             $start = $dueDate->setTime($hh, $mm);
             if ($repeat === 'daily') {
                 $rrule = 'FREQ=DAILY';
@@ -360,20 +366,37 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         if (!empty($h['med']) || !empty($h['optional']) || ($h['type'] ?? '') === 'quit') {
             continue;
         }
+        /* 通知开关：默认开 */
+        if (($h['notify'] ?? true) === false) {
+            continue;
+        }
         $st = is_string($h['suggestTime'] ?? '') ? (string)$h['suggestTime'] : '';
         if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {
             continue;
         }
         $start = $todayDate->setTime((int)$mm[1], (int)$mm[2]);
+        /* 频率：weekly/monthly 用对应 RRULE 和推进步长 */
+        $freq = (string)($h['notifyFreq'] ?? 'daily');
+        $rrule = 'FREQ=DAILY';
+        $step = '+1 day';
+        if ($freq === 'weekly') {
+            $wd = max(0, min(6, (int)($h['notifyWeekday'] ?? 1)));
+            $rrule = 'FREQ=WEEKLY;BYDAY=' . LB_ICS_WEEK[$wd];
+            $step = '+7 days';
+        } elseif ($freq === 'monthly') {
+            $md = max(1, min(31, (int)($h['notifyMonthday'] ?? 1)));
+            $rrule = 'FREQ=MONTHLY;BYMONTHDAY=' . $md;
+            $step = '+1 month';
+        }
         while ($start <= $now) {
-            $start = $start->modify('+1 day');
+            $start = $start->modify($step);
         }
         $icon = (string)($h['icon'] ?? '🔔');
         $name = (string)($h['name'] ?? '习惯');
         $out[] = lb_ics_event(
             'habit-' . (string)($h['id'] ?? ''),
             $start, $start->modify('+15 minutes'),
-            $icon . ' ' . $name, (string)($h['note'] ?? ''), 'FREQ=DAILY'
+            $icon . ' ' . $name, (string)($h['note'] ?? ''), $rrule
         );
         $count++;
     }
