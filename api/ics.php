@@ -293,7 +293,8 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
     /* ---- 待办：单次任务只在还没过点时进日历；重复任务用 RRULE ---- */
     $tasks = isset($state['tasks']) && is_array($state['tasks']) ? $state['tasks'] : [];
     foreach ($tasks as $t) {
-        if (!is_array($t) || !empty($t['archivedAt']) || ($t['status'] ?? '') === 'done') {
+        if (!is_array($t) || !empty($t['archivedAt'])
+            || in_array(($t['status'] ?? ''), ['done', 'cancelled'], true)) {
             continue;
         }
         /* 通知开关：默认开，显式关掉才不提醒 */

@@ -258,7 +258,7 @@ grep -n "^\\.med-row{" index.html               # 定位样式
 
 | 现象 | 原因 | 要不要修 |
 |---|---|---|
-| 「已取消」的待办会进日历，但不会推送 | `ics.php` / `buildICS()` 只排除 `status==='done'`；`schedule.php` 额外排除 `cancelled` | 待定。改日历行为会影响用户已有订阅 |
+| 「已完成 / 已取消」的过滤口径 | 曾经 `ics.php` / `buildICS()` 只排除 `done`，`schedule.php` 还排除 `cancelled`，导致「日历有、手机不响」 | **v48 已统一**：三处一律排除 `done` + `cancelled`。改任一处都要同步另两处，`e2e/test-ics.php` 有用例锁死 |
 | `tools/push_tick.php` 头部注释写 PHP 8.1，线上实际用 8.2 | 注释没跟着改 | 注释而已 |
 | `e2e/regression-rebuild.py` 跑不通 | 它在等一个早就移除的按钮 | 不修，已排除在回归外 |
 | `handleImport()` 是死代码 | 设置页文案已声明「不再支持导入」 | 不修 |

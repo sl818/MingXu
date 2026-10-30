@@ -11226,7 +11226,7 @@ body.modal-open{overflow:hidden}
 
     /* 待办：单次任务只在还没过点时进日历；重复任务用 RRULE 表示 */
     (state.tasks || []).forEach(t => {
-      if (!t || t.archivedAt || t.status === 'done') return;
+      if (!t || t.archivedAt || t.status === 'done' || t.status === 'cancelled') return;
       if (t.notify === false) return;            /* 通知开关：默认开 */
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(t.due || ''))) return;
       const repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';

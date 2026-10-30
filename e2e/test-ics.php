@@ -63,6 +63,8 @@ $state = [
         ['id' => 't5', 'title' => '今天已过点', 'status' => 'todo', 'due' => '2026-10-25'],
         ['id' => 't6', 'title' => '已完成', 'status' => 'done', 'due' => '2026-10-28'],
         ['id' => 't7', 'title' => '逾期任务', 'status' => 'todo', 'due' => '2026-10-20'],
+        // 已取消：日历必须和推送同口径排除，否则「日历还有、手机不响」
+        ['id' => 't9', 'title' => '已取消任务', 'status' => 'cancelled', 'due' => '2026-10-28'],
     ],
     'habits' => [
         ['id' => 'h1', 'name' => '478呼吸法', 'icon' => '🌬️', 'suggestTime' => '15:00', 'note' => ''],
@@ -109,6 +111,7 @@ chk('长期药填了结束日也不该停', strpos($text, '长期药带结束日
 chk('待办：5 条（日/周/月重复 + 未来单次 + 时间块）',
     substr_count($text, 'UID:task-') === 5, (string)substr_count($text, 'UID:task-'));
 chk('已完成的不进日历', strpos($text, '已完成') === false);
+chk('已取消的不进日历（与推送同口径，别只排除 done）', strpos($text, '已取消任务') === false);
 chk('逾期的单次任务不进日历', strpos($text, '逾期任务') === false);
 /* 时间块：日历按「开始时间」画，不是通知时间；长度按 duration，不是固定 15 分钟 */
 $ev8 = '';

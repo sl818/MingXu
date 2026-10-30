@@ -247,15 +247,15 @@ UPDATE boards SET data=?, rev=rev+1 WHERE user_id=?
 |---|---|---|---|
 | 已归档跳过 | ✓ | ✓ | ✓ |
 | `status === 'done'` 跳过 | ✓ | ✓ | ✓ |
-| **`status === 'cancelled'` 跳过** | ✓ | ✗ | ✗ |
+| **`status === 'cancelled'` 跳过** | ✓ | ✓ | ✓ |
 | `due` 不是合法日期跳过 | ✓ | ✓ | ✓ |
 | **只有 `due === 今天` 才提醒** | ✓ | — | — |
 | 逾期不进日历 | — | ✓ | ✓ |
 | `notify === false` 跳过 | ✓ | ✓ | ✓ |
 | 通知时间 | `notifyTime`（默认 09:00） | 同 | 同 |
 
-> **`cancelled` 的不一致是已知问题**（见 `ARCHITECTURE.md` 第 9 节）。
-> 效果：已取消的待办仍会出现在日历里，但不会推送。改不改待定。
+> `cancelled` 曾经只有 `schedule.php` 排除，日历里还留着（v48 已统一）。
+> 保留它会制造「日历还有、手机不响」的假故障现象——看起来像推送漏了。
 
 **习惯**
 
