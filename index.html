@@ -3165,6 +3165,49 @@ body.modal-open{overflow:hidden}
 .pack-open{border:1px solid var(--line);background:var(--surface-2);color:var(--text);
   font:inherit;font-size:11.5px;font-weight:600;padding:7px 16px;border-radius:9px;cursor:pointer}
 .pack-open:hover{background:var(--accent-soft);border-color:var(--accent)}
+
+/* ============ 戒烟页 ============ */
+.quit-page{display:flex;flex-direction:column;gap:16px}
+/* 宽卡：全宽、跟下面面板对齐。20 支格子和状态字都放大一档，
+   让它在 1136px 里有存在感，而不是缩在中间一块 */
+.quit-hero .mv-status{font-size:24px}
+.quit-hero .move-lines > span{font-size:11px}
+/* 格子区限宽居中：全宽下每支会被拉成 100px 的扁条，不像烟 */
+.quit-hero .pack-grid{max-width:720px;width:100%;margin-left:auto;margin-right:auto}
+.quit-hero .pk{height:50px;border-radius:4px 4px 3px 3px}
+/* 月历：每格日期 + 当天抽了几支 */
+.qc-wd{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.qc-wd span{font-size:10px;letter-spacing:.12em;color:var(--muted);text-align:center}
+.qc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.qc-day{height:52px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.qc-day.blank{background:transparent;border-color:transparent}
+.qc-day span{font-size:10px;color:var(--muted)}
+.qc-day b{font-size:13px;font-weight:600;color:var(--text)}
+.qc-day.bad{background:color-mix(in srgb,var(--bad) 10%,var(--surface));
+  border-color:color-mix(in srgb,var(--bad) 32%,var(--line))}
+.qc-day.bad b{color:var(--bad)}
+.qc-day.ok{background:var(--accent-soft)}
+.qc-day.today{border-color:var(--accent)}
+.qc-day.fut{opacity:.45}
+.qc-legend{margin-top:8px}
+/* 汇总卡片 */
+.qsum-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.qsum{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.qsum small{display:block;font-size:10px;color:var(--muted)}
+.qsum b{display:block;font-size:20px;font-weight:650;color:var(--text);margin:3px 0 1px}
+.qsum span{font-size:10.5px;color:var(--muted);line-height:1.4}
+@media (max-width:760px){.qsum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* 买烟记录列表 */
+.qpack-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.qpack{display:flex;align-items:center;gap:10px;padding:11px 13px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.qpack.cur{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.qpack-main{flex:1;min-width:0}
+.qpack-main b{display:block;font-size:13px;font-weight:600;color:var(--text)}
+.qpack-main em{font-style:normal;font-size:9px;font-weight:600;color:var(--accent);
+  border:1px solid var(--accent);border-radius:99px;padding:1px 6px;margin-left:6px}
+.qpack-main small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .quit-head{margin-top:5px}
 .quit-actions{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:auto;padding-top:7px}
 .quit-btn{
@@ -5788,6 +5831,7 @@ body.modal-open{overflow:hidden}
     today: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M5.2 18.8l1.4-1.4M17.4 6.6l1.4-1.4"/>',
     board: '<rect x="3" y="4" width="5" height="16" rx="1.6"/><rect x="9.5" y="4" width="5" height="10" rx="1.6"/><rect x="16" y="4" width="5" height="13" rx="1.6"/>',
     habits: '<path d="M4 12.5l4.2 4.2L20 5.5"/><path d="M4 6.5h6"/>',
+    quit: '<rect x="3" y="9" width="3.5" height="7" rx="1.1"/><rect x="6.5" y="9" width="13" height="4" rx="1.1"/><path d="M8.5 7.2c0-1.6 1-2.4 2.2-2.4s1.3.9 2.6.9 1.4-.9 2.6-.9 2.2.8 2.2 2.4"/>',
     weight: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 9h8M12 9v3"/><circle cx="12" cy="15" r="2.2"/>',
     essay: '<path d="M5 4h10l4 4v12H5z"/><path d="M8 12h8M8 16h5"/>',
     more: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="2.4"/>',
@@ -8893,6 +8937,165 @@ body.modal-open{overflow:hidden}
     );
   }
 
+  /* ============================================================
+     戒烟页：宽卡 + 月历 + 汇总 + 买烟记录
+     ============================================================ */
+  function quitHabit() {
+    return (state.habits || []).find(function (x) {
+      return x && x.type === 'quit' && !x.archivedAt;
+    });
+  }
+
+  function viewQuit() {
+    const h = quitHabit();
+    if (!h) {
+      return '<div class="panel"><h3>戒烟</h3><div class="empty-box">还没有戒烟习惯。去「习惯」页添加一个类型为「戒除」的习惯。</div></div>';
+    }
+    return '<div class="quit-page">' +
+      '<div class="quit-hero">' + quitCard(h, todayStr()) + '</div>' +
+      quitCalPanel(h) +
+      quitSumPanel(h) +
+      quitPacksPanel(h) +
+    '</div>';
+  }
+
+  /* 月历：每天抽了几支。有点一根的日子标红，点过但没抽的标 ✓，其余空白 */
+  function quitCalPanel(h) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const lead = new Date(y, m, 1).getDay();
+    const total = new Date(y, m + 1, 0).getDate();
+    const today = todayStr();
+    const startDay = quitStartDay(h);
+    let cells = '';
+    for (let i = 0; i < lead; i++) cells += '<div class="qc-day blank"></div>';
+    for (let dd = 1; dd <= total; dd++) {
+      const ds = fmt(new Date(y, m, dd));
+      if (ds > today) { cells += '<div class="qc-day fut"><span>' + dd + '</span></div>'; continue; }
+      const evs = dayCravings(h.id, ds);
+      const ns = evs.filter(function (e) { return e.k === 's'; }).length;
+      const nr = evs.length - ns;
+      const cls = ns > 0 ? 'bad' : (nr > 0 ? 'ok' : '');
+      cells += '<div class="qc-day ' + cls + (ds === today ? ' today' : '') + '">' +
+        '<span>' + dd + '</span>' +
+        '<b>' + (ns ? ns + ' 支' : (nr ? '✓' : '·')) + '</b>' +
+      '</div>';
+    }
+    return '<div class="panel"><h3>戒烟月历 <span class="muted-sm">（' + y + ' 年 ' + (m + 1) + ' 月）</span></h3>' +
+      '<div class="qc-wd">' + ['日', '一', '二', '三', '四', '五', '六'].map(function (w) {
+        return '<span>' + w + '</span>';
+      }).join('') + '</div>' +
+      '<div class="qc-grid">' + cells + '</div>' +
+      '<div class="qc-legend muted-sm">红 = 当天点了 · 绿勾 = 有记录但没点 · 灰点 = 没记录</div>' +
+    '</div>';
+  }
+
+  /* 汇总：买烟（本周/本月）+ 抽吸（今天/平均/同比） */
+  function quitSumPanel(h) {
+    const packs = Array.isArray(state.packs) ? state.packs : [];
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7;
+    const monday = addDays(now, -dow); monday.setHours(0, 0, 0, 0);
+    const monthFirst = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nowTs = now.getTime() / 1000;
+    const wk = packs.filter(function (p) { return p.at >= monday.getTime() / 1000 && p.at <= nowTs; });
+    const mo = packs.filter(function (p) { return p.at >= monthFirst.getTime() / 1000 && p.at <= nowTs; });
+    const wkCost = wk.reduce(function (s, p) { return s + (Number(p.price) || 0); }, 0);
+    const moCost = mo.reduce(function (s, p) { return s + (Number(p.price) || 0); }, 0);
+
+    const t0 = todayStr();
+    const t1 = fmt(addDays(now, -1));
+    const todayS = dayCravings(h.id, t0).filter(function (e) { return e.k === 's'; }).length;
+    const yestS = dayCravings(h.id, t1).filter(function (e) { return e.k === 's'; }).length;
+    const diff = todayS - yestS;
+    const diffText = diff === 0
+      ? '和昨天一样'
+      : (diff > 0 ? '比昨天多 ' + diff + ' 支' : '比昨天少 ' + (-diff) + ' 支');
+
+    let sum30 = 0;
+    for (let i = 0; i < 30; i++) {
+      const ds = fmt(addDays(now, -i));
+      sum30 += dayCravings(h.id, ds).filter(function (e) { return e.k === 's'; }).length;
+    }
+    const avg = sum30 / 30;
+
+    const card = function (label, big, sub) {
+      return '<div class="qsum"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
+    };
+    return '<div class="panel"><h3>数据汇总</h3>' +
+      '<div class="qsum-grid">' +
+        card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
+        card('本月买烟', mo.length + ' 包', '¥' + moCost.toFixed(0)) +
+        card('今天', todayS + ' 支', diffText) +
+        card('平均每天', avg.toFixed(1) + ' 支', '近 30 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
+      '</div></div>';
+  }
+
+  /* 买烟记录列表 */
+  function quitPacksPanel(h) {
+    const packs = Array.isArray(state.packs) ? state.packs : [];
+    const curId = currentPack() ? currentPack().id : '';
+    const rows = packs.slice().reverse().map(function (p) {
+      const used = packUsed(h, p).length;
+      const isCur = p.id === curId;
+      return '<div class="qpack' + (isCur ? ' cur' : '') + '">' +
+        '<div class="qpack-main">' +
+          '<b>' + esc(p.name || '未命名') + (isCur ? ' <em>当前</em>' : '') + '</b>' +
+          '<small>' + tsDay(p.at) + ' 开包 · ' + (p.price ? '¥' + p.price : '未填价格') +
+            ' · ' + used + '/' + p.size + ' 支</small>' +
+        '</div>' +
+        '<button class="icon-btn" data-act="pack-edit" data-id="' + p.id + '" title="编辑">✎</button>' +
+        '<button class="icon-btn" data-act="pack-del" data-id="' + p.id + '" title="删除">🗑</button>' +
+      '</div>';
+    }).join('');
+    return '<div class="panel"><h3>买烟记录 <button class="btn primary sm" data-act="pack-new">记一笔</button></h3>' +
+      '<div class="qpack-list">' + (rows || '<div class="empty-box">还没有买烟记录，点右上角「记一笔」。</div>') + '</div></div>';
+  }
+
+  function packModal(pack) {
+    const isNew = !pack;
+    const p = pack || { name: '', price: '', size: 20, at: Math.round(Date.now() / 1000) };
+    openModal('<form class="modal-card" id="pack-form" data-id="' + esc(p.id || '') + '">' +
+      '<h3>' + (isNew ? '记一笔买烟' : '编辑买烟记录') + '</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>买烟日期</span><input type="date" name="date" value="' + tsDay(p.at) + '"></label>' +
+        '<label class="field"><span>烟的名称</span><input name="name" maxlength="20" value="' + esc(p.name || '') + '" placeholder="例如：黄鹤楼"></label>' +
+        '<label class="field"><span>价格（元）</span><input name="price" type="number" min="0" step="0.5" value="' + (Number(p.price) || '') + '" placeholder="例如 25"></label>' +
+        '<label class="field"><span>一包几支（可选）</span><input name="size" type="number" min="1" max="50" value="' + (Number(p.size) || 20) + '"></label>' +
+      '</div>' +
+      '<p class="hint">开包日期是「这包开了多久」的起算点。改成今天，就从今天重新计。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function savePackForm(form) {
+    const id = form.dataset.id || '';
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const date = get('date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('请选一个买烟日期'); return; }
+    const at = Math.round(parseD(date).getTime() / 1000);
+    const name = get('name');
+    const price = Math.max(0, Math.min(99999, Number(get('price')) || 0));
+    const size = clamp(parseInt(get('size'), 10) || 20, 1, 50);
+    if (!Array.isArray(state.packs)) state.packs = [];
+    if (id) {
+      const p = state.packs.find(function (x) { return x.id === id; });
+      if (p) { p.at = at; p.name = name; p.price = price; p.size = size; }
+    } else {
+      state.packs.push({ id: uid(), at: at, name: name, price: price, size: size });
+    }
+    state.packs.sort(function (a, b) { return a.at - b.at; });
+    save();
+    render();
+    closeModal();
+    toast('买烟记录已保存');
+  }
+
   function viewStats() {
     const now = new Date();
     const range = [7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
@@ -10132,10 +10335,11 @@ body.modal-open{overflow:hidden}
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, habits: viewHabits, meds: viewMeds, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, more: viewMore };
+  const VIEWS = { today: viewToday, board: viewBoard, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, more: viewMore };
   const NAV = [
     { key: 'today', label: '今日', icon: 'today', group: '记录', wideLabel: '今日' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
+    { key: 'quit', label: '戒烟', icon: 'quit', group: '记录', wideLabel: '戒烟' },
     { key: 'board', label: '待办', icon: 'board', group: '记录', wideLabel: '待办看板' },
     { key: 'habits', label: '习惯', icon: 'habits', group: '记录', wideLabel: '习惯' },
     { key: 'weight', label: '体重', icon: 'weight', group: '记录', wideLabel: '体重与 BMI' },
@@ -10156,6 +10360,7 @@ body.modal-open{overflow:hidden}
     { key: '__more', label: '更多', icon: 'more' }
   ];
   const MORE_PAGES = [
+    { key: 'quit', label: '戒烟', icon: 'quit', desc: '戒烟打卡与买烟记录' },
     { key: 'habits', label: '习惯', icon: 'habits', desc: '每日习惯与常驻卡' },
     { key: 'essays', label: '随笔', icon: 'essay', desc: '随手记录文字和片段' },
     { key: 'weight', label: '体重', icon: 'weight', desc: '身体档案、BMI 和趋势' },
@@ -12203,6 +12408,21 @@ body.modal-open{overflow:hidden}
           '</div>' +
         '</div>');
     },
+    'pack-new': el => packModal(null),
+    'pack-edit': el => {
+      const p = (state.packs || []).find(function (x) { return x.id === el.dataset.id; });
+      packModal(p);
+    },
+    'pack-del': el => {
+      const id = el.dataset.id;
+      const p = (state.packs || []).find(function (x) { return x.id === id; });
+      if (!p) return;
+      if (!confirm('删除这条买烟记录？对应的「这包」会退到上一包。')) return;
+      state.packs = state.packs.filter(function (x) { return x.id !== id; });
+      save();
+      render();
+      toast('已删除这条买烟记录');
+    },
     'pack-open': el => {
       const h = (state.habits || []).find(function (x) { return x.type === 'quit' && !x.archivedAt; });
       if (!h) return;
@@ -12821,6 +13041,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'weight-form') {
       e.preventDefault();
       saveWeightForm(form);
+    } else if (form.id === 'pack-form') {
+      e.preventDefault();
+      savePackForm(form);
     } else if (form.id === 'essay-form') {
       e.preventDefault();
       saveEssayForm(form);

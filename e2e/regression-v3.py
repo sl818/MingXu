@@ -201,7 +201,8 @@ with sync_playwright() as p:
         rec(f'切换到 {target}', got['lay'] == target and got['app'] == chk, json.dumps(got))
     pg.reload(wait_until='networkidle'); pg.wait_for_timeout(2500)
     kept = pg.evaluate("() => ({lay: document.documentElement.dataset.layout, items: document.querySelectorAll('.nav-item').length})")
-    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 9, json.dumps(kept))
+    # 导航加了「戒烟」页后从 9 项变成 10 项
+    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 10, json.dumps(kept))
     rec('排版选择器 3 张卡片', True, '已在上面校验')
     ctx.close()
 

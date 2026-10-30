@@ -102,6 +102,9 @@ SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
                    '.quit-card .move-lines > span', '.quit-card .move-foot']
 # 统计页：勋章墙 + 时段图坐标轴
 SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
+# 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
+SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
+                  '.qpack-main small', '.qc-day span', '.qc-day b']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
@@ -144,6 +147,9 @@ with sync_playwright() as p:
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
+            nav(pg, 'quit')
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_QUIT_PAGE)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_STATS)

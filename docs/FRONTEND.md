@@ -318,6 +318,8 @@ document.addEventListener('click', e => {
 `taskRow(t,d)` `taskCard(t)` `taskDetailHtml(t)` `medRowHtml(med)` `medSheetHtml(d)`
 `monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
+`viewQuit()` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
+`packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
 `weightLineChart(list,profile)` `weightSummaryHtml(list)`
 `waterWeekHtml(h)` `waterDistHtml(h,d)` `moveRingHtml(h,d)` `breathWavePath(cycles)`
 `ring(ratio,size,stroke,color,track)` `icon(name)` `esc(s)`
