@@ -404,7 +404,6 @@ try {
                 $url,
                 '晚风 Todo 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
                 . "\n" . '收到这条就说明推送通道是通的。',
-                'text',
                 $why
             );
             if (!$ok) {

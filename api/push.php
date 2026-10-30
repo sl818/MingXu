@@ -177,7 +177,7 @@ function lb_push_http(string $url, string $payload): array
  * 刻意不抛异常：调用方是每分钟跑的定时任务，一次失败只该记日志，
  * 不该让整轮中断（否则一条烂消息会让后面所有提醒都不发）。
  */
-function lb_push_send(string $webhook, string $content, string $type = 'text', ?string &$err = null): bool
+function lb_push_send(string $webhook, string $content, ?string &$err = null, string $type = 'text'): bool
 {
     $err = '';
     if (!lb_push_url_ok($webhook)) {

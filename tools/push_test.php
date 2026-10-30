@@ -47,7 +47,7 @@ if ($msg === '') {
 }
 
 $start = microtime(true);
-$ok = lb_push_send($webhook, $msg, 'text', $err);
+$ok = lb_push_send($webhook, $msg, $err);
 $cost = (int)round((microtime(true) - $start) * 1000);
 
 $lines = [

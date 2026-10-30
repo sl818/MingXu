@@ -85,10 +85,32 @@ chk('未知错误码带上原始 errcode', !$v['ok'] && strpos($v['msg'], '12345
 
 echo PHP_EOL . "[4] 发送前置校验（不发网络）" . PHP_EOL;
 $err = null;
-chk('空 webhook 直接失败，不尝试连接', lb_push_send('', 'x', 'text', $err) === false && $err !== '');
-chk('非法域名直接失败', lb_push_send('https://127.0.0.1/x', 'x', 'text', $err) === false);
-chk('空白内容直接失败', lb_push_send($GOOD, "  \n ", 'text', $err) === false);
+chk('空 webhook 直接失败，不尝试连接', lb_push_send('', 'x', $err) === false && $err !== '');
+chk('非法域名直接失败', lb_push_send('https://127.0.0.1/x', 'x', $err) === false);
+chk('空白内容直接失败', lb_push_send($GOOD, "  \n ", $err) === false);
 chk('内容为空时给出原因', $err === '内容为空', (string)$err);
+
+echo PHP_EOL . "[5] 发送器签名契约（防签名错位回归）" . PHP_EOL;
+/* 根因回顾：lb_push_tick_run 用 3 参调用 $sender($hook, $text, $why)，
+   要求发送器的前 3 参必须是 (webhook, content, err)。曾有一版 lb_push_send
+   的第 3 参是 $type，导致 $why 被当成消息类型，msgtype 变成空串——企业微信
+   返回 errcode 0 却一条消息都不显示，测试却因假发送器签名恰好匹配而全绿。
+   用反射把签名锁死：谁再把 type 挪到第 3 位，这里立刻测出来。 */
+$rf = new ReflectionFunction('lb_push_send');
+$ps = $rf->getParameters();
+chk('前 3 参是 webhook / content / err',
+    count($ps) >= 3
+    && $ps[0]->getName() === 'webhook'
+    && $ps[1]->getName() === 'content'
+    && $ps[2]->getName() === 'err',
+    implode(',', array_map(static fn ($p) => $p->getName(), $ps)));
+chk('第 3 参 err 是引用传参（能把错误传回）', $ps[2]->isPassedByReference());
+chk('type 在第 4 参且默认 text',
+    count($ps) >= 4
+    && $ps[3]->getName() === 'type'
+    && $ps[3]->isDefaultValueAvailable()
+    && $ps[3]->getDefaultValue() === 'text',
+    $ps[3]->getName() . '=' . var_export($ps[3]->isDefaultValueAvailable() ? $ps[3]->getDefaultValue() : null, true));
 
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
