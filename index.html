@@ -9015,8 +9015,8 @@ body.modal-open{overflow:hidden}
         '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
         quitCalPanel(h) +
       '</div>' +
-      quitTrendPanel(h) +
       quitSumPanel(h) +
+      quitTrendPanel(h) +
       quitPacksPanel(h) +
     '</div>';
   }
@@ -9091,7 +9091,7 @@ body.modal-open{overflow:hidden}
   }
 
   function quitTrendSvg(days, avg, range) {
-    const W = 960, H = 220, L = 34, R = 16, T = 16, B = 28;
+    const W = 960, H = 150, L = 34, R = 16, T = 14, B = 24;
     const pw = W - L - R, ph = H - T - B;
     let hi = 1;
     days.forEach(function (d) { if (d.v > hi) hi = d.v; });
