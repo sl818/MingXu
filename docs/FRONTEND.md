@@ -273,7 +273,7 @@ document.addEventListener('click', e => {
 `craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
 `quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
 `craveTriggers(hid)` `quitSaved(h)` `quitNextMile(streak)`
-`currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)`
+`currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)` `packCompareLine(h)`
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
@@ -320,6 +320,9 @@ document.addEventListener('click', e => {
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
 `viewQuit()` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
 `packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
+戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
+（纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。
+「上一包对比」只在戒烟页宽卡显示（`quitCard` 第三个参数 `compare=true` 才渲染），今日页窄卡不塞。
 `weightLineChart(list,profile)` `weightSummaryHtml(list)`
 `waterWeekHtml(h)` `waterDistHtml(h,d)` `moveRingHtml(h,d)` `breathWavePath(cycles)`
 `ring(ratio,size,stroke,color,track)` `icon(name)` `esc(s)`

@@ -3176,6 +3176,8 @@ body.modal-open{overflow:hidden}
 .quit-hero .pack-grid{max-width:720px;width:100%;margin-left:auto;margin-right:auto}
 .quit-hero .pk{height:50px;border-radius:4px 4px 3px 3px}
 /* 月历：每格日期 + 当天抽了几支 */
+.qc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.qc-head h3{margin-bottom:0}
 .qc-wd{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px}
 .qc-wd span{font-size:10px;letter-spacing:.12em;color:var(--muted);text-align:center}
 .qc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -3907,6 +3909,8 @@ body.modal-open{overflow:hidden}
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  /* 戒烟页月历的翻月锚点，和 calMonth 一样是纯视图状态，不进 state */
+  let quitCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 日历的两种视图。calWeek 是周视图的锚点（任意一天，渲染时归到那周的周一）。
      这两个都是纯视图状态，不进 state——切视图不该触发云同步。 */
   let calMode = 'month';
@@ -5310,6 +5314,27 @@ body.modal-open{overflow:hidden}
     const end = done ? Number(list[list.length - 1].t) : Math.round(Date.now() / 1000);
     return packSpanText(Math.max(0, end - Number(pack.at)));
   }
+  /* 上一包 vs 这一包：packs 至少两条才有的对比。
+     上一包「用了多久抽完」= 这一包开包时间 - 上一包开包时间（开新包就代表上一包结束）。
+     这一包「开了多久」= 抽完算到最后一次、没抽完算到现在。
+     这个对比对「还在抽」的人最有意义——连续天数会归零，但「一包抽得越来越慢」不会。 */
+  function packCompareLine(h) {
+    const packs = Array.isArray(state.packs) ? state.packs : [];
+    if (packs.length < 2) return '';
+    const cur = packs[packs.length - 1];
+    const prev = packs[packs.length - 2];
+    const prevSpan = Number(cur.at) - Number(prev.at);
+    if (prevSpan <= 0) return '';
+    const used = packUsed(h, cur);
+    const done = used.length >= cur.size;
+    /* 这一包还没抽完：只补「上一包多久抽完」这个基准，不重复第一行已有的
+       「这包开了多久 / 还剩几支」，两行并列着看就是完整对比。 */
+    if (!done) return '上一包 ' + packSpanText(prevSpan) + ' 就抽完了';
+    const curEnd = Number(used[used.length - 1].t);
+    const curSpan = Math.max(0, curEnd - Number(cur.at));
+    return '上一包 ' + packSpanText(prevSpan) + ' · 这一包 ' + packSpanText(curSpan);
+  }
+
   function packGridHtml(h) {
     const pack = currentPack();
     if (!pack) {
@@ -6578,7 +6603,7 @@ body.modal-open{overflow:hidden}
      环是「完成度」语义（运动卡那样），戒烟是「消耗」语义，硬套会拧。
      20 支格子直接对着烟民的真实单位说话：这包还剩几支。
      卡的尺寸跟其他常驻卡一致，不跨列。 */
-  function quitCard(h, d) {
+  function quitCard(h, d, compare) {
     const today = d === todayStr();
     const evs = dayCravings(h.id, d);
     const ns = evs.filter(function (e) { return e.k === 's'; }).length;
@@ -6611,6 +6636,11 @@ body.modal-open{overflow:hidden}
       const left = Math.max(0, pack.size - used);
       lines.push('<span><i' + (left ? '' : ' class="dim"') + '></i>这包开了 ' +
         packSpan(h, pack) + ' · 还剩 ' + left + ' 支</span>');
+      /* 戒烟页才展示「上一包对比」，今日页窄卡不塞这条（放不下也重复） */
+      if (compare) {
+        const cmp = packCompareLine(h);
+        if (cmp) lines.push('<span><i class="dim"></i>' + cmp + '</span>');
+      }
     }
     if (saved) {
       lines.push('<span><i></i>少抽 ' + saved.sticks + ' 支 · 省了 ¥' + Math.round(saved.money) + '</span>');
@@ -8948,7 +8978,7 @@ body.modal-open{overflow:hidden}
       return '<div class="panel"><h3>戒烟</h3><div class="empty-box">还没有戒烟习惯。去「习惯」页添加一个类型为「戒除」的习惯。</div></div>';
     }
     return '<div class="quit-page">' +
-      '<div class="quit-hero">' + quitCard(h, todayStr()) + '</div>' +
+      '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
       quitCalPanel(h) +
       quitSumPanel(h) +
       quitPacksPanel(h) +
@@ -8957,8 +8987,7 @@ body.modal-open{overflow:hidden}
 
   /* 月历：每天抽了几支。有点一根的日子标红，点过但没抽的标 ✓，其余空白 */
   function quitCalPanel(h) {
-    const now = new Date();
-    const y = now.getFullYear(), m = now.getMonth();
+    const y = quitCalMonth.getFullYear(), m = quitCalMonth.getMonth();
     const lead = new Date(y, m, 1).getDay();
     const total = new Date(y, m + 1, 0).getDate();
     const today = todayStr();
@@ -8977,7 +9006,16 @@ body.modal-open{overflow:hidden}
         '<b>' + (ns ? ns + ' 支' : (nr ? '✓' : '·')) + '</b>' +
       '</div>';
     }
-    return '<div class="panel"><h3>戒烟月历 <span class="muted-sm">（' + y + ' 年 ' + (m + 1) + ' 月）</span></h3>' +
+    return '<div class="panel">' +
+      '<div class="qc-head">' +
+        '<h3>戒烟月历</h3>' +
+        '<div class="month-nav">' +
+          '<button class="arrow" data-act="quit-month-shift" data-delta="-1" aria-label="上个月">‹</button>' +
+          '<b>' + y + ' 年 ' + (m + 1) + ' 月</b>' +
+          '<button class="arrow" data-act="quit-month-shift" data-delta="1" aria-label="下个月">›</button>' +
+          '<button class="btn sm ghost" data-act="quit-month-today">本月</button>' +
+        '</div>' +
+      '</div>' +
       '<div class="qc-wd">' + ['日', '一', '二', '三', '四', '五', '六'].map(function (w) {
         return '<span>' + w + '</span>';
       }).join('') + '</div>' +
@@ -12345,6 +12383,15 @@ body.modal-open{overflow:hidden}
       save();
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    'quit-month-shift': el => {
+      quitCalMonth = new Date(quitCalMonth.getFullYear(), quitCalMonth.getMonth() + (Number(el.dataset.delta) || 0), 1);
+      render();
+    },
+    'quit-month-today': () => {
+      const n = new Date();
+      quitCalMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+      render();
     },
     'month-shift': el => {
       calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + (Number(el.dataset.delta) || 0), 1);

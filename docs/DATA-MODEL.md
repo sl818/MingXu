@@ -270,7 +270,8 @@ cravings: [
    事件流没有 `delta`，同一秒两条会互相顶掉。
 
 派生函数：`quitStreak` / `quitTotal` / `quitBest` / `quitRange` / `craveHours` / `craveTriggers` /
-`quitSaved`（省钱）/ `quitNextMile`（下一个里程碑）/ `currentPack` / `packUsed` / `packSpan`。
+`quitSaved`（省钱）/ `quitNextMile`（下一个里程碑）/ `currentPack` / `packUsed` / `packSpan` /
+`packCompareLine`（上一包 vs 这一包）。
 
 ### 5.5 `packs[]` —— 买烟记录
 
@@ -295,6 +296,10 @@ packUsed = 开包之后所有 k === 's' 的事件
 
 `packSpan(h, pack)` 算「这包抽了多久」：抽完了算到最后一次，没抽完算到现在。
 这是戒烟卡上信息量最大的一个数——比「连续几天没抽」更能反映还在抽的人的进度。
+
+`packCompareLine(h)` 对比上一包：上一包「用了多久」= 这一包开包时间 − 上一包开包时间
+（开新包就代表上一包结束）。这一包还没抽完时只补一句「上一包 X 就抽完了」，
+不重复第一行已有的「这包开了多久 / 还剩几支」；两包都抽完才并列两个时长。
 
 > **口径**：`craveHours`（时段图）和 `craveTriggers`（诱因）**只统计 `k === 's'`**。
 > 把「忍住了」混进去会出现「压力 7 次」但其实只抽了 3 根的矛盾，
