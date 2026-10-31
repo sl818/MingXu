@@ -3225,12 +3225,8 @@ body.modal-open{overflow:hidden}
 .quit-btn.undo:hover{opacity:1;background:var(--surface-2)}
 .quit-btn.resist:hover{background:var(--accent-soft);border-color:var(--accent)}
 .quit-btn:disabled{opacity:.4;pointer-events:none}
-/* 常驻卡是奇数张时，最后一张独占一行。让它居中而不是贴左——
-   卡片本身还是正常宽度（跟上面几张一样），只是整行居中，右边不再空一块。 */
-@media (min-width:701px){
-  .vital-grid > .vital-card:last-child:nth-child(odd){
-    grid-column:1/-1;justify-self:center;width:min(100%,560px)}
-}
+/* 常驻卡奇数张时最后一张落单，让它贴左、单列等宽，跟上面几张左对齐。
+   右列空一格是正常的，以后加第 6 个常驻习惯会自动填满。 */
 /* 统计页：里程碑勋章墙 */
 .qmile{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .qmile-i{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:56px;
