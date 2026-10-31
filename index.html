@@ -9021,7 +9021,7 @@ body.modal-open{overflow:hidden}
     return '<div class="panel"><h3>数据汇总</h3>' +
       '<div class="qsum-grid">' +
         card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
-        card('本月买烟', mo.length + ' 包', '¥' + moCost.toFixed(0)) +
+        card('本月消费', '¥' + moCost.toFixed(0) + ' 元', '共 ' + mo.length + ' 包') +
         card('今天', todayS + ' 支', diffText) +
         card('平均每天', avg.toFixed(1) + ' 支', '近 30 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
       '</div></div>';
