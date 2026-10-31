@@ -3172,6 +3172,22 @@ body.modal-open{overflow:hidden}
 .quit-top > .panel{width:360px;flex:none;margin:0;display:flex;flex-direction:column}
 .quit-top .qc-grid{flex:1;grid-auto-rows:1fr}
 .quit-top .qc-day{height:auto;min-height:46px}
+/* 抽烟趋势折线图 */
+.qt-tabs{display:flex;gap:4px}
+.qt-tab{border:1px solid var(--line);background:var(--surface-2);color:var(--text);
+  font:inherit;font-size:11px;font-weight:600;padding:4px 12px;border-radius:99px;cursor:pointer}
+.qt-tab.on{background:var(--accent-soft);border-color:var(--accent)}
+.qt-sub{margin-bottom:10px}
+.qt-svg{display:block;width:100%;height:auto;margin:4px 0 0}
+.qt-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
+.qt-avg{stroke:color-mix(in srgb,var(--muted) 70%,transparent);stroke-width:1.2;stroke-dasharray:7 5}
+.qt-avg-lbl{font-size:9.5px;fill:var(--muted);font-family:var(--font-sans)}
+.qt-line{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.qt-dot{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+.qt-dot.last{fill:var(--accent)}
+.qt-lbl{font-size:9.5px;fill:var(--muted);font-family:var(--font-sans)}
+.qt-empty{padding:38px 16px;text-align:center;border:1px dashed var(--line-strong);
+  border-radius:14px;background:var(--surface-2);color:var(--muted);font-size:12px}
 /* 窄日历里「本月」按钮挤不下，隐藏；年月和箭头紧凑一点 */
 .quit-top .qc-head{flex-wrap:wrap;gap:8px}
 .quit-top .month-nav .btn{display:none}
@@ -3924,6 +3940,8 @@ body.modal-open{overflow:hidden}
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 戒烟页月历的翻月锚点，和 calMonth 一样是纯视图状态，不进 state */
   let quitCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  /* 抽烟趋势折线图的时间范围：7=周 / 30=月 / 90=季，纯视图状态 */
+  let quitTrendRange = 7;
   /* 日历的两种视图。calWeek 是周视图的锚点（任意一天，渲染时归到那周的周一）。
      这两个都是纯视图状态，不进 state——切视图不该触发云同步。 */
   let calMode = 'month';
@@ -8997,6 +9015,7 @@ body.modal-open{overflow:hidden}
         '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
         quitCalPanel(h) +
       '</div>' +
+      quitTrendPanel(h) +
       quitSumPanel(h) +
       quitPacksPanel(h) +
     '</div>';
@@ -9039,6 +9058,92 @@ body.modal-open{overflow:hidden}
       '<div class="qc-grid">' + cells + '</div>' +
       '<div class="qc-legend muted-sm">红=抽了 · 绿✓=忍住 · 灰·=没记</div>' +
     '</div>';
+  }
+
+  /* 抽烟趋势折线图：x 轴日期、y 轴每日「点一根」次数，右上角切周/月/季。
+     只统计 k==='s'（抽了），「忍一次」不是抽烟，不混进来。 */
+  function quitTrendPanel(h) {
+    const range = quitTrendRange;
+    const today = new Date();
+    const days = [];
+    for (let i = range - 1; i >= 0; i--) {
+      const ds = fmt(addDays(today, -i));
+      const n = dayCravings(h.id, ds).filter(function (e) { return e.k === 's'; }).length;
+      days.push({ date: ds, v: n });
+    }
+    const total = days.reduce(function (s, d) { return s + d.v; }, 0);
+    const avg = total / range;
+    const RANGE_CN = { 7: '周', 30: '月', 90: '季' };
+    const tabs = [7, 30, 90].map(function (r) {
+      return '<button type="button" class="qt-tab' + (r === range ? ' on' : '') +
+        '" data-act="quit-trend-range" data-range="' + r + '">' + RANGE_CN[r] + '</button>';
+    }).join('');
+    const body = total
+      ? quitTrendSvg(days, avg, range)
+      : '<div class="qt-empty">这个区间还没有抽烟记录，记几笔之后这里会画出趋势</div>';
+    return '<div class="panel"><div class="qc-head">' +
+      '<h3>抽烟趋势</h3>' +
+      '<div class="qt-tabs">' + tabs + '</div>' +
+      '</div>' +
+      '<div class="qt-sub muted-sm">近 ' + range + ' 天 · 平均每天 ' + avg.toFixed(1) + ' 支</div>' +
+      body +
+    '</div>';
+  }
+
+  function quitTrendSvg(days, avg, range) {
+    const W = 960, H = 220, L = 34, R = 16, T = 16, B = 28;
+    const pw = W - L - R, ph = H - T - B;
+    let hi = 1;
+    days.forEach(function (d) { if (d.v > hi) hi = d.v; });
+    hi = Math.max(1, Math.ceil(hi));
+    const yy = function (v) { return T + (hi - v) / hi * ph; };
+    const xx = function (i) { return days.length === 1 ? L + pw / 2 : L + i / (days.length - 1) * pw; };
+
+    let g = '';
+    /* y 轴刻度：hi 小时每个整数一个刻度（0/1/2...），hi 大时取 0/中/顶 三个。
+       别用 Math.round(hi*(1-t)) 那套——hi=1 时中间刻度 round 成 1，和顶部重复。 */
+    const ticks = [];
+    if (hi <= 3) { for (let v = 0; v <= hi; v++) ticks.push(v); }
+    else { ticks.push(0, Math.round(hi / 2), hi); }
+    ticks.forEach(function (v) {
+      const y = yy(v);
+      g += '<line class="qt-grid" x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) + '"/>';
+      g += '<text class="qt-lbl" x="' + (L - 6) + '" y="' + (y + 3.4).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    });
+
+    /* 平均虚线：一眼看出最近在平均线之上还是之下 */
+    const ay = yy(Math.min(avg, hi));
+    g += '<line class="qt-avg" x1="' + L + '" y1="' + ay.toFixed(1) + '" x2="' + (W - R) + '" y2="' + ay.toFixed(1) + '"><title>平均 ' + avg.toFixed(1) + ' 支</title></line>';
+    /* 平均标签放左上：放右上会盖住最新数据点（折线尾部） */
+    g += '<text class="qt-avg-lbl" x="' + (L + 4) + '" y="' + (ay - 4).toFixed(1) + '" text-anchor="start">平均 ' + avg.toFixed(1) + '</text>';
+
+    /* 折线连所有天（含 0 值），圆点只标有抽烟的天 */
+    const d = days.map(function (dd, i) {
+      return (i ? 'L' : 'M') + xx(i).toFixed(1) + ',' + yy(dd.v).toFixed(1);
+    }).join(' ');
+    g += '<path class="qt-line" d="' + d + '"/>';
+    days.forEach(function (dd, i) {
+      if (!dd.v) return;
+      const last = i === days.length - 1;
+      g += '<circle class="qt-dot' + (last ? ' last' : '') + '" cx="' + xx(i).toFixed(1) + '" cy="' + yy(dd.v).toFixed(1) + '" r="' + (last ? 3.6 : 2.6) + '">' +
+        '<title>' + dd.date + ' · ' + dd.v + ' 支</title></circle>';
+    });
+
+    /* x 轴标签：7 天每天都标，30 天每 7 天，90 天每 15 天 */
+    const step = range <= 7 ? 1 : (range <= 30 ? 7 : 15);
+    const idx = [];
+    for (let i = 0; i < days.length; i += step) idx.push(i);
+    if (idx[idx.length - 1] !== days.length - 1) idx.push(days.length - 1);
+    const used = [];
+    idx.forEach(function (i) {
+      const cx = Math.round(xx(i));
+      if (used.indexOf(cx) >= 0) return;
+      used.push(cx);
+      g += '<text class="qt-lbl" x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle">' +
+        days[i].date.slice(5).replace('-', '/') + '</text>';
+    });
+
+    return '<svg class="qt-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="抽烟趋势折线图">' + g + '</svg>';
   }
 
   /* 汇总：买烟（本周/本月）+ 抽吸（今天/平均/同比） */
@@ -12408,6 +12513,10 @@ body.modal-open{overflow:hidden}
     'quit-month-today': () => {
       const n = new Date();
       quitCalMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+      render();
+    },
+    'quit-trend-range': el => {
+      quitTrendRange = Number(el.dataset.range) || 7;
       render();
     },
     'month-shift': el => {

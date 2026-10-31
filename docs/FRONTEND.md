@@ -323,6 +323,7 @@ document.addEventListener('click', e => {
 `monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
 `viewQuit()` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
+`quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
 `packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
 （纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。
