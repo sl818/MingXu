@@ -9005,19 +9005,41 @@ body.modal-open{overflow:hidden}
     });
   }
 
+  /* 戒烟页标题：跟用药/待办页一样的 page-head。
+     副标题动态——今天没抽写「连续 X 天没抽」，抽了写「今天 X 支 · 比昨天多/少 Y 支」。 */
+  function quitPageHead(h) {
+    const todayS = dayCravings(h.id, todayStr()).filter(function (e) { return e.k === 's'; }).length;
+    const yestS = dayCravings(h.id, fmt(addDays(new Date(), -1))).filter(function (e) { return e.k === 's'; }).length;
+    let sub;
+    if (todayS === 0) {
+      sub = '连续 ' + quitStreak(h) + ' 天没抽';
+    } else {
+      const diff = todayS - yestS;
+      sub = '今天抽了 ' + todayS + ' 支 · ' +
+        (diff > 0 ? '比昨天多 ' + diff + ' 支' : (diff < 0 ? '比昨天少 ' + (-diff) + ' 支' : '和昨天一样'));
+    }
+    return '<div class="page-head">' +
+      '<div><h2>戒烟</h2><p>' + sub + '</p></div>' +
+      '<div class="head-actions">' +
+        '<button class="btn primary" data-act="pack-new">记一笔买烟</button>' +
+      '</div>' +
+    '</div>';
+  }
+
   function viewQuit() {
     const h = quitHabit();
     if (!h) {
       return '<div class="panel"><h3>戒烟</h3><div class="empty-box">还没有戒烟习惯。去「习惯」页添加一个类型为「戒除」的习惯。</div></div>';
     }
     return '<div class="quit-page">' +
+      quitPageHead(h) +
+      quitSumPanel(h) +
       '<div class="quit-top">' +
         '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
         quitCalPanel(h) +
       '</div>' +
-      quitSumPanel(h) +
-      quitTrendPanel(h) +
       quitPacksPanel(h) +
+      quitTrendPanel(h) +
     '</div>';
   }
 
