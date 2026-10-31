@@ -3147,18 +3147,15 @@ body.modal-open{overflow:hidden}
    结构照抄运动卡（左文字 / 右环 / 底部动作），只有两处不同：
    环量的是「本周无烟天数」，底部是两个等权重按钮。
    等权是有意的——把「点一根」做成次要操作，人就不会记，数据立刻失真。 */
-/* 一包 N 支：烟盒俯视图，每格一个圆点 = 一支烟的横截面。
-   5 列一排，标准 20 支正好 5×4。抽掉的变灰（熄灭）。
-   这是这张卡的主视觉——环是「完成度」语义，戒烟是「消耗」语义，不套环。 */
-.pack-grid{display:grid;grid-template-columns:repeat(5,auto);gap:10px;
-  justify-content:center;align-content:center;margin:10px 0 7px}
-.pk{width:24px;height:24px;border-radius:50%;
-  background:color-mix(in srgb,#b89a6e 72%,var(--text));
-  border:3px solid color-mix(in srgb,#e8ddc5 80%,var(--surface));
-  transition:opacity .4s ease,filter .4s ease,transform .3s ease}
-/* 抽掉的烟 = 空心圈：保留描边轮廓，填充抽空。比「变透明」在深色主题下更醒目，
-   也正好对上烟盒俯视图里「这个位置空了一支」的直觉。熄灭要「沉」，不做粒子特效。 */
-.pk.out{background:transparent;border-color:color-mix(in srgb,var(--text) 24%,transparent);transform:scale(.86)}
+/* 一包 N 支：每格一支烟，横向排布，上 34% 是滤嘴、下面浅色是烟身。
+   抽掉的熄灭（变灰）。这是这张卡的主视觉——环是「完成度」语义，戒烟是「消耗」语义，不套环。 */
+.pack-grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin:12px 0 9px}
+.pk{position:relative;height:32px;border-radius:3px 3px 2px 2px;
+  background:linear-gradient(180deg,#c2a877 0 34%,color-mix(in srgb,#f7f2e7 82%,var(--surface)) 34% 100%);
+  border:1px solid color-mix(in srgb,var(--text) 14%,transparent);
+  transition:opacity .5s ease,filter .5s ease,transform .35s ease}
+/* 熄灭要「沉」，不要做粒子特效——抽一根如果看着爽，就成了游戏 */
+.pk.out{opacity:.22;filter:grayscale(1);transform:scale(.88)}
 .pack-grid.is-empty{display:flex;align-items:center;justify-content:center;
   height:78px;border:1px dashed var(--line);border-radius:10px;
   font-size:11px;color:var(--muted);grid-template-columns:none}
@@ -3168,23 +3165,26 @@ body.modal-open{overflow:hidden}
 
 /* ============ 戒烟页 ============ */
 .quit-page{display:flex;flex-direction:column;gap:16px}
-/* 宽卡：全宽、跟下面面板对齐。20 支格子和状态字都放大一档，
+/* 上半：左卡右日历并排。戒烟卡占剩余宽度（约 750px），日历固定 360px */
+.quit-top{display:flex;gap:16px;align-items:stretch}
+.quit-top .quit-hero{flex:1;min-width:0;display:flex}
+.quit-top .quit-hero .quit-card{flex:1;width:100%}
+.quit-top > .panel{width:360px;flex:none;margin:0;display:flex;flex-direction:column}
+.quit-top .qc-grid{flex:1;grid-auto-rows:1fr}
+.quit-top .qc-day{height:auto;min-height:46px}
+/* 窄日历里「本月」按钮挤不下，隐藏；年月和箭头紧凑一点 */
+.quit-top .qc-head{flex-wrap:wrap;gap:8px}
+.quit-top .month-nav .btn{display:none}
+@media (max-width:900px){
+  .quit-top{flex-direction:column}
+  .quit-top > .panel{width:100%}
+}
+/* 宽卡：跟下面面板对齐。20 支格子和状态字都放大一档，
    让它在 1136px 里有存在感，而不是缩在中间一块 */
 .quit-hero .mv-status{font-size:24px}
 .quit-hero .move-lines > span{font-size:11px}
-/* 宽卡圆点放大一档，跟状态字匹配 */
-.quit-hero .pk{width:32px;height:32px;border-width:4px}
-/* 宽卡改左右两栏：左列信息（状态/数据/里程碑/按钮），右列烟盒俯视图 */
-.quit-hero .quit-body{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  grid-template-areas:"head side" "lines side" "foot side" "actions side";
-  column-gap:34px;align-items:start}
-.quit-hero .quit-head{grid-area:head}
-.quit-hero .quit-side{grid-area:side;align-self:center}
-.quit-hero .move-lines{grid-area:lines}
-.quit-hero .move-foot{grid-area:foot}
-.quit-hero .quit-actions{grid-area:actions}
+/* 宽卡烟格放大一档，跟状态字匹配 */
+.quit-hero .pk{height:46px}
 /* 月历：每格日期 + 当天抽了几支 */
 .qc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .qc-head h3{margin-bottom:0}
@@ -3223,7 +3223,8 @@ body.modal-open{overflow:hidden}
 .quit-body{display:flex;flex-direction:column;gap:9px;flex:1}
 .quit-head{margin-top:5px}
 .quit-side{display:flex;justify-content:center}
-.quit-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:auto;padding-top:7px}
+.quit-side .pack-grid{width:100%}
+.quit-actions{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:auto;padding-top:7px}
 .quit-btn{
   min-height:44px;border-radius:10px;font-size:13px;font-weight:600;
   background:color-mix(in srgb,var(--text) 7%,var(--surface-2));
@@ -3233,8 +3234,9 @@ body.modal-open{overflow:hidden}
 .quit-btn:active{transform:scale(.985)}
 /* 两个都不实心、都不加粗强调：红边只是「承认」这条是记录，不是警告 */
 .quit-btn.smoke:hover{background:rgba(221,90,90,.08);border-color:var(--bad)}
-/* 撤销：跟前面两个等宽，靠更淡的底色区分，不靠变窄 */
-.quit-btn.undo{background:transparent;color:var(--text);border-color:var(--line);opacity:.7}
+/* 撤销：窄一格、底色更淡，不跟前面两个抢视觉，但一直在那儿 */
+.quit-btn.undo{min-height:40px;padding:0 14px;font-size:12px;font-weight:500;
+  background:transparent;color:var(--text);border-color:var(--line);opacity:.75}
 .quit-btn.undo:hover{opacity:1;background:var(--surface-2)}
 .quit-btn.resist:hover{background:var(--accent-soft);border-color:var(--accent)}
 .quit-btn:disabled{opacity:.4;pointer-events:none}
@@ -8991,8 +8993,10 @@ body.modal-open{overflow:hidden}
       return '<div class="panel"><h3>戒烟</h3><div class="empty-box">还没有戒烟习惯。去「习惯」页添加一个类型为「戒除」的习惯。</div></div>';
     }
     return '<div class="quit-page">' +
-      '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
-      quitCalPanel(h) +
+      '<div class="quit-top">' +
+        '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
+        quitCalPanel(h) +
+      '</div>' +
       quitSumPanel(h) +
       quitPacksPanel(h) +
     '</div>';
@@ -9033,7 +9037,7 @@ body.modal-open{overflow:hidden}
         return '<span>' + w + '</span>';
       }).join('') + '</div>' +
       '<div class="qc-grid">' + cells + '</div>' +
-      '<div class="qc-legend muted-sm">红 = 当天点了 · 绿勾 = 有记录但没点 · 灰点 = 没记录</div>' +
+      '<div class="qc-legend muted-sm">红=抽了 · 绿✓=忍住 · 灰·=没记</div>' +
     '</div>';
   }
 
