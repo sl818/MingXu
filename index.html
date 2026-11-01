@@ -343,10 +343,20 @@ h1,h2,h3,h4,p{margin:0}
 .hstat-meta .streak i{font-style:normal;color:var(--muted);font-weight:400}
 
 /* ============ 设置 ============ */
-.settings-wrap{max-width:820px}
+/* 宽度交给 .main 统一控制：这里不能再给 max-width。
+   .main 是 flex column，子项带 max-width 又没 margin:auto 会被顶到左边，
+   右侧留一条空白，跟今日/用药/待办对不齐（cal-wrap 靠 margin:auto 才居中）。 */
+.settings-wrap{max-width:none}
+/* 但铺满后单列会把说明文字拉成一行上百字、预览卡拉成横条，所以大屏分两列。
+   用 columns 不用 grid —— grid 行优先，「排版」会被旁边的「主题」拉高，下面留大块空洞；
+   瀑布流按高度堆，卡片之间不留空。 */
+@media (min-width:1180px){
+  :root[data-layout="top"] .settings-wrap{columns:2;column-gap:18px}
+  :root[data-layout="top"] .settings-wrap > .panel{break-inside:avoid}
+}
 /* 习惯页：有归档时左「我的习惯」右「已归档」；没归档就单栏占满。
    不给右栏太宽——归档是低频内容，340px 够放下名称 + 恢复 + 删除。 */
-.habits-wrap{max-width:1140px}
+.habits-wrap{max-width:none}
 .habits-wrap.has-arch{
   display:grid;grid-template-columns:minmax(0,1fr) 340px;
   gap:16px;align-items:start;
@@ -1124,7 +1134,6 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .log-date{font-size:10px;color:var(--muted);white-space:nowrap;text-align:right}
 
 /* ---------- 设置 ---------- */
-.settings-wrap{max-width:860px}
 .habit-row{padding:14px 6px;border-bottom:1px solid var(--line)}
 .habit-row-info b{font-size:13px;font-weight:600}
 .habit-row-info small{font-size:10.5px;color:var(--muted)}
@@ -3191,6 +3200,27 @@ body.modal-open{overflow:hidden}
   font:inherit;font-size:11.5px;font-weight:600;padding:7px 16px;border-radius:9px;cursor:pointer}
 .pack-open:hover{background:var(--accent-soft);border-color:var(--accent)}
 
+/* 末支软确认：一条可以不理的提示，不是弹窗。
+   它是「顺手校准」，不是待办事项——所以压得比正文还轻，不抢视线。 */
+.pack-cf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:7px 10px;border:1px dashed var(--line-strong);border-radius:10px;
+  background:var(--surface-2);font-size:11.5px;color:var(--text)}
+.pack-cf b{font-weight:600;font-variant-numeric:tabular-nums}
+.pack-cf button{border:1px solid var(--line);background:var(--surface);color:var(--text);
+  font:inherit;font-size:11px;font-weight:600;padding:4px 11px;border-radius:8px;cursor:pointer}
+.pack-cf button:hover{border-color:var(--accent);background:var(--accent-soft)}
+.pack-cf button[data-act="pack-cf-ok"]{background:var(--accent-soft);border-color:var(--accent)}
+
+/* 买烟记录的状态标记：在抽 / 库存 / 已抽完。
+   一律走 --text 或 --line-strong，不用 --muted 压在小字上（对比度不够）。 */
+.qpack-st{font-style:normal;font-size:9.5px;font-weight:600;line-height:1.6;
+  padding:0 6px;border-radius:5px;margin-left:6px;vertical-align:1px;
+  color:var(--text);background:var(--surface-2);border:1px solid var(--line)}
+.qpack-st.live{background:var(--accent-soft);border-color:var(--accent)}
+.qpack-st.stock{background:transparent;border-color:var(--line)}
+.qpack-st.done{background:transparent;border-color:var(--line-strong)}
+
+
 /* ============ 戒烟页 ============ */
 .quit-page{display:flex;flex-direction:column;gap:16px}
 /* 上半：左卡右日历并排。戒烟卡占剩余宽度（约 750px），日历固定 360px */
@@ -3762,7 +3792,10 @@ body.modal-open{overflow:hidden}
         at: Math.round(at),
         name: String(p.name || ''),
         price: clamp(Math.round((Number(p.price) || 0) * 100) / 100, 0, 99999),
-        size: clamp(Math.round(Number(p.size) || 20), 1, 50)
+        size: clamp(Math.round(Number(p.size) || 20), 1, 50),
+        /* 末支确认时刻（用户给的事实，不是派生量）。这里是白名单式的重建，
+           漏写一个字段就会在每次 normalize 后静默丢掉——踩过两次。 */
+        cf: Math.max(0, Math.round(Number(p.cf) || 0))
       });
     });
     out.sort(function (a, b) { return a.at - b.at; });
@@ -4605,7 +4638,22 @@ body.modal-open{overflow:hidden}
     const seenPk = {};
     rPk.forEach(function (p) { if (p && p.id) seenPk[p.id] = 1; });
     out.packs = rPk.concat(lPk.filter(function (p) { return p && p.id && !seenPk[p.id]; }));
-    out.packs.sort(function (a, b) { return Number(a.at) - Number(b.at); });
+    /* cf（末支确认）是「设一次就不再变」的字段，远端那条可能是确认之前存的。
+       所以只要本地有值、远端没有，就补回去——不然确认一次白确认。 */
+    const lPkMap = {};
+    lPk.forEach(function (p) { if (p && p.id) lPkMap[p.id] = p; });
+    out.packs = out.packs.map(function (p) {
+      const lp = lPkMap[p.id];
+      if (lp && Number(lp.cf) && !Number(p.cf)) {
+        return { id: p.id, at: p.at, name: p.name, price: p.price, size: p.size, cf: lp.cf };
+      }
+      return p;
+    });
+    /* at 主键 + id 次键：同一分钟买两包时，两端算出来的顺序必须完全一致，
+       否则「哪包在抽」会两台设备各说各话。 */
+    out.packs.sort(function (a, b) {
+      return (Number(a.at) - Number(b.at)) || String(a.id).localeCompare(String(b.id));
+    });
 
     // 打卡日志：去重并集
     const rEv = Array.isArray(remote.events) ? remote.events : [];
@@ -5309,6 +5357,11 @@ body.modal-open{overflow:hidden}
     const d = new Date(Number(ts) * 1000);
     return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
+  /* <input type="datetime-local"> 要的是 'YYYY-MM-DDTHH:MM'（本地时区，不带秒） */
+  function dtLocalVal(ts) {
+    const d = new Date(Number(ts) * 1000);
+    return fmt(d) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
   function habitById(hid) {
     return (state.habits || []).find(function (x) { return x.id === hid; }) || null;
   }
@@ -5398,19 +5451,78 @@ body.modal-open{overflow:hidden}
     }).sort(function (a, b) { return b.n - a.n; });
   }
 
-  /* 当前这包：packs 按 at 升序排好，最后一条就是正在抽的那包 */
-  function currentPack() {
-    const list = Array.isArray(state.packs) ? state.packs : [];
-    return list.length ? list[list.length - 1] : null;
-  }
-  /* 这包已经抽掉几支：开包之后的所有「点一根」。
-     刻意不存「剩余 N 支」——那是派生量，多端一合并就会对不上。 */
-  function packUsed(h, pack) {
-    if (!pack) return [];
-    const t0 = Number(pack.at) || 0;
-    return cravingsOf(h.id).filter(function (e) {
-      return e.k === 's' && Number(e.t) >= t0;
+  /* ===== 一包烟的区间（全部派生，一个字段都不存） =====
+     「哪包在抽 / 抽到第几支 / 还剩几包」如果存成字段，就要维护：撤销、补记、
+     改买烟日期、两台设备同时点，每条路径都会让它对不上（跟药品库存同一个道理）。
+     规则：第 k 包起点 = max(这包的买烟时刻, 上一包抽完的时刻)，
+           终点 = 第 size 支的记录时刻；不足 size 支就是还没抽完。
+     max() 那一下就是「自动绑定下一包」——不用字段，也不用用户点「开新包」。
+     一次买三条只抽第一条时，后两包的起点还在未来，天然就是库存。
+     顺带解决：同一天买两包（at 相同）不再共用同一个计数窗口，两包各吃各的一段。 */
+  function packSpans(h) {
+    const packs = Array.isArray(state.packs) ? state.packs : [];
+    const hits = cravingsOf(h.id).filter(function (e) { return e.k === 's'; })
+      .sort(function (a, b) { return Number(a.t) - Number(b.t); });
+    const out = [];
+    let idx = 0, prevEnd = 0;
+    packs.forEach(function (p) {
+      const size = Math.max(1, Number(p.size) || 20);
+      const openAt = Math.max(Number(p.at) || 0, prevEnd);
+      const base = {
+        pack: p, size: size, used: 0, openAt: openAt, closeAt: 0, done: false,
+        cf: Math.round(Number(p.cf) || 0)
+      };
+      /* 上一包还没抽完（prevEnd 是无穷大），这包就还没拆，used 恒 0 */
+      if (!isFinite(openAt)) { out.push(base); return; }
+      let n = 0, end = 0;
+      while (idx < hits.length && n < size) {
+        const t = Number(hits[idx].t);
+        if (t < openAt) { idx++; continue; }   /* 早于开包：属于更早的包，或者散烟 */
+        n++; end = t; idx++;
+      }
+      base.used = n;
+      base.done = n >= size;
+      base.closeAt = base.done ? end : 0;
+      out.push(base);
+      prevEnd = base.done ? end + 1 : Infinity;
     });
+    return out;
+  }
+  function spanOf(h, pack) {
+    if (!pack) return null;
+    const id = String(pack.id || '');
+    const list = packSpans(h);
+    for (let i = 0; i < list.length; i++) if (String(list[i].pack.id) === id) return list[i];
+    return null;
+  }
+  /* 当前这包 = 第一个没抽满的；全抽满了就退回最后一包，用来展示「已抽完」状态 */
+  function currentSpan(h) {
+    const list = packSpans(h);
+    if (!list.length) return null;
+    for (let i = 0; i < list.length; i++) if (!list[i].done) return list[i];
+    return list[list.length - 1];
+  }
+  function currentPack(h) {
+    const sp = currentSpan(h);
+    return sp ? sp.pack : null;
+  }
+  /* 这包抽掉几支。封顶到 size —— 超出部分归下一包，归不进去就是「未归包」的散烟 */
+  function packUsed(h, pack) {
+    const sp = spanOf(h, pack);
+    return sp ? sp.used : 0;
+  }
+  /* 没归进任何一包的支数：库存空的时候抽的那些。
+     它们不是脏数据 —— 那天确实抽了，只是当时手里没有这一批里的包。 */
+  function packOrphans(h) {
+    let total = 0, used = 0;
+    cravingsOf(h.id).forEach(function (e) { if (e.k === 's') total++; });
+    packSpans(h).forEach(function (sp) { used += sp.used; });
+    return Math.max(0, total - used);
+  }
+  /* 还没轮到的包 = 库存 */
+  function packStock(h) {
+    const now = Math.round(Date.now() / 1000);
+    return packSpans(h).filter(function (sp) { return !sp.done && sp.openAt > now; }).length;
   }
   function packSpanText(sec) {
     const m = Math.max(0, Math.round(sec / 60));
@@ -5422,49 +5534,45 @@ body.modal-open{overflow:hidden}
     if (dd >= 7) return dd + ' 天';
     return dd + ' 天' + (rh ? ' ' + rh + ' 小时' : '');
   }
-  /* 这包抽了多久：抽完了算到最后一次，没抽完算到现在。
-     这是戒烟卡里最有信息量的一个数——比「连续几天没抽」更能反映进度。 */
-  function packSpan(h, pack) {
-    if (!pack) return '';
-    const list = packUsed(h, pack);
-    const done = list.length >= pack.size;
-    const end = done ? Number(list[list.length - 1].t) : Math.round(Date.now() / 1000);
-    return packSpanText(Math.max(0, end - Number(pack.at)));
+  /* 时长终点：用户软确认过就用确认值，没确认就用最后一条记录的时刻 */
+  function packSpanEnd(sp) { return sp.cf || sp.closeAt; }
+  /* 抽完了算「首支 → 末支」，还在抽算「开包 → 现在」。
+     补记会把末支的记录时间推后，所以末支允许用户确认一次（见 quitCard 的软确认条）。 */
+  function packSpanTextOf(sp) {
+    if (!sp) return '';
+    const end = sp.done ? packSpanEnd(sp) : Math.round(Date.now() / 1000);
+    return packSpanText(Math.max(0, end - sp.openAt));
   }
-  /* 上一包 vs 这一包：packs 至少两条才有的对比。
-     上一包「用了多久抽完」= 这一包开包时间 - 上一包开包时间（开新包就代表上一包结束）。
-     这一包「开了多久」= 抽完算到最后一次、没抽完算到现在。
-     这个对比对「还在抽」的人最有意义——连续天数会归零，但「一包抽得越来越慢」不会。 */
+  function packSpan(h, pack) {
+    return packSpanTextOf(spanOf(h, pack));
+  }
+  /* 上一包 vs 这一包：两边都按「首支 → 末支」算，不再用「下一包的开包时间」倒推 */
   function packCompareLine(h) {
-    const packs = Array.isArray(state.packs) ? state.packs : [];
-    if (packs.length < 2) return '';
-    const cur = packs[packs.length - 1];
-    const prev = packs[packs.length - 2];
-    const prevSpan = Number(cur.at) - Number(prev.at);
+    const spans = packSpans(h);
+    if (spans.length < 2) return '';
+    const cur = spans[spans.length - 1];
+    const prev = spans[spans.length - 2];
+    if (!prev.done) return '';
+    const prevSpan = Math.max(0, packSpanEnd(prev) - prev.openAt);
     if (prevSpan <= 0) return '';
-    const used = packUsed(h, cur);
-    const done = used.length >= cur.size;
-    /* 这一包还没抽完：只补「上一包多久抽完」这个基准，不重复第一行已有的
-       「这包开了多久 / 还剩几支」，两行并列着看就是完整对比。 */
-    if (!done) return '上一包 ' + packSpanText(prevSpan) + ' 就抽完了';
-    const curEnd = Number(used[used.length - 1].t);
-    const curSpan = Math.max(0, curEnd - Number(cur.at));
+    if (!cur.done) return '上一包 ' + packSpanText(prevSpan) + ' 就抽完了';
+    const curSpan = Math.max(0, packSpanEnd(cur) - cur.openAt);
     return '上一包 ' + packSpanText(prevSpan) + ' · 这一包 ' + packSpanText(curSpan);
   }
 
   function packGridHtml(h) {
-    const pack = currentPack();
-    if (!pack) {
+    const sp = currentSpan(h);
+    if (!sp) {
       return '<div class="pack-grid is-empty">' +
-        '<button type="button" class="pack-open" data-act="pack-open">开一包</button>' +
+        '<button type="button" class="pack-open" data-act="pack-open">记一笔买烟</button>' +
       '</div>';
     }
-    const used = packUsed(h, pack).length;
+    const used = Math.min(sp.used, sp.size);
     let cells = '';
-    for (let i = 0; i < pack.size; i++) {
+    for (let i = 0; i < sp.size; i++) {
       cells += '<i class="pk' + (i < used ? ' out' : '') + '"></i>';
     }
-    return '<div class="pack-grid">' + cells + '</div>';
+    return '<div class="pack-grid' + (sp.done ? ' is-done' : '') + '">' + cells + '</div>';
   }
 
   /* 省钱：按「累计无烟天数」折算，不用「连续」——
@@ -5500,9 +5608,25 @@ body.modal-open{overflow:hidden}
       toast('刚刚已经记过了');
       return;
     }
+    /* 抽了就要记下来，任何时候都不拦——记录是事实，归包只是口径。
+       但要让用户知道这一次落在哪里：接到下一包了，还是没包可归。 */
+    const watchPack = isSmoke(h) && kind === 's';
+    const doneBefore = watchPack ? packSpans(h).filter(function (x) { return x.done; }).length : 0;
+    const orphBefore = watchPack ? packOrphans(h) : 0;
     state.cravings.push({ id: uid(), t: now, k: kind, h: hid, g: '', s: 0 });
     save();
     render();
+    if (watchPack) {
+      const doneAfter = packSpans(h).filter(function (x) { return x.done; }).length;
+      if (packOrphans(h) > orphBefore) {
+        toast('库存空了 · 这 1 支先记着，补一笔买烟后会自动归到新包');
+        return;
+      }
+      if (doneAfter > doneBefore) {
+        toast('这包抽完了 · 已接上下一包');
+        return;
+      }
+    }
     if (isSmoke(h)) {
       toast(kind === 's' ? '已记一次 · 连续天数从今天重新算' : '扛住了 💪 已记一次');
     } else {
@@ -6764,8 +6888,8 @@ body.modal-open{overflow:hidden}
     const best = quitBest(h);
     const saved = quitSaved(h);
     const mile = quitNextMile(streak);
-    const pack = currentPack();
-    const used = pack ? packUsed(h, pack).length : 0;
+    const span = currentSpan(h);
+    const pack = span ? span.pack : null;
     const color = esc(h.color || '#7a8471');
 
     /* 文案不能有羞辱感。抽了就写「记了 N 次」，不要写「破戒」「失败」——
@@ -6783,15 +6907,27 @@ body.modal-open{overflow:hidden}
     }
 
     const lines = [];
-    if (pack) {
-      const left = Math.max(0, pack.size - used);
-      lines.push('<span><i' + (left ? '' : ' class="dim"') + '></i>这包开了 ' +
-        packSpan(h, pack) + ' · 还剩 ' + left + ' 支</span>');
+    if (span) {
+      if (span.done) {
+        const stock = packStock(h);
+        lines.push('<span><i class="dim"></i>这包抽完了 · 用了 ' + packSpanTextOf(span) +
+          (stock ? ' · 库存还有 ' + stock + ' 包' : '') + '</span>');
+      } else {
+        const left = Math.max(0, span.size - span.used);
+        lines.push('<span><i' + (left ? '' : ' class="dim"') + '></i>这包开了 ' +
+          packSpanTextOf(span) + ' · 还剩 ' + left + ' 支</span>');
+      }
       /* 戒烟页才展示「上一包对比」，今日页窄卡不塞这条（放不下也重复） */
       if (compare) {
         const cmp = packCompareLine(h);
         if (cmp) lines.push('<span><i class="dim"></i>' + cmp + '</span>');
       }
+    }
+    /* 库存空的时候抽的那些：不算丢，只是没包可归。不显示的话，
+       「今天 5 支」和「这包 0 支」对不上，用户会以为算错了。 */
+    const orph = packOrphans(h);
+    if (orph > 0) {
+      lines.push('<span><i class="dim"></i>另有 ' + orph + ' 支没归包（当时库存空）</span>');
     }
     if (saved) {
       lines.push('<span><i></i>少抽 ' + saved.sticks + ' 支 · 省了 ¥' + Math.round(saved.money) + '</span>');
@@ -6799,6 +6935,28 @@ body.modal-open{overflow:hidden}
       lines.push('<span><i class="dim"></i>累计 ' + total + ' 天' +
         (best > streak ? ' · 最长 ' + best + ' 天' : '') + '</span>');
     }
+
+    /* 末支软确认：只在「刚抽完、还没确认」时挂一条，不弹窗、不打断连点。
+       48 小时内有效——再久用户也想不起具体时刻，问了只会烦。
+       取「最近一个抽完且未确认」的包，不能只看 currentSpan：
+       后面还有整包在抽时，currentSpan 指向的是那包，先抽完的那包就永远等不到确认。
+       确认值存 pack.cf：它是用户给的事实，不是派生量。 */
+    const nowSec = Math.round(Date.now() / 1000);
+    const cfList = packSpans(h).filter(function (x) {
+      return x.done && !x.cf && nowSec - x.closeAt < 172800;
+    });
+    const cfSpan = cfList.length ? cfList[cfList.length - 1] : null;
+    /* 后面还有整包在抽时，这条说的是「上一包」——不写清楚会被当成当前这包 */
+    const cfIsLast = cfSpan && span && cfSpan.pack.id === span.pack.id;
+    const cfBar = cfSpan
+      ? '<div class="pack-cf">' +
+          '<span>' + (cfIsLast ? '这包 ' : '上一包 ') +
+          '<b>' + tsDay(cfSpan.closeAt).slice(5) + ' ' + tsHHMM(cfSpan.closeAt) +
+          '</b> 抽完的？</span>' +
+          '<button data-act="pack-cf-ok" data-id="' + esc(cfSpan.pack.id) + '">对</button>' +
+          '<button data-act="pack-cf-edit" data-id="' + esc(cfSpan.pack.id) + '">改时间</button>' +
+        '</div>'
+      : '';
 
     const foot = streak === 0
       ? '先撑过今天 · 头三天最难受，挺过去就顺了'
@@ -6818,6 +6976,7 @@ body.modal-open{overflow:hidden}
         '<div class="vital-sub">' + sub + '</div>' +
       '</div>' +
       '<div class="quit-side">' + packGridHtml(h) + '</div>' +
+      cfBar +
       '<div class="move-lines">' + lines.join('') + '</div>' +
       '<div class="move-foot">' + foot + '</div>' +
       (today
@@ -9336,18 +9495,37 @@ body.modal-open{overflow:hidden}
       '</div></div>';
   }
 
-  /* 买烟记录列表 */
+  /* 买烟记录列表：最新在上。每行带状态，抽完的显示「这包从拆到抽完用了多久」 */
   function quitPacksPanel(h) {
-    const packs = Array.isArray(state.packs) ? state.packs : [];
-    const curId = currentPack() ? currentPack().id : '';
-    const rows = packs.slice().reverse().map(function (p) {
-      const used = packUsed(h, p).length;
-      const isCur = p.id === curId;
+    const spans = packSpans(h);
+    const cur = currentSpan(h);
+    const curId = cur && !cur.done ? String(cur.pack.id) : '';
+    const now = Math.round(Date.now() / 1000);
+    const rows = spans.slice().reverse().map(function (sp) {
+      const p = sp.pack;
+      const isCur = String(p.id) === curId;
+      const stocking = !sp.done && sp.openAt > now;
+      let st, stCn, meta;
+      if (sp.done) {
+        st = 'done'; stCn = '已抽完';
+        meta = sp.size + '/' + sp.size + ' 支 · 抽了 ' + packSpanTextOf(sp);
+      } else if (stocking) {
+        st = 'stock'; stCn = '库存';
+        meta = sp.size + ' 支 · 还没拆';
+      } else {
+        st = 'live'; stCn = '在抽';
+        meta = sp.used + '/' + sp.size + ' 支 · 还剩 ' + (sp.size - sp.used) + ' 支';
+      }
       return '<div class="qpack' + (isCur ? ' cur' : '') + '">' +
         '<div class="qpack-main">' +
-          '<b>' + esc(p.name || '未命名') + (isCur ? ' <em>当前</em>' : '') + '</b>' +
-          '<small>' + tsDay(p.at) + ' 开包 · ' + (p.price ? '¥' + p.price : '未填价格') +
-            ' · ' + used + '/' + p.size + ' 支</small>' +
+          /* 不再挂「当前」小标签：状态标签里的「在抽」已经是这个意思，
+             两个并排看着像两条不同的信息。靠 .qpack.cur 的边框做高亮就够了。 */
+          '<b>' + esc(p.name || '未命名') +
+            '<i class="qpack-st ' + st + '">' + stCn + '</i>' +
+          '</b>' +
+          '<small>' + tsDay(p.at).slice(5) + ' ' + tsHHMM(p.at) + ' 买' +
+            ' · ' + (p.price ? '¥' + p.price : '未填价格') +
+            ' · ' + meta + '</small>' +
         '</div>' +
         '<button class="icon-btn" data-act="pack-edit" data-id="' + p.id + '" title="编辑">✎</button>' +
         '<button class="icon-btn" data-act="pack-del" data-id="' + p.id + '" title="删除">🗑</button>' +
@@ -9356,7 +9534,6 @@ body.modal-open{overflow:hidden}
     return '<div class="panel"><h3>买烟记录 <button class="btn primary sm" data-act="pack-new">记一笔</button></h3>' +
       '<div class="qpack-list">' + (rows || '<div class="empty-box">还没有买烟记录，点右上角「记一笔」。</div>') + '</div></div>';
   }
-
   function packModal(pack) {
     const isNew = !pack;
     const p = pack || { name: '', price: '', size: 20, at: Math.round(Date.now() / 1000) };
@@ -9364,11 +9541,12 @@ body.modal-open{overflow:hidden}
       '<h3>' + (isNew ? '记一笔买烟' : '编辑买烟记录') + '</h3>' +
       '<div class="form-grid">' +
         '<label class="field"><span>买烟日期</span><input type="date" name="date" value="' + tsDay(p.at) + '"></label>' +
+        '<label class="field"><span>时间</span><input type="time" name="time" value="' + tsHHMM(p.at) + '"></label>' +
         '<label class="field"><span>烟的名称</span><input name="name" maxlength="20" value="' + esc(p.name || '') + '" placeholder="例如：黄鹤楼"></label>' +
         '<label class="field"><span>价格（元）</span><input name="price" type="number" min="0" step="0.5" value="' + (Number(p.price) || '') + '" placeholder="例如 25"></label>' +
         '<label class="field"><span>一包几支（可选）</span><input name="size" type="number" min="1" max="50" value="' + (Number(p.size) || 20) + '"></label>' +
       '</div>' +
-      '<p class="hint">开包日期是「这包开了多久」的起算点。改成今天，就从今天重新计。</p>' +
+      '<p class="hint">时间用来分清同一天买的两包。这包从什么时候开始算，要等上一包抽完——没抽完就先算库存。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
         '<button type="submit" class="btn primary">保存</button></div>' +
@@ -9382,24 +9560,67 @@ body.modal-open{overflow:hidden}
       return el ? el.value.trim() : '';
     };
     const date = get('date');
+    const time = get('time');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('请选一个买烟日期'); return; }
-    const at = Math.round(parseD(date).getTime() / 1000);
+    if (!/^\d{2}:\d{2}$/.test(time)) { toast('请填一个买烟时间'); return; }
+    /* 日期只到天，同一天买两包会撞成同一个时刻；加上时分才分得清先后 */
+    const at = Math.round(parseD(date).getTime() / 1000) +
+      (Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))) * 60;
     const name = get('name');
     const price = Math.max(0, Math.min(99999, Number(get('price')) || 0));
     const size = clamp(parseInt(get('size'), 10) || 20, 1, 50);
     if (!Array.isArray(state.packs)) state.packs = [];
     if (id) {
       const p = state.packs.find(function (x) { return x.id === id; });
-      if (p) { p.at = at; p.name = name; p.price = price; p.size = size; }
+      if (p) {
+        /* 支数一改，「末支是哪一支」就变了，旧的抽完确认作废 */
+        if (Number(p.size) !== size) p.cf = 0;
+        p.at = at; p.name = name; p.price = price; p.size = size;
+      }
     } else {
       state.packs.push({ id: uid(), at: at, name: name, price: price, size: size });
     }
-    state.packs.sort(function (a, b) { return a.at - b.at; });
+    /* at 主键 + id 次键：同一分钟买两包时，两端算出来的顺序必须一致 */
+    state.packs.sort(function (a, b) {
+      return (Number(a.at) - Number(b.at)) || String(a.id).localeCompare(String(b.id));
+    });
     save();
     render();
     closeModal();
     toast('买烟记录已保存');
   }
+
+  /* 末支确认的第二档：用户想改时间才弹这个窗。
+     只改「这包抽了多久」的口径，不动打卡记录、不动支数。 */
+  function packCfModal(pack, sp) {
+    openModal('<form class="modal-card" id="pack-cf-form" data-id="' + esc(pack.id) + '">' +
+      '<h3>这包是什么时候抽完的</h3>' +
+      '<p class="muted-sm">只影响「抽了多久」这个数字，不改打卡记录，也不改动支数。</p>' +
+      '<label class="field"><span>抽完时间</span>' +
+        '<input type="datetime-local" name="dt" value="' +
+          dtLocalVal(sp.cf || sp.closeAt) + '"></label>' +
+      '<p class="hint">默认是最后一条记录的时刻。如果当时是补记的，这里填真实抽完的时间。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function savePackCfForm(form) {
+    const id = form.dataset.id || '';
+    const el = form.querySelector('[name="dt"]');
+    const v = el ? el.value : '';
+    const d = v ? new Date(v) : null;
+    if (!d || isNaN(d.getTime())) { toast('请选一个抽完时间'); return; }
+    const pack = (state.packs || []).find(function (x) { return x.id === id; });
+    if (!pack) return;
+    pack.cf = Math.round(d.getTime() / 1000);
+    save();
+    render();
+    closeModal();
+    toast('已记下抽完时间');
+  }
+
 
   function viewStats() {
     const now = new Date();
@@ -12787,15 +13008,29 @@ body.modal-open{overflow:hidden}
       render();
       toast('已删除这条买烟记录');
     },
-    'pack-open': el => {
-      const h = (state.habits || []).find(function (x) { return !x.archivedAt && isSmoke(x); });
-      if (!h) return;
-      if (!Array.isArray(state.packs)) state.packs = [];
-      state.packs.push({ id: uid(), at: Math.round(Date.now() / 1000), name: '', price: 0, size: 20 });
+    /* 软确认条上的「对」：把当前算出来的末支时刻落成 pack.cf。
+       不写这一下的话，提示条会一直在——它是「用户确认过」的凭据。 */
+    'pack-cf-ok': el => {
+      const pack = (state.packs || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!pack) return;
+      const sp = spanOf(quitHabit(), pack);
+      if (!sp || !sp.done) return;
+      pack.cf = sp.closeAt;
       save();
       render();
-      toast('开了一包 · 20 支');
+      toast('已确认 · 这包抽了 ' + packSpanTextOf(sp));
     },
+    'pack-cf-edit': el => {
+      const pack = (state.packs || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!pack) return;
+      const sp = spanOf(quitHabit(), pack);
+      if (!sp) return;
+      packCfModal(pack, sp);
+    },
+
+    /* 空包时的按钮：走正式表单，让用户能填时间、价格、支数。
+       以前这里直接 push 一条空白记录，名字和价格都只能事后再补。 */
+    'pack-open': el => packModal(null),
     /* 戒除卡右上角圆圈：点一下 = 今天没守住（记一次），再点 = 撤销。
        语义跟养成相反——养成是「点 = 完成」，戒除是「点 = 破功，不点才是完成」。 */
     'quit-mark': el => {
@@ -13425,6 +13660,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'pack-form') {
       e.preventDefault();
       savePackForm(form);
+    } else if (form.id === 'pack-cf-form') {
+      e.preventDefault();
+      savePackCfForm(form);
     } else if (form.id === 'essay-form') {
       e.preventDefault();
       saveEssayForm(form);

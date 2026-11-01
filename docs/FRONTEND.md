@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v66（2026-11-01）
+最后更新：v68（2026-11-01）
 
 ---
 
@@ -166,8 +166,25 @@ render()
 
 **习惯页布局（v66）**：`.habits-wrap` 有归档时是两栏 `minmax(0,1fr) 340px`
 （左 `.habits-main` 我的习惯、右 `.habits-arch` 已归档），没归档时**退回单栏占满**——
-不留一块常年空着的板。容器 `max-width:1140px`，**不要复用 `.settings-wrap`**（那是 820px，设置页在用）。
-`<900px` 自动变单列。
+不留一块常年空着的板。`<900px` 自动变单列。容器**不设 `max-width`**，宽度交给 `.main`（见下节）。
+
+### 页面宽度约定（v67）
+
+内容宽度只由 `.main` 决定：默认 `max-width:1240px`；`data-layout="top"` 且视口 ≥1520 时放宽到 1680。
+页面级的包裹容器（`.habits-wrap` / `.settings-wrap` …）**不要再写 `max-width`**。
+
+原因：`.main` 是 `flex-direction:column`，子项带 `max-width` 又没 `margin:auto` 时会被顶到左边，
+右边留一条空白，跟今日 / 用药 / 待办（都铺满）对不齐。这个坑踩过两次：
+`.settings-wrap` 曾是 860px、`.habits-wrap` 曾是 1140px，大屏上都表现为「内容左靠」。
+
+真要限宽只有两种写法：
+
+1. **居中**：`max-width:1040px;margin-left:auto;margin-right:auto`（`.cal-wrap` 就是这么写的）；
+2. **铺满 + 内部改多列**：`.settings-wrap` 在 ≥1180px 且 top 布局时走 `columns:2` 瀑布流。
+   单列铺满会把说明文字拉成一行上百字、排版预览卡拉成横条。
+
+`columns` 不用 `grid` 的原因：grid 行优先，「排版」会被旁边的「主题」拉高，下面留一大块空洞；
+瀑布流按高度堆，卡片之间不留空。代价是 DOM 顺序按列读，Tab 焦点跟视觉不完全一致，设置页可接受。
 
 管理行右侧的 `.habit-today` 是「今日状态灯」：保持类看 `countOf >= target`，
 戒除类看 `met()`（不点就是守住）。实心 `✓` = 今天达标，空心 `—` = 未达标。
@@ -283,7 +300,9 @@ document.addEventListener('click', e => {
 `craveList()` `cravingsOf(hid)` `dayCravings(hid,ds)` `lastSmokeTs(hid)` `quitStartDay(h)`
 `quitStreak(h)` `quitTotal(h)` `quitBest(h)` `quitRange(h,days)` `craveHours(hid)`
 `craveTriggers(hid)` `quitSaved(h)` `quitNextMile(streak)`
-`currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)` `packCompareLine(h)`
+`packSpans(h)` `spanOf(h,pack)` `currentSpan(h)` `currentPack(h)` `packUsed(h,pack)`
+`packOrphans(h)` `packStock(h)` `packSpanTextOf(span)` `packSpanText(sec)`
+`packSpan(h,pack)` `packGridHtml(h)` `packCompareLine(h)` `dtLocalVal(ts)`
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
 `habitById(hid)` `isSmoke(h)` `isQuitLike(h)` `quitWord(h)` `craveCn(k,h)` `quitSlips(h,d)`
 
@@ -327,7 +346,18 @@ document.addEventListener('click', e => {
 - 戒烟页上半是 `.quit-top` **左卡右日历并排**：`.quit-hero`（戒烟卡 `flex:1` 约 750px）
   + 日历 `.panel`（固定 360px），`align-items:stretch` 等高、月历格子 `grid-auto-rows:1fr` 拉伸填满。
   今日页窄卡仍是纵向堆叠（`quit-body` 默认 `flex-direction:column`）
-- 没有买烟记录时格子里放「开一包」按钮（`pack-open`），否则提示文字是死路
+- 没有买烟记录时格子里放「记一笔买烟」按钮（`pack-open`，直接开 `packModal`，
+  不再 push 一条空白记录）
+- **一包烟的区间全是派生（v68）**：`packSpans(h)` 把「点一根」事件按包切成左闭右开区间，
+  `openAt(k) = max(这包的 at, closeAt(k-1) + 1)`。`max()` 那一下就是「自动绑定下一包」，
+  不用字段、不用用户点「开新包」。算法和三个派生量见 DATA-MODEL 5.5。
+  卡面永远画 `currentSpan(h)`（第一个没抽满的包），熄灭格数 `Math.min(used, size)` ——
+  以前 `packUsed` 是「开包之后的全部」，同一天买的两包会一起涨到 `22/20`
+- **末支软确认（`cfBar`）**：最近一包抽完、48 小时内、还没确认过时，卡面挂一条 `.pack-cf`。
+  不是弹窗、可以不理。「对」= 落 `pack.cf = closeAt`；「改时间」= `packCfModal` → `packCfForm`。
+  只在这一个时刻问，因为时长只需要两个锚点（首支靠 `at`，末支靠这一下）
+- 库存空还继续点「点一根」：**照记，不拦**。给一句 toast，卡面加「另有 N 支没归包」。
+  记录是事实、归包只是口径 —— 置灰会制造数据黑洞，把「今天 X 支」也一起弄假
 - 按钮行三格：`点一根 / 忍一次 / 撤销`，**撤销窄一格**（`grid-template-columns:1fr 1fr auto` +
   `padding:0 14px`）、底色更淡，无记录时 `disabled`。**不要加二次确认**——撤错再点一次就补回来了
 - `addCraving` 的去重窗口只有 **1 秒**：再宽会挡住「补记今天抽了几支」那种连点

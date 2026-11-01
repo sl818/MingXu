@@ -45,11 +45,23 @@ board['data']['habits'].append({
     'target': 1, 'unit': '次', 'color': '#9c5a5a', 'note': '',
     'createdAt': '2026-09-01T00:00:00Z', 'notify': True,
 })
-board['data']['cravings'] = [
-    {'id': 'cq1', 't': _t8, 'k': 'r', 'h': 'h_drink', 'g': 'meal', 's': 0},
-    {'id': 'cq2', 't': _t8 + 3600, 'k': 'r', 'h': 'h_drink', 'g': 'bored', 's': 0},
-    {'id': 'cq3', 't': _t8 - 86400, 'k': 's', 'h': 'h_drink', 'g': 'stress', 's': 0},
+# 三种包状态要同时出现，否则 .pack-cf / .qpack-st.done / .qpack-st.stock 取不到样本：
+#   pk1 昨天抽完（触发末支软确认条）、pk2 今天在抽、pk3 还没轮到（库存）
+_p1 = _t8 - 86400
+board['data']['packs'] = [
+    {'id': 'pk1', 'at': _p1, 'name': '普皖', 'price': 15, 'size': 20},
+    {'id': 'pk2', 'at': _t8 + 3600, 'name': '普皖', 'price': 15, 'size': 20},
+    {'id': 'pk3', 'at': _t8 + 7200, 'name': '利群', 'price': 18, 'size': 20},
 ]
+_cr = [
+    {'id': 'cq1', 't': _t8, 'k': 'r', 'h': 'h_drink', 'g': 'meal', 's': 0},
+    {'id': 'cq2', 't': _t8 + 1800, 'k': 'r', 'h': 'h_drink', 'g': 'bored', 's': 0},
+]
+for _i in range(20):
+    _cr.append({'id': 's1_%d' % _i, 't': _p1 + _i * 1800, 'k': 's', 'h': 'h_drink', 'g': '', 's': 0})
+for _i in range(3):
+    _cr.append({'id': 's2_%d' % _i, 't': _t8 + 3600 + 1800 * (_i + 1), 'k': 's', 'h': 'h_drink', 'g': '', 's': 0})
+board['data']['cravings'] = _cr
 
 H.do_GET = _get_push
 
@@ -105,7 +117,8 @@ SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
 SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
-                  '.qpack-main small', '.qc-day span', '.qc-day b']
+                  '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
+                  '.pack-cf button', '.qc-day span', '.qc-day b']
 # 习惯页：管理行的今日状态灯（v66）
 SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
