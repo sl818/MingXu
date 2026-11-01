@@ -3141,9 +3141,6 @@ body.modal-open{overflow:hidden}
 @media (pointer: coarse){
   .cl-item{position:relative}
   .cl-item::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
-  /* 戒除卡右上角的圆圈只有 22px，手机上点不准，补满 44px 热区 */
-  .quit-dot{position:relative}
-  .quit-dot::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px}
 }
 
 /* ============ v50 戒烟常驻卡 ============
@@ -3247,11 +3244,9 @@ body.modal-open{overflow:hidden}
    选择器必须写成 button.habit-check.quit-dot.broken（0,4,0）：
    themes/skin-*.css 里是 `:root[data-skin="xxx"] .habit-check`（0,3,1），
    裸 .quit-dot.broken（0,2,0）会被皮肤样式压掉，破了看不出红边。 */
-/* 跟养成卡的 pips/stepper 同一档上下间距，并排时不至于矮一截 */
-.quit-count{margin:16px 0 12px}
-.quit-dot{padding:0;cursor:pointer}
-button.habit-check.quit-dot.broken{border:2px solid var(--bad);color:var(--text)}
-button.habit-check.quit-dot:disabled{opacity:.4;pointer-events:none}
+/* 戒除卡右上角：跟保持卡的 ✓ 同一个位置，只做状态灯不做按钮。
+   破了只在边框上用 --bad，里面的 ! 仍用 --text（小字上 --bad 对比度不够）。 */
+.habit-card .habit-check.quit-dot.broken{border:2px solid var(--bad);color:var(--text)}
 .quit-head{margin-top:5px}
 .quit-side{display:flex;justify-content:center}
 .quit-side .pack-grid{width:100%}
@@ -5248,8 +5243,7 @@ button.habit-check.quit-dot:disabled{opacity:.4;pointer-events:none}
                双按钮「点一根 / 忍一次」+ 烟盒 + 买烟记录 + 抽烟趋势
      戒烟不放进「添加习惯」的类型下拉里——它是内置卡，不是可选类型。 */
   const QUIT_WORD = {
-    quit:  { hero: '破', hold: '守', keep: '守住',
-             note: '守不住的时候点一下 · 不点就是一直守着' },
+    quit:  { hero: '破', hold: '守', keep: '守住' },
     smoke: { s: '点一根', r: '忍一次', hero: '抽', hold: '忍', keep: '无烟',
              note: '想抽的时候点一下 · 抽了和忍住了都记', unit: '每天保持 0 根' }
   };
@@ -6643,11 +6637,15 @@ button.habit-check.quit-dot:disabled{opacity:.4;pointer-events:none}
             '</div>'
           : '');
     } else if (isQ) {
-      /* 戒除：跟养成同一个位置、同一套读法——数字是「今天几次未达标」。
-         养成的 0/1 次是「今天完成几次」，戒除的 0/1 次是「今天破了几次」，
-         0 就是守住了。连续天数放副标题，两处不重复。 */
-      control = '<div class="habit-count quit-count">' + slips +
-        '<span> 次未达标</span></div>';
+      /* 戒除跟保持长得完全一样：中间一条可点的横条 + 一行数字。
+         区别只在填充方向——保持「点了才满」，戒除「守住才满，点一下取消」。
+         数字是「今天几次未达标」，0 就是守住了。 */
+      control = '<div class="pips"><button type="button" class="pip' + (broken ? '' : ' on') + '"' +
+          ' data-act="quit-mark" data-id="' + h.id + '"' +
+          (isToday ? '' : ' disabled') +
+          ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
+          ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>' +
+        '<div class="habit-count">' + slips + '<span> 次未达标</span></div>';
     } else if (target <= 6) {
       let pips = '';
       for (let i = 1; i <= target; i++) {
@@ -6678,19 +6676,16 @@ button.habit-check.quit-dot:disabled{opacity:.4;pointer-events:none}
       '<div class="habit-head">' +
         '<span class="habit-icon">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + esc(sub) + '</small></div>' +
+        /* 右上角跟保持卡一样：只是状态灯，不可点。打卡在中间那条横条上。 */
         ((isQ && !isSmokeH)
-          ? '<button type="button" class="habit-check quit-dot' + (broken ? ' broken' : '') + '"' +
-              ' data-act="quit-mark" data-id="' + h.id + '"' +
-              (isToday ? '' : ' disabled title="只能记今天"') +
-              ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
-              ' title="' + (broken ? '撤销今天的记录' : '今天没守住？点一下') + '">' +
-              (broken ? '!' : '') + '</button>'
+          ? '<span class="habit-check quit-dot' + (broken ? ' broken' : '') + '">' +
+              (broken ? '!' : '') + '</span>'
           : '<span class="habit-check">✓</span>') +
       '</div>' +
       control +
-      (isQ
-        ? '<div class="habit-note">' + esc(h.note || w.note) + '</div>'
-        : (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '')) +
+      /* 备注只显示用户自己填的，没填就整块不渲染（虚线也不出现）。
+         不要给默认文案——那是替用户说话，还占掉他写自己规则的位置。 */
+      (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '') +
       '<div class="habit-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
       '</article>';
   }

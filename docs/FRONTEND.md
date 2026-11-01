@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v64（2026-11-01）
+最后更新：v65（2026-11-01）
 
 ---
 
@@ -285,9 +285,14 @@ document.addEventListener('click', e => {
 | `quit` | 戒除（不熬夜） | **今天没守住**，不点就是守着 | 右上角圆圈 + `0 次未达标` |
 | `smoke` | 戒烟（`h_drink` 唯一一条） | 双按钮「点一根 / 忍一次」 | 烟盒宽卡 `quitCard` |
 
-- **`quit` 和 `build` 的卡片是同一副骨架**：`habit-head`（图标 + 标题 + 右下角状态）+ `control` + 进度条。
-  区别只在两处——右上角那个圆点做成可点的 `quit-dot`（点击 = 记一次未达标，再点撤销），
-  以及 `control` 的数字是「今天几次未达标」而不是「今天完成几次」。
+- **`quit` 和 `build` 的卡片是同一副骨架**：`habit-head`（图标 + 标题 + 右上角状态灯）+ `pips` 横条 + `habit-count` + 备注。
+  打卡按钮就是中间那条 **`.pip`**，两张卡同一个位置：
+  保持「点了才填满」，戒除「守住就填满，点一下取消」——点了就是记一次未达标，再点撤销。
+- 右上角 `.quit-dot`（`span`）**只是状态灯，不可点**：守住跟保持卡的 `✓` 一样是实心，
+  破了是红边 + `!`（`broken`）。**别把它做成按钮**——两张卡的点按位置必须一致。
+- `control` 的数字是「今天几次未达标」（0 就是守住了），保持卡是「今天完成几次 / 目标」。
+- **备注只显示用户自己填的 `h.note`**，没填就不渲染整块（虚线也不出现）。
+  不要给默认文案——那是替用户说话，还占掉他写自己规则的位置。
 - `quit` 只记 `k === 's'` 事件（未达标），**没有 `r`**——不点就是守住，不需要第二条按钮。
   `smoke` 才两边都记（`crave` 两个按钮）。
 - **所有文案走 `quitWord(h)` 词表**（`QUIT_WORD`），别在渲染里写死「点一根」。
@@ -296,7 +301,7 @@ document.addEventListener('click', e => {
   写 `type === 'quit'` 会把戒烟漏掉。
 - `smoke` 不出现在「添加习惯」的类型下拉里（它是内置常驻卡），编辑时给一个固定的展示项。
 - 表单里烟专属字段用 `data-smoke-only` 控制，只有 `smoke` 显示；`quit` 只剩「开始日期」。
-- **`.quit-dot.broken` 的选择器必须写成 `button.habit-check.quit-dot.broken`**：
+- **`.quit-dot.broken` 的选择器必须写成 `.habit-card .habit-check.quit-dot.broken`**：
   `themes/skin-*.css` 里是 `:root[data-skin="xxx"] .habit-check`（0,3,1），
   裸类名（0,2,0）会被皮肤样式压掉，破了看不出红边。
 

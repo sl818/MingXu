@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v64（2026-11-01）
+最后更新：v65（2026-11-01）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v64（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v64'`） |
+| 代码版本 | v65（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v65'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -85,6 +85,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v62 | 11-01 | 待办页与戒烟页日历改周一起始 |
 | v63 | 11-01 | 戒除拆两类（`quitKind`）——**当天被 v64 推翻**，用户否决子字段方案 |
 | v64 | 11-01 | **习惯重分三类**：`build` 保持 / `quit` 戒除（点一下 = 今天没守住）/ `smoke` 戒烟（独立内置常驻卡）。删掉 `quitKind` 子字段和「戒什么」下拉 |
+| v65 | 11-01 | 戒除卡与保持卡完全同构：打卡按钮改成中间那条 `.pip` 横条，右上角圆圈只做状态灯；删掉默认说明文案，改由用户备注 |
 
 ### 两次值得记住的事故
 
