@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v46（2026-10-30）
+最后更新：v63（2026-11-01）
 
 ---
 
@@ -56,11 +56,12 @@
 | `name` | string | — | 习惯名 |
 | `icon` | string | `✅` | emoji |
 | `type` | `'build'` \| `'quit'` | `'build'` | quit 走事件流，见第 5.4 节；`build` 看次数 |
+| `quitKind` | `'smoke'` \| `'other'` | 由 `guessQuitKind` 推断 | 只 `quit` 用：`smoke` 才是戒烟（独享烟盒 / 买烟 / 抽烟趋势），`other` 是戒糖戒酒这类，**不许出现烟的字眼** |
 | `target` | number | 1 | 每日目标次数 |
 | `unit` | string | `'次'` | 单位 |
 | `color` | string | — | 卡片强调色 |
 | `note` | string | `''` | 备注。`quit` 类型为空时卡片显示一句引导语 |
-| `quitStart` | `'YYYY-MM-DD'` | 无 | 只 `quit` 用：戒烟起点。没有就退回 `createdAt` 的日期 |
+| `quitStart` | `'YYYY-MM-DD'` | 无 | 只 `quit` 用：起点日期（戒烟叫「戒烟起点」，其他叫「开始日期」）。没有就退回 `createdAt` 的日期 |
 | `quitPerDay` | number | 0 | 只 `quit` 用：原来每天几支。0 = 不折算省钱 |
 | `quitPackPrice` | number | 0 | 只 `quit` 用：一包多少钱（元）。0 = 不折算省钱 |
 | `quitPackSize` | number | 20 | 只 `quit` 用：一包几支，用来把包价换算成单价 |

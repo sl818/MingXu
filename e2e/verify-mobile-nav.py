@@ -92,8 +92,9 @@ with sync_playwright() as p:
         };
     }""")
     chk('抽屉打开', bool(sheet), '')
-    chk('六个入口齐全（%s）' % '/'.join(sheet['labels']),
-        sheet['labels'] == ['习惯', '随笔', '体重', '日历', '统计', '设置'],
+    # v61 起抽屉里多了「戒烟」（导航在用药后），从 6 项变 7 项
+    chk('七个入口齐全（%s）' % '/'.join(sheet['labels']),
+        sheet['labels'] == ['戒烟', '习惯', '随笔', '体重', '日历', '统计', '设置'],
         json.dumps(sheet['labels'], ensure_ascii=False))
     chk('抽屉停在底部导航之上（bottom=%d / vh=%d / 栏高=%d）' % (sheet['bottom'], sheet['vh'], sheet['barH']),
         abs(sheet['bottom'] - (sheet['vh'] - sheet['barH'])) <= 2,
@@ -169,7 +170,8 @@ with sync_playwright() as p:
         sideItems: document.querySelectorAll('.sidebar .nav-item').length
     })""")
     chk('桌面端不显示底部导航', not dt['barShown'], json.dumps(dt))
-    chk('桌面侧栏仍有 9 个页面入口', dt['sideItems'] == 9, 'sideItems=%d' % dt['sideItems'])
+    # v61 起导航 9 项变 10 项（加「戒烟」）
+    chk('桌面侧栏仍有 10 个页面入口', dt['sideItems'] == 10, 'sideItems=%d' % dt['sideItems'])
     dctx.close()
 
     print('\n[7] 错误汇总')

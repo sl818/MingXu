@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v53（2026-10-30）
+最后更新：v63（2026-11-01）
 
 ---
 
@@ -275,6 +275,22 @@ document.addEventListener('click', e => {
 `craveTriggers(hid)` `quitSaved(h)` `quitNextMile(streak)`
 `currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)` `packCompareLine(h)`
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
+`habitById(hid)` `guessQuitKind(h)` `quitKindOf(h)` `isSmoke(h)` `quitWord(h)` `craveCn(k,h)`
+
+**`type === 'quit'` 分两类（`quitKind`）**：
+
+| | `smoke` 戒烟 | `other` 其他戒除 |
+|---|---|---|
+| 用词 | 点一根 / 忍一次 / 抽 / 忍 / 无烟 | 没忍住 / 扛住了 / 破 / 守 / 守住 |
+| 专属 UI | 烟盒格、买烟记录、抽烟趋势、戒烟页、统计页戒烟分析 | 全都没有 |
+| 表单 | 显示「原来每天几支 / 一包多少钱 / 一包几支」 | 全隐藏，只剩「开始日期」 |
+
+- **所有文案走 `quitWord(h)` 词表**（`QUIT_WORD`），别在渲染里写死「点一根」——
+  v63 之前写死过，结果「不熬夜」卡片上出现「点一根 / 忍一次」。
+- `isSmoke(h)` 是戒烟专属 UI 的唯一开关：`quitCard` / `quitHabit()` / `quitPanel()` / `pack-open` 都靠它。
+- `quitKindOf(h)` 缺值时退回 `guessQuitKind(h)`：`h_drink`、名字含「烟」、或有 `quitPerDay/quitPackPrice`
+  痕迹的算戒烟，其余算其他戒除，**幂等**（`ensureStateMaps` 会写回）。
+- 新建表单里「戒什么」默认「其他」，名称里出现「烟」自动切「戒烟」（用户手动改过就不再跟随）。
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
 
@@ -296,7 +312,7 @@ document.addEventListener('click', e => {
 
 要点：
 
-- `met()` 对 quit 的判断是「当天没有 `s` 事件」，不是「次数 = 0」
+- `met()` 对 quit 的判断是「当天没有 `s` 事件」，不是「次数 = 0」——两类通用
 - `habitStreak()` 开头就 `if (h.type === 'quit') return quitStreak(h)`，别往下走通用循环
 - `addCraving` 有 **3 秒同类型去重**：手抖双击不该记成两次犯瘾
 - 卡片按钮是 `crave-smoke` / `crave-resist`（`data-id` = 习惯 id），

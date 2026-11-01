@@ -105,7 +105,8 @@ def login(pg, layout='top'):
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
 
-EXPECT_NAV = ['今日', '用药', '待办', '习惯', '体重', '随笔', '日历', '统计', '设置']
+# v61 起导航多了「戒烟」页，位置在用药之后
+EXPECT_NAV = ['今日', '用药', '戒烟', '待办', '习惯', '体重', '随笔', '日历', '统计', '设置']
 
 with sync_playwright() as p:
     br = p.chromium.launch(channel='chrome', headless=True)
@@ -120,7 +121,8 @@ with sync_playwright() as p:
         tag = '[%s]' % layout
 
         nav = pg.evaluate("() => [...document.querySelectorAll('.nav-item')].map(e => e.textContent.trim())")
-        expect = EXPECT_NAV if layout != 'wide' else ['今日', '用药管理', '待办看板', '习惯', '体重与 BMI', '随笔', '打卡日历', '数据统计', '设置']
+        # v61 起导航多了「戒烟」页（位置在用药后）
+        expect = EXPECT_NAV if layout != 'wide' else ['今日', '用药管理', '戒烟', '待办看板', '习惯', '体重与 BMI', '随笔', '打卡日历', '数据统计', '设置']
         rec(tag + ' 导航顺序正确', nav == expect, str(nav))
 
         # 用药卡：只剩一条
