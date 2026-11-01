@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v65（2026-11-01）
+最后更新：v66（2026-11-01）
 
 ---
 
@@ -156,13 +156,23 @@ render()
 | `today` | `viewToday()` | 今日 | `.hero` `.vital-grid` `.board` `.rail` |
 | `meds` | `viewMeds()` | 用药 | `.med-board` `.med-group` `.med-row` `.med-stats` |
 | `board` | `viewBoard()` | 待办（看板） | `.board-shell` `.board-col-wrap` `.board-rail` `.task` |
-| `habits` | `viewHabits()` | 习惯管理 | `.habit-row` `.habit-sort` |
+| `habits` | `viewHabits()` | 习惯管理 | `.habits-wrap` `.habit-row` `.habit-today` `.habit-sort` |
 | `weight` | `viewWeight()` | 体重 | `.weight-row` `.chart` |
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
 | `calendar` | `viewCalendar()` | 日历（月 / 周两种） | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` |
 | `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` |
 | `settings` | `viewSettings()` | 设置 | `.ntf-box` `.pc-row` |
 | `more` | `viewMore()` | 「更多」页 | `.more-grid` `.more-card` |
+
+**习惯页布局（v66）**：`.habits-wrap` 有归档时是两栏 `minmax(0,1fr) 340px`
+（左 `.habits-main` 我的习惯、右 `.habits-arch` 已归档），没归档时**退回单栏占满**——
+不留一块常年空着的板。容器 `max-width:1140px`，**不要复用 `.settings-wrap`**（那是 820px，设置页在用）。
+`<900px` 自动变单列。
+
+管理行右侧的 `.habit-today` 是「今日状态灯」：保持类看 `countOf >= target`，
+戒除类看 `met()`（不点就是守住）。实心 `✓` = 今天达标，空心 `—` = 未达标。
+**未达标态不能用 `opacity` 压淡**——会把边框一起压没，深色主题下整圈看不见；
+边框走 `--line-strong`、文字走 `--muted`。
 
 > 表格里的类名都取自代码实际值。这类名字记错不会报错，只会让你 grep 不到东西，
 > 所以新增文档时请照着代码写，不要按印象写。

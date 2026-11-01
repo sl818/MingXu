@@ -106,6 +106,8 @@ SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
                   '.qpack-main small', '.qc-day span', '.qc-day b']
+# 习惯页：管理行的今日状态灯（v66）
+SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
@@ -148,6 +150,9 @@ with sync_playwright() as p:
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
+            nav(pg, 'habits')
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_HABITS_PAGE)
             nav(pg, 'quit')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_QUIT_PAGE)

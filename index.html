@@ -344,6 +344,34 @@ h1,h2,h3,h4,p{margin:0}
 
 /* ============ 设置 ============ */
 .settings-wrap{max-width:820px}
+/* 习惯页：有归档时左「我的习惯」右「已归档」；没归档就单栏占满。
+   不给右栏太宽——归档是低频内容，340px 够放下名称 + 恢复 + 删除。 */
+.habits-wrap{max-width:1140px}
+.habits-wrap.has-arch{
+  display:grid;grid-template-columns:minmax(0,1fr) 340px;
+  gap:16px;align-items:start;
+}
+/* 左栏要 min-width:0：grid 子项默认 min-width:auto，长文案（习惯名 + 备注）
+   会把 1fr 撑破，右栏跟着被挤出去 */
+.habits-main{min-width:0}
+.habits-arch .habit-row{padding:9px 2px}
+.habits-arch .habit-row-info small{white-space:normal;line-height:1.45}
+/* 管理行的今日状态灯：跟卡片右上角同一个视觉语言，实心 = 今天达标。
+   未达标态不能用 opacity 压淡——那会连边框一起压没，深色主题下整圈看不见。
+   边框走 --line-strong、文字走 --muted，深浅主题都留得住轮廓。 */
+.habit-today{
+  flex:none;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;font-size:11px;line-height:1;
+  border:1.5px solid var(--line-strong);color:var(--muted);
+}
+.habit-today.ok{background:var(--hc,var(--accent));border-color:var(--hc,var(--accent));color:#fffdf6}
+@media (max-width:560px){
+  .habit-today{width:19px;height:19px;font-size:10px}
+}
+@media (max-width:900px){
+  .habits-wrap.has-arch{display:block}
+  .habits-wrap.has-arch > .panel + .panel{margin-top:16px}
+}
 .habit-row{display:flex;align-items:center;gap:12px;padding:11px 4px}
 .habit-row:last-child{border-bottom:0}
 .habit-row-info{flex:1;min-width:0}
@@ -9819,8 +9847,22 @@ body.modal-open{overflow:hidden}
     } else if (habitSort === 'streak') {
       list.sort((a, b) => habitStreak(b) - habitStreak(a) || order.get(a.id) - order.get(b.id));
     }
+    /* 今日状态：管理页一眼看出今天还剩几个没打。
+       保持看次数（0/3 也要说清楚），戒除看有没有破（不点就是守住）。 */
+    const todayMark = h => {
+      if (isQuitLike(h)) {
+        return met(h, d)
+          ? { ok: true, tip: '今日守住了' }
+          : { ok: false, tip: '今日未达标（记了 ' + quitSlips(h, d) + ' 次）' };
+      }
+      const c = countOf(d, h.id);
+      const t = Math.max(1, Number(h.target) || 1);
+      if (c >= t) return { ok: true, tip: '今日达标（' + c + '/' + t + '）' };
+      return { ok: false, tip: '今日 ' + c + '/' + t + ' ' + (h.unit || '次') };
+    };
     return list.map(h => {
       const pin = isPinned(h);
+      const tm = todayMark(h);
       const detail = h.id === 'h_breathe'
         ? '每天一组 · ' + (Number(h.breatheCycles) || 4) + ' 次循环 · 建议 ' + String(h.suggestTime || '15:00')
         : (isQuitLike(h)
@@ -9829,6 +9871,8 @@ body.modal-open{overflow:hidden}
       return '<div class="habit-row" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
         '<span class="habit-icon sm" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-row-info"><b>' + esc(h.name) + '</b><small>' + detail + (h.note ? ' · ' + esc(h.note) : '') + '</small></div>' +
+        '<span class="habit-today' + (tm.ok ? ' ok' : '') + '" title="' + esc(tm.tip) + '">' +
+          (tm.ok ? '✓' : '—') + '</span>' +
         (pin ? '<span class="pin-tag">常驻</span>' : '') +
         '<button class="icon-btn" data-act="habit-edit" data-id="' + h.id + '" title="编辑">✎</button>' +
         (pin ? '' : '<button class="icon-btn" data-act="habit-archive" data-id="' + h.id + '" title="归档">🗄</button>') +
@@ -10045,12 +10089,13 @@ body.modal-open{overflow:hidden}
     return '' +
       '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯与常驻卡。用药在「用药」页单独管理。</p></div>' +
         '<button class="btn primary" data-act="habit-new">＋ 添加习惯</button></div>' +
-      '<div class="settings-wrap">' +
-      '<div class="panel"><div class="panel-head"><h3>我的习惯</h3>' + habitSortHtml() + '</div>' +
+      /* 有归档才分两栏：平时归档为空时左栏占满，不留一块常年空着的板 */
+      '<div class="habits-wrap' + (archivedRows ? ' has-arch' : '') + '">' +
+      '<div class="panel habits-main"><div class="panel-head"><h3>我的习惯</h3>' + habitSortHtml() + '</div>' +
         (rows || '<div class="empty-box">还没有习惯，点右上角添加一个。</div>') +
         '<p class="hint">带「常驻」标记的习惯不能删除或归档；归档后不计入今日、日历和统计，但历史打卡保留。</p>' +
       '</div>' +
-      (archivedRows ? '<div class="panel"><h3>已归档</h3>' + archivedRows +
+      (archivedRows ? '<div class="panel habits-arch"><h3>已归档</h3>' + archivedRows +
         '<p class="hint">恢复后会重新出现在今日、日历和统计里；永久删除才会移除历史打卡。</p></div>' : '') +
       '</div>';
   }
