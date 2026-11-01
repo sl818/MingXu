@@ -40,7 +40,8 @@ import time as _time
 # 否则 dayCravings 匹配不到「今天」，卡片上一条记录都不会有
 _t8 = int(_time.mktime((2026, 10, 25, 8, 0, 0, 0, 0, -1)))
 board['data']['habits'].append({
-    'id': 'h_drink', 'name': '戒烟', 'icon': '🚭', 'type': 'quit',
+    # v64 起戒烟是独立类型 'smoke'，写 'quit' 会走普通戒除卡，烟盒上的元素全都取不到
+    'id': 'h_drink', 'name': '戒烟', 'icon': '🚭', 'type': 'smoke',
     'target': 1, 'unit': '次', 'color': '#9c5a5a', 'note': '',
     'createdAt': '2026-09-01T00:00:00Z', 'notify': True,
 })

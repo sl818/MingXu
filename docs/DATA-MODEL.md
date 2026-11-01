@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v63（2026-11-01）
+最后更新：v64（2026-11-01）
 
 ---
 
@@ -55,8 +55,7 @@
 | `id` | string | `h_xxx` | 内置的用固定 id，自建的随机 |
 | `name` | string | — | 习惯名 |
 | `icon` | string | `✅` | emoji |
-| `type` | `'build'` \| `'quit'` | `'build'` | quit 走事件流，见第 5.4 节；`build` 看次数 |
-| `quitKind` | `'smoke'` \| `'other'` | 由 `guessQuitKind` 推断 | 只 `quit` 用：`smoke` 才是戒烟（独享烟盒 / 买烟 / 抽烟趋势），`other` 是戒糖戒酒这类，**不许出现烟的字眼** |
+| `type` | `'build'` \| `'quit'` \| `'smoke'` | `'build'` | **三种类型，靠 type 分，没有子字段**：`build` 保持（点一下算达标，看 `checks` 次数）；`quit` 戒除（**点一下算今天没守住**，不点就是守着，走事件流）；`smoke` 戒烟（站点自带的常驻卡，双按钮 + 烟盒 + 买烟 + 趋势）。见 3.1 与 5.4 |
 | `target` | number | 1 | 每日目标次数 |
 | `unit` | string | `'次'` | 单位 |
 | `color` | string | — | 卡片强调色 |

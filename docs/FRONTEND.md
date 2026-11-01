@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v63（2026-11-01）
+最后更新：v64（2026-11-01）
 
 ---
 
@@ -275,22 +275,30 @@ document.addEventListener('click', e => {
 `craveTriggers(hid)` `quitSaved(h)` `quitNextMile(streak)`
 `currentPack()` `packUsed(h,pack)` `packSpan(h,pack)` `packGridHtml(h)` `packCompareLine(h)`
 `addCraving(hid,kind)` `undoCraving(hid)` `craveTagModal(eid)` `tsDay(ts)` `tsHHMM(ts)`
-`habitById(hid)` `guessQuitKind(h)` `quitKindOf(h)` `isSmoke(h)` `quitWord(h)` `craveCn(k,h)`
+`habitById(hid)` `isSmoke(h)` `isQuitLike(h)` `quitWord(h)` `craveCn(k,h)` `quitSlips(h,d)`
 
-**`type === 'quit'` 分两类（`quitKind`）**：
+**习惯三种 `type`，靠类型本身区分，不用子字段**：
 
-| | `smoke` 戒烟 | `other` 其他戒除 |
-|---|---|---|
-| 用词 | 点一根 / 忍一次 / 抽 / 忍 / 无烟 | 没忍住 / 扛住了 / 破 / 守 / 守住 |
-| 专属 UI | 烟盒格、买烟记录、抽烟趋势、戒烟页、统计页戒烟分析 | 全都没有 |
-| 表单 | 显示「原来每天几支 / 一包多少钱 / 一包几支」 | 全隐藏，只剩「开始日期」 |
+| type | 名称 | 点一下的含义 | 卡片形态 |
+|---|---|---|---|
+| `build` | 保持（早睡） | 今天达标 | pips / stepper + `0 / 1 次` |
+| `quit` | 戒除（不熬夜） | **今天没守住**，不点就是守着 | 右上角圆圈 + `0 次未达标` |
+| `smoke` | 戒烟（`h_drink` 唯一一条） | 双按钮「点一根 / 忍一次」 | 烟盒宽卡 `quitCard` |
 
-- **所有文案走 `quitWord(h)` 词表**（`QUIT_WORD`），别在渲染里写死「点一根」——
-  v63 之前写死过，结果「不熬夜」卡片上出现「点一根 / 忍一次」。
-- `isSmoke(h)` 是戒烟专属 UI 的唯一开关：`quitCard` / `quitHabit()` / `quitPanel()` / `pack-open` 都靠它。
-- `quitKindOf(h)` 缺值时退回 `guessQuitKind(h)`：`h_drink`、名字含「烟」、或有 `quitPerDay/quitPackPrice`
-  痕迹的算戒烟，其余算其他戒除，**幂等**（`ensureStateMaps` 会写回）。
-- 新建表单里「戒什么」默认「其他」，名称里出现「烟」自动切「戒烟」（用户手动改过就不再跟随）。
+- **`quit` 和 `build` 的卡片是同一副骨架**：`habit-head`（图标 + 标题 + 右下角状态）+ `control` + 进度条。
+  区别只在两处——右上角那个圆点做成可点的 `quit-dot`（点击 = 记一次未达标，再点撤销），
+  以及 `control` 的数字是「今天几次未达标」而不是「今天完成几次」。
+- `quit` 只记 `k === 's'` 事件（未达标），**没有 `r`**——不点就是守住，不需要第二条按钮。
+  `smoke` 才两边都记（`crave` 两个按钮）。
+- **所有文案走 `quitWord(h)` 词表**（`QUIT_WORD`），别在渲染里写死「点一根」。
+- `isSmoke(h)` 是戒烟专属 UI 的唯一开关：`quitCard` / `quitHabit()` / `quitPanel()` / `pack-open` /
+  `migrateQuitPack` 都靠它。**`isQuitLike(h)`** 是「两类都算戒除语义」，统计 / 连续天数 / 月历用它，
+  写 `type === 'quit'` 会把戒烟漏掉。
+- `smoke` 不出现在「添加习惯」的类型下拉里（它是内置常驻卡），编辑时给一个固定的展示项。
+- 表单里烟专属字段用 `data-smoke-only` 控制，只有 `smoke` 显示；`quit` 只剩「开始日期」。
+- **`.quit-dot.broken` 的选择器必须写成 `button.habit-check.quit-dot.broken`**：
+  `themes/skin-*.css` 里是 `:root[data-skin="xxx"] .habit-check`（0,3,1），
+  裸类名（0,2,0）会被皮肤样式压掉，破了看不出红边。
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
 

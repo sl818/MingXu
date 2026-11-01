@@ -3141,6 +3141,9 @@ body.modal-open{overflow:hidden}
 @media (pointer: coarse){
   .cl-item{position:relative}
   .cl-item::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max(100%,44px);height:max(100%,44px)}
+  /* 戒除卡右上角的圆圈只有 22px，手机上点不准，补满 44px 热区 */
+  .quit-dot{position:relative}
+  .quit-dot::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px}
 }
 
 /* ============ v50 戒烟常驻卡 ============
@@ -3237,6 +3240,18 @@ body.modal-open{overflow:hidden}
   border:1px solid var(--accent);border-radius:99px;padding:1px 6px;margin-left:6px}
 .qpack-main small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .quit-body{display:flex;flex-direction:column;gap:9px;flex:1}
+/* 戒除卡右上角的圆圈：位置和养成卡一样，含义相反——
+   养成「点 = 今天完成」，戒除「点 = 今天没守住，不点才是守住」。
+   破了只在边框上用 --bad，文字仍用 --text（小字上 --bad 对比度不够）。
+
+   选择器必须写成 button.habit-check.quit-dot.broken（0,4,0）：
+   themes/skin-*.css 里是 `:root[data-skin="xxx"] .habit-check`（0,3,1），
+   裸 .quit-dot.broken（0,2,0）会被皮肤样式压掉，破了看不出红边。 */
+/* 跟养成卡的 pips/stepper 同一档上下间距，并排时不至于矮一截 */
+.quit-count{margin:16px 0 12px}
+.quit-dot{padding:0;cursor:pointer}
+button.habit-check.quit-dot.broken{border:2px solid var(--bad);color:var(--text)}
+button.habit-check.quit-dot:disabled{opacity:.4;pointer-events:none}
 .quit-head{margin-top:5px}
 .quit-side{display:flex;justify-content:center}
 .quit-side .pack-grid{width:100%}
@@ -3417,7 +3432,7 @@ body.modal-open{overflow:hidden}
         { id: 'h_water', name: '喝水', icon: '💧', type: 'build', target: 9, unit: '杯', color: '#4c7f96', note: '每天 9 杯 · 共 2300 ml', perMl: 250, goalMl: 2300, createdAt: iso, pinned: true },
         { id: 'h_move',  name: '运动', icon: '🏃', type: 'build', target: 1, unit: '次', color: '#b5733f', note: '30 分钟以上', createdAt: iso, pinned: true },
         { id: 'h_breathe', name: '478呼吸法', icon: '🌬️', type: 'build', target: 1, unit: '组', color: '#5b8f8a', note: '4-7-8 呼吸', breatheCycles: 4, suggestTime: '15:00', createdAt: iso, pinned: true },
-        { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'quit', quitKind: 'smoke', target: 1, unit: '次', color: '#7a8471', note: '', createdAt: iso, pinned: true }
+        { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'smoke', target: 1, unit: '次', color: '#7a8471', note: '', createdAt: iso, pinned: true }
       ],
       checks: {},
       notes: {}, // 保留旧版备份中的随记数据；当前版本没有随记界面
@@ -3746,12 +3761,21 @@ body.modal-open{overflow:hidden}
     state.moods = normalizeMoods(state.moods);
     state.notes = isPlainObject(state.notes) ? state.notes : {};
     state.doses = isPlainObject(state.doses) ? state.doses : {};
-    /* 戒除分「戒烟 / 其他」两类，老数据没有 quitKind：
-       按名字和烟痕迹猜一次写回去。幂等——已有值不动，
-       多端各自猜出的结果一致，合并时不会打架。 */
+    /* 戒烟从「戒除的一个子类」改成独立类型（v64）：
+         · h_drink 或带 quitKind:'smoke' 标记的 → type: 'smoke'
+         · 其余 quit 保留为通用「戒除」，把 quitKind 字段清掉
+       幂等：跑几次结果都一样，多端各自迁移也不会打架。 */
     if (Array.isArray(state.habits)) {
       state.habits.forEach(function (h) {
-        if (h && h.type === 'quit' && !h.quitKind) h.quitKind = guessQuitKind(h);
+        if (!h) return;
+        if (h.type === 'smoke') { delete h.quitKind; return; }
+        if (h.type !== 'quit') return;
+        if (h.id === 'h_drink' || h.quitKind === 'smoke') {
+          h.type = 'smoke';
+          delete h.quitKind;
+        } else if (h.quitKind) {
+          delete h.quitKind;
+        }
       });
     }
   }
@@ -3762,12 +3786,12 @@ body.modal-open{overflow:hidden}
      迁移跑两次不会长出重复事件，云合并时也不会被当成新事件。 */
   function migrateQuitCravings(data) {
     if (!Array.isArray(data.habits) || !isPlainObject(data.checks)) return;
-    const quitIds = data.habits.filter(function (h) { return h && h.type === 'quit'; })
+    const quitIds = data.habits.filter(function (h) { return isQuitLike(h); })
                               .map(function (h) { return h.id; });
     if (!quitIds.length) return;
     /* 「保持 0 次」是计数时代留下的备注，事件流下它只会误导 */
     data.habits.forEach(function (h) {
-      if (!h || h.type !== 'quit') return;
+      if (!isQuitLike(h)) return;
       if (String(h.note || '') === '保持 0 次') h.note = '';
       /* 暗红在常驻区读起来像「警告」，换成灰绿。只改还是旧默认值的那批，
          用户自己调过的颜色不动。 */
@@ -3800,8 +3824,7 @@ body.modal-open{overflow:hidden}
      幂等（有 packs 就跳过），多端各自迁移也只会生成同一个确定性 id。 */
   function migrateQuitPack(data) {
     const q = (data.habits || []).find(function (h) {
-      return h && !h.archivedAt && h.type === 'quit'
-        && String(h.quitKind || guessQuitKind(h)) === 'smoke';
+      return h && !h.archivedAt && isSmoke(h);
     });
     if (!q) return;
     if (Array.isArray(data.packs) && data.packs.length) return;
@@ -5218,36 +5241,35 @@ body.modal-open{overflow:hidden}
     { k: 'drink',  label: '喝酒' },
     { k: 'other',  label: '其他' }
   ];
-  /* 「戒除」一类有两种：
-       smoke = 真戒烟，独享烟盒 / 买烟记录 / 抽烟趋势；
-       other = 戒糖、戒酒、不熬夜这类，只借事件流，绝不出烟的字眼。
-     quitKind 缺省时按 guessQuitKind 猜——老数据里只有戒烟这一种有专属痕迹。 */
+  /* 习惯只有三类，靠 type 分，不再用子字段：
+       build = 保持（早睡这类）：点一下 = 今天达标
+       quit  = 戒除（不熬夜这类）：点一下 = 今天没守住，不点 = 一直守着
+       smoke = 戒烟，站点自带的特殊常驻卡（只有 h_drink 一条）：
+               双按钮「点一根 / 忍一次」+ 烟盒 + 买烟记录 + 抽烟趋势
+     戒烟不放进「添加习惯」的类型下拉里——它是内置卡，不是可选类型。 */
   const QUIT_WORD = {
+    quit:  { hero: '破', hold: '守', keep: '守住',
+             note: '守不住的时候点一下 · 不点就是一直守着' },
     smoke: { s: '点一根', r: '忍一次', hero: '抽', hold: '忍', keep: '无烟',
-             note: '想抽的时候点一下 · 抽了和忍住了都记', unit: '每天保持 0 根' },
-    other: { s: '没忍住', r: '扛住了', hero: '破', hold: '守', keep: '守住',
-             note: '想犯的时候点一下 · 破戒和扛住都记', unit: '每天保持 0 次' }
+             note: '想抽的时候点一下 · 抽了和忍住了都记', unit: '每天保持 0 根' }
   };
 
-  function guessQuitKind(h) {
-    if (!h) return 'other';
-    if (h.id === 'h_drink') return 'smoke';
-    if (String(h.name || '').indexOf('烟') >= 0) return 'smoke';
-    const hasPackTrace = Number(h.quitPerDay) > 0 || Number(h.quitPackPrice) > 0;
-    return hasPackTrace ? 'smoke' : 'other';
+  /* 戒烟是独立类型；老数据里它是 type:'quit' + quitKind:'smoke'，
+     迁移时会被改成 'smoke'（见 ensureStateMaps），这里兜一刀。 */
+  function isSmoke(h) {
+    return !!h && (h.type === 'smoke' || (h.type === 'quit' && h.quitKind === 'smoke'));
   }
-  function quitKindOf(h) {
-    if (!h || h.type !== 'quit') return '';
-    const k = String(h.quitKind || '');
-    return (k === 'smoke' || k === 'other') ? k : guessQuitKind(h);
-  }
-  /* 戒烟专属 UI（烟盒、买烟、抽烟趋势、戒烟页）只认这个 */
-  function isSmoke(h) { return quitKindOf(h) === 'smoke'; }
-  function quitWord(h) { return QUIT_WORD[quitKindOf(h) === 'smoke' ? 'smoke' : 'other']; }
-  /* 按钮文案（含补记诱因弹窗、时间线条目） */
+  /* 两类都走事件流、都进统计：别用 type === 'quit' 判断，会漏掉戒烟 */
+  function isQuitLike(h) { return !!h && (h.type === 'quit' || h.type === 'smoke'); }
+  function quitWord(h) { return QUIT_WORD[isSmoke(h) ? 'smoke' : 'quit']; }
+  /* 按钮文案（含补记诱因弹窗、时间线条目）——只有戒烟有「两个结局」 */
   function craveCn(k, h) {
     const w = quitWord(h);
     return k === 's' ? w.s : w.r;
+  }
+  /* 当天「没守住」的次数。戒除/戒烟的事件都存 cravings，k==='s' 就是失守 */
+  function quitSlips(h, d) {
+    return dayCravings(h.id, d).filter(function (e) { return e.k === 's'; }).length;
   }
   /* 里程碑：粗粒度，太密会让人一直「差一点」，反而不想看 */
   const QUIT_MILESTONES = [1, 3, 7, 14, 30, 60, 90, 180, 365];
@@ -5445,7 +5467,7 @@ body.modal-open{overflow:hidden}
 
   function addCraving(hid, kind) {
     const h = (state.habits || []).find(function (x) { return x.id === hid; });
-    if (!h || h.type !== 'quit') return;
+    if (!isQuitLike(h)) return;
     if (kind !== 's' && kind !== 'r') return;
     if (!Array.isArray(state.cravings)) state.cravings = [];
     const now = Math.round(Date.now() / 1000);
@@ -5459,7 +5481,11 @@ body.modal-open{overflow:hidden}
     state.cravings.push({ id: uid(), t: now, k: kind, h: hid, g: '', s: 0 });
     save();
     render();
-    toast(kind === 's' ? '已记一次 · 连续天数从今天重新算' : '扛住了 💪 已记一次');
+    if (isSmoke(h)) {
+      toast(kind === 's' ? '已记一次 · 连续天数从今天重新算' : '扛住了 💪 已记一次');
+    } else {
+      toast(kind === 's' ? '今天没守住 · 连续从今天重新数' : '已记一次');
+    }
   }
   function undoCraving(hid) {
     const list = cravingsOf(hid);
@@ -5824,7 +5850,7 @@ body.modal-open{overflow:hidden}
     }
     /* 戒烟看事件不看计数：今天只要有一条「抽了」就不算达标。
        老数据里 checks 的残值不再参与判断（v5 迁移时已转成事件）。 */
-    if (h.type === 'quit') {
+    if (isQuitLike(h)) {
       return !dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
     }
     const c = countOf(d, h.id);
@@ -5861,7 +5887,7 @@ body.modal-open{overflow:hidden}
     return n;
   }
   function habitStreak(h) {
-    if (h.type === 'quit') return quitStreak(h);
+    if (isQuitLike(h)) return quitStreak(h);
     let d = new Date(), n = 0;
     const created = h.createdAt ? String(h.createdAt).slice(0, 10) : todayStr();
     const ok = ds => hasRecords(ds) && met(h, ds);
@@ -6357,7 +6383,7 @@ body.modal-open{overflow:hidden}
 
     /* 习惯：只有填了「建议时间」的才会被催（如 478 呼吸法 15:00） */
     const habitDue = activeHabits(d).filter(h => {
-      if (h.med || h.type === 'quit') return false;
+      if (h.med || isQuitLike(h)) return false;
       const st = String(h.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st) || st > hm) return false;
       return countOf(d, h.id) < (Number(h.target) || 1);
@@ -6574,16 +6600,21 @@ body.modal-open{overflow:hidden}
     const done = met(h, d);
     const streak = habitStreak(h);
     const target = Math.max(1, Number(h.target) || 1);
-    const pct = h.type === 'quit' ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
+    const pct = isQuitLike(h) ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
 
-    /* 戒除的两类共用同一套事件流，只是用词不同：
-       烟「点一根 / 忍一次」，其它「没忍住 / 扛住了」。
-       两个按钮不是 +/−：犯瘾时没人在读符号，只会看字。 */
+    /* 三类卡片的区别只在「换掉哪一块」：
+       build 保持：点圆点 = 今天达标
+       quit  戒除：点右上角圆圈 = 今天没守住（不点 = 一直守着），骨架和保持完全一样
+       smoke 戒烟：双按钮「点一根 / 忍一次」+ 烟盒，是站点自带的特殊卡 */
     const w = quitWord(h);
+    const isQ = isQuitLike(h);
+    const isSmokeH = isSmoke(h);
+    const slips = isQ ? quitSlips(h, d) : 0;
+    const broken = slips > 0;
+    const isToday = d === todayStr();
     let control = '';
-    if (h.type === 'quit') {
+    if (isSmokeH) {
       const evs = dayCravings(h.id, d);
-      const isToday = d === todayStr();
       const ns = evs.filter(function (e) { return e.k === 's'; }).length;
       const nr = evs.length - ns;
       const rate = evs.length ? Math.round(nr / evs.length * 100) : null;
@@ -6604,13 +6635,19 @@ body.modal-open{overflow:hidden}
           ? '<div class="crave-log">' +
               evs.slice(-6).map(function (e) {
                 return '<button class="cl-item ' + e.k + '" data-act="crave-tag" data-eid="' + e.id +
-                  '" title="点一下补记' + (quitKindOf(h) === 'smoke' ? '诱因' : '原因') + '">' +
+                  '" title="点一下补记诱因">' +
                   tsHHMM(e.t) + ' ' + craveCn(e.k, h) + '</button>';
               }).join('') +
               (evs.length > 6 ? '<span class="cl-more">+' + (evs.length - 6) + '</span>' : '') +
               (isToday ? '<button class="cl-item undo" data-act="crave-undo" data-id="' + h.id + '">撤销</button>' : '') +
             '</div>'
           : '');
+    } else if (isQ) {
+      /* 戒除：跟养成同一个位置、同一套读法——数字是「今天几次未达标」。
+         养成的 0/1 次是「今天完成几次」，戒除的 0/1 次是「今天破了几次」，
+         0 就是守住了。连续天数放副标题，两处不重复。 */
+      control = '<div class="habit-count quit-count">' + slips +
+        '<span> 次未达标</span></div>';
     } else if (target <= 6) {
       let pips = '';
       for (let i = 1; i <= target; i++) {
@@ -6629,18 +6666,29 @@ body.modal-open{overflow:hidden}
         '</div>';
     }
 
-    const sub = h.type === 'quit'
-      ? ('连续 ' + streak + ' 天' + w.keep + (streak === 0 ? ' · 今天已记一次' : ''))
+    const sub = isQ
+      ? (isSmokeH
+          ? ('连续 ' + streak + ' 天' + w.keep + (streak === 0 ? ' · 今天已记一次' : ''))
+          : (broken
+              ? '连续从今天重新数'
+              : ('连续 ' + streak + ' 天' + w.keep)))
       : (h.target > 0 ? '目标 ' + target + ' ' + esc(h.unit || '次') + (streak ? ' · 连续 ' + streak + ' 天' : '') : '');
 
     return '<article class="habit-card ' + (done ? 'is-done' : '') + '" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
       '<div class="habit-head">' +
         '<span class="habit-icon">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + esc(sub) + '</small></div>' +
-        '<span class="habit-check">✓</span>' +
+        ((isQ && !isSmokeH)
+          ? '<button type="button" class="habit-check quit-dot' + (broken ? ' broken' : '') + '"' +
+              ' data-act="quit-mark" data-id="' + h.id + '"' +
+              (isToday ? '' : ' disabled title="只能记今天"') +
+              ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
+              ' title="' + (broken ? '撤销今天的记录' : '今天没守住？点一下') + '">' +
+              (broken ? '!' : '') + '</button>'
+          : '<span class="habit-check">✓</span>') +
       '</div>' +
       control +
-      (h.type === 'quit'
+      (isQ
         ? '<div class="habit-note">' + esc(h.note || w.note) + '</div>'
         : (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '')) +
       '<div class="habit-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
@@ -6663,7 +6711,7 @@ body.modal-open{overflow:hidden}
         '" data-act="crave-set-s" data-eid="' + eid + '" data-s="' + n + '">' + n + '</button>';
     }).join('');
     const hh = habitById(e.h);
-    const isSmokeH = quitKindOf(hh) === 'smoke';
+    const isSmokeH = isSmoke(hh);
     openModal('<div class="modal-card crave-tag-card">' +
       '<h3>' + tsHHMM(e.t) + ' · ' + craveCn(e.k, hh) + '</h3>' +
       '<p class="modal-sub">当时是什么情况？补一下，两三周就能看出主因。</p>' +
@@ -7146,7 +7194,9 @@ body.modal-open{overflow:hidden}
   function vitalCard(h, d) {
     if (h.id === 'h_breathe') return breathingCard(h, d);
     /* 只有真戒烟有烟盒宽卡；戒糖/戒酒这类走普通卡片，不能出现烟的元素 */
-    if (h.type === 'quit') return isSmoke(h) ? quitCard(h, d) : habitCard(h, d);
+    /* 戒烟走烟盒宽卡；普通戒除跟养成共用一张窄卡（只是点一下的含义相反） */
+    if (isSmoke(h)) return quitCard(h, d);
+    if (h.type === 'quit') return habitCard(h, d);
     const c = countOf(d, h.id);
     const target = Math.max(1, Number(h.target) || 1);
     const done = c >= target;
@@ -8180,7 +8230,7 @@ body.modal-open{overflow:hidden}
 
     const rows = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
       let hit = 0, total = 0, lapse = 0;
-      const isQuit = h.type === 'quit';
+      const isQuit = isQuitLike(h);
       for (let day = 1; day <= days; day++) {
         const ds = fmt(new Date(y, m, day));
         if (ds > now) continue;
@@ -8213,7 +8263,7 @@ body.modal-open{overflow:hidden}
     const rows = monthHabitsInfo(y, m).rows;
     const html = rows.map(r => {
       const pct = Math.round(r.rate * 100);
-      const num = r.h.type === 'quit'
+      const num = isQuitLike(r.h)
         ? '保持 ' + r.hit + ' / ' + r.total + ' 天'
         : '达标 ' + r.hit + ' / ' + r.total + ' 天';
       return '<div class="mh" style="--hc:' + esc(r.h.color || '#2f6f5e') + '">' +
@@ -8221,8 +8271,8 @@ body.modal-open{overflow:hidden}
         '<div class="mh-main">' +
           '<div class="mh-top"><b>' + esc(r.h.name) + '</b><span>' + num + '</span></div>' +
           '<div class="mh-bar"><i style="width:' + pct + '%"></i></div>' +
-          (r.h.type === 'quit' && r.lapse
-            ? '<small class="mh-extra">' + (quitKindOf(r.h) === 'smoke' ? '点了 ' : '破戒 ') + r.lapse + ' 次</small>'
+          (isQuitLike(r.h) && r.lapse
+            ? '<small class="mh-extra">' + (isSmoke(r.h) ? '点了 ' : '破戒 ') + r.lapse + ' 次</small>'
             : '') +
         '</div>' +
       '</div>';
@@ -9368,7 +9418,7 @@ body.modal-open{overflow:hidden}
     }).join('');
 
     const hstats = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
-      const isQuit = h.type === 'quit';
+      const isQuit = isQuitLike(h);
       /* 戒烟的点阵按事件算：有「抽了」= miss，只有「忍住了」= ok，
          一条都没有 = 空（没记录 ≠ 成功，不能混为一谈）。 */
       const dots = rangeDays.map(ds => {
@@ -9379,7 +9429,9 @@ body.modal-open{overflow:hidden}
           const nr = evs.length - ns;
           rec = evs.length > 0;
           ok = rec && ns === 0;
-          tip = ds + ' · ' + (rec ? ns + ' ' + quitWord(h).hero + ' / ' + nr + ' ' + quitWord(h).hold : '无记录');
+          tip = isSmoke(h)
+            ? (ds + ' · ' + (rec ? ns + ' 抽 / ' + nr + ' 忍' : '无记录'))
+            : (ds + ' · ' + (rec ? '未达标 ' + ns + ' 次' : '无记录'));
         } else {
           rec = hasRecords(ds);
           ok = rec && met(h, ds);
@@ -9391,7 +9443,7 @@ body.modal-open{overflow:hidden}
 
       let detail;
       if (isQuit) {
-        detail = '戒除 · 连续 ' + quitStreak(h) + ' 天'
+        detail = (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天'
           + (quitTotal(h) > quitStreak(h) ? ' · 累计 ' + quitTotal(h) + ' 天' : '');
       } else {
         detail = '每天 ' + (h.target || 1) + ' ' + (h.unit || '次');
@@ -9401,8 +9453,12 @@ body.modal-open{overflow:hidden}
       if (isQuit) {
         const q = quitRange(h, range);
         const w = quitWord(h);
-        hitText = '近 ' + range + ' 天 ' + w.hero + ' <b>' + q.smoke + '</b> · ' + w.hold + ' <b>' + q.resist + '</b>'
-          + (q.total ? ' · 抵御率 <b>' + Math.round(q.rate * 100) + '%</b>' : '');
+        /* 戒除只有一个按钮，不点就是守住——没有「忍」这个事件，
+           硬摆「守 0」会让人以为是数据丢了。 */
+        hitText = isSmoke(h)
+          ? ('近 ' + range + ' 天 ' + w.hero + ' <b>' + q.smoke + '</b> · ' + w.hold + ' <b>' + q.resist + '</b>'
+             + (q.total ? ' · 抵御率 <b>' + Math.round(q.rate * 100) + '%</b>' : ''))
+          : ('近 ' + range + ' 天未达标 <b>' + q.smoke + '</b> 次');
       } else {
         let hit = 0;
         rangeDays.forEach(ds => {
@@ -9500,7 +9556,7 @@ body.modal-open{overflow:hidden}
         '<span class="log-time">' + e.minute + '</span>' +
         '<span class="log-ico">' + esc(logIco) + '</span>' +
         '<span class="log-name">' + esc(logName) + '</span>' +
-        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (!md && h && h.type === 'quit' ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
+        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (!md && isQuitLike(h) ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
         '<span class="log-date">' + rel + (backfill ? ' · ' + backfill : '') + '</span>' +
       '</div>';
     }).join('');
@@ -9756,7 +9812,7 @@ body.modal-open{overflow:hidden}
     const d = todayStr();
     const ratioOf = h => {
       /* 戒烟不写 checks，countOf 恒为 0，只能看 met（当天有没有「点一根」） */
-      if (h.type === 'quit') return met(h, d) ? 1 : 0;
+      if (isQuitLike(h)) return met(h, d) ? 1 : 0;
       const c = countOf(d, h.id);
       const t = Number(h.target) || 1;
       return Math.min(1, c / t);
@@ -9772,8 +9828,8 @@ body.modal-open{overflow:hidden}
       const pin = isPinned(h);
       const detail = h.id === 'h_breathe'
         ? '每天一组 · ' + (Number(h.breatheCycles) || 4) + ' 次循环 · 建议 ' + String(h.suggestTime || '15:00')
-        : (h.type === 'quit'
-          ? '戒除 · 连续 ' + quitStreak(h) + ' 天'
+        : (isQuitLike(h)
+          ? (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天达标'
           : '养成 · 每天 ' + (h.target || 1) + ' ' + esc(h.unit || '次'));
       return '<div class="habit-row" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
         '<span class="habit-icon sm" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '✅') + '</span>' +
@@ -11228,10 +11284,10 @@ body.modal-open{overflow:hidden}
     const type = form.querySelector('[name="type"]');
     const target = form.querySelector('[name="target"]');
     if (!type || !target) return;
-    const qkEl = form.querySelector('[name="quitKind"]');
     const sync = () => {
-      const isQuit = type.value === 'quit';
-      const isSmoke = isQuit && (!qkEl || qkEl.value !== 'other');
+      const tv = type.value;
+      const isQuit = tv === 'quit' || tv === 'smoke';
+      const isSmokeType = tv === 'smoke';
       if (isQuit) {
         target.disabled = true;
         target.value = '1';
@@ -11239,16 +11295,13 @@ body.modal-open{overflow:hidden}
         target.disabled = false;
         if (!target.value || Number(target.value) < 1) target.value = '1';
       }
-      /* 戒除专属区（戒什么 + 起点）只在选「戒除」时出现 */
+      /* 戒除专属区（开始日期 + 烟字段）只在「戒除 / 戒烟」时出现 */
       form.querySelectorAll('[data-quit-only]').forEach(el => { el.hidden = !isQuit; });
-      /* 烟专属字段（每天几支 / 烟价 / 一包几支）只对「戒烟」出现。
-         戒糖、戒酒这些出现「一包多少钱」会让人莫名其妙。 */
-      form.querySelectorAll('[data-smoke-only]').forEach(el => { el.hidden = !isSmoke; });
-      /* 同一个日期字段换个说法：戒烟叫「起点」，其它叫「开始日期」 */
-      const sLabel = form.querySelector('[data-qf-start] span');
-      if (sLabel) sLabel.textContent = isSmoke ? '戒烟起点' : '开始日期';
+      /* 烟专属字段（每天几支 / 烟价 / 一包几支）只在戒烟时出现。
+         「不熬夜」出现「一包多少钱」会让人莫名其妙。 */
+      form.querySelectorAll('[data-smoke-only]').forEach(el => { el.hidden = !isSmokeType; });
       form.querySelectorAll('[data-quit-hint]').forEach(el => {
-        el.hidden = el.dataset.quitHint !== (isSmoke ? 'smoke' : 'other');
+        el.hidden = el.dataset.quitHint !== (isSmokeType ? 'smoke' : 'quit');
       });
       /* 「目标次数 / 单位」对戒除没意义，disabled 留着只会让人以为坏了 */
       ['target', 'unit'].forEach(function (nm) {
@@ -11258,20 +11311,6 @@ body.modal-open{overflow:hidden}
       });
     };
     type.addEventListener('change', sync);
-    /* 新建习惯：名称里出现「烟」就自动切「戒烟」，否则默认「其他」。
-       只在用户没手动改过下拉时才跟随——改过就以用户选的为准。 */
-    let qkTouched = form.dataset.new !== '1';
-    if (qkEl) {
-      qkEl.addEventListener('change', () => { qkTouched = true; sync(); });
-    }
-    const nameEl = form.querySelector('[name="name"]');
-    if (qkEl && nameEl && form.dataset.new === '1') {
-      nameEl.addEventListener('input', () => {
-        if (qkTouched) return;
-        qkEl.value = String(nameEl.value).indexOf('烟') >= 0 ? 'smoke' : 'other';
-        sync();
-      });
-    }
     sync();
     /* 通知频率联动：weekly 显示「每周几」，monthly 显示「每月几号」 */
     const freq = form.querySelector('[name="notifyFreq"]');
@@ -11374,15 +11413,14 @@ body.modal-open{overflow:hidden}
           '<label class="field"><span>图标（emoji）<a class="field-link" href="https://www.emojiall.com/zh-hans" target="_blank" rel="noopener">更多图标</a></span><input name="icon" maxlength="4" value="' + esc(h.icon) + '" placeholder="💊"></label>' +
           '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(h.name) + '" placeholder="例如：早睡"></label>' +
           '<label class="field wide"><span>类型</span><select name="type">' +
-            '<option value="build"' + (h.type === 'build' ? ' selected' : '') + '>养成 · 每天完成 N 次</option>' +
-            '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 每天保持 0 次</option>' +
+            (h.type === 'smoke'
+              ? '<option value="smoke" selected>戒烟 · 站点自带的常驻卡（类型固定）</option>'
+              : '') +
+            '<option value="build"' + (h.type === 'build' ? ' selected' : '') + '>保持 · 点一下算今天达标</option>' +
+            '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 不点算一直守着，点一下记一次没守住</option>' +
           '</select></label>' +
         '<div class="form-grid quit-fields wide" data-quit-only hidden>' +
-          '<label class="field wide"><span>戒什么</span><select name="quitKind">' +
-            '<option value="smoke"' + ((quitKindOf(h) || 'other') === 'smoke' ? ' selected' : '') + '>戒烟 · 有烟盒、买烟记录和抽烟趋势</option>' +
-            '<option value="other"' + ((quitKindOf(h) || 'other') === 'other' ? ' selected' : '') + '>其他戒除 · 戒糖、戒酒、不熬夜等</option>' +
-          '</select></label>' +
-          '<label class="field" data-qf-start><span>戒烟起点</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
+          '<label class="field" data-qf-start><span>开始日期</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
           '<label class="field" data-smoke-only><span>原来每天几支</span><input name="quitPerDay" type="number" min="1" max="100" value="' + (Number(h.quitPerDay) || '') + '" placeholder="留空则不折算省钱"></label>' +
           '<label class="field" data-smoke-only><span>一包多少钱（元）</span><input name="quitPackPrice" type="number" min="0" step="0.5" value="' + (Number(h.quitPackPrice) || '') + '" placeholder="例如 25"></label>' +
           '<label class="field" data-smoke-only><span>一包几支</span><input name="quitPackSize" type="number" min="1" max="50" value="' + (Number(h.quitPackSize) || 20) + '"></label>' +
@@ -11410,9 +11448,9 @@ body.modal-open{overflow:hidden}
           '<label class="field" data-habit-freq data-habit-for="monthly"><span>每月几号</span><input type="number" name="notifyMonthday" min="1" max="31" value="' + (Number(h.notifyMonthday) || 1) + '"></label>' +
           '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
         '</div>' +
-        '<p class="hint" data-quit-hint="smoke" hidden>「戒烟」走事件流：想抽时点「点一根」，忍住了点「忍一次」，两个都记。' +
-          '想把连续天数从今天重新算，把戒烟起点改成今天即可，历史记录不会丢。</p>' +
-        '<p class="hint" data-quit-hint="other" hidden>「戒除」走事件流：没忍住点「没忍住」，扛住了点「扛住了」，两个都记。' +
+        '<p class="hint" data-quit-hint="quit" hidden>「戒除」默认算守住，什么都不用点；<b>守不住的时候点卡片右上角的圆圈</b>，' +
+          '记一次未达标，连续天数从那天重新数。点错了再点一次即可撤销。</p>' +
+        '<p class="hint" data-quit-hint="smoke" hidden>「戒烟」是站点自带的常驻卡：想抽时点「点一根」，忍住了点「忍一次」，两个都记。' +
           '想把连续天数从今天重新算，把开始日期改成今天即可，历史记录不会丢。</p>' +
         (isPinned(h) ? '<p class="hint">常驻习惯不能删除，可以在这里修改名称、目标和颜色。</p>' : '') +
         '<div class="modal-actions">' +
@@ -11883,7 +11921,8 @@ body.modal-open{overflow:hidden}
       const el = form.querySelector('[name="' + n + '"]');
       return el ? el.value.trim() : '';
     };
-    const type = get('type') === 'quit' ? 'quit' : 'build';
+    const rawType = get('type');
+    const type = (rawType === 'quit' || rawType === 'smoke') ? rawType : 'build';
     const payload = {
       name: get('name'),
       icon: get('icon') || '✅',
@@ -11898,18 +11937,15 @@ body.modal-open{overflow:hidden}
       notifyMonthday: clamp(parseInt(get('notifyMonthday'), 10) || 1, 1, 31),
       notifyNote: get('notifyNote')
     };
-    if (type === 'quit') {
-      const qk = get('quitKind') === 'other' ? 'other' : 'smoke';
-      payload.quitKind = qk;
+    if (type === 'quit' || type === 'smoke') {
       const qs = get('quitStart');
       payload.quitStart = /^\d{4}-\d{2}-\d{2}$/.test(qs) ? qs : '';
-      if (qk === 'smoke') {
+      if (type === 'smoke') {
         payload.quitPerDay = clamp(parseInt(get('quitPerDay'), 10) || 0, 0, 100);
         payload.quitPackPrice = Math.max(0, Math.min(9999, Number(get('quitPackPrice')) || 0));
         payload.quitPackSize = clamp(parseInt(get('quitPackSize'), 10) || 20, 1, 50);
       } else {
-        /* 从「戒烟」改成「其他」时把烟字段清零——留着会让编辑表单又长出
-           「一包几支」，而且省钱折算会拿这些数去算一个不存在的烟。 */
+        /* 通用戒除不抽烟，把烟字段清零——留着会让省钱折算去算一个不存在的烟 */
         payload.quitPerDay = 0;
         payload.quitPackPrice = 0;
         payload.quitPackSize = 0;
@@ -12073,7 +12109,7 @@ body.modal-open{overflow:hidden}
           id: id,
           name: String(h.name).trim().slice(0, 20),
           icon: String(h.icon || '✅').slice(0, 4),
-          type: h.type === 'quit' ? 'quit' : 'build',
+          type: (h.type === 'quit' || h.type === 'smoke') ? h.type : 'build',
           target: clamp(parseInt(h.target, 10) || 1, 1, 99),
           unit: String(h.unit || '次').slice(0, 4),
           color: /^#[0-9a-f]{6}$/i.test(String(h.color || '')) ? String(h.color) : '#2f6f5e',
@@ -12720,6 +12756,23 @@ body.modal-open{overflow:hidden}
       render();
       toast('开了一包 · 20 支');
     },
+    /* 戒除卡右上角圆圈：点一下 = 今天没守住（记一次），再点 = 撤销。
+       语义跟养成相反——养成是「点 = 完成」，戒除是「点 = 破功，不点才是完成」。 */
+    'quit-mark': el => {
+      const h = currentHabit(el.dataset.id);
+      if (!h) return;
+      const today = todayStr();
+      if (quitSlips(h, today) > 0) {
+        state.cravings = craveList().filter(function (e) {
+          return !(e.h === h.id && e.k === 's' && tsDay(e.t) === today);
+        });
+        save();
+        render();
+        toast('已撤销 · 今天重新算作守住');
+        return;
+      }
+      addCraving(h.id, 's');
+    },
     'crave-smoke': el => addCraving(el.dataset.id, 's'),
     'crave-resist': el => addCraving(el.dataset.id, 'r'),
     'crave-undo': el => undoCraving(el.dataset.id),
@@ -12756,7 +12809,7 @@ body.modal-open{overflow:hidden}
       const c = countOf(selectedDate, h.id);
       logHabit(h.id, 1);
       setCount(selectedDate, h.id, c + 1);
-      if (h.type === 'quit') toast('已记录一次，明天重新开始');
+      if (isQuitLike(h)) toast('已记录一次，明天重新开始');
       else if (c + 1 === Math.max(1, Number(h.target) || 1)) toast('完成：' + h.name + ' 🎉');
       render();
     },
