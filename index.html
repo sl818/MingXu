@@ -5524,6 +5524,17 @@ body.modal-open{overflow:hidden}
     const now = Math.round(Date.now() / 1000);
     return packSpans(h).filter(function (sp) { return !sp.done && sp.openAt > now; }).length;
   }
+  /* 库存为 0 且当前这包已经抽满 = 不能再记。
+     这是库存模型的原意：一包 size 支，抽满就到底，没有下一包就没有下一支。
+     不加这道闸，超出部分会被记成「未归包」，于是「今天抽了几支」能涨到 21，
+     而烟盒和买烟记录仍然是 20/20 —— 两个数字打架，看起来就是算错了。 */
+  function packBlocked(h) {
+    const sp = currentSpan(h);
+    if (!sp) return true;          /* 一条买烟记录都没有，先让他记一笔 */
+    if (sp.openAt > Math.round(Date.now() / 1000)) return true;  /* 这包还没轮到拆 */
+    return sp.done && packStock(h) === 0;
+  }
+
   function packSpanText(sec) {
     const m = Math.max(0, Math.round(sec / 60));
     if (m < 60) return m + ' 分钟';
@@ -5599,6 +5610,12 @@ body.modal-open{overflow:hidden}
     const h = (state.habits || []).find(function (x) { return x.id === hid; });
     if (!isQuitLike(h)) return;
     if (kind !== 's' && kind !== 'r') return;
+    /* 一包抽满、库存又是 0 时不再收这条记录。挡在数据层而不是只靠按钮的 disabled：
+       disabled 能被回车提交绕过，也可能来自没刷新的旧页面。 */
+    if (kind === 's' && isSmoke(h) && packBlocked(h)) {
+      toast('这包已经抽完了 · 记一笔买烟后才能继续记');
+      return;
+    }
     if (!Array.isArray(state.cravings)) state.cravings = [];
     const now = Math.round(Date.now() / 1000);
     const last = state.cravings[state.cravings.length - 1];
@@ -6764,9 +6781,14 @@ body.modal-open{overflow:hidden}
       const ns = evs.filter(function (e) { return e.k === 's'; }).length;
       const nr = evs.length - ns;
       const rate = evs.length ? Math.round(nr / evs.length * 100) : null;
+      /* 今日页这张窄卡也走同一个闸门：这里还点得动，就又能记出第 21 支 */
+      const full = packBlocked(h);
+      const smokeAttr = (!isToday || full)
+        ? ' disabled title="' + (isToday ? '这包已经抽完了 · 记一笔买烟后才能继续记' : '只能记今天，不能补记历史') + '"'
+        : '';
       control = '<div class="crave-pair">' +
           '<button class="crave-btn smoke" data-act="crave-smoke" data-id="' + h.id + '"' +
-            (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '>' + w.s + '</button>' +
+            smokeAttr + '>' + w.s + '</button>' +
           '<button class="crave-btn resist" data-act="crave-resist" data-id="' + h.id + '"' +
             (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '>' + w.r + '</button>' +
         '</div>' +
@@ -6890,6 +6912,7 @@ body.modal-open{overflow:hidden}
     const mile = quitNextMile(streak);
     const span = currentSpan(h);
     const pack = span ? span.pack : null;
+    const blocked = packBlocked(h);
     const color = esc(h.color || '#7a8471');
 
     /* 文案不能有羞辱感。抽了就写「记了 N 次」，不要写「破戒」「失败」——
@@ -6925,9 +6948,14 @@ body.modal-open{overflow:hidden}
     }
     /* 库存空的时候抽的那些：不算丢，只是没包可归。不显示的话，
        「今天 5 支」和「这包 0 支」对不上，用户会以为算错了。 */
+    /* 未归包只在两种情况下会出现：老数据里本来就有的，或者从备份导入的。
+       正常操作路径上点不出来（见 packBlocked），所以这里只展示、不再增长。 */
     const orph = packOrphans(h);
     if (orph > 0) {
       lines.push('<span><i class="dim"></i>另有 ' + orph + ' 支没归包（当时库存空）</span>');
+    }
+    if (blocked && (!span || span.done)) {
+      lines.push('<span><i class="dim"></i>这包已经抽完 · 记一笔买烟后才能继续记</span>');
     }
     if (saved) {
       lines.push('<span><i></i>少抽 ' + saved.sticks + ' 支 · 省了 ¥' + Math.round(saved.money) + '</span>');
@@ -6981,7 +7009,9 @@ body.modal-open{overflow:hidden}
       '<div class="move-foot">' + foot + '</div>' +
       (today
         ? '<div class="quit-actions">' +
-            '<button class="quit-btn smoke" data-act="crave-smoke" data-id="' + h.id + '">点一根</button>' +
+            '<button class="quit-btn smoke" data-act="crave-smoke" data-id="' + h.id + '"' +
+              (blocked ? ' disabled title="这包已经抽完了 · 记一笔买烟后才能继续记"' : '') + '>' +
+              (blocked ? '这包抽完了' : '点一根') + '</button>' +
             '<button class="quit-btn resist" data-act="crave-resist" data-id="' + h.id + '">忍一次</button>' +
             '<button class="quit-btn undo" data-act="crave-undo" data-id="' + h.id + '"' +
               (evs.length ? '' : ' disabled') + '>撤销</button>' +

@@ -205,21 +205,49 @@ with sync_playwright() as p:
     chk('无 JS 异常', not errs, str(errs))
     ctx.close()
 
-    # ---------- 用例 6：库存空时点一根，照记 + 给回执 ----------
-    print('[6] 库存空时点一根')
+    # ---------- 用例 6：一包抽满、库存 0 → 第 21 支根本记不进去 ----------
+    print('[6] 抽满后不能再记')
     ctx = br.new_context(viewport={'width': 1512, 'height': 950})
     pg = ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:160]))
     pg.clock.install(time=datetime(2026, 11, 1, 23, 30, 0))
     load(pg, [pack('p1', 8)], smokes(20))
-    pg.click('[data-act="crave-smoke"]')
-    pg.wait_for_timeout(600)
+    btn = pg.locator('.quit-hero [data-act="crave-smoke"]')
+    chk('点一根按钮置灰', btn.is_disabled())
+    chk('按钮文案改成「这包抽完了」', '这包抽完了' in (btn.text_content() or ''), btn.text_content())
+    # 绕过 disabled：手动放开属性再点。disabled 的 button 不派发 click，
+    # 所以只能这样才测得到数据层那道闸
+    pg.evaluate("() => { document.getElementById('toast').textContent = '';"
+                " const b = document.querySelector('.quit-hero [data-act=\"crave-smoke\"]');"
+                " b.disabled = false; b.click(); }")
+    pg.wait_for_timeout(700)
     tst = (pg.locator('#toast').text_content() or '').strip()
-    chk('提示库存空且记录已保留', '库存空了' in tst, tst)
-    chk('这一包仍是 20/20（没涨到 21）', '20/20' in rows(pg)[0]['txt'], rows(pg)[0]['txt'])
+    chk('绕过置灰也被拦', '已经抽完' in tst, tst)
+    chk('仍是 20/20，没有 21', '20/20' in rows(pg)[0]['txt'], rows(pg)[0]['txt'])
     ct = card_text(pg)
-    chk('卡面记着 1 支没归包', '另有 1 支没归包' in ct, ct[:160])
+    chk('没有未归包的支', '另有' not in ct, ct[:160])
+    chk('卡面提示先记一笔买烟', '记一笔买烟后才能继续记' in ct, ct[:220])
+    head = pg.evaluate("() => (document.querySelector('.page-head p') || {}).textContent || ''")
+    chk('副标题还是 20 支', '20 支' in head, head)
+    chk('无 JS 异常', not errs, str(errs))
+    ctx.close()
+
+    # ---------- 用例 7：有第二包库存时不该拦 ----------
+    print('[7] 有库存照常能点')
+    ctx = br.new_context(viewport={'width': 1512, 'height': 950})
+    pg = ctx.new_page()
+    errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e)[:160]))
+    pg.clock.install(time=datetime(2026, 11, 1, 23, 30, 0))
+    load(pg, [pack('p1', 8), pack('p2', 9)], smokes(20))
+    btn = pg.locator('.quit-hero [data-act="crave-smoke"]')
+    chk('两包时按钮可点', not btn.is_disabled())
+    pg.click('.quit-hero [data-act="crave-smoke"]')
+    pg.wait_for_timeout(700)
+    r = rows(pg)
+    chk('第一包 20/20 抽完', '20/20' in r[1]['txt'], r[1]['txt'])
+    chk('第二包接上 1/20', '1/20' in r[0]['txt'], r[0]['txt'])
     chk('无 JS 异常', not errs, str(errs))
     ctx.close()
     br.close()
