@@ -250,6 +250,42 @@ with sync_playwright() as p:
     chk('第二包接上 1/20', '1/20' in r[0]['txt'], r[0]['txt'])
     chk('无 JS 异常', not errs, str(errs))
     ctx.close()
+
+    # ---------- 用例 8：按天清空（含「忍一次」） ----------
+    print('[8] 清空某天的记录')
+    ctx = br.new_context(viewport={'width': 1512, 'height': 950})
+    pg = ctx.new_page()
+    errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e)[:160]))
+    pg.on('dialog', lambda d: d.accept())
+    pg.clock.install(time=datetime(2026, 11, 1, 21, 0, 0))
+    evs = smokes(12) + [
+        {'id': 'r%d' % i, 't': int((DAY + timedelta(hours=10, minutes=i * 40)).timestamp()),
+         'k': 'r', 'h': 'h_smoke', 'g': '', 's': 0} for i in range(3)]
+    load(pg, [pack('p1', 8)], evs)
+
+    btn = pg.locator('[data-act="crave-clear"]')
+    chk('页头有「清空记录」按钮', btn.count() == 1)
+    chk('按钮走红色系样式', 'danger-red' in (btn.first.get_attribute('class') or ''),
+        btn.first.get_attribute('class'))
+    btn.first.click()
+    pg.wait_for_timeout(500)
+    chk('弹窗打开并列出日期', pg.locator('.cc-row').count() >= 1)
+    row_txt = pg.locator('.cc-row').first.text_content() or ''
+    chk('行内显示支数和忍的次数', ('12 支' in row_txt and '3 次忍' in row_txt), row_txt)
+
+    pg.locator('[data-act="crave-clear-day"]').first.click()
+    pg.wait_for_timeout(900)
+    chk('清空后那天从列表消失', pg.locator('.cc-row').count() == 0)
+    chk('弹窗提示还没有记录', '还没有任何记录' in (pg.locator('.modal-card').text_content() or ''))
+    pg.click('[data-act="close-modal"]')
+    pg.wait_for_timeout(400)
+    ct = card_text(pg)
+    chk('卡面不再有「今天记了」', '今天记了' not in ct, ct[:140])
+    head = pg.evaluate("() => (document.querySelector('.page-head p') || {}).textContent || ''")
+    chk('副标题回到「连续 N 天没抽」', '没抽' in head, head)
+    chk('无 JS 异常', not errs, str(errs))
+    ctx.close()
     br.close()
 
 print()

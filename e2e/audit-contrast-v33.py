@@ -118,7 +118,7 @@ SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
-                  '.pack-cf button', '.qc-day span', '.qc-day b']
+                  '.pack-cf button', '.btn.danger-red', '.qc-day span', '.qc-day b']
 # 习惯页：管理行的今日状态灯（v66）
 SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']

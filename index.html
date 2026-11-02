@@ -172,6 +172,25 @@ h1,h2,h3,h4,p{margin:0}
 .btn.ghost{background:transparent}
 .btn.danger{border-color:var(--line)}
 .btn.danger:hover{background:rgba(221,90,90,.08);border-color:var(--bad)}
+/* 破坏性入口用的红按钮：描边 + 红字，不做实心。
+   实心红配白字跨九套皮肤过不了对比度（clay 的 --bad 是 #e08a7d，白字只有 2.5:1），
+   所以照 .arch-row .ar-btn.del 的老办法把红往 --text 里压一档。 */
+/* 皮肤 CSS 里有 :root[data-skin="paper"] .btn（0,3,0），而且加载在本文件之后，
+   裸的 .btn.danger-red（0,2,0）会被它压掉——颜色写上去不生效，按钮还是灰的。
+   所以这里必须带 :root[data-skin] 把特异性抬到 0,4,0。（同一个坑踩过 habit-check） */
+.btn.danger-red,
+:root[data-skin] .btn.danger-red{
+  background:var(--surface);
+  border-color:color-mix(in srgb,var(--bad) 80%,var(--text));
+  color:color-mix(in srgb,var(--bad) 86%,var(--text));
+}
+.btn.danger-red:hover,
+:root[data-skin] .btn.danger-red:hover{
+  background:color-mix(in srgb,var(--bad) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--bad) 92%,var(--text));
+}
+
+
 .btn.sm{padding:6px 10px;border-radius:8px}
 .icon-btn{width:26px;height:26px;border-radius:7px;flex:none;display:grid;place-items:center;font-size:13px;transition:background .15s,color .15s}
 .icon-btn:hover{background:var(--surface-2)}
@@ -3220,6 +3239,16 @@ body.modal-open{overflow:hidden}
 .qpack-st.stock{background:transparent;border-color:var(--line)}
 .qpack-st.done{background:transparent;border-color:var(--line-strong)}
 
+
+/* 清空记录弹窗：一天一行，删空的那天自动从列表里消失 */
+.cc-list{display:flex;flex-direction:column;gap:6px;margin:12px 0 6px;
+  max-height:340px;overflow:auto}
+.cc-row{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.cc-row b{flex:none;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;min-width:48px}
+/* 不用 --muted：这行坐在 surface-2 上，深色皮肤下对比度会掉到 4.5 以下。
+   层次靠字号区分（b 是 13px/600）就够了。 */
+.cc-row small{flex:1;min-width:0;font-size:11.5px;color:var(--text)}
 
 /* ============ 戒烟页 ============ */
 .quit-page{display:flex;flex-direction:column;gap:16px}
@@ -9336,6 +9365,7 @@ body.modal-open{overflow:hidden}
     return '<div class="page-head">' +
       '<div><h2>戒烟</h2><p>' + sub + '</p></div>' +
       '<div class="head-actions">' +
+        '<button class="btn danger-red" data-act="crave-clear">清空记录</button>' +
         '<button class="btn primary" data-act="pack-new">记一笔买烟</button>' +
       '</div>' +
     '</div>';
@@ -9523,6 +9553,39 @@ body.modal-open{overflow:hidden}
         card('今天', todayS + ' 支', diffText) +
         card('平均每天', avg.toFixed(1) + ' 支', '近 30 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
       '</div></div>';
+  }
+
+  /* 按天清空抽烟记录。删的是这一天全部的 cravings（含「忍一次」），
+     删完区间自动重算：包还是那个包，只是支数少了——不用同步任何字段。 */
+  function craveClearModal() {
+    const h = quitHabit();
+    if (!h) return;
+    const map = {};
+    craveList().forEach(function (e) {
+      if (e.h !== h.id) return;
+      const ds = tsDay(e.t);
+      if (!map[ds]) map[ds] = { s: 0, r: 0 };
+      if (e.k === 's') map[ds].s++; else map[ds].r++;
+    });
+    const days = Object.keys(map).sort().reverse();
+    const rows = days.map(function (ds) {
+      const b = map[ds];
+      const parts = [];
+      if (b.s) parts.push(b.s + ' 支');
+      if (b.r) parts.push(b.r + ' 次忍');
+      return '<div class="cc-row">' +
+        '<b>' + ds.slice(5) + '</b>' +
+        '<small>' + (parts.join(' · ') || '无记录') + '</small>' +
+        '<button class="btn danger-red sm" data-act="crave-clear-day" data-ds="' + ds + '">清空</button>' +
+      '</div>';
+    }).join('');
+    openModal('<div class="modal-card">' +
+      '<h3>清空抽烟记录</h3>' +
+      '<p class="muted-sm">按天清空。删的是这一天的全部记录（含「忍一次」），删完不可恢复。</p>' +
+      '<div class="cc-list">' + (rows || '<div class="empty-box">还没有任何记录。</div>') + '</div>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">关闭</button></div>' +
+    '</div>');
   }
 
   /* 买烟记录列表：最新在上。每行带状态，抽完的显示「这包从拆到抽完用了多久」 */
@@ -13060,6 +13123,26 @@ body.modal-open{overflow:hidden}
 
     /* 空包时的按钮：走正式表单，让用户能填时间、价格、支数。
        以前这里直接 push 一条空白记录，名字和价格都只能事后再补。 */
+    'crave-clear': el => craveClearModal(),
+    'crave-clear-day': el => {
+      const h = quitHabit();
+      if (!h) return;
+      const ds = el.dataset.ds || '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+      const hit = craveList().filter(function (e) { return e.h === h.id && tsDay(e.t) === ds; });
+      if (!hit.length) return;
+      /* 一天几十条一次性没了，必须二次确认；文案里报条数，别让人盲删 */
+      if (!confirm('清空 ' + ds.slice(5) + ' 的 ' + hit.length + ' 条记录？\n' +
+                   '包含当天的「忍一次」，删除后无法恢复。')) return;
+      state.cravings = craveList().filter(function (e) {
+        return !(e.h === h.id && tsDay(e.t) === ds);
+      });
+      save();
+      render();
+      toast('已清空 ' + ds.slice(5) + ' 的 ' + hit.length + ' 条记录');
+      craveClearModal();   /* 重开一次，删空的那天自动从列表里消失 */
+    },
+
     'pack-open': el => packModal(null),
     /* 戒除卡右上角圆圈：点一下 = 今天没守住（记一次），再点 = 撤销。
        语义跟养成相反——养成是「点 = 完成」，戒除是「点 = 破功，不点才是完成」。 */

@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v69（2026-11-01）
+最后更新：v70（2026-11-02）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v69（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v69'`） |
+| 代码版本 | v70（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v70'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -90,6 +90,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v67 | 11-01 | 修「设置页 / 习惯页内容左靠」：删掉 `.settings-wrap` 860px、`.habits-wrap` 1140px 的 `max-width`（`.main` 是 flex column，带 max-width 又不居中就会被顶到左边）。设置页大屏改 `columns:2` 瀑布流填充宽度 |
 | v68 | 11-01 | 戒烟包改「区间派生」：`packSpans` 按事件流把一包切成左闭右开区间，同天买两包不再共用计数（原 bug：两包都显示 `22/20`）。买烟表单加时分；买烟记录加「在抽 / 库存 / 已抽完」状态 + 抽完用时；末支软确认条（`pack.cf`）。回滚点 tag `quit-pack-v68` |
 | v69 | 11-01 | 库存为 0 时不再收「点一根」：一包抽满且没下一包，戒烟页 / 今日页按钮置灰，`addCraving` 第三道闸兜底。修 v68 遗留的「今天 21 支」——那是超出部分被记成未归包导致的。回滚点 tag `quit-pack-v69` |
+| v70 | 11-02 | 戒烟页加「清空记录」：按天列出记录，一键清空（含「忍一次」）。页头红色按钮，二次 confirm 报条数。只删 `cravings`，包靠区间重算。回滚点 tag `quit-pack-v70` |
 
 ### 两次值得记住的事故
 
