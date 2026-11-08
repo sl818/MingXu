@@ -713,6 +713,30 @@ body{
 }
 .pip:hover{transform:translateY(-1px);box-shadow:inset 0 0 0 1px var(--line-strong)}
 .pip.on{background:var(--hc);box-shadow:none}
+/* 目标 1 次的打卡按钮（v74）。原来这里是 flex:1 的 .pip，
+   只有一格时会被拉成整条，既看不出是按钮、也不知道点了会发生什么。
+   现在是一个通栏按钮：未打卡写「今天完成」，点完变「已完成 · 点一下撤销」。
+   **背景自己定义、不继承 .pip 的皮肤渐变**：渐变上白字的对比度算不出来
+   （bgOf 遇到渐变会整组跳过），而这颗按钮上有真文字，必须能真的测。
+   高度 36px、宽度通栏，点击面积约 250×36，比 44×44 还大，所以不再加
+   pointer:coarse 的伪元素热区——那会盖住下面的次数。 */
+.habit-done{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;height:36px;margin:12px 0 10px;padding:0 12px;
+  border:0;border-radius:10px;cursor:pointer;
+  font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.01em;
+  color:var(--text);background:var(--surface-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+  transition:background .16s,box-shadow .16s,transform .12s;
+}
+.habit-done:hover{box-shadow:inset 0 0 0 1px var(--line-strong)}
+.habit-done:active{transform:translateY(1px)}
+.habit-done .hd-mark{font-style:normal;font-size:12px;opacity:.5}
+.habit-done.on{
+  background:color-mix(in srgb,var(--hc) 14%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--hc) 52%,var(--line));
+}
+.habit-done.on .hd-mark{opacity:1;color:var(--hc)}
 .habit-count{
   font-family:var(--font-serif);font-size:27px;font-weight:500;
   color:var(--text);letter-spacing:-.02em;line-height:1;
@@ -7001,6 +7025,19 @@ body.modal-open{overflow:hidden}
           ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
           ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>' +
         '<div class="habit-count">' + slips + '<span> 次未达标</span></div>';
+    } else if (target <= 1) {
+      /* 目标 1 次：一个通栏按钮，点了就完成，再点就撤销。
+         不做「已完成 / 未完成」两个并列按钮：没打卡的时候「未完成」没有语义
+         （本来就是未完成），只会常年白占一半宽度。滴答清单的「完成全部」、
+         Loop / Streaks 的 toggle 也都是单一主动作 + 二次撤销。
+         data-val 直接给 1 / 0，复用 habit-set，不新增 action。 */
+      control = '<button type="button" class="habit-done' + (done ? ' on' : '') + '"' +
+        ' data-act="habit-set" data-id="' + h.id + '" data-val="' + (done ? 0 : 1) + '"' +
+        ' title="' + (done ? '点一下撤销今天的打卡' : '点一下记为今天已完成') + '">' +
+        '<i class="hd-mark">✓</i><span>' + (done ? '已完成 · 点一下撤销' : '今天完成') + '</span>' +
+        '</button>' +
+        /* 次数照旧显示，跟格子版保持同一口径：0 / 1 次 */
+        '<div class="habit-count">' + c + '<span> / ' + target + ' ' + esc(h.unit || '次') + '</span></div>';
     } else if (target <= 6) {
       let pips = '';
       for (let i = 1; i <= target; i++) {
