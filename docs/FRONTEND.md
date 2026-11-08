@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v71（2026-11-08）
+最后更新：v72（2026-11-08）
 
 ---
 
@@ -394,6 +394,15 @@ document.addEventListener('click', e => {
 - `.btn.danger-red` 必须带 `:root[data-skin]` 前缀。皮肤 CSS 的 `:root[data-skin="paper"] .btn`
   是 (0,3,0) 且加载在 index.html 之后，裸类名 (0,2,0) 会被压掉——颜色写上去了但不生效。
   跟 `.habit-check` 那次是同一个坑
+- **补记昨天（v72）**：戒烟页今天会挂一条 `.pack-cf`「昨天这包还剩 N 支 · 补记」，
+  点开 `backfillModal` 填数量（支数 + 忍的次数），一次生成多条记录。
+  上限 = `backfillLeft(h, 昨天)`，即那包在昨天 23:59 的剩余，补不出第 21 支。
+  **只允许昨天**（`saveBackfillForm` 里硬校验 `ds === fmt(addDays(now,-1))`），
+  更早的日子用户自己也记不清。
+  时间戳由 `backfillSlots` 按当天 06:00 起每 30 分钟一个槽生成，**起点不早于那包的 `openAt`**——
+  早于开包的记录归不进任何包，会变成「未归包」，补了等于白补（这个坑第一版就踩了）。
+- `packGridHtml(h, d)` 的 `d` 是新增参数：传历史日期就画「那天结束时的样子」
+  （`spanOnDay` + `usedUntil`）。戒烟页永远传 `todayStr()`，这个分支只在今日页切历史日期时用。
 - 涨落：`QUIT_MILESTONES` = 1/3/7/14/30/60/90/180/365，文案在 `QUIT_MILE_CN`
 
 要点：

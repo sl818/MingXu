@@ -5627,6 +5627,58 @@ body.modal-open{overflow:hidden}
     const now = Math.round(Date.now() / 1000);
     return packSpans(h).filter(function (sp) { return !sp.done && sp.openAt > now; }).length;
   }
+  /* 某一天结束时（23:59:59）正在抽的那包。历史日期要显示「那天的烟盒」，
+     靠它才能知道那天还剩几支——用 currentSpan 会拿到今天的包，数字对不上。 */
+  function spanOnDay(h, ds) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ds || ''))) return null;
+    const end = Math.round(parseD(ds).getTime() / 1000) + 86399;
+    let hit = null;
+    packSpans(h).forEach(function (sp) {
+      if (sp.openAt <= end) hit = sp;
+    });
+    return hit;
+  }
+  /* 这包截至 ts 已经抽掉几支（不含 ts 之后的记录） */
+  function usedUntil(h, sp, ts) {
+    if (!sp || sp.openAt > ts) return 0;
+    if (sp.closeAt && sp.closeAt <= ts) return sp.size;
+    let n = 0;
+    cravingsOf(h.id).forEach(function (e) {
+      if (e.k === 's' && Number(e.t) >= sp.openAt && Number(e.t) <= ts) n++;
+    });
+    return Math.min(n, sp.size);
+  }
+  /* 那天还能补几支：那包在那天结束时的剩余。0 表示那天已经抽完了。 */
+  function backfillLeft(h, ds) {
+    const sp = spanOnDay(h, ds);
+    if (!sp) return 0;
+    const end = Math.round(parseD(ds).getTime() / 1000) + 86399;
+    return Math.max(0, sp.size - usedUntil(h, sp, end));
+  }
+  /* 补记用的时间槽：那天 06:00 起每 30 分钟一个，跳过已被占用的分钟。
+     首末两支的真实时间由用户在卡面上确认（pack.cf），这里只要顺序对、不跨天。 */
+  function backfillSlots(h, ds, n) {
+    const base = Math.round(parseD(ds).getTime() / 1000);
+    const taken = {};
+    cravingsOf(h.id).forEach(function (e) {
+      if (tsDay(e.t) === ds) taken[Math.round((Number(e.t) - base) / 60)] = 1;
+    });
+    const out = [];
+    /* 起点不能早于这包的开包时刻：早于 openAt 的记录归不进这包，
+       会变成「未归包」，补了等于白补。 */
+    const sp = spanOnDay(h, ds);
+    let m = 6 * 60;
+    if (sp && Number(sp.openAt) > base) {
+      m = Math.max(m, Math.ceil((Number(sp.openAt) - base) / 60));
+    }
+    while (out.length < n && m <= 23 * 60 + 30) {
+      if (!taken[m]) { out.push(base + m * 60); taken[m] = 1; }
+      m += 30;
+    }
+    /* 一天槽位被塞满的极端情况，直接往后排，保证条数不缺 */
+    while (out.length < n) out.push(base + (out.length + 1) * 60);
+    return out;
+  }
   /* 库存为 0 且当前这包已经抽满 = 不能再记。
      这是库存模型的原意：一包 size 支，抽满就到底，没有下一包就没有下一支。
      不加这道闸，超出部分会被记成「未归包」，于是「今天抽了几支」能涨到 21，
@@ -5674,17 +5726,23 @@ body.modal-open{overflow:hidden}
     return '上一包 ' + packSpanText(prevSpan) + ' · 这一包 ' + packSpanText(curSpan);
   }
 
-  function packGridHtml(h) {
-    const sp = currentSpan(h);
+  /* d 省略 = 今天，画当前这包；传了历史日期就画「那天结束时的样子」，
+     否则用户切到昨天看到的剩余是今天的，补记必然记错。 */
+  function packGridHtml(h, d) {
+    const isToday = !d || d === todayStr();
+    const sp = isToday ? currentSpan(h) : spanOnDay(h, d);
+    const used = isToday
+      ? (sp ? sp.used : 0)
+      : usedUntil(h, sp, Math.round(parseD(d).getTime() / 1000) + 86399);
     if (!sp) {
       return '<div class="pack-grid is-empty">' +
         '<button type="button" class="pack-open" data-act="pack-open">记一笔买烟</button>' +
       '</div>';
     }
-    const used = Math.min(sp.used, sp.size);
+    const filled = Math.min(used, sp.size);
     let cells = '';
     for (let i = 0; i < sp.size; i++) {
-      cells += '<i class="pk' + (i < used ? ' out' : '') + '"></i>';
+      cells += '<i class="pk' + (i < filled ? ' out' : '') + '"></i>';
     }
     return '<div class="pack-grid' + (sp.done ? ' is-done' : '') + '">' + cells + '</div>';
   }
@@ -7015,7 +7073,8 @@ body.modal-open{overflow:hidden}
     const best = quitBest(h);
     const saved = quitSaved(h);
     const mile = quitNextMile(streak);
-    const span = currentSpan(h);
+    /* 历史日期要画「那天的包」，不是今天这包 */
+    const span = today ? currentSpan(h) : spanOnDay(h, d);
     const pack = span ? span.pack : null;
     const blocked = packBlocked(h);
     const color = esc(h.color || '#7a8471');
@@ -7036,7 +7095,14 @@ body.modal-open{overflow:hidden}
 
     const lines = [];
     if (span) {
-      if (span.done) {
+      if (!today) {
+        /* 历史日期：只报「那天结束时还剩几支」，不报包开了多久（那是今天的状态） */
+        const endTs = Math.round(parseD(d).getTime() / 1000) + 86399;
+        const usedThen = usedUntil(h, span, endTs);
+        const leftThen = Math.max(0, span.size - usedThen);
+        lines.push('<span><i' + (leftThen ? '' : ' class="dim"') + '></i>那天结束时还剩 ' +
+          leftThen + ' 支 · 当天记了 ' + evs.filter(function (e) { return e.k === 's'; }).length + ' 支</span>');
+      } else if (span.done) {
         const stock = packStock(h);
         lines.push('<span><i class="dim"></i>这包抽完了 · 用了 ' + packSpanTextOf(span) +
           (stock ? ' · 库存还有 ' + stock + ' 包' : '') + '</span>');
@@ -7046,7 +7112,7 @@ body.modal-open{overflow:hidden}
           packSpanTextOf(span) + ' · 还剩 ' + left + ' 支</span>');
       }
       /* 戒烟页才展示「上一包对比」，今日页窄卡不塞这条（放不下也重复） */
-      if (compare) {
+      if (compare && today) {
         const cmp = packCompareLine(h);
         if (cmp) lines.push('<span><i class="dim"></i>' + cmp + '</span>');
       }
@@ -7059,7 +7125,7 @@ body.modal-open{overflow:hidden}
     if (orph > 0) {
       lines.push('<span><i class="dim"></i>另有 ' + orph + ' 支没归包（当时库存空）</span>');
     }
-    if (blocked && (!span || span.done)) {
+    if (today && blocked && (!span || span.done)) {
       lines.push('<span><i class="dim"></i>这包已经抽完 · 记一笔买烟后才能继续记</span>');
     }
     if (saved) {
@@ -7081,6 +7147,16 @@ body.modal-open{overflow:hidden}
     const cfSpan = cfList.length ? cfList[cfList.length - 1] : null;
     /* 后面还有整包在抽时，这条说的是「上一包」——不写清楚会被当成当前这包 */
     const cfIsLast = cfSpan && span && cfSpan.pack.id === span.pack.id;
+    /* 昨天补记入口：只在今天出现，且昨天那包还有余量。
+       「只补昨天」是用户定的——补更早的日子自己也想不起来，数据处理还容易乱。 */
+    const yDay = fmt(addDays(new Date(), -1));
+    const bfLeft = today ? backfillLeft(h, yDay) : 0;
+    const bfBar = bfLeft > 0
+      ? '<div class="pack-cf">' +
+          '<span>昨天这包还剩 <b>' + bfLeft + '</b> 支 · 没记的可以补</span>' +
+          '<button data-act="crave-backfill" data-ds="' + yDay + '">补记</button>' +
+        '</div>'
+      : '';
     const cfBar = cfSpan
       ? '<div class="pack-cf">' +
           '<span>' + (cfIsLast ? '这包 ' : '上一包 ') +
@@ -7108,8 +7184,9 @@ body.modal-open{overflow:hidden}
       '<div class="quit-head">' + status +
         '<div class="vital-sub">' + sub + '</div>' +
       '</div>' +
-      '<div class="quit-side">' + packGridHtml(h) + '</div>' +
+      '<div class="quit-side">' + packGridHtml(h, d) + '</div>' +
       cfBar +
+      bfBar +
       '<div class="move-lines">' + lines.join('') + '</div>' +
       '<div class="move-foot">' + foot + '</div>' +
       (today
@@ -9759,6 +9836,62 @@ body.modal-open{overflow:hidden}
     toast('买烟记录已保存');
   }
 
+  /* 补记昨天：填数量，不是一支一支地点。
+     上限 = 那包在昨天结束时的剩余，这样补不出第 21 支。 */
+  function backfillModal(ds) {
+    const h = quitHabit();
+    if (!h) return;
+    const left = backfillLeft(h, ds);
+    if (left <= 0) { toast('昨天没有可补的余量'); return; }
+    const have = cravingsOf(h.id).filter(function (e) { return tsDay(e.t) === ds; }).length;
+    openModal('<form class="modal-card" id="backfill-form" data-ds="' + ds + '">' +
+      '<h3>补记 ' + ds.slice(5) + '</h3>' +
+      '<p class="muted-sm">这包在昨天结束时还剩 <b>' + left + '</b> 支，最多补 ' + left + ' 支。' +
+        (have ? '当天已经记了 ' + have + ' 条。' : '当天还没有任何记录。') + '</p>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>抽了几支</span>' +
+          '<input type="number" name="smoke" min="0" max="' + left + '" value="0"></label>' +
+        '<label class="field"><span>忍了几次</span>' +
+          '<input type="number" name="resist" min="0" max="60" value="0"></label>' +
+      '</div>' +
+      '<p class="hint">时间是按当天 06:00 起每 30 分钟一支补的，只影响「那天抽了几支」。' +
+      '首末两支的真实时间，用卡面上的「改时间」确认。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">补记</button></div>' +
+    '</form>');
+  }
+
+  function saveBackfillForm(form) {
+    const ds = form.dataset.ds || '';
+    const h = quitHabit();
+    if (!h || !/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    /* 只补昨天。挡住改 data-ds 的越界调用 */
+    if (ds !== fmt(addDays(new Date(), -1))) { toast('只能补昨天'); return; }
+    const left = backfillLeft(h, ds);
+    const rawSmoke = parseInt((form.querySelector('[name="smoke"]') || {}).value, 10) || 0;
+    const resistN = clamp(parseInt((form.querySelector('[name="resist"]') || {}).value, 10) || 0, 0, 60);
+    if (rawSmoke < 0) { toast('支数不能是负数'); return; }
+    if (rawSmoke > left) { toast('这天最多补 ' + left + ' 支'); return; }
+    if (!rawSmoke && !resistN) { toast('两个都填 0，没有要补的'); return; }
+    const times = backfillSlots(h, ds, rawSmoke + resistN);
+    if (!Array.isArray(state.cravings)) state.cravings = [];
+    for (let i = 0; i < rawSmoke; i++) {
+      state.cravings.push({ id: uid(), t: times[i], k: 's', h: h.id, g: '', s: 0 });
+    }
+    for (let i = 0; i < resistN; i++) {
+      state.cravings.push({ id: uid(), t: times[rawSmoke + i], k: 'r', h: h.id, g: '', s: 0 });
+    }
+    /* 槽位是散着给的，整体排一遍，区间算法要拿有序列 */
+    state.cravings.sort(function (a, b) { return Number(a.t) - Number(b.t); });
+    save();
+    render();
+    closeModal();
+    const parts = [];
+    if (rawSmoke) parts.push(rawSmoke + ' 支');
+    if (resistN) parts.push(resistN + ' 次忍');
+    toast('已补记 ' + parts.join(' · '));
+  }
   /* 末支确认的第二档：用户想改时间才弹这个窗。
      只改「这包抽了多久」的口径，不动打卡记录、不动支数。 */
   function packCfModal(pack, sp) {
@@ -13382,6 +13515,7 @@ body.modal-open{overflow:hidden}
     /* 空包时的按钮：走正式表单，让用户能填时间、价格、支数。
        以前这里直接 push 一条空白记录，名字和价格都只能事后再补。 */
     'crave-clear': el => craveClearModal(),
+    'crave-backfill': el => backfillModal(el.dataset.ds || ''),
     'crave-clear-day': el => {
       const h = quitHabit();
       if (!h) return;
@@ -14061,6 +14195,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'notice-form') {
       e.preventDefault();
       saveNoticeForm(form);
+    } else if (form.id === 'backfill-form') {
+      e.preventDefault();
+      saveBackfillForm(form);
     } else if (form.id === 'pack-cf-form') {
       e.preventDefault();
       savePackCfForm(form);

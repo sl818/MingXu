@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v71（2026-11-08）
+最后更新：v72（2026-11-08）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v71（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v71'`） |
+| 代码版本 | v72（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v72'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -92,6 +92,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v69 | 11-01 | 库存为 0 时不再收「点一根」：一包抽满且没下一包，戒烟页 / 今日页按钮置灰，`addCraving` 第三道闸兜底。修 v68 遗留的「今天 21 支」——那是超出部分被记成未归包导致的。回滚点 tag `quit-pack-v69` |
 | v70 | 11-02 | 戒烟页加「清空记录」：按天列出记录，一键清空（含「忍一次」）。页头红色按钮，二次 confirm 报条数。只删 `cravings`，包靠区间重算。回滚点 tag `quit-pack-v70` |
 | v71 | 11-08 | 新增「配置」页（第 11 个页面）：自定义通知（单次/每天/每周多选/每月，`lb_schedule_notices` 走同一条推送管道）+ 从设置搬来的系统通知、日历订阅、企业微信推送、数据管理。回滚点 tag `notice-v71` |
+| v72 | 11-08 | 戒烟页支持「补记昨天」：卡面挂「昨天还剩 N 支」入口，弹窗填支数 + 忍的次数，一次生成多条记录；上限按昨天结束时的剩余算。`packGridHtml(h,d)` 支持历史日期。回滚点 tag `backfill-v72` |
 
 ### 两次值得记住的事故
 
