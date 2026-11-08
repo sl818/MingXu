@@ -3250,6 +3250,29 @@ body.modal-open{overflow:hidden}
    层次靠字号区分（b 是 13px/600）就够了。 */
 .cc-row small{flex:1;min-width:0;font-size:11.5px;color:var(--text)}
 
+/* ============ 配置页：自定义通知 ============ */
+/* 企业微信限流的提示。用 --warn 的浅底 + 深字，不用纯色块——
+   这条是「告诉你一个已知限制」，不是错误，不该红得像出事了。 */
+.notice-warn{margin-top:10px;padding:10px 12px;border-radius:10px;
+  background:color-mix(in srgb,var(--warn) 12%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--warn) 34%,var(--line));
+  font-size:11.5px;color:var(--text);line-height:1.75}
+.notice-warn b{font-weight:600}
+.notice-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.notice-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.notice-row.off .notice-text{text-decoration:line-through}
+.notice-main{flex:1;min-width:0}
+.notice-when{display:block;font-size:11px;color:var(--text);opacity:.72;margin-bottom:3px}
+.notice-text{display:block;font-size:12.5px;color:var(--text);
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.notice-acts{display:flex;flex:none;gap:4px}
+/* 每周几的多选：七个方块，跟表单里其他控件同高 */
+.wk-pick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.wk-pick button{border:1px solid var(--line);background:var(--surface);color:var(--text);
+  font:inherit;font-size:12px;height:34px;border-radius:9px;cursor:pointer}
+.wk-pick button.on{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+
 /* ============ 戒烟页 ============ */
 .quit-page{display:flex;flex-direction:column;gap:16px}
 /* 上半：左卡右日历并排。戒烟卡占剩余宽度（约 750px），日历固定 360px */
@@ -3531,6 +3554,7 @@ body.modal-open{overflow:hidden}
       /* 买烟记录：一包一条。当前这包还剩几支不存，靠「开包时间之后的 s 事件数」推算，
          跟药品库存一样，不存派生量。 */
       packs: [],
+      notices: [],
       bodyProfile: { age: 0, height: 0 },
       weights: [],
       essays: [],
@@ -3933,6 +3957,44 @@ body.modal-open{overflow:hidden}
     });
   }
 
+  /* 自定义通知：{id, text, time, mode, date, weeks, monthday, on}
+     mode = once（指定某天）/ daily / weekly（weeks 多选，0=周日）/ monthly（monthday）。
+     这里只存「什么时候发什么」；发没发过由后端 push_sent 的 slot_key 管（键里带日期），
+     所以「单次」和「每天」在数据层是同一件事，只是进不进当天的计划不同。 */
+  function normalizeNotices(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (n) {
+      if (!n || typeof n !== 'object') return;
+      const id = String(n.id || '');
+      if (!id || seen[id]) return;
+      const text = String(n.text || '').trim();
+      if (!text) return;          /* 空内容的通知没有意义，直接丢掉 */
+      seen[id] = 1;
+      const modes = ['once', 'daily', 'weekly', 'monthly'];
+      const mode = modes.indexOf(n.mode) >= 0 ? n.mode : 'daily';
+      out.push({
+        id: id,
+        text: text.slice(0, 1000),
+        time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(n.time || '')) ? String(n.time) : '20:00',
+        mode: mode,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(String(n.date || '')) ? String(n.date) : '',
+        weeks: Array.isArray(n.weeks)
+          ? n.weeks.map(function (w) { return Math.round(Number(w)); })
+              .filter(function (w) { return w >= 0 && w <= 6; })
+          : [],
+        monthday: clamp(Math.round(Number(n.monthday) || 1), 1, 31),
+        on: n.on !== false
+      });
+    });
+    /* 按时间排，列表里看着顺；同一时刻按 id 兜底，两端顺序一致 */
+    out.sort(function (a, b) {
+      return (a.time < b.time ? -1 : (a.time > b.time ? 1 : 0)) || String(a.id).localeCompare(String(b.id));
+    });
+    return out;
+  }
+
   function normalizeState(data) {
     if (!data || typeof data !== 'object' || !Array.isArray(data.habits) || !Array.isArray(data.tasks)) return null;
     data.habits = data.habits.filter(h => h && typeof h === 'object');
@@ -3983,6 +4045,7 @@ body.modal-open{overflow:hidden}
     data.events = Array.isArray(data.events) ? data.events : [];
     data.cravings = normalizeCravings(data.cravings);
     data.packs = normalizePacks(data.packs);
+    data.notices = normalizeNotices(data.notices);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
     return Object.assign(seedState(), data);
@@ -4683,6 +4746,17 @@ body.modal-open{overflow:hidden}
     out.packs.sort(function (a, b) {
       return (Number(a.at) - Number(b.at)) || String(a.id).localeCompare(String(b.id));
     });
+
+    /* 自定义通知：按 id 去重并集。跟 packs 一样的做法——
+       代价是「只在一端删掉」会被另一端合并回来，所以删除走的是同一套规则，
+       真要彻底删得在最后一台设备上删。 */
+    const rNo = Array.isArray(remote.notices) ? remote.notices : [];
+    const lNo = Array.isArray(local.notices) ? local.notices : [];
+    const seenNo = {};
+    rNo.forEach(function (n) { if (n && n.id) seenNo[n.id] = 1; });
+    out.notices = rNo.concat(lNo.filter(function (n) { return n && n.id && !seenNo[n.id]; }));
+
+
 
     // 打卡日志：去重并集
     const rEv = Array.isArray(remote.events) ? remote.events : [];
@@ -6151,7 +6225,9 @@ body.modal-open{overflow:hidden}
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3 10h18"/>',
     stats: '<path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/>',
     pill: '<path d="M10.5 20.5 20.5 10.5a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
-    settings: '<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.2"/><circle cx="8.5" cy="17" r="2.2"/>'
+    settings: '<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.2"/><circle cx="8.5" cy="17" r="2.2"/>',
+    /* 配置页 = 通知的地盘，用铃铛而不是第二个齿轮 */
+    config: '<path d="M6.2 8.6a5.8 5.8 0 0 1 11.6 0c0 4 1.6 5.6 2.2 6.2H4c.6-.6 2.2-2.2 2.2-6.2z"/><path d="M9.8 18.4a2.2 2.2 0 0 0 4.4 0"/>'
   };
   function icon(name) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
@@ -10904,11 +10980,203 @@ body.modal-open{overflow:hidden}
       installBoxHtml();
   }
 
-  function viewSettings() {
+  /* ---------- 配置页：自定义通知 ---------- */
+
+  /* 数据管理：从设置页原样搬过来，只是换了个地方住 */
+  function dataPanelHtml() {
+    return '<div class="panel"><h3>数据管理</h3>' +
+      '<p class="muted-sm" style="margin-bottom:4px">数据存在云端，服务器每天还会自动留一份快照（保留 30 天），所以不必天天手动导出。但建议偶尔导一次 JSON 存到自己电脑上——整个站点万一出问题，手里那份才是最后的保险。</p>' +
+      '<p class="muted-sm" style="margin-bottom:4px">导入会<b>整体替换</b>当前数据，导入前先导出一份更稳妥。</p>' +
+      '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
+      '<div class="btn-row">' +
+        '<button class="btn" data-act="history-open">历史版本</button>' +
+        '<button class="btn" data-act="export-json">导出备份 JSON</button>' +
+        '<button class="btn" data-act="import-json">导入备份还原</button>' +
+        '<button class="btn" data-act="export-csv">导出 CSV</button>' +
+        '<button class="btn danger" data-act="reset">清空全部数据</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* 一条通知的「什么时候」文案。单次过了日期直接标已过期——
+     发没发过前端不知道（那是后端的 push_sent），但日期过了就是过去了。 */
+  function noticeWhenText(n) {
+    const t = n.time;
+    if (n.mode === 'once') {
+      const d = n.date || '未设日期';
+      const past = !!n.date && n.date < todayStr();
+      return d + ' ' + t + ' · 单次' + (past ? ' · 已过期' : '');
+    }
+    if (n.mode === 'weekly') {
+      const ws = (n.weeks || []).slice().sort();
+      if (!ws.length) return '每周 · 还没选星期';
+      return '每周' + ws.map(function (w) { return WEEK_CN[w]; }).join('、') + ' ' + t;
+    }
+    if (n.mode === 'monthly') {
+      return '每月 ' + n.monthday + ' 号 ' + t +
+        (n.monthday > 28 ? '（小月按月末那天发）' : '');
+    }
+    return '每天 ' + t;
+  }
+
+  function noticePanelHtml() {
+    const list = Array.isArray(state.notices) ? state.notices : [];
+    const rows = list.map(function (n) {
+      const past = n.mode === 'once' && !!n.date && n.date < todayStr();
+      return '<div class="notice-row' + (n.on ? '' : ' off') + '">' +
+        '<div class="notice-main">' +
+          '<span class="notice-when">' + esc(noticeWhenText(n)) + (n.on ? '' : ' · 已暂停') + '</span>' +
+          '<span class="notice-text">' + esc(n.text) + '</span>' +
+        '</div>' +
+        '<div class="notice-acts">' +
+          (past ? '<button class="btn sm" data-act="notice-send" data-id="' + n.id + '">重发</button>' : '') +
+          '<button class="icon-btn" data-act="notice-toggle" data-id="' + n.id + '" title="' +
+            (n.on ? '暂停' : '开启') + '">' + (n.on ? '⏸' : '▶') + '</button>' +
+          '<button class="icon-btn" data-act="notice-edit" data-id="' + n.id + '" title="编辑">✎</button>' +
+          '<button class="icon-btn" data-act="notice-del" data-id="' + n.id + '" title="删除">🗑</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="panel"><h3>自定义通知 ' +
+        '<button class="btn primary sm" data-act="notice-new">＋ 新增</button></h3>' +
+      '<p class="muted-sm">到点往企业微信推一条你自己写的消息。单次只在指定那天发一次，重复的按天/周/月发。</p>' +
+      '<div class="notice-warn">' +
+        '<b>企业微信有频率限制</b>：同一分钟最多 20 条，超出的会被<b>静默丢弃</b>——返回成功但手机不响。' +
+        '所以同时有好几条通知时，<b>把时间错开至少 5 分钟</b>。另外定时任务每分钟跑一次、只往前补 3 分钟，' +
+        '服务器卡住超过 3 分钟那一跳会漏，不会补发。' +
+      '</div>' +
+      '<div class="notice-list">' +
+        (rows || '<div class="empty-box">还没有自定义通知，点标题右边「新增」。</div>') +
+      '</div>' +
+    '</div>';
+  }
+
+  function viewConfig() {
     icsLoad();
     pushLoad();
     return '' +
-      '<div class="page-head"><div><h2>设置</h2><p>外观、账号与数据。</p></div></div>' +
+      '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
+      '<div class="settings-wrap">' +
+      noticePanelHtml() +
+      '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
+      dataPanelHtml() +
+      '</div>';
+  }
+
+  /* ---------- 通知表单 ---------- */
+  function noticeModal(n) {
+    const isNew = !n;
+    const cur = n || { text: '', time: '20:00', mode: 'daily', date: todayStr(), weeks: [], monthday: 1, on: true };
+    const wks = (cur.weeks || []).slice();
+    /* 周一到周日排（WEEK_CN 的 0 是周日，放到最后更符合中文习惯） */
+    const wkHtml = [1, 2, 3, 4, 5, 6, 0].map(function (w) {
+      return '<button type="button" class="' + (wks.indexOf(w) >= 0 ? 'on' : '') +
+        '" data-act="notice-wk" data-w="' + w + '">' + WEEK_CN[w] + '</button>';
+    }).join('');
+    const modes = [
+      ['daily', '每天'], ['weekly', '每周（可多选）'], ['monthly', '每月'], ['once', '单次']
+    ];
+    openModal('<form class="modal-card" id="notice-form" data-id="' + esc(cur.id || '') + '">' +
+      '<h3>' + (isNew ? '新增自定义通知' : '编辑通知') + '</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field" style="grid-column:1/-1"><span>通知内容</span>' +
+          '<textarea name="text" rows="4" placeholder="例如：该吃维生素了">' + esc(cur.text || '') + '</textarea>' +
+          '<em class="nt-count" id="nt-count"></em></label>' +
+        '<label class="field"><span>发送时间</span>' +
+          '<input type="time" name="time" value="' + esc(cur.time || '20:00') + '"></label>' +
+        '<label class="field"><span>重复方式</span><select name="mode" id="notice-mode">' +
+          modes.map(function (m) {
+            return '<option value="' + m[0] + '"' + (cur.mode === m[0] ? ' selected' : '') + '>' + m[1] + '</option>';
+          }).join('') +
+        '</select></label>' +
+        '<label class="field" id="nf-date"><span>哪天</span>' +
+          '<input type="date" name="date" value="' + esc(cur.date || todayStr()) + '"></label>' +
+        '<label class="field" id="nf-md"><span>每月几号</span>' +
+          '<input type="number" name="monthday" min="1" max="31" value="' + (cur.monthday || 1) + '"></label>' +
+        '<div class="field" id="nf-weeks" style="grid-column:1/-1"><span>星期几</span>' +
+          '<div class="wk-pick" id="wk-pick">' + wkHtml + '</div></div>' +
+      '</div>' +
+      '<div class="notice-warn">同一分钟超过 20 条企业微信会静默丢弃，多条通知请把时间错开 5 分钟以上。</div>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+
+    const form = document.getElementById('notice-form');
+    const ta = form && form.querySelector('[name="text"]');
+    const cnt = document.getElementById('nt-count');
+    const syncCount = function () {
+      if (!ta || !cnt) return;
+      const n = ta.value.length;
+      cnt.textContent = n + ' / 500 字';
+      /* 超了要看得出来，但又不能用 --bad 直接压小字（对比度不够），往 --text 里混一档 */
+      cnt.style.color = n > 500 ? 'color-mix(in srgb,var(--bad) 78%,var(--text))' : '';
+    };
+    if (ta) { ta.addEventListener('input', syncCount); syncCount(); }
+
+    /* 三种重复方式各自只显示自己的字段，避免「日期 / 星期 / 几号」三个框同时摆着让人懵 */
+    const sel = document.getElementById('notice-mode');
+    const fDate = document.getElementById('nf-date');
+    const fWk = document.getElementById('nf-weeks');
+    const fMd = document.getElementById('nf-md');
+    const syncMode = function () {
+      const m = sel ? sel.value : 'daily';
+      if (fDate) fDate.hidden = m !== 'once';
+      if (fWk) fWk.hidden = m !== 'weekly';
+      if (fMd) fMd.hidden = m !== 'monthly';
+    };
+    if (sel) { sel.addEventListener('change', syncMode); syncMode(); }
+  }
+
+  function saveNoticeForm(form) {
+    const id = form.dataset.id || '';
+    const text = String((form.querySelector('[name="text"]') || {}).value || '').trim();
+    if (!text) { toast('先写点内容'); return; }
+    if (text.length > 500) { toast('内容超过 500 字，精简一下再存'); return; }
+    const time = String((form.querySelector('[name="time"]') || {}).value || '');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { toast('请选一个发送时间'); return; }
+    const mode = (form.querySelector('[name="mode"]') || {}).value || 'daily';
+    const date = String((form.querySelector('[name="date"]') || {}).value || '');
+    const monthday = parseInt((form.querySelector('[name="monthday"]') || {}).value, 10) || 1;
+    const picked = [].slice.call(form.querySelectorAll('#wk-pick button.on'))
+      .map(function (b) { return Number(b.dataset.w); })
+      .filter(function (w) { return w >= 0 && w <= 6; });
+    if (mode === 'once' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('单次通知要选一天'); return; }
+    if (mode === 'weekly' && !picked.length) { toast('至少选一个星期几'); return; }
+
+    if (!Array.isArray(state.notices)) state.notices = [];
+    const cur = id ? state.notices.find(function (x) { return x.id === id; }) : null;
+    const rec = cur || { id: uid(), on: true };
+    rec.text = text;
+    rec.time = time;
+    rec.mode = mode;
+    rec.date = mode === 'once' ? date : '';
+    rec.weeks = mode === 'weekly' ? picked.sort() : [];
+    rec.monthday = clamp(monthday, 1, 31);
+    if (!cur) state.notices.push(rec);
+    save();
+    render();
+    closeModal();
+    toast(id ? '通知已更新' : '通知已添加');
+  }
+
+  /* 单次的过期了可以直接再发一遍，不用改日期再等 */
+  async function noticeSendNow(id) {
+    const n = (state.notices || []).find(function (x) { return x.id === id; });
+    if (!n) return;
+    if (!cloud.user) { toast('要先登录云端账号'); return; }
+    toast('正在发送…');
+    try {
+      await cloudApi('push_test', { text: n.text });
+      toast('发出去了，看看手机');
+    } catch (e) {
+      toast(e && e.message ? e.message : '发送失败');
+    }
+  }
+
+  function viewSettings() {
+    return '' +
+      '<div class="page-head"><div><h2>设置</h2><p>外观、主题与账号。</p></div></div>' +
       '<div class="settings-wrap">' +
       '<div class="panel"><h3>排版</h3>' +
         '<p class="muted-sm" style="margin-bottom:2px">选择导航布局；选择会记住。</p>' +
@@ -10954,19 +11222,7 @@ body.modal-open{overflow:hidden}
         '</div>' +
       '</div>' +
       cloudPanelHtml() +
-      '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
-      '<div class="panel"><h3>数据管理</h3>' +
-        '<p class="muted-sm" style="margin-bottom:4px">数据存在云端，服务器每天还会自动留一份快照（保留 30 天），所以不必天天手动导出。但建议偶尔导一次 JSON 存到自己电脑上——整个站点万一出问题，手里那份才是最后的保险。</p>' +
-        '<p class="muted-sm" style="margin-bottom:4px">导入会<b>整体替换</b>当前数据，导入前先导出一份更稳妥。</p>' +
-        '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
-        '<div class="btn-row">' +
-          '<button class="btn" data-act="history-open">历史版本</button>' +
-          '<button class="btn" data-act="export-json">导出备份 JSON</button>' +
-          '<button class="btn" data-act="import-json">导入备份还原</button>' +
-          '<button class="btn" data-act="export-csv">导出 CSV</button>' +
-          '<button class="btn danger" data-act="reset">清空全部数据</button>' +
-        '</div>' +
-      '</div>' +
+      dataPanelHtml() +
       '<div class="panel"><h3>小提示</h3>' +
         '<ul class="tips">' +
           '<li>每天花 10 秒打卡，晚上睡前补记也可以。</li>' +
@@ -10978,7 +11234,7 @@ body.modal-open{overflow:hidden}
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, more: viewMore };
+  const VIEWS = { today: viewToday, board: viewBoard, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
   const NAV = [
     { key: 'today', label: '今日', icon: 'today', group: '记录', wideLabel: '今日' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
@@ -10989,6 +11245,7 @@ body.modal-open{overflow:hidden}
     { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
     { key: 'calendar', label: '日历', icon: 'calendar', group: '回顾', wideLabel: '打卡日历' },
     { key: 'stats', label: '统计', icon: 'stats', group: '回顾', wideLabel: '数据统计' },
+    { key: 'config', label: '配置', icon: 'config', group: '回顾', wideLabel: '通知配置' },
     { key: 'settings', label: '设置', icon: 'settings', group: '回顾', wideLabel: '设置' }
   ];
   const MORE_KEYS = ['meds', 'weight', 'essays', 'calendar', 'settings'];
@@ -11008,7 +11265,8 @@ body.modal-open{overflow:hidden}
     { key: 'essays', label: '随笔', icon: 'essay', desc: '随手记录文字和片段' },
     { key: 'weight', label: '体重', icon: 'weight', desc: '身体档案、BMI 和趋势' },
     { key: 'calendar', label: '日历', icon: 'calendar', desc: '按天回看完成度' },
-    { key: 'stats', label: '统计', icon: 'stats', desc: '完成率与习惯分布' }
+    { key: 'stats', label: '统计', icon: 'stats', desc: '完成率与习惯分布' },
+    { key: 'config', label: '配置', icon: 'config', desc: '自定义通知、订阅与数据' }
   ];
 
   function siteFooter() {
@@ -13594,6 +13852,33 @@ body.modal-open{overflow:hidden}
     'notify-off': () => notifyDisable(),
     'ics-copy': () => { icsCopy(); },
     'ics-reset': () => { icsReset(); },
+    /* ---- 配置页：自定义通知 ---- */
+    'notice-new': () => noticeModal(null),
+    'notice-edit': el => {
+      const n = (state.notices || []).find(function (x) { return x.id === el.dataset.id; });
+      if (n) noticeModal(n);
+    },
+    'notice-del': el => {
+      const n = (state.notices || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!n) return;
+      if (!confirm('删除这条通知？\n' + n.text.slice(0, 40))) return;
+      state.notices = state.notices.filter(function (x) { return x.id !== n.id; });
+      save();
+      render();
+      toast('已删除');
+    },
+    'notice-toggle': el => {
+      const n = (state.notices || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!n) return;
+      n.on = !n.on;
+      save();
+      render();
+      toast(n.on ? '已开启' : '已暂停');
+    },
+    /* 单次通知过期后不该只剩「改日期」这一条路，直接重发一次 */
+    'notice-send': el => { noticeSendNow(el.dataset.id); },
+    'notice-wk': el => el.classList.toggle('on'),
+
     'push-test': () => { pushTest(); },
     'push-off': () => { pushSave(false); },
     'push-refresh': () => { pushCfg = undefined; pushLoad(); },
@@ -13773,6 +14058,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'pack-form') {
       e.preventDefault();
       savePackForm(form);
+    } else if (form.id === 'notice-form') {
+      e.preventDefault();
+      saveNoticeForm(form);
     } else if (form.id === 'pack-cf-form') {
       e.preventDefault();
       savePackCfForm(form);

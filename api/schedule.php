@@ -342,3 +342,70 @@ function lb_schedule_reports(array $state, string $date): array
              . '明日待办 ' . $tomorrow . ' 条'],
     ];
 }
+
+/**
+ * 自定义通知：用户自己写的文案，按「单次 / 每天 / 每周几 / 每月几号」在指定时刻推。
+ *
+ * 为什么单独一个函数、不并进 lb_schedule_day：
+ * lb_schedule_day 会被 api/ics.php 复用去生成日历日程。自定义通知是「提醒」不是「日程」，
+ * 混进去会让订阅的日历里冒出一堆不该有的条目。
+ *
+ * 去重靠 push_sent 的 slot_key（日期|kind|id|时间）：
+ *   单次 —— 只有指定那天会进计划，发过一次就再也不出现；
+ *   每天 / 每周 / 每月 —— 每天的计划不同，键里的日期不同，天然各发一次。
+ *
+ * @return array<int, array{time:string, kind:string, id:string, title:string, body:string}>
+ */
+function lb_schedule_notices(array $state, string $date): array
+{
+    if (!lb_ics_is_date($date)) {
+        return [];
+    }
+    $out = [];
+    $ts = strtotime($date);
+    foreach ((array)($state['notices'] ?? []) as $n) {
+        if (!is_array($n)) {
+            continue;
+        }
+        if (($n['on'] ?? true) === false) {
+            continue;
+        }
+        $id = (string)($n['id'] ?? '');
+        $text = trim((string)($n['text'] ?? ''));
+        $time = (string)($n['time'] ?? '');
+        if ($id === '' || $text === '') {
+            continue;
+        }
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)) {
+            continue;
+        }
+
+        $mode = (string)($n['mode'] ?? 'daily');
+        $hit = false;
+        if ($mode === 'once') {
+            $hit = ((string)($n['date'] ?? '') === $date);
+        } elseif ($mode === 'daily') {
+            $hit = true;
+        } elseif ($mode === 'weekly') {
+            $weeks = is_array($n['weeks'] ?? null) ? array_map('intval', $n['weeks']) : [];
+            $hit = in_array((int)date('w', $ts), $weeks, true);
+        } elseif ($mode === 'monthly') {
+            /* 31 号在小月按月末那天发，否则「每月 31 号」在 2/4/6/9/11 月永远不会响。
+               这点和待办的重复任务（严格按号）有意不同，通知不该静默消失。 */
+            $md = max(1, min(31, (int)($n['monthday'] ?? 1)));
+            $hit = ((int)date('j', $ts) === min($md, (int)date('t', $ts)));
+        }
+        if (!$hit) {
+            continue;
+        }
+
+        $out[] = [
+            'time' => $time,
+            'kind' => 'notice',
+            'id' => $id,
+            'title' => '🔔 自定义提醒',
+            'body' => $text,
+        ];
+    }
+    return $out;
+}

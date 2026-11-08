@@ -63,6 +63,13 @@ for _i in range(3):
     _cr.append({'id': 's2_%d' % _i, 't': _t8 + 3600 + 1800 * (_i + 1), 'k': 's', 'h': 'h_drink', 'g': '', 's': 0})
 board['data']['cravings'] = _cr
 
+# 配置页要有通知才取得到样本
+board['data']['notices'] = [
+    {'id': 'n1', 'text': '该吃维生素了', 'time': '20:00', 'mode': 'daily', 'on': True},
+    {'id': 'n2', 'text': '周复盘', 'time': '21:30', 'mode': 'weekly', 'weeks': [1, 4], 'on': True},
+    {'id': 'n3', 'text': '交房租', 'time': '09:00', 'mode': 'monthly', 'monthday': 1, 'on': False},
+]
+
 H.do_GET = _get_push
 
 JS = """
@@ -97,8 +104,9 @@ JS = """
 }
 """
 
-SELS_SETTINGS = ['.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
-                 '.pc-sec-head', '.pc-count', '.pc-time', '.pc-tag', '.pc-txt b', '.pc-txt small']
+# v71 起「提醒 / 日历订阅 / 手机推送 / 安装」整块搬到了配置页，设置页只剩排版和主题。
+# 取样点跟着搬，否则会在设置页报一堆「元素缺失」，把真正的回归淹掉。
+SELS_SETTINGS = ['.layout-name', '.layout-desc', '.theme-name', '.theme-desc']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
@@ -121,6 +129,12 @@ SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
                   '.pack-cf button', '.btn.danger-red', '.qc-day span', '.qc-day b']
 # 习惯页：管理行的今日状态灯（v66）
 SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
+# 配置页：自定义通知（v71）。提示框是 --warn 浅底，最容易踩线
+# .pc-* 是推送预览里的条目，mock 的 push_preview 返回空数组，这四项永远取不到；
+# 留着会让「元素缺失」一直不为 0，把真正的回归信号淹掉。
+SELS_CONFIG_PAGE = ['.notice-when', '.notice-text', '.notice-warn',
+                    '.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
+                    '.pc-sec-head', '.pc-count']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
 
 # 安装提示要出现：未装、未关闭
@@ -163,6 +177,9 @@ with sync_playwright() as p:
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
+            nav(pg, 'config')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_CONFIG_PAGE)
             nav(pg, 'habits')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_HABITS_PAGE)

@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v70（2026-11-02）
+最后更新：v71（2026-11-08）
 
 ---
 
@@ -147,7 +147,7 @@ render()
 
 ---
 
-## 5. 十个视图
+## 5. 十一个视图
 
 `VIEWS` 常量把 key 映射到函数。`data-nav` 的值就是这里的 key。
 
@@ -161,12 +161,33 @@ render()
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
 | `calendar` | `viewCalendar()` | 日历（月 / 周两种） | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` |
 | `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` |
-| `settings` | `viewSettings()` | 设置 | `.ntf-box` `.pc-row` |
+| `config` | `viewConfig()` | 配置（v71） | `.notice-row` `.notice-warn` `.ntf-box` |
+| `settings` | `viewSettings()` | 设置 | `.layout-grid` `.theme-grid` |
 | `more` | `viewMore()` | 「更多」页 | `.more-grid` `.more-card` |
 
 **习惯页布局（v66）**：`.habits-wrap` 有归档时是两栏 `minmax(0,1fr) 340px`
 （左 `.habits-main` 我的习惯、右 `.habits-arch` 已归档），没归档时**退回单栏占满**——
 不留一块常年空着的板。`<900px` 自动变单列。容器**不设 `max-width`**，宽度交给 `.main`（见下节）。
+
+### 配置页（v71）
+
+第 11 个页面，`viewConfig()`。三块：
+
+1. **自定义通知**（`noticePanelHtml` / `noticeModal` / `saveNoticeForm`）
+2. **提醒** —— 从设置页整块搬来的 `remindPanelHtml()`：系统通知 + 日历订阅 + 企业微信推送 + 安装提示
+3. **数据管理**（`dataPanelHtml()`，从设置页抽出成函数）
+
+`noticePanelHtml` 顶部有一条 `.notice-warn`，写企业微信的硬限制：**同一分钟 20 条以上会静默丢弃**，
+多条通知要错开 5 分钟；cron 只往前补 3 分钟，卡住更久就漏。表单里也放了同一句。
+
+单次通知过了日期显示「已过期」（只有这一天会过期，重复的不会）并给一个「重发」按钮，
+走 `push_test` 带 `text` 参数直接把原文再发一次。
+
+`weeks` 用七个方块多选（`.wk-pick` + `data-act="notice-wk"` 切 `.on`），周一到周日排，
+但存的是 0-6（周日=0），跟全站一致。
+
+表单按 `mode` 显隐字段：`#nf-date` / `#nf-weeks` / `#nf-md` 三个块，`hidden` 切换，
+必须在 `openModal` 之后手动绑 `change` 才生效（没有全局联动机制）。
 
 ### 页面宽度约定（v67）
 
@@ -197,7 +218,7 @@ render()
 **导航相关常量**（都在主脚本顶部附近）：
 
 ```js
-NAV         // PC 侧栏：[今日, 用药, 戒烟, 待办, 习惯, 体重, 随笔, 日历, 统计, 设置]
+NAV         // PC 侧栏：[今日, 用药, 戒烟, 待办, 习惯, 体重, 随笔, 日历, 统计, 配置, 设置]
 MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more)]
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）

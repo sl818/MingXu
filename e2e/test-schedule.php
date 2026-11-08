@@ -303,6 +303,63 @@ $notBlock = ['tasks' => [[
 $bodyD = (lb_schedule_day($notBlock, D)[0]['body'] ?? '');
 chk('没有时间块时正文不带时间行', strpos($bodyD, '11:00') === false, $bodyD);
 
+/* ---------------- 自定义通知（v71） ----------------
+   这一块只在推送里用，不进日历订阅：通知不是日程。
+   去重靠 push_sent 的 slot_key（日期|notice|id|时间），所以这里只管「那天该不该发」。 */
+echo PHP_EOL . '自定义通知' . PHP_EOL;
+
+$noticesOf = static function (array $list, string $date): array {
+    return lb_schedule_notices(['notices' => $list], $date);
+};
+
+$everyDay = ['id' => 'n1', 'text' => '记得吃维生素', 'time' => '20:00', 'mode' => 'daily', 'on' => true];
+$pDaily = $noticesOf([$everyDay], '2026-11-08');
+chk('每天：任意一天都进计划', count($pDaily) === 1 && $pDaily[0]['time'] === '20:00', json_encode($pDaily));
+chk('每天的 kind 是 notice', ($pDaily[0]['kind'] ?? '') === 'notice');
+chk('正文就是用户写的内容', ($pDaily[0]['body'] ?? '') === '记得吃维生素');
+chk('标题带「自定义提醒」', strpos($pDaily[0]['title'] ?? '', '自定义提醒') !== false);
+chk('换一天还在（重复任务不是一次性的）', count($noticesOf([$everyDay], '2026-11-09')) === 1);
+
+$once = ['id' => 'n2', 'text' => '去医院复查', 'time' => '08:30', 'mode' => 'once', 'date' => '2026-11-05'];
+chk('单次：指定那天发', count($noticesOf([$once], '2026-11-05')) === 1);
+chk('单次：过了那天不再出现', count($noticesOf([$once], '2026-11-06')) === 0);
+chk('单次：还没到那天也不提前发', count($noticesOf([$once], '2026-11-04')) === 0);
+
+$weekly = ['id' => 'n3', 'text' => '周复盘', 'time' => '21:30', 'mode' => 'weekly', 'weeks' => [1, 4]];
+chk('每周一、四：周一发（11-09 是周一）', count($noticesOf([$weekly], '2026-11-09')) === 1);
+chk('每周一、四：周四发（11-12 是周四）', count($noticesOf([$weekly], '2026-11-12')) === 1);
+chk('每周一、四：周二不发', count($noticesOf([$weekly], '2026-11-10')) === 0);
+chk('每周没选星期时不发', count($noticesOf([array_merge($weekly, ['weeks' => []])], '2026-11-09')) === 0);
+
+$monthly = ['id' => 'n4', 'text' => '交房租', 'time' => '09:00', 'mode' => 'monthly', 'monthday' => 1];
+chk('每月 1 号：1 号发', count($noticesOf([$monthly], '2026-12-01')) === 1);
+chk('每月 1 号：2 号不发', count($noticesOf([$monthly], '2026-12-02')) === 0);
+
+$m31 = ['id' => 'n5', 'text' => '月末对账', 'time' => '09:00', 'mode' => 'monthly', 'monthday' => 31];
+chk('每月 31 号：大月 31 号发', count($noticesOf([$m31], '2026-12-31')) === 1);
+chk('每月 31 号：2 月按月末 28 号发', count($noticesOf([$m31], '2026-02-28')) === 1);
+chk('每月 31 号：2 月 27 号不发', count($noticesOf([$m31], '2026-02-27')) === 0);
+
+$paused = ['id' => 'n6', 'text' => '暂停的', 'time' => '20:00', 'mode' => 'daily', 'on' => false];
+chk('暂停的通知不发', count($noticesOf([$paused], '2026-11-08')) === 0);
+
+$blank = ['id' => 'n7', 'text' => '   ', 'time' => '20:00', 'mode' => 'daily'];
+chk('空内容不发', count($noticesOf([$blank], '2026-11-08')) === 0);
+
+$badTime = ['id' => 'n8', 'text' => '时间坏了', 'time' => '25:99', 'mode' => 'daily'];
+chk('时间格式非法不发', count($noticesOf([$badTime], '2026-11-08')) === 0);
+
+chk('多条通知互不影响（11-05 是周四）',
+    count($noticesOf([$everyDay, $once, $weekly], '2026-11-05')) === 3);
+$dayPlan = lb_schedule_day(['notices' => [$everyDay]], '2026-11-08');
+$noticeInDay = 0;
+foreach ($dayPlan as $x) {
+    if (($x['kind'] ?? '') === 'notice') {
+        $noticeInDay++;
+    }
+}
+chk('通知不进日历订阅（lb_schedule_day 不含 notice）', $noticeInDay === 0);
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

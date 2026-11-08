@@ -416,12 +416,14 @@ try {
                 lb_fail('还没填推送地址', 400, 'no_webhook');
             }
             $now = new DateTimeImmutable('now', lb_ics_tz());
-            $ok = lb_push_send(
-                $url,
-                '晚风 Todo 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
-                . "\n" . '收到这条就说明推送通道是通的。',
-                $why
-            );
+            /* text 可选：自定义通知的「重发」借这个口子把原文再发一次。
+               不传就是原来的测试消息。长度由 lb_push_send 里的 lb_push_clip 兜底（2048 字节）。 */
+            $text = trim((string)($in['text'] ?? ''));
+            if ($text === '') {
+                $text = '晚风 Todo 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
+                    . "\n" . '收到这条就说明推送通道是通的。';
+            }
+            $ok = lb_push_send($url, $text, $why);
             if (!$ok) {
                 lb_fail('没发出去：' . $why, 502, 'push_failed');
             }

@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v70（2026-11-02）
+最后更新：v71（2026-11-08）
 
 ---
 
@@ -428,3 +428,29 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 9. **新增 `api/*.php` 时，`e2e/verify-api-http.py` 会自动复制**（已改成扫目录），
    但 `install/` 和 `config.php` 不会，测试用自己伪造的那份。
 10. **`lb_settings()` 有 static 缓存**，同一请求内改了设置要传 `refresh=true` 才读得到新值。
+
+
+---
+
+## 自定义通知（v71）
+
+`api/schedule.php` 的 `lb_schedule_notices($state, $date)`：把 `state.notices` 里当天该发的
+挑出来，返回和 `lb_schedule_day` 一样的结构（`time / kind='notice' / id / title / body`）。
+
+**为什么单独一个函数、不并进 `lb_schedule_day`**：后者会被 `api/ics.php` 和前端 `buildICS`
+复用来生成日历日程。通知不是日程，混进去会让订阅的日历里多出一堆条目。
+`e2e/test-schedule.php` 有一条用例专门锁这个（`lb_schedule_day` 里不许出现 `kind === 'notice'`）。
+
+`api/push.php` 的 `lb_push_tick_run` 里三路合并：
+
+```php
+$plan = array_merge(
+    lb_schedule_day($state, $date),
+    lb_schedule_reports($state, $date),
+    lb_schedule_notices($state, $date)
+);
+```
+
+因为 `slot_key` 带日期，重复通知每天各发一次、单次只发一次，不需要额外状态。
+
+`api.php` 的 `push_test` 增加了可选 `text` 参数，配置页的「重发」就借它把原文再推一次。

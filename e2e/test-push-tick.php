@@ -50,6 +50,15 @@ function db(): PDO
 }
 
 /** 一个只在 08:00 和 20:00 有药的用户 */
+function state_notice(): array
+{
+    return [
+        'notices' => [[
+            'id' => 'nt1', 'text' => '记得吃维生素', 'time' => '20:30',
+            'mode' => 'daily', 'on' => true,
+        ]],
+    ];
+}
 function state_one_med(): array
 {
     return [
@@ -238,6 +247,22 @@ chk('正文存进了 content', $row && strpos((string)$row['content'], '阿莫�
     $row ? (string)$row['content'] : '无');
 
 /* 旧库（db() 建的表无 content 列）不能因此崩——上面所有用例已经跑过这情况 */
+
+/* ------------------------------------------------------------------ */
+echo "[11] 自定义通知" . PHP_EOL;
+$pdoN = db();
+add_user($pdoN, 1, HOOK, state_notice(), 1);
+$got = [];
+$r = lb_push_tick_run($pdoN, D, '20:30', $sender);
+chk('到点发出去一条', $r['sent'] === 1, json_encode($r));
+chk('正文就是用户写的内容', strpos((string)($got[0] ?? ''), '记得吃维生素') !== false,
+    (string)($got[0] ?? ''));
+chk('标题带「自定义提醒」', strpos((string)($got[0] ?? ''), '自定义提醒') !== false,
+    (string)($got[0] ?? ''));
+$r2 = lb_push_tick_run($pdoN, D, '20:30', $sender);
+chk('同一分钟再跑一次不重复发', $r2['sent'] === 0 && $r2['skipped'] === 1, json_encode($r2));
+$r3 = lb_push_tick_run($pdoN, D, '20:34', $sender);
+chk('过了容差窗口也不再补发', $r3['sent'] === 0, json_encode($r3));
 
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;

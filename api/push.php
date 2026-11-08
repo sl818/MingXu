@@ -305,7 +305,7 @@ function lb_push_tick_run(
             continue;
         }
         /* 单条提醒（药/待办/习惯）+ 待办汇报（report），统一走 lb_schedule_due 判窗口 */
-        $plan = array_merge(lb_schedule_day($state, $date), lb_schedule_reports($state, $date));
+        $plan = array_merge(lb_schedule_day($state, $date), lb_schedule_reports($state, $date), lb_schedule_notices($state, $date));
         $due = lb_schedule_due($plan, $hm, $grace);
         if (!$due) {
             continue;
