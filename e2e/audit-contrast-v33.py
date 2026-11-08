@@ -68,6 +68,9 @@ board['data']['notices'] = [
     {'id': 'n1', 'text': '该吃维生素了', 'time': '20:00', 'mode': 'daily', 'on': True},
     {'id': 'n2', 'text': '周复盘', 'time': '21:30', 'mode': 'weekly', 'weeks': [1, 4], 'on': True},
     {'id': 'n3', 'text': '交房租', 'time': '09:00', 'mode': 'monthly', 'monthday': 1, 'on': False},
+    # 已过期的单次：不给一条，.notice-row.past 那套灰字取不到样本
+    {'id': 'n4', 'text': '昨天这条已经发过了', 'time': '09:00', 'mode': 'once',
+     'date': '2026-10-24', 'weeks': [], 'monthday': 1, 'on': True},
 ]
 
 H.do_GET = _get_push
@@ -133,6 +136,7 @@ SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.ha
 # .pc-* 是推送预览里的条目，mock 的 push_preview 返回空数组，这四项永远取不到；
 # 留着会让「元素缺失」一直不为 0，把真正的回归信号淹掉。
 SELS_CONFIG_PAGE = ['.notice-when', '.notice-text', '.notice-warn',
+                    '.notice-row.past .notice-text', '.notice-row.past .notice-when',
                     '.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
                     '.pc-sec-head', '.pc-count']
 skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']

@@ -35,6 +35,8 @@ def rows(pg):
         when: (el.querySelector('.notice-when') || {}).textContent || '',
         text: (el.querySelector('.notice-text') || {}).textContent || '',
         off: el.classList.contains('off'),
+        past: el.classList.contains('past'),
+        strike: getComputedStyle(el.querySelector('.notice-text')).textDecorationLine,
         resend: !!el.querySelector('[data-act="notice-send"]')
     }))""")
 
@@ -65,6 +67,15 @@ with sync_playwright() as p:
     chk('空列表有提示', '还没有自定义通知' in (pg.locator('.notice-list').text_content() or ''))
     warn = pg.locator('.notice-warn').first.text_content() or ''
     chk('页面里有企业微信限流提示', '静默丢弃' in warn and '5 分钟' in warn, warn[:120])
+    lay = pg.evaluate("""() => {
+        const w = document.querySelector('.config-wrap');
+        const cs = getComputedStyle(w);
+        const ws = [...w.children].map(e => Math.round(e.getBoundingClientRect().width));
+        return {col: cs.columnCount, n: ws.length, same: ws.every(x => x === ws[0]), w: ws[0]};
+    }""")
+    chk('配置页是单栏（不是 columns 瀑布流）', lay['col'] == 'auto', str(lay))
+    chk('三块面板同宽、纵向堆叠', lay['n'] == 3 and lay['same'], str(lay))
+
     chk('设置页已经不再有「提醒」面板',
         pg.evaluate("() => { const b=document.querySelector('[data-nav=\"settings\"]'); b.click(); "
                     "return new Promise(r => setTimeout(() => r(document.body.innerText.includes('日历订阅')), 500)); }") is False)
@@ -144,6 +155,49 @@ with sync_playwright() as p:
     chk('单次行有「已过期」', bool(once) and '已过期' in once[0]['when'],
         once[0]['when'] if once else str(r))
     chk('过期的单次给了「重发」按钮', bool(once) and once[0]['resend'])
+    chk('过期行整行压灰（.past）', bool(once) and once[0]['past'], str(once))
+    chk('过期行正文有删除线', bool(once) and 'line-through' in once[0]['strike'],
+        once[0]['strike'] if once else '')
+
+    print('[5b] 今天的单次：时刻过了才算过期')
+    # 现在 10:00。09:00 已经发完（过期），20:00 还没到（不算过期）
+    pg.click('[data-act="notice-new"]')
+    pg.wait_for_timeout(400)
+    pg.fill('#notice-form textarea[name="text"]', '今天九点这条')
+    pg.select_option('#notice-mode', 'once')
+    pg.wait_for_timeout(250)
+    pg.fill('#notice-form input[name="date"]', '2026-11-08')
+    pg.fill('#notice-form input[name="time"]', '09:00')
+    pg.click('#notice-form button[type="submit"]')
+    pg.wait_for_timeout(700)
+    pg.click('[data-act="notice-new"]')
+    pg.wait_for_timeout(400)
+    pg.fill('#notice-form textarea[name="text"]', '今天晚上这条')
+    pg.select_option('#notice-mode', 'once')
+    pg.wait_for_timeout(250)
+    pg.fill('#notice-form input[name="date"]', '2026-11-08')
+    pg.fill('#notice-form input[name="time"]', '20:00')
+    pg.click('#notice-form button[type="submit"]')
+    pg.wait_for_timeout(700)
+    r = rows(pg)
+    nine = [x for x in r if '今天九点' in x['text']]
+    nine_pm = [x for x in r if '今天晚上' in x['text']]
+    chk('今天 09:00 的已过期（时刻过了）',
+        bool(nine) and nine[0]['past'] and '已过期' in nine[0]['when'],
+        nine[0]['when'] if nine else str(r))
+    chk('今天 20:00 的没过期（时刻还没到）',
+        bool(nine_pm) and not nine_pm[0]['past'] and '已过期' not in nine_pm[0]['when'],
+        nine_pm[0]['when'] if nine_pm else str(r))
+    chk('未过期的那行没有删除线',
+        bool(nine_pm) and 'line-through' not in nine_pm[0]['strike'],
+        nine_pm[0]['strike'] if nine_pm else '')
+    # 删掉刚加的两条，把基数还给后面的用例
+    before = len(rows(pg))
+    for _ in range(2):
+        pg.locator('[data-act="notice-del"]').first.click()
+        pg.wait_for_timeout(500)
+    chk('清理后少了两条', len(rows(pg)) == before - 2, '%d -> %d' % (before, len(rows(pg))))
+
 
     print('[6] 暂停与删除')
     pg.locator('[data-act="notice-toggle"]').first.click()

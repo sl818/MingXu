@@ -366,6 +366,10 @@ h1,h2,h3,h4,p{margin:0}
    .main 是 flex column，子项带 max-width 又没 margin:auto 会被顶到左边，
    右侧留一条空白，跟今日/用药/待办对不齐（cal-wrap 靠 margin:auto 才居中）。 */
 .settings-wrap{max-width:none}
+/* 配置页单栏往下排。**不要复用 .settings-wrap** —— 它在大屏是 columns:2 瀑布流，
+   配置页每块都要横着读（通知列表、推送配置、安装说明），分两栏会把阅读顺序打乱。
+   宽度依旧交给 .main，这里不写 max-width。 */
+.config-wrap{max-width:none}
 /* 但铺满后单列会把说明文字拉成一行上百字、预览卡拉成横条，所以大屏分两列。
    用 columns 不用 grid —— grid 行优先，「排版」会被旁边的「主题」拉高，下面留大块空洞；
    瀑布流按高度堆，卡片之间不留空。 */
@@ -3261,12 +3265,26 @@ body.modal-open{overflow:hidden}
 .notice-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .notice-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
   border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
-.notice-row.off .notice-text{text-decoration:line-through}
+/* 已过期（单次的时刻过了）和已暂停，都是「这一条现在不会响」。
+   过期的整行压灰：底色退到 surface、边框变虚线、正文划掉。
+   **文字只用 --muted，不给整行加 opacity** —— 整行压 opacity 会把底色一起压淡，
+   深色皮肤下反而更糊，对比度也算不准（踩过：深色下熄灭的圆点看不见）。 */
+.notice-row.past{background:var(--surface);border-style:dashed}
+.notice-row.past .notice-when{opacity:1;color:var(--muted)}
+.notice-row.off .notice-text,
+.notice-row.past .notice-text{text-decoration:line-through}
+.notice-row.past .notice-text{color:var(--muted)}
 .notice-main{flex:1;min-width:0}
 .notice-when{display:block;font-size:11px;color:var(--text);opacity:.72;margin-bottom:3px}
 .notice-text{display:block;font-size:12.5px;color:var(--text);
   line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .notice-acts{display:flex;flex:none;gap:4px}
+/* 窄屏：过期行有「重发」+ 三个图标共 4 个控件，挤在右侧会把正文压成三行。
+   改成按钮整体落到下一行右对齐——列表高一点，但内容能读完整。 */
+@media (max-width:560px){
+  .notice-row{flex-wrap:wrap}
+  .notice-acts{width:100%;justify-content:flex-end;margin-top:2px}
+}
 /* 每周几的多选：七个方块，跟表单里其他控件同高 */
 .wk-pick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .wk-pick button{border:1px solid var(--line);background:var(--surface);color:var(--text);
@@ -11133,12 +11151,24 @@ body.modal-open{overflow:hidden}
 
   /* 一条通知的「什么时候」文案。单次过了日期直接标已过期——
      发没发过前端不知道（那是后端的 push_sent），但日期过了就是过去了。 */
+  /* 单次通知「日期 + 时刻」已经过去 = 不会再发了。
+     为什么判到分钟、不只比日期：今天 11:40 那条，到了 12:13 就已经发完了，
+     只比日期会让它整天都显示成「还有效」，列表上一眼看不出哪条是活着的。 */
+  function noticePast(n) {
+    if (!n || n.mode !== 'once') return false;
+    const d = String(n.date || '');
+    const t = String(n.time || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) return false;
+    const at = Math.round(parseD(d).getTime() / 1000) +
+      (Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))) * 60;
+    return at <= Math.round(Date.now() / 1000);
+  }
   function noticeWhenText(n) {
     const t = n.time;
     if (n.mode === 'once') {
       const d = n.date || '未设日期';
-      const past = !!n.date && n.date < todayStr();
-      return d + ' ' + t + ' · 单次' + (past ? ' · 已过期' : '');
+      return d + ' ' + t + ' · 单次' + (noticePast(n) ? ' · 已过期' : '');
     }
     if (n.mode === 'weekly') {
       const ws = (n.weeks || []).slice().sort();
@@ -11155,8 +11185,8 @@ body.modal-open{overflow:hidden}
   function noticePanelHtml() {
     const list = Array.isArray(state.notices) ? state.notices : [];
     const rows = list.map(function (n) {
-      const past = n.mode === 'once' && !!n.date && n.date < todayStr();
-      return '<div class="notice-row' + (n.on ? '' : ' off') + '">' +
+      const past = noticePast(n);
+      return '<div class="notice-row' + (n.on ? '' : ' off') + (past ? ' past' : '') + '">' +
         '<div class="notice-main">' +
           '<span class="notice-when">' + esc(noticeWhenText(n)) + (n.on ? '' : ' · 已暂停') + '</span>' +
           '<span class="notice-text">' + esc(n.text) + '</span>' +
@@ -11189,7 +11219,7 @@ body.modal-open{overflow:hidden}
     pushLoad();
     return '' +
       '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
-      '<div class="settings-wrap">' +
+      '<div class="config-wrap">' +
       noticePanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       dataPanelHtml() +
