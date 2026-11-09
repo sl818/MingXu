@@ -1259,6 +1259,35 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .pin-tag{flex:none;font-size:9px;font-weight:600;letter-spacing:.08em;background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 30%,transparent);padding:2px 7px;border-radius:99px}
+/* ===== 常驻卡排序态（v75）=====
+   排序条绝对定位在右上角，正好盖住「常驻」标签——排序时那个标签没有信息量，
+   留着反而和 ↑↓ 抢位置。 */
+.card-sortbar{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:4}
+.vital-card .card-sortbar .csb{
+  width:30px;height:30px;border-radius:9px;cursor:pointer;
+  display:grid;place-items:center;font-size:14px;line-height:1;
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--text);
+  font-family:var(--font-sans);
+}
+.vital-card .card-sortbar .csb:hover{border-color:var(--accent);background:var(--accent-soft)}
+.vital-card .card-sortbar .csb:disabled{opacity:.3;pointer-events:none}
+.vital-grid.is-sorting .pin-tag{display:none}
+/* 排序时卡片里的打卡按钮一律不响应：手指点 ↑ 偏一点就会点到「点一根 / 完成」。
+   只放行排序条自己那两个。 */
+.vital-grid.is-sorting .vital-card button,
+.vital-grid.is-sorting .vital-card input,
+.vital-grid.is-sorting .vital-card select{pointer-events:none}
+.vital-grid.is-sorting .vital-card .card-sortbar .csb{pointer-events:auto}
+
+/* 标题栏右侧的排序入口。包在 .sec-meta 里，跟着「N 项常驻」一起右对齐。 */
+.sec-meta{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0}
+/* .sec-meta 里的「N 项常驻」是灰字说明；按钮单独放 .sec-acts，别塞进 .muted-sm ——
+   否则会继承那层灰，浅色皮肤下只有 2.4-3.8 的对比度（审计抓的）。
+   .sec-meta 用 margin-left:auto 把按钮顶到最右，这样 section-head 的 space-between
+   不会把按钮和说明拉到两端。 */
+.sec-meta{margin-left:auto}
+.sec-acts{display:inline-flex;align-items:center;gap:6px;flex:none}
+
 .vital-status{
   font-family:var(--font-sans);font-size:19px;font-weight:650;
   letter-spacing:-.01em;line-height:1.32;color:var(--text);margin-top:3px;
@@ -3597,6 +3626,11 @@ body.modal-open{overflow:hidden}
          跟药品库存一样，不存派生量。 */
       packs: [],
       notices: [],
+      /* 常驻卡的显示顺序（id 数组）+ 它最后被改的时刻。
+         **只存顺序，不存集合** —— 哪些卡存在永远由 PINNED_IDS 决定，
+         所以这个数组丢了某个 id 只会让它回到默认位置，不会让卡片消失。 */
+      cardOrder: [],
+      cardOrderAt: 0,
       bodyProfile: { age: 0, height: 0 },
       weights: [],
       essays: [],
@@ -4088,6 +4122,8 @@ body.modal-open{overflow:hidden}
     data.cravings = normalizeCravings(data.cravings);
     data.packs = normalizePacks(data.packs);
     data.notices = normalizeNotices(data.notices);
+    data.cardOrder = normalizeCardOrder(data.cardOrder);
+    data.cardOrderAt = Math.max(0, Math.round(Number(data.cardOrderAt) || 0));
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
     return Object.assign(seedState(), data);
@@ -4161,6 +4197,9 @@ body.modal-open{overflow:hidden}
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  /* 常驻卡排序模式：纯视图状态，不进 state。退出页面就结束，
+     不需要记「上次停在排序模式」。 */
+  let cardSortMode = false;
   /* 戒烟页月历的翻月锚点，和 calMonth 一样是纯视图状态，不进 state */
   let quitCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 抽烟趋势折线图的时间范围：7=周 / 30=月 / 90=季，纯视图状态 */
@@ -4807,6 +4846,16 @@ body.modal-open{overflow:hidden}
     rEv.forEach(function (ev) { seen[String(ev.at) + '|' + String(ev.id) + '|' + String(ev.delta)] = true; });
     const extra = lEv.filter(function (ev) { return !seen[String(ev.at) + '|' + String(ev.id) + '|' + String(ev.delta)]; });
     out.events = rEv.concat(extra);
+
+    /* 常驻卡顺序是「一整份偏好」，不能按 id 并集合并——两端各排一次，
+       并集会拼出一个两边交错的顺序，谁看都不对。只比 cardOrderAt，
+       新的那份整体覆盖；两边都是 0 就保持远端（即默认顺序）。 */
+    const lOAt = Number(local.cardOrderAt) || 0;
+    const rOAt = Number(remote.cardOrderAt) || 0;
+    if (lOAt > rOAt) {
+      out.cardOrder = Array.isArray(local.cardOrder) ? local.cardOrder.slice() : [];
+      out.cardOrderAt = lOAt;
+    }
 
     // 身体档案
     out.bodyProfile = Object.assign({}, remote.bodyProfile || {}, local.bodyProfile || {});
@@ -7259,6 +7308,34 @@ body.modal-open{overflow:hidden}
     '</article>';
   }
 
+  /* 顺序数组只做去重和剔空值，**不剔未知 id**：将来 PINNED_IDS 加卡片时，
+     用户之前存过的顺序仍能用上。真正排序时会按已知集合再过滤一遍。 */
+  function normalizeCardOrder(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (id) {
+      const v = String(id || '');
+      if (!v || seen[v]) return;
+      seen[v] = 1;
+      out.push(v);
+    });
+    return out.slice(0, 32);
+  }
+  /* 常驻卡的显示顺序：先按用户排过的，没排到的按 PINNED_IDS 原顺序补在后面。
+     集合始终是全部的 known，所以「排到一半」也不会少卡。 */
+  function orderedPinnedIds() {
+    const pref = Array.isArray(state.cardOrder) ? state.cardOrder : [];
+    const seen = {};
+    const out = [];
+    pref.forEach(function (id) {
+      const v = String(id || '');
+      if (v && PINNED_IDS.indexOf(v) >= 0 && !seen[v]) { seen[v] = 1; out.push(v); }
+    });
+    PINNED_IDS.forEach(function (id) { if (!seen[id]) out.push(id); });
+    return out;
+  }
+
   function isPinned(h) {
     return !!(h && PINNED_IDS.indexOf(h.id) >= 0);
   }
@@ -8190,7 +8267,7 @@ body.modal-open{overflow:hidden}
       sub = '还差 ' + missed.length + ' 项：' + missed.join('、');
     }
 
-    const pinned = PINNED_IDS.map(id => visibleHabits.find(h => h.id === id)).filter(Boolean);
+    const pinned = orderedPinnedIds().map(id => visibleHabits.find(h => h.id === id)).filter(Boolean);
     const others = visibleHabits.filter(h => pinned.indexOf(h) < 0);
     let habitHtml, habitMeta;
     if (!visibleHabits.length) {
@@ -8198,10 +8275,29 @@ body.modal-open{overflow:hidden}
       habitMeta = '还没有习惯';
     } else {
       habitHtml =
-        (pinned.length ? '<div class="vital-grid">' + pinned.map(h => h.med ? medCard(h, d) : vitalCard(h, d)).join('') + '</div>' : '') +
+        (pinned.length ? '<div class="vital-grid' + (cardSortMode ? ' is-sorting' : '') + '">' +
+          pinned.map(function (h, i) {
+            const card = h.med ? medCard(h, d) : vitalCard(h, d);
+            if (!cardSortMode) return card;
+            /* 排序条直接插在卡片末尾，不去动 medCard / vitalCard / quitCard 三个渲染函数——
+               它们各自结构不同，改三处比加这一处风险大得多。 */
+            const at = card.lastIndexOf('</article>');
+            if (at < 0) return card;
+            return card.slice(0, at) +
+              '<div class="card-sortbar">' +
+                '<button type="button" class="csb" data-act="card-move" data-id="' + h.id +
+                  '" data-dir="-1"' + (i <= 0 ? ' disabled' : '') + ' title="往前挪一位">↑</button>' +
+                '<button type="button" class="csb" data-act="card-move" data-id="' + h.id +
+                  '" data-dir="1"' + (i >= pinned.length - 1 ? ' disabled' : '') + ' title="往后挪一位">↓</button>' +
+              '</div>' +
+              card.slice(at);
+          }).join('') + '</div>' : '') +
         (others.length ? '<div class="section-sub">其他习惯</div><div class="habit-grid">' + others.map(h => habitCard(h, d)).join('') + '</div>' : '');
       habitMeta = (pinned.length ? pinned.length + ' 项常驻' : '') +
         (others.length ? (pinned.length ? ' · ' : '') + others.length + ' 项其他' : '');
+      habitMeta += cardSortMode
+        ? ' · 用 ↑↓ 调整顺序'
+        : (visibleHabits.length ? ' · 点击打卡' : '');
     }
 
     /* 待办列表：逾期单独成组置顶，今天到期超过 TODAY_REST_LIMIT 条折叠。
@@ -8283,7 +8379,19 @@ body.modal-open{overflow:hidden}
           '</div>' +
         '</section>' +
 
-        '<div class="section-head"><h2>' + (isToday ? '今日打卡' : '当日打卡') + '</h2><span class="muted-sm">' + habitMeta + (visibleHabits.length ? ' · 点击打卡' : '') + (isToday ? '' : ' · 补记模式') + '</span></div>' +
+        /* 按钮不能放进 .muted-sm —— 那层灰字会被继承过来，浅色皮肤下只有 2.4-3.8 的对比度。
+   结构上分开放，颜色走 .btn 自己的规则（皮肤里已经给到 --text）。 */
+'<div class="section-head"><h2>' + (isToday ? '今日打卡' : '当日打卡') + '</h2>' +
+          '<span class="muted-sm sec-meta">' + habitMeta + (isToday ? '' : ' · 补记模式') + '</span>' +
+          (visibleHabits.length && pinned.length
+            ? '<span class="sec-acts">' +
+                (cardSortMode
+                  ? '<button type="button" class="btn sm" data-act="card-sort-reset">恢复默认</button>' +
+                    '<button type="button" class="btn primary sm" data-act="card-sort">完成</button>'
+                  : '<button type="button" class="btn sm sort-btn" data-act="card-sort">排序</button>') +
+              '</span>'
+            : '') +
+          '</div>' +
         habitHtml +
 
         '<div class="section-head"><h2>' + (isToday ? '今日待办' : '当日待办') + '</h2><span class="muted-sm">' + pend.length + ' 条未完成</span></div>' +
@@ -13668,6 +13776,38 @@ body.modal-open{overflow:hidden}
       setCount(selectedDate, id, c - 1);
       render();
     },
+    /* ---- 常驻卡排序（v75） ---- */
+    'card-sort': () => {
+      cardSortMode = !cardSortMode;
+      render();
+      if (cardSortMode) toast('点卡片右上角的 ↑ ↓ 调整顺序');
+    },
+    'card-move': el => {
+      const id = el.dataset.id || '';
+      const dir = Number(el.dataset.dir) || 0;
+      if (!id || !dir) return;
+      const ids = orderedPinnedIds();
+      const i = ids.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= ids.length) return;
+      const tmp = ids[i];
+      ids[i] = ids[j];
+      ids[j] = tmp;
+      /* 写的是完整一份顺序，不是「相对移动」——两台设备合并时才能整份覆盖，
+         不会拼出交错的顺序。 */
+      state.cardOrder = ids;
+      state.cardOrderAt = Date.now();
+      save();
+      render();
+    },
+    'card-sort-reset': () => {
+      state.cardOrder = [];
+      state.cardOrderAt = Date.now();
+      save();
+      render();
+      toast('已恢复默认顺序');
+    },
+
     'habit-set': el => {
       const id = el.dataset.id;
       const v = Number(el.dataset.val) || 0;

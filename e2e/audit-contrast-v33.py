@@ -114,7 +114,7 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
               # 「其他习惯」目标 1 次的打卡按钮（v74）。mock 里 h_run 已打卡、h_plan 没打，
               # 两种状态各取一次；用 :not(.on) 区分，否则第一个匹配到的永远是 on 态。
               '.habit-done:not(.on)', '.habit-done:not(.on) span', '.habit-done.on',
-              '.habit-done.on span']
+              '.habit-done.on span', '.sec-acts .sort-btn']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
@@ -182,6 +182,13 @@ with sync_playwright() as p:
 
             res = pg.evaluate(JS, SELS_TODAY)
             res += pg.evaluate(JS, SELS_QUIT_TODAY)
+
+            # 常驻卡排序态（v75）：↑↓ 和标题栏那两颗按钮只在排序时出现
+            pg.evaluate("() => { const b=document.querySelector('[data-act=\"card-sort\"]'); if(b) b.click(); }")
+            pg.wait_for_timeout(600)
+            res += pg.evaluate(JS, ['.card-sortbar .csb', '.sec-acts .btn'])
+            pg.evaluate("() => { const b=document.querySelector('[data-act=\"card-sort\"]'); if(b) b.click(); }")
+            pg.wait_for_timeout(400)
             nav(pg, 'settings')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SETTINGS)
