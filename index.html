@@ -738,6 +738,38 @@ body{
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--hc) 52%,var(--line));
 }
 .habit-done.on .hd-mark{opacity:1;color:var(--hc)}
+/* 多次破戒的打卡按钮（v79）：一颗通栏按钮，点一次 +1。
+   跟 .habit-done 一样**自己定义背景、不继承 .pip 的皮肤渐变**——
+   渐变上白字算不出对比度（bgOf 会整组跳过），这颗按钮有真文字必须能真测。 */
+.quit-add{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;height:36px;margin:12px 0 10px;padding:0 12px;
+  border:0;border-radius:10px;cursor:pointer;
+  font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.01em;
+  color:var(--text);background:var(--surface-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+  transition:background .16s,box-shadow .16s,transform .12s;
+}
+.quit-add:hover{box-shadow:inset 0 0 0 1px var(--line-strong)}
+.quit-add:active{transform:translateY(1px)}
+.quit-add i{font-style:normal;font-size:12px;opacity:.45}
+.quit-add.broken{
+  background:color-mix(in srgb,var(--bad) 12%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bad) 52%,var(--line));
+}
+.quit-add.broken i{opacity:1;color:var(--bad)}
+.quit-add:disabled{opacity:.45;cursor:not-allowed;transform:none}
+/* 「撤销」贴在次数右边：只退最后一条。
+   它坐在 .habit-count 里（27px serif 数字），所以字号字体都要显式压回来，
+   否则会被当成一个大号数字。 */
+.quit-count{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.quit-undo{
+  font:inherit;font-family:var(--font-sans);font-size:11px;font-weight:600;
+  letter-spacing:0;line-height:1.5;padding:3px 9px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--text);
+}
+.quit-undo:hover{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--surface))}
+
 .habit-count{
   font-family:var(--font-serif);font-size:27px;font-weight:500;
   color:var(--text);letter-spacing:-.02em;line-height:1;
@@ -5637,6 +5669,15 @@ body.modal-open{overflow:hidden}
   }
   /* 两类都走事件流、都进统计：别用 type === 'quit' 判断，会漏掉戒烟 */
   function isQuitLike(h) { return !!h && (h.type === 'quit' || h.type === 'smoke'); }
+  /* 戒除的打卡方式（v79）：
+     once  = 每日单次，点了就是破了，再点撤销（老行为）
+     multi = 每日多次，一天可以记好几次（比如奶茶喝了两杯）
+     **缺省 once**，所以所有老习惯零迁移、行为一点不变。
+     戒烟（type:'smoke'）走自己的双按钮 + 烟盒，不用这个字段。 */
+  function isMultiSlip(h) {
+    return !!h && h.type === 'quit' && h.slipMode === 'multi';
+  }
+
   function quitWord(h) { return QUIT_WORD[isSmoke(h) ? 'smoke' : 'quit']; }
   /* 按钮文案（含补记诱因弹窗、时间线条目）——只有戒烟有「两个结局」 */
   function craveCn(k, h) {
@@ -5984,8 +6025,10 @@ body.modal-open{overflow:hidden}
     const now = Math.round(Date.now() / 1000);
     const last = state.cravings[state.cravings.length - 1];
     /* 手抖双击挡掉，但别挡「补记今天抽了几支」——那种是一分钟连点几次的。
-       1 秒以内才算误触；有撤销兜底，漏记比错记更难忍。 */
-    if (last && last.h === hid && last.k === kind && now - last.t < 1) {
+       1 秒以内才算误触；有撤销兜底，漏记比错记更难忍。
+       **多次破戒模式不挡**：一天两杯奶茶就是两次，用户可能一秒内连点，
+       挡掉等于记不进去；误点有旁边的「撤销」兜底。 */
+    if (!isMultiSlip(h) && last && last.h === hid && last.k === kind && now - last.t < 1) {
       toast('刚刚已经记过了');
       return;
     }
@@ -6011,7 +6054,11 @@ body.modal-open{overflow:hidden}
     if (isSmoke(h)) {
       toast(kind === 's' ? '已记一次 · 连续天数从今天重新算' : '扛住了 💪 已记一次');
     } else {
-      toast(kind === 's' ? '今天没守住 · 连续从今天重新数' : '已记一次');
+      toast(kind === 's'
+        ? (isMultiSlip(h)
+            ? '又记一次 · 今天 ' + quitSlips(h, todayStr()) + ' 次'
+            : '今天没守住 · 连续从今天重新数')
+        : '已记一次');
     }
   }
   function undoCraving(hid) {
@@ -7180,12 +7227,29 @@ body.modal-open{overflow:hidden}
       /* 戒除跟保持长得完全一样：中间一条可点的横条 + 一行数字。
          区别只在填充方向——保持「点了才满」，戒除「守住才满，点一下取消」。
          数字是「今天几次未达标」，0 就是守住了。 */
-      control = '<div class="pips"><button type="button" class="pip' + (broken ? '' : ' on') + '"' +
-          ' data-act="quit-mark" data-id="' + h.id + '"' +
-          (isToday ? '' : ' disabled') +
-          ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
-          ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>' +
-        '<div class="habit-count">' + slips + '<span> 次未达标</span></div>';
+      if (isMultiSlip(h)) {
+        /* 多次模式（v79）：主按钮永远可点、点一次加一条，撤销单独放在数字右边。
+           **不能沿用 toggle** —— 再点一下就删掉整天记录的话，第二次根本记不进去。
+           撤销只退最后一条，不是整天清零。 */
+        control = '<button type="button" class="quit-add' + (broken ? ' broken' : '') + '"' +
+            ' data-act="quit-add" data-id="' + h.id + '"' +
+            (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '>' +
+            '<i>' + (broken ? '!' : '✓') + '</i>' +
+            '<span>' + (broken ? '又破一次' : '今天守住了') + '</span>' +
+          '</button>' +
+          '<div class="habit-count quit-count">' + slips + '<span> 次未达标</span>' +
+            (broken && isToday
+              ? '<button type="button" class="quit-undo" data-act="quit-dec" data-id="' + h.id + '">撤销</button>'
+              : '') +
+          '</div>';
+      } else {
+        control = '<div class="pips"><button type="button" class="pip' + (broken ? '' : ' on') + '"' +
+            ' data-act="quit-mark" data-id="' + h.id + '"' +
+            (isToday ? '' : ' disabled') +
+            ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
+            ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>' +
+          '<div class="habit-count">' + slips + '<span> 次未达标</span></div>';
+      }
     } else if (target <= 1) {
       /* 目标 1 次：一个通栏按钮，点了就完成，再点就撤销。
          不做「已完成 / 未完成」两个并列按钮：没打卡的时候「未完成」没有语义
@@ -12500,8 +12564,16 @@ body.modal-open{overflow:hidden}
       /* 烟专属字段（每天几支 / 烟价 / 一包几支）只在戒烟时出现。
          「不熬夜」出现「一包多少钱」会让人莫名其妙。 */
       form.querySelectorAll('[data-smoke-only]').forEach(el => { el.hidden = !isSmokeType; });
+      /* 「打卡方式」只给通用戒除：戒烟走双按钮，不适用单次/多次 */
+      form.querySelectorAll('[data-quit-plain]').forEach(el => { el.hidden = tv !== 'quit'; });
+      /* 提示文案按「戒烟 / 单次戒除 / 多次戒除」三选一，切下拉时要跟着变 */
+      const slipSel = form.querySelector('[name="slipMode"]');
+      const isMulti = tv === 'quit' && !!slipSel && slipSel.value === 'multi';
       form.querySelectorAll('[data-quit-hint]').forEach(el => {
-        el.hidden = el.dataset.quitHint !== (isSmokeType ? 'smoke' : 'quit');
+        const kind = el.dataset.quitHint;
+        if (kind === 'smoke') { el.hidden = !isSmokeType; return; }
+        if (tv !== 'quit') { el.hidden = true; return; }
+        el.hidden = (el.dataset.slip || 'once') !== (isMulti ? 'multi' : 'once');
       });
       /* 「目标次数 / 单位」对戒除没意义，disabled 留着只会让人以为坏了 */
       ['target', 'unit'].forEach(function (nm) {
@@ -12511,6 +12583,9 @@ body.modal-open{overflow:hidden}
       });
     };
     type.addEventListener('change', sync);
+    /* 只改「打卡方式」不改类型时，提示文案也要跟着换 */
+    const slipPicker = form.querySelector('[name="slipMode"]');
+    if (slipPicker) slipPicker.addEventListener('change', sync);
     sync();
     /* 通知频率联动：weekly 显示「每周几」，monthly 显示「每月几号」 */
     const freq = form.querySelector('[name="notifyFreq"]');
@@ -12621,6 +12696,11 @@ body.modal-open{overflow:hidden}
           '</select></label>' +
         '<div class="form-grid quit-fields wide" data-quit-only hidden>' +
           '<label class="field" data-qf-start><span>开始日期</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
+          /* 只给通用戒除：戒烟（smoke）有自己的一对按钮，选单次/多次没有意义 */
+          '<label class="field" data-quit-plain><span>打卡方式</span><select name="slipMode">' +
+            '<option value="once"' + ((h.slipMode || 'once') === 'once' ? ' selected' : '') + '>每日单次 · 点了就是破了</option>' +
+            '<option value="multi"' + (h.slipMode === 'multi' ? ' selected' : '') + '>每日多次 · 一天能记好几次</option>' +
+          '</select></label>' +
           '<label class="field" data-smoke-only><span>原来每天几支</span><input name="quitPerDay" type="number" min="1" max="100" value="' + (Number(h.quitPerDay) || '') + '" placeholder="留空则不折算省钱"></label>' +
           '<label class="field" data-smoke-only><span>一包多少钱（元）</span><input name="quitPackPrice" type="number" min="0" step="0.5" value="' + (Number(h.quitPackPrice) || '') + '" placeholder="例如 25"></label>' +
           '<label class="field" data-smoke-only><span>一包几支</span><input name="quitPackSize" type="number" min="1" max="50" value="' + (Number(h.quitPackSize) || 20) + '"></label>' +
@@ -12648,8 +12728,10 @@ body.modal-open{overflow:hidden}
           '<label class="field" data-habit-freq data-habit-for="monthly"><span>每月几号</span><input type="number" name="notifyMonthday" min="1" max="31" value="' + (Number(h.notifyMonthday) || 1) + '"></label>' +
           '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
         '</div>' +
-        '<p class="hint" data-quit-hint="quit" hidden>「戒除」默认算守住，什么都不用点；<b>守不住的时候点卡片右上角的圆圈</b>，' +
+        '<p class="hint" data-quit-hint="quit" data-slip="once" hidden>「戒除」默认算守住，什么都不用点；<b>守不住的时候点中间那条横条</b>，' +
           '记一次未达标，连续天数从那天重新数。点错了再点一次即可撤销。</p>' +
+        '<p class="hint" data-quit-hint="quit" data-slip="multi" hidden>同样默认算守住；<b>守不住的时候点中间那颗按钮</b>记一次，' +
+          '一天可以记好几次（比如奶茶喝了两杯）。点错了用旁边的「撤销」退掉最后一次，不会把整天清空。</p>' +
         '<p class="hint" data-quit-hint="smoke" hidden>「戒烟」是站点自带的常驻卡：想抽时点「点一根」，忍住了点「忍一次」，两个都记。' +
           '想把连续天数从今天重新算，把开始日期改成今天即可，历史记录不会丢。</p>' +
         (isPinned(h) ? '<p class="hint">常驻习惯不能删除，可以在这里修改名称、目标和颜色。</p>' : '') +
@@ -13140,6 +13222,10 @@ body.modal-open{overflow:hidden}
     if (type === 'quit' || type === 'smoke') {
       const qs = get('quitStart');
       payload.quitStart = /^\d{4}-\d{2}-\d{2}$/.test(qs) ? qs : '';
+      /* 打卡方式只对通用戒除有意义；戒烟是两个按钮 + 烟盒，没有「单次/多次」之分。
+         缺省写 'once' 而不是留空，避免 mergeStates 并集时一端有值一端没有、
+         合并后变成 undefined（那就退回单次了）。 */
+      payload.slipMode = (type === 'quit' && get('slipMode') === 'multi') ? 'multi' : 'once';
       if (type === 'smoke') {
         payload.quitPerDay = clamp(parseInt(get('quitPerDay'), 10) || 0, 0, 100);
         payload.quitPackPrice = Math.max(0, Math.min(9999, Number(get('quitPackPrice')) || 0));
@@ -14015,6 +14101,8 @@ body.modal-open{overflow:hidden}
     'quit-mark': el => {
       const h = currentHabit(el.dataset.id);
       if (!h) return;
+      /* 多次模式不走这里：它是 toggle（有记录就整天全删），会把记了 3 次的清空 */
+      if (isMultiSlip(h)) return;
       const today = todayStr();
       if (quitSlips(h, today) > 0) {
         state.cravings = craveList().filter(function (e) {
@@ -14026,6 +14114,29 @@ body.modal-open{overflow:hidden}
         return;
       }
       addCraving(h.id, 's');
+    },
+    /* 多次破戒：点一次加一条，撤销只退最后一条（不清整天）。
+       拆成两个 action 而不是在 quit-mark 里 if 分支——
+       一个 toggle 语义、一个是累加语义，混在一起最容易写成「点第二下就清零」。 */
+    'quit-add': el => {
+      const h = currentHabit(el.dataset.id);
+      if (!h || !isMultiSlip(h)) return;
+      addCraving(h.id, 's');
+    },
+    'quit-dec': el => {
+      const h = currentHabit(el.dataset.id);
+      if (!h || !isMultiSlip(h)) return;
+      const today = todayStr();
+      const list = craveList().filter(function (e) {
+        return e.h === h.id && e.k === 's' && tsDay(e.t) === today;
+      });
+      if (!list.length) return;
+      const last = list[list.length - 1];
+      state.cravings = craveList().filter(function (e) { return e.id !== last.id; });
+      save();
+      render();
+      const left = list.length - 1;
+      toast(left > 0 ? '已撤销 1 次 · 今天还有 ' + left + ' 次' : '已撤销 · 今天重新算作守住');
     },
     'crave-smoke': el => addCraving(el.dataset.id, 's'),
     'crave-resist': el => addCraving(el.dataset.id, 'r'),

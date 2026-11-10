@@ -74,6 +74,18 @@ board['data']['countdowns'] = [
      'time': '09:00', 'remindDays': [0], 'on': False},
 ]
 
+# 戒除多次模式（v79）：一个已破（.quit-add.broken + .quit-undo）、一个未破
+_qm = int(datetime(2026, 10, 25, 9, 0).timestamp())
+_qbase = {'type': 'quit', 'target': 1, 'unit': '次', 'note': '',
+          'createdAt': '2026-10-01T08:00:00Z', 'pinned': False, 'med': False,
+          'quitStart': '2026-10-01', 'slipMode': 'multi'}
+board['data']['habits'] += [
+    dict(_qbase, id='h_qm_brk', name='不喝可乐', icon='🥤', color='#c2705f'),
+    dict(_qbase, id='h_qm_ok', name='不喝奶茶', icon='🧋', color='#8a6fa8'),
+]
+board['data']['cravings'].append(
+    {'id': 'cqm1', 't': _qm, 'k': 's', 'h': 'h_qm_brk', 'g': '', 's': 0})
+
 board['data']['notices'] = [
     {'id': 'n1', 'text': '该吃维生素了', 'time': '20:00', 'mode': 'daily', 'on': True},
     {'id': 'n2', 'text': '周复盘', 'time': '21:30', 'mode': 'weekly', 'weeks': [1, 4], 'on': True},
@@ -124,7 +136,11 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
               # 「其他习惯」目标 1 次的打卡按钮（v74）。mock 里 h_run 已打卡、h_plan 没打，
               # 两种状态各取一次；用 :not(.on) 区分，否则第一个匹配到的永远是 on 态。
               '.habit-done:not(.on)', '.habit-done:not(.on) span', '.habit-done.on',
-              '.habit-done.on span', '.sec-acts .sort-btn']
+              '.habit-done.on span', '.sec-acts .sort-btn',
+              # 戒除多次模式的按钮（v79）：未破 / 已破两种状态 + 撤销
+              '.quit-add:not(.broken)', '.quit-add:not(.broken) span',
+              '.quit-add.broken', '.quit-add.broken span',
+              '.quit-undo', '.quit-count span']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
