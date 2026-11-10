@@ -144,7 +144,10 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',
-              '.stats-acts .btn', '.stats-acts .range-switch button']
+              '.stats-acts .btn', '.stats-acts .range-switch button',
+              # v84 分区后新增：分段控件（当前格是 accent 字压 surface 底）、分区小标题
+              '.sblock-head b', '.sblock-head span', '.shead h3',
+              '.stab button', '.stab button.on']
 # 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
 # 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
 SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
@@ -244,6 +247,14 @@ with sync_playwright() as p:
             res += pg.evaluate(JS, SELS_BOARD)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
+            # v84：用药趋势和戒烟分析都藏在分段控件 / 折叠后面，取样前先点开，
+            # 否则这两组永远「元素缺失」，真正的回归信号会被淹没。
+            if pg.locator('[data-act="stats-med-tab"][data-tab="trend"]').count():
+                pg.click('[data-act="stats-med-tab"][data-tab="trend"]')
+                pg.wait_for_timeout(400)
+            if pg.locator('[data-act="stats-quit-fold"]').count():
+                pg.click('[data-act="stats-quit-fold"]')
+                pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_STATS)
             res += pg.evaluate(JS, SELS_QUIT_STATS)
             nav(pg, 'calendar')

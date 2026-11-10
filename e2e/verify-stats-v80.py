@@ -186,14 +186,11 @@ def main():
         chk('新增 19 条（比近 1 月多那条 9 月的）', by_label(st, '新增') == 19, str(by_label(st, '新增')))
         chk('已完成 11 条', by_label(st, '已完成') == 11, str(by_label(st, '已完成')))
 
-        print('[4] 统计页是同一套数字')
+        print('[4] v84 起统计页不再重复这块面板（只在待办页底部）')
         go(pg, 'stats')
         st2 = stats(pg)
-        chk('统计页也有这块面板', bool(st2), str(st2))
-        chk('两页的「新增」一致', by_label(st2, '新增') == by_label(st, '新增'),
-            '%s vs %s' % (by_label(st2, '新增'), by_label(st, '新增')))
-        chk('两页的达成率一致', st2['rate'] == st['rate'], '%s vs %s' % (st2['rate'], st['rate']))
-        chk('统计页原来是「任务概览」，已经被替换掉',
+        chk('统计页没有重复的任务完成度', st2 is None, str(st2))
+        chk('统计页也没有「任务概览」残留',
             pg.locator('.cal-summary').count() == 0,
             'cal-summary=%d' % pg.locator('.cal-summary').count())
 

@@ -3602,6 +3602,28 @@ body.modal-open{overflow:hidden}
 .qs-bar.zero{background:var(--line)}
 .qs-axis{display:flex;justify-content:space-between;margin-top:5px;font-size:9.5px;color:var(--muted)}
 @media (max-width:760px){.qs-bars{height:38px;gap:1px}}
+/* 统计页分区（v84）：一块大面板里用分隔线切小段 */
+.sblock{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.sblock-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.sblock-head b{font-size:13px;font-weight:600;color:var(--text)}
+/* 统计页分段控件（本月 / 近 N 天 / 趋势）。跟 .range-switch 分开写：
+   那个是页头的 7/30/90，复用会让 e2e 里按 .range-switch 定位的选择器变歧义 */
+.shead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin-bottom:14px;flex-wrap:wrap}
+.shead h3{margin-bottom:0}
+.stab{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface-2);flex:none}
+/* 文字一律 var(--text)：clay 皮肤下 --muted 在 surface-2 上只有 3.55，
+   accent 在 surface 上同样是 3.55。当前格靠底色 + 字重区分，不靠颜色。 */
+.stab button{border:0;background:transparent;color:var(--text);font:inherit;font-size:11px;
+  padding:5px 9px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.stab button.on{background:var(--surface);color:var(--text);font-weight:600;
+  box-shadow:0 1px 4px rgba(0,0,0,.06)}
+@media (max-width:760px){
+  .stab{width:100%}.stab button{flex:1;padding:6px 4px}
+  .sblock-head{flex-wrap:wrap;gap:4px}
+}
+
 /* 买烟记录列表 */
 .qpack-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .qpack{display:flex;align-items:center;gap:10px;padding:11px 13px;
@@ -8703,6 +8725,11 @@ body.modal-open{overflow:hidden}
   const openTaskIds = new Set();
   /* 统计页「打卡时间」是否展开全部 */
   let statsLogOpen = false;
+  /* 统计页分段控件的当前格。**不进 state**：进了 state 就要改
+     normalizeState / mergeStates / repairBackup 三处，而且两端切换的格不同会互相同步覆盖。 */
+  let statsHabitTab = 'month';
+  let statsMedTab = 'month';
+  let statsQuitOpen = false;
   /* 今日页「今天到期」列表是否展开全部（超过 TODAY_REST_LIMIT 条才出现按钮） */
   let todayTasksOpen = false;
   const TODAY_REST_LIMIT = 6;
@@ -9056,7 +9083,7 @@ body.modal-open{overflow:hidden}
   /* 戒烟分析面板。只对 quit 习惯出现，没有戒烟习惯就完全不渲染。
      时段分布只数「抽了」——「想抽但忍住」的那个时段其实不是危险时段，
      混进去会把真正容易破防的点位稀释掉。 */
-  function quitPanel(range) {
+  function quitPanelBody(range) {
     const h = (state.habits || []).find(function (x) {
       return x && !x.archivedAt && isSmoke(x);
     });
@@ -9089,7 +9116,8 @@ body.modal-open{overflow:hidden}
         '<b>' + (QUIT_MILE_CN[m] || (m + ' 天')) + '</b>' +
         '<span>' + (on ? '已达成' : '还差 ' + (m - streak) + ' 天') + '</span></div>';
     }).join('');
-    return '<div class="panel"><h3>戒烟分析 <span class="muted-sm">（累计）</span></h3>' +
+    return '<div class="sblock">' +
+      '<div class="sblock-head"><b>戒烟分析</b><span class="muted-sm">（累计 · 勋章与时段图）</span></div>' +
       '<div class="cal-summary" style="margin:0">' +
         '<span>连续无烟 <b>' + streak + '</b> 天</span>' +
         '<span>累计 <b>' + total + '</b> 天</span>' +
@@ -9896,7 +9924,7 @@ body.modal-open{overflow:hidden}
     return { thisPct: a.pct, prevPct: b.pct, days: passed };
   }
 
-  function medTrendPanel(range, rangeDays) {
+  function medTrendBody(range, rangeDays) {
     const cur = medAdherenceRange(rangeDays);
     const mom = medAdherenceMoM();
 
@@ -9931,8 +9959,7 @@ body.modal-open{overflow:hidden}
       '</div>';
     }).join('');
 
-    return '<div class="panel">' +
-      '<h3>用药依从趋势 <span class="muted-sm">（近 ' + range + ' 天）</span></h3>' +
+    return '<div>' +
       '<div class="adh-head">' +
         '<b class="adh-big">' + (cur.pct === null ? '—' : cur.pct + '<i>%</i>') + '</b>' +
         delta +
@@ -9948,14 +9975,16 @@ body.modal-open{overflow:hidden}
     '</div>';
   }
 
-  function monthReviewPanel() {
+  function monthReviewBody() {
     const r = monthReviewData();
     const cell = (label, value, unit, sub) =>
       '<div class="rv-cell"><small>' + esc(label) + '</small><b>' + value +
         (unit ? ' <i>' + esc(unit) + '</i>' : '') + '</b>' +
         (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>';
     const pctOf = v => r.elapsed ? Math.round(v / r.elapsed * 100) : 0;
-    return '<div class="panel"><h3>本月回顾 <span class="muted-sm">（' + esc(r.monthLabel) + '已过 ' + r.elapsed + ' 天）</span></h3>' +
+    return '<div class="sblock">' +
+      '<div class="sblock-head"><b>本月回顾</b>' +
+        '<span class="muted-sm">（' + esc(r.monthLabel) + '已过 ' + r.elapsed + ' 天）</span></div>' +
       '<div class="rv-grid">' +
         cell('达标天数', r.qualified, '天', '占已过天数 ' + pctOf(r.qualified) + '%') +
         cell('有记录', r.recorded, '天', '缺 ' + (r.elapsed - r.recorded) + ' 天') +
@@ -10364,7 +10393,7 @@ body.modal-open{overflow:hidden}
      ① 「本月消费」按买烟日期算（月头买一条整笔算在月头，看的是支出不是消耗）；
      ② 「平均每天」的分母是戒烟天数（上限 30），不是固定 30 天——刚开始记的前
         半个月会被当成 0 支，均值被压低，「折合几小时一根」跟着一起错。 */
-  function quitSumPanel(h, title, withHours) {
+  function quitSumCardsHtml(h, withHours) {
     const packs = Array.isArray(state.packs) ? state.packs : [];
     const now = new Date();
     const dow = (now.getDay() + 6) % 7;
@@ -10449,8 +10478,7 @@ body.modal-open{overflow:hidden}
     const card = function (label, big, sub) {
       return '<div class="qsum"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
     };
-    return '<div class="panel"><h3>' + (title || '数据汇总') + '</h3>' +
-      '<div class="qsum-grid">' +
+    return '<div class="qsum-grid">' +
         card('今天', todayS + ' 支', diffText) +
         card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
         card('本月消费', '¥' + moCost.toFixed(0) + ' 元', '按买烟日期 · ' + mo.length + ' 包') +
@@ -10463,10 +10491,12 @@ body.modal-open{overflow:hidden}
           unit ? unitSub : '买烟时填价格就能算') +
         card('上次抽', lastText, lastSub) +
       '</div>' +
-      /* 统计页紧跟「戒烟分析」，那边已经有 24 根柱 + 峰值说明。
-         同一页画两遍同一份数据只会让人以为口径不同。 */
-      (withHours === false ? '' : quitHoursStrip(h)) +
-    '</div>';
+      (withHours === false ? '' : quitHoursStrip(h));
+  }
+
+  /* 戒烟页要一整块面板。统计页并进「戒烟」块里，只取卡片那部分 */
+  function quitSumPanel(h) {
+    return '<div class="panel"><h3>数据汇总</h3>' + quitSumCardsHtml(h, true) + '</div>';
   }
 
   /* 24 小时时段条（戒烟页速览）。统计页也有 24 根柱，那是「分析」视角、可切区间；
@@ -10935,9 +10965,6 @@ body.modal-open{overflow:hidden}
           (status ? ' · ' + esc(status) : '') + '</div>' +
       '</div>';
     }).join('');
-    const medPanel = '<div class="panel"><h3>用药记录 <span class="muted-sm">（近 ' + range + ' 天，按应服次数）</span></h3>' +
-      (medStats || '<div class="empty-box">还没有用药记录。</div>') +
-      '</div>';
 
     /* 同一习惯同一分钟内的 +1 / -1 合并成净变化，来回撤销不再刷屏 */
     const rawLog = (Array.isArray(state.events) ? state.events : [])
@@ -10988,13 +11015,31 @@ body.modal-open{overflow:hidden}
           (statsLogOpen ? '收起' : '查看更多' + (logHidden > 0 ? ' · 还有 ' + logHidden + ' 条' : '')) +
         '</button>'
       : '';
-    const logPanel = '<div class="panel">' +
-      '<div class="panel-head"><h3>打卡时间 <span class="muted-sm">（最近 ' + logList.length + ' 次操作，含服药）</span></h3>' + logToggle + '</div>' +
-      (logRows || '<div class="empty-box">还没有操作记录，去今日页点一下习惯试试。</div>') +
-      '</div>';
 
     /* 没有戒烟习惯时两块都不渲染；有的话「汇总」在前、「分析」在后 */
     const qhSum = quitHabit();
+
+    /* ---- v84 面板合并 ----
+       以前 14 个独立面板，同一件事散在三四块（习惯 4 处、用药 4 处、戒烟 2 处），
+       一路要滑 4 屏多。现在按主题并成 6 块，同主题用分段控件切。 */
+    const hTab = ['month', 'range', 'log'].indexOf(statsHabitTab) >= 0 ? statsHabitTab : 'month';
+    const mTab = ['month', 'range', 'trend'].indexOf(statsMedTab) >= 0 ? statsMedTab : 'month';
+    const habitSub = hTab === 'month' ? '只看有记录的日子'
+      : (hTab === 'range' ? '最近 ' + range + ' 天' : '最近 ' + logList.length + ' 次操作，含服药');
+    const habitBody = hTab === 'month'
+      ? (monthHabitRowsHtml(now.getFullYear(), now.getMonth()) || '<div class="empty-box">本月还没有记录。</div>')
+      : (hTab === 'range'
+        ? (hstats || '<div class="empty-box">还没有习惯数据。</div>')
+        : (logRows
+          ? logRows + logToggle
+          : '<div class="empty-box">还没有操作记录，去今日页点一下习惯试试。</div>'));
+    const medSub = mTab === 'month' ? '本月 · 按应服次数'
+      : (mTab === 'range' ? '近 ' + range + ' 天 · 按应服次数' : '近 ' + range + ' 天 · 每天一根柱');
+    const medBody = mTab === 'month'
+      ? (monthMedPanel(now.getFullYear(), now.getMonth()) || '<div class="empty-box">本月还没有用药数据。</div>')
+      : (mTab === 'range'
+        ? (medStats || '<div class="empty-box">还没有用药记录。</div>')
+        : medTrendBody(range, rangeDays));
 
     return '' +
       '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图灰线 = 无记录，浅色 = 未达标，实心 = 达标（≥75%）。</p></div>' +
@@ -11004,34 +11049,60 @@ body.modal-open{overflow:hidden}
             '<button type="button" class="' + (range === n ? 'active' : '') + '" data-act="set-stats-range" data-range="' + n + '">' + n + ' 天</button>'
           ).join('') + '</div>' +
         '</div></div>' +
-      '<div class="stat-grid">' +
-        '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
-        '<div class="stat-card"><small>近 ' + range + ' 天完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
-        '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
-        '<div class="stat-card"><small>已完成任务</small><b>' + doneTasks.length + ' <i>条</i></b><span>近 7 天 +' + weekDone + ' · 今天 +' + doneToday + '</span></div>' +
+      '<div class="panel"><h3>总览 <span class="muted-sm">（近 ' + range + ' 天 · 只看有记录的日子）</span></h3>' +
+        '<div class="stat-grid">' +
+          '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
+          '<div class="stat-card"><small>近 ' + range + ' 天完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
+          '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
+          '<div class="stat-card"><small>已完成任务</small><b>' + doneTasks.length + ' <i>条</i></b><span>近 7 天 +' + weekDone + ' · 今天 +' + doneToday + '</span></div>' +
+        '</div>' +
+        '<div class="sblock">' +
+          '<div class="sblock-head"><b>近 ' + range + ' 天完成率</b>' +
+            '<span class="muted-sm">灰线 = 无记录 · 浅色 = 未达标 · 实心 = 达标（≥75%）</span></div>' +
+          '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div>' +
+        '</div>' +
+        monthReviewBody() +
       '</div>' +
-      '<div class="panel"><h3>近 ' + range + ' 天完成率</h3><div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div></div>' +
-      monthReviewPanel() +
-      /* 这两个原来在日历右栏。挪到统计页是因为它们本质是「本月的汇总」，
-         和「看哪一天发生了什么」无关，而且占掉了时间线要用的宽度。 */
-      '<div class="panel"><h3>本月用药 <span class="muted-sm">（按应服次数）</span></h3>' +
-        monthMedPanel(now.getFullYear(), now.getMonth()) +
+
+      /* 习惯：本月网格 / 近 N 天明细 / 操作时间线，同一份数据的三种粒度 */
+      '<div class="panel">' +
+        '<div class="shead"><h3>习惯 <span class="muted-sm">（' + habitSub + '）</span></h3>' +
+          statsSegHtml('stats-habit-tab', hTab, [['month', '本月'], ['range', '近 ' + range + ' 天'], ['log', '时间线']]) +
+        '</div>' +
+        habitBody +
       '</div>' +
-      '<div class="panel"><h3>本月习惯 <span class="muted-sm">（只看有记录的日子）</span></h3>' +
-        monthHabitRowsHtml(now.getFullYear(), now.getMonth()) +
+
+      /* 用药：本月 / 近 N 天 / 趋势，三处的百分比口径都写在标题的括号里 */
+      '<div class="panel">' +
+        '<div class="shead"><h3>用药 <span class="muted-sm">（' + medSub + '）</span></h3>' +
+          statsSegHtml('stats-med-tab', mTab, [['month', '本月'], ['range', '近 ' + range + ' 天'], ['trend', '趋势']]) +
+        '</div>' +
+        medBody +
       '</div>' +
-      (qhSum ? quitSumPanel(qhSum, '戒烟汇总 <span class="muted-sm">（口径同戒烟页）</span>', false) : '') +
-      quitPanel(range) +
-      medTrendPanel(range, rangeDays) +
-      '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +
-        (hstats || '<div class="empty-box">还没有习惯数据。</div>') +
-      '</div>' +
+
+      /* 戒烟：8 张卡常显，分析（勋章 + 时段图）默认折起来 */
+      (qhSum
+        ? '<div class="panel">' +
+            '<div class="shead"><h3>戒烟 <span class="muted-sm">（口径同戒烟页）</span></h3>' +
+              (statsQuitOpen
+                ? '<button type="button" class="btn sm" data-act="stats-quit-fold">收起分析</button>'
+                : '<button type="button" class="btn sm" data-act="stats-quit-fold">展开分析</button>') +
+            '</div>' +
+            quitSumCardsHtml(qhSum, false) +
+            (statsQuitOpen ? quitPanelBody(range) : '') +
+          '</div>'
+        : '') +
+
       weightStatsPanel(range) +
-      medPanel +
-      logPanel +
-      /* 原来那块「任务概览」只列了三个当前数，没有时间维度也看不出达成率，
-         换成同一套面板：待办页底部和这里共用，数字口径完全一致。 */
-      taskStatsPanel();
+    '';
+  }
+
+  /* 统计页分段控件：一组按钮，当前格高亮。状态是模块级变量，见 statsHabitTab */
+  function statsSegHtml(act, cur, pairs) {
+    return '<div class="stab">' + pairs.map(function (p) {
+      return '<button type="button" class="' + (p[0] === cur ? 'on' : '') +
+        '" data-act="' + act + '" data-tab="' + p[0] + '">' + p[1] + '</button>';
+    }).join('') + '</div>';
   }
 
   /* ============================================================
@@ -14817,6 +14888,18 @@ body.modal-open{overflow:hidden}
     },
     'stats-log-toggle': () => {
       statsLogOpen = !statsLogOpen;
+      render();
+    },
+    'stats-habit-tab': el => {
+      statsHabitTab = el.dataset.tab || 'month';
+      render();
+    },
+    'stats-med-tab': el => {
+      statsMedTab = el.dataset.tab || 'month';
+      render();
+    },
+    'stats-quit-fold': () => {
+      statsQuitOpen = !statsQuitOpen;
       render();
     },
     'today-expand': () => {

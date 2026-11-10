@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v83（2026-11-10）
+最后更新：v84（2026-11-10）
 
 ---
 
@@ -372,7 +372,7 @@ document.addEventListener('click', e => {
 - `quit` 只记 `k === 's'` 事件（未达标），**没有 `r`**——不点就是守住，不需要第二条按钮。
   `smoke` 才两边都记（`crave` 两个按钮）。
 - **所有文案走 `quitWord(h)` 词表**（`QUIT_WORD`），别在渲染里写死「点一根」。
-- `isSmoke(h)` 是戒烟专属 UI 的唯一开关：`quitCard` / `quitHabit()` / `quitPanel()` / `pack-open` /
+- `isSmoke(h)` 是戒烟专属 UI 的唯一开关：`quitCard` / `quitHabit()` / `quitPanelBody()` / `pack-open` /
   `migrateQuitPack` 都靠它。**`isQuitLike(h)`** 是「两类都算戒除语义」，统计 / 连续天数 / 月历用它，
   写 `type === 'quit'` 会把戒烟漏掉。
 - `smoke` 不出现在「添加习惯」的类型下拉里（它是内置常驻卡），编辑时给一个固定的展示项。
@@ -566,20 +566,28 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 
 `habitCard(h,d)` `vitalCard(h,d)` `medCard(h,d)` `breathingCard(h,d)` `moveCardHtml(h,d)`
 `taskRow(t,d)` `taskCard(t)` `taskDetailHtml(t)` `medRowHtml(med)` `medSheetHtml(d)`
-`monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
+`monthReviewBody()` `medTrendBody(range,days)` `monthSummaryData()` `openMonthSummary()`
 `habitDayAcc(h,d)`（单日单习惯的完成度 0~1，只给月度小结用）
 `taskPool(range)` `taskStats(range)` `taskStatsPanel()`（任务完成度，待办页与统计页共用）
 `algoModal()`（考核算法说明弹窗，统计页头部按钮 `algo-open`）
-`quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
+`quitPanelBody(range)`（戒烟分析面板内容，没有 quit 习惯时整块不渲染）
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitHoursStrip(h)`
 `quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
 `packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
+统计页（`viewStats`）v84 起是 6 块：总览 / 习惯 / 用药 / 戒烟 / 体重与 BMI。同主题用分段控件切（`.stab` + `statsSegHtml(act,cur,pairs)` 构造，`data-act="stats-habit-tab"` / `stats-med-tab`），
+切换状态是模块级 `statsHabitTab` / `statsMedTab` / `statsQuitOpen`，**不进 state**——
+进了 state 就要改 `normalizeState` / `mergeStates` / `repairBackup` 三处，且两端切换格不同会互相覆盖。
+分区小标题用 `.sblock-head`（**不是 h3**），`.sblock` 带一条上分隔线。
+- `monthReviewBody()` / `medTrendBody(range,rangeDays)` / `quitPanelBody(range)` 只返回内容，不带 `.panel` 外壳
+- `quitSumCardsHtml(h,withHours)` 返回 8 张卡；`quitSumPanel(h)` 才是戒烟页用的整块外壳
+- `taskStatsPanel()` 只在待办页底部，统计页不再重复一份
+- 考核算法弹窗（v81 `algoModal`）**还没跟着 v84 的分区改口径**，待完善
 数据汇总（`quitSumPanel`）8 张卡 + 一根 24 小时时段条：今天 / 本周买烟 / 本月消费 / 平均每天 /
 连续无烟 / 忍住了 / 每支成本 / 上次抽。两处口径写在小字上——本月消费按`买烟日期`算（看支出不看消耗），
 平均每天的分母是`戒烟天数`（上限 30）而不是固定 30 天。时段条只数「抽了」，
 统计页那 24 根柱是同一份 `craveHours` 数据的另一套渲染，两者不要合并。
-统计页在 `quitPanel(range)` 之前复用同一个 `quitSumPanel(qh, title, withHours)`，标题换成「戒烟汇总」、`withHours=false` 跳过时段条（下方戒烟分析已有 24 根柱）。
+统计页复用同一套卡片：`quitSumCardsHtml(qh, false)`（`withHours=false` 跳过时段条，避免和戒烟分析的 24 根柱重复），分析内容 `quitPanelBody(range)` 默认折叠。
 没有戒烟习惯时两块都不渲染。
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
 （纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。

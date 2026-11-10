@@ -139,21 +139,30 @@ with sync_playwright() as p:
     chk('戒烟页无 JS 异常', not errs, str(errs[:2]))
     pg.close()
 
-    print('\n[3] 统计页：同一组卡，但不重复画时段条')
+    print('\n[3] 统计页：并进「戒烟」块，分析默认折起来')
     pg = br.new_page(viewport={'width': 1440, 'height': 950})
     errs2 = []
     pg.on('pageerror', lambda e: errs2.append(str(e)))
     open_page(pg, 'stats')
-    ss = sum_panel(pg, '戒烟汇总')
-    chk('统计页有「戒烟汇总」面板', ss is not None)
+    ss = sum_panel(pg, '戒烟')
+    chk('统计页有「戒烟」块', ss is not None)
     chk('统计页也是 8 张卡', len((ss or {}).get('cards', [])) == 8, str(len((ss or {}).get('cards', []))))
     chk('统计页不再画第二根时段条', (ss or {}).get('hourBars') == 0, str((ss or {}).get('hourBars')))
-    chk('「戒烟分析」的 24 根柱还在', pg.evaluate("() => document.querySelectorAll('.qh-bar').length") == 24,
+    chk('分析默认折叠（没有 24 根柱）',
+        pg.evaluate("() => document.querySelectorAll('.qh-bar').length") == 0,
         str(pg.evaluate("() => document.querySelectorAll('.qh-bar').length")))
-    order = pg.evaluate("""() => [...document.querySelectorAll('.panel h3')]
-        .map(h => (h.textContent || ''))
-        .filter(t => t.indexOf('戒烟汇总') === 0 || t.indexOf('戒烟分析') === 0)""")
-    chk('顺序是「汇总」在「分析」之前', len(order) == 2 and order[0].startswith('戒烟汇总'), str(order))
+    chk('有「展开分析」按钮',
+        pg.locator('[data-act="stats-quit-fold"]').count() == 1)
+    pg.click('[data-act="stats-quit-fold"]')
+    pg.wait_for_timeout(500)
+    chk('展开后出现 24 根柱',
+        pg.evaluate("() => document.querySelectorAll('.qh-bar').length") == 24,
+        str(pg.evaluate("() => document.querySelectorAll('.qh-bar').length")))
+    chk('展开后出现勋章墙', pg.evaluate("() => document.querySelectorAll('.qmile-i').length") > 0)
+    pg.click('[data-act="stats-quit-fold"]')
+    pg.wait_for_timeout(400)
+    chk('再点一次收回去',
+        pg.evaluate("() => document.querySelectorAll('.qh-bar').length") == 0)
     chk('统计页无 JS 异常', not errs2, str(errs2[:2]))
     pg.close()
 
@@ -165,8 +174,8 @@ with sync_playwright() as p:
     errs3 = []
     pg.on('pageerror', lambda e: errs3.append(str(e)))
     open_page(pg, 'stats')
-    chk('统计页没有「戒烟汇总」', sum_panel(pg, '戒烟汇总') is None)
-    chk('也没有「戒烟分析」', pg.evaluate("() => document.querySelectorAll('.qh-bar').length") == 0)
+    chk('统计页没有「戒烟」块', sum_panel(pg, '戒烟') is None)
+    chk('也没有 8 张卡', pg.evaluate("() => document.querySelectorAll('.qsum').length") == 0)
     chk('无 JS 异常', not errs3, str(errs3[:2]))
     pg.close()
     br.close()

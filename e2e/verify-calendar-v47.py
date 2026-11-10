@@ -236,15 +236,14 @@ with sync_playwright() as p:
     nav(pg, 'stats'); pg.wait_for_timeout(1000)
     st = pg.evaluate("""() => {
         const t=[...document.querySelectorAll('.panel h3')].map(h=>h.textContent.replace(/\\s+/g,' ').trim());
-        return {titles:t, hasMed:t.some(x=>x.indexOf('本月用药')===0),
-                hasHabit:t.some(x=>x.indexOf('本月习惯')===0),
-                order: t.slice(0,4)};
+        return {titles:t, hasMed:t.some(x=>x.indexOf('用药')===0),
+                hasHabit:t.some(x=>x.indexOf('习惯')===0),
+                order: t.map(x=>x.slice(0,2))};
     }""")
-    chk('统计页出现「本月用药」', st.get('hasMed'), str(st.get('titles'))[:160])
-    chk('统计页出现「本月习惯」', st.get('hasHabit'))
-    chk('两个新面板紧跟「本月回顾」',
-        st.get('order', [])[1:3] == ['本月回顾 （10 月已过 25 天）', '本月用药 （按应服次数）']
-        or ('本月用药' in str(st.get('order', [])[2])), str(st.get('order')))
+    chk('统计页出现用药块', st.get('hasMed'), str(st.get('titles'))[:160])
+    chk('统计页出现习惯块', st.get('hasHabit'))
+    chk('面板顺序：总览 → 习惯 → 用药',
+        st.get('order', [])[:3] == ['总览', '习惯', '用药'], str(st.get('order')))
     chk('桌面端无 JS 报错', not errs, str(errs[:2]))
     ctx.close()
 

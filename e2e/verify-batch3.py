@@ -467,7 +467,9 @@ with sync_playwright() as p:
                 sub: (e.querySelector('span') || {}).textContent || ''
             }));
             const head = (document.querySelector('.panel h3') || {});
-            const titles = Array.from(document.querySelectorAll('.panel h3')).map(e => e.textContent.trim());
+            /* v84 起「本月回顾」并进总览面板，标题在 .sblock-head 里，不再是 h3 */
+            const titles = Array.from(document.querySelectorAll('.panel h3, .sblock-head b'))
+                .map(e => e.textContent.trim());
             return { cells, titles, verdict: (document.querySelector('.rv-verdict') || {}).textContent || '' };
         }""")
         rec('统计页出现「本月回顾」卡', any(t.startswith('本月回顾') for t in rv['titles']),
