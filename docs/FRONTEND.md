@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v81（2026-11-10）
+最后更新：v82（2026-11-10）
 
 ---
 
@@ -571,9 +571,14 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `taskPool(range)` `taskStats(range)` `taskStatsPanel()`（任务完成度，待办页与统计页共用）
 `algoModal()`（考核算法说明弹窗，统计页头部按钮 `algo-open`）
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
-`viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
+`viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitHoursStrip(h)`
+`quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
 `packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
+数据汇总（`quitSumPanel`）8 张卡 + 一根 24 小时时段条：今天 / 本周买烟 / 本月消费 / 平均每天 /
+连续无烟 / 忍住了 / 每支成本 / 上次抽。两处口径写在小字上——本月消费按`买烟日期`算（看支出不看消耗），
+平均每天的分母是`戒烟天数`（上限 30）而不是固定 30 天。时段条只数「抽了」，
+统计页那 24 根柱是同一份 `craveHours` 数据的另一套渲染，两者不要合并。
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
 （纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。
 「上一包对比」只在戒烟页宽卡显示（`quitCard` 第三个参数 `compare=true` 才渲染），今日页窄卡不塞。

@@ -166,7 +166,8 @@ SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
 # 统计页：勋章墙 + 时段图坐标轴
 SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
-SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span', '.qpack-main b',
+SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
+                  '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
                   '.pack-cf button', '.btn.danger-red', '.qc-day span', '.qc-day b']
 # 习惯页：管理行的今日状态灯（v66）

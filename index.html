@@ -3588,7 +3588,20 @@ body.modal-open{overflow:hidden}
 .qsum small{display:block;font-size:10px;color:var(--muted)}
 .qsum b{display:block;font-size:20px;font-weight:650;color:var(--text);margin:3px 0 1px}
 .qsum span{font-size:10.5px;color:var(--muted);line-height:1.4}
-@media (max-width:760px){.qsum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.qsum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.qsum b{font-size:17px}}
+/* 数据汇总的 24 小时时段条（戒烟页速览；统计页那 24 根柱是另一套，别合并） */
+.qsum-hours{margin-top:12px;padding:12px 14px;border:1px solid var(--line);
+  border-radius:12px;background:var(--surface-2)}
+.qs-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.qs-head small{font-size:10px;color:var(--muted)}
+.qs-head span{font-size:10.5px;color:var(--text)}
+.qs-bars{display:flex;align-items:flex-end;justify-content:space-between;gap:2px;height:44px}
+.qs-bar{flex:1;min-width:0;max-width:16px;border-radius:2px 2px 0 0;
+  background:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.qs-bar.on{background:var(--accent)}
+.qs-bar.zero{background:var(--line)}
+.qs-axis{display:flex;justify-content:space-between;margin-top:5px;font-size:9.5px;color:var(--muted)}
+@media (max-width:760px){.qs-bars{height:38px;gap:1px}}
 /* 买烟记录列表 */
 .qpack-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .qpack{display:flex;align-items:center;gap:10px;padding:11px 13px;
@@ -10346,8 +10359,11 @@ body.modal-open{overflow:hidden}
 
     return '<svg class="qt-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="抽烟趋势折线图">' + g + '</svg>';
   }
-
-  /* 汇总：买烟（本周/本月）+ 抽吸（今天/平均/同比） */
+  /* 数据汇总：8 张卡 + 24 小时时段条。全部现算，不存字段——包区间和事件流
+     本来就推得出这些。两处口径刻意写进小字：
+     ① 「本月消费」按买烟日期算（月头买一条整笔算在月头，看的是支出不是消耗）；
+     ② 「平均每天」的分母是戒烟天数（上限 30），不是固定 30 天——刚开始记的前
+        半个月会被当成 0 支，均值被压低，「折合几小时一根」跟着一起错。 */
   function quitSumPanel(h) {
     const packs = Array.isArray(state.packs) ? state.packs : [];
     const now = new Date();
@@ -10355,37 +10371,122 @@ body.modal-open{overflow:hidden}
     const monday = addDays(now, -dow); monday.setHours(0, 0, 0, 0);
     const monthFirst = new Date(now.getFullYear(), now.getMonth(), 1);
     const nowTs = now.getTime() / 1000;
-    const wk = packs.filter(function (p) { return p.at >= monday.getTime() / 1000 && p.at <= nowTs; });
-    const mo = packs.filter(function (p) { return p.at >= monthFirst.getTime() / 1000 && p.at <= nowTs; });
-    const wkCost = wk.reduce(function (s, p) { return s + (Number(p.price) || 0); }, 0);
-    const moCost = mo.reduce(function (s, p) { return s + (Number(p.price) || 0); }, 0);
+    const since = function (ms) {
+      return packs.filter(function (p) { return p.at >= ms / 1000 && p.at <= nowTs; });
+    };
+    const wk = since(monday.getTime());
+    const mo = since(monthFirst.getTime());
+    const sumPrice = function (arr) {
+      return arr.reduce(function (s, p) { return s + (Number(p.price) || 0); }, 0);
+    };
+    const wkCost = sumPrice(wk);
+    const moCost = sumPrice(mo);
 
     const t0 = todayStr();
-    const t1 = fmt(addDays(now, -1));
     const todayS = dayCravings(h.id, t0).filter(function (e) { return e.k === 's'; }).length;
-    const yestS = dayCravings(h.id, t1).filter(function (e) { return e.k === 's'; }).length;
+    const yestS = dayCravings(h.id, fmt(addDays(now, -1)))
+      .filter(function (e) { return e.k === 's'; }).length;
     const diff = todayS - yestS;
     const diffText = diff === 0
       ? '和昨天一样'
       : (diff > 0 ? '比昨天多 ' + diff + ' 支' : '比昨天少 ' + (-diff) + ' 支');
 
-    let sum30 = 0;
-    for (let i = 0; i < 30; i++) {
-      const ds = fmt(addDays(now, -i));
-      sum30 += dayCravings(h.id, ds).filter(function (e) { return e.k === 's'; }).length;
+    /* 平均每天：分母 = 戒烟天数（上限 30） */
+    const spanDays = Math.min(30, Math.max(1,
+      Math.round((parseD(t0).getTime() - parseD(quitStartDay(h)).getTime()) / 86400000) + 1));
+    let sumDays = 0;
+    for (let i = 0; i < spanDays; i++) {
+      sumDays += dayCravings(h.id, fmt(addDays(now, -i)))
+        .filter(function (e) { return e.k === 's'; }).length;
     }
-    const avg = sum30 / 30;
+    const avg = sumDays / spanDays;
+
+    /* 忍住：累计次数 + 忍住率。分母是「想抽的次数」（抽了 + 忍住），不是天数——
+       这才回答得了「每次想抽的时候我有多大概率忍住」。 */
+    let smokeAll = 0, resistAll = 0;
+    cravingsOf(h.id).forEach(function (e) { if (e.k === 's') smokeAll++; else resistAll++; });
+    const tries = smokeAll + resistAll;
+    const resistRate = tries ? Math.round(resistAll / tries * 100) : 0;
+
+    /* 每支成本：按「本月买的烟」的单价加权；本月没买就退回最近一包。
+       拿当月消耗去除会低估——买来的包可能还有大半没抽。 */
+    const unitOf = function (arr) {
+      let cost = 0, sticks = 0;
+      arr.forEach(function (p) {
+        const pr = Number(p.price) || 0;
+        if (!pr) return;
+        cost += pr;
+        sticks += Math.max(1, Number(p.size) || 20);
+      });
+      return sticks ? { unit: cost / sticks, sticks: sticks } : null;
+    };
+    let unit = unitOf(mo);
+    let unitSub = unit ? '按本月 ' + unit.sticks + ' 支均价' : '';
+    if (!unit && packs.length) {
+      unit = unitOf(packs.slice(-1));
+      if (unit) unitSub = '按最近一包均价';
+    }
+
+    /* 上次抽：按事件时间算。quitStreak 是按天算的，回答不了「几小时前」 */
+    const lastTs = lastSmokeTs(h.id);
+    /* 这里不复用 packSpanText：那是给「这包抽了多久」写的，会输出
+       「1 小时 33 分」，手机两列卡面里折成三行。卡面要的是紧凑值 */
+    let lastText = '还没有记录';
+    const lastMin = lastTs ? Math.max(0, Math.round((nowTs - Number(lastTs)) / 60)) : 0;
+    if (lastTs) {
+      lastText = lastMin < 60
+        ? lastMin + ' 分钟前'
+        : (lastMin < 1440 ? (lastMin / 60).toFixed(1) + ' 小时前'
+          : Math.round(lastMin / 1440) + ' 天前');
+    }
+    const lastSub = lastTs ? tsDay(lastTs).slice(5) + ' ' + tsHHMM(lastTs) : '想抽时点一下';
+
+    const streak = quitStreak(h), best = quitBest(h);
+    const streakSub = best > streak
+      ? '最长 ' + best + ' 天'
+      : (streak > 0 ? '就是最长纪录' : (best ? '最长 ' + best + ' 天' : '还没开始'));
 
     const card = function (label, big, sub) {
       return '<div class="qsum"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
     };
     return '<div class="panel"><h3>数据汇总</h3>' +
       '<div class="qsum-grid">' +
-        card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
-        card('本月消费', '¥' + moCost.toFixed(0) + ' 元', '共 ' + mo.length + ' 包') +
         card('今天', todayS + ' 支', diffText) +
-        card('平均每天', avg.toFixed(1) + ' 支', '近 30 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
-      '</div></div>';
+        card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
+        card('本月消费', '¥' + moCost.toFixed(0) + ' 元', '按买烟日期 · ' + mo.length + ' 包') +
+        card('平均每天', avg.toFixed(1) + ' 支',
+          '近 ' + spanDays + ' 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
+        card('连续无烟', streak + ' 天', streakSub) +
+        card('忍住了', resistAll + ' 次',
+          tries ? '想抽 ' + tries + ' 次 · 忍住率 ' + resistRate + '%' : '还没有记录') +
+        card('每支成本', unit ? '¥' + unit.unit.toFixed(2) : '—',
+          unit ? unitSub : '买烟时填价格就能算') +
+        card('上次抽', lastText, lastSub) +
+      '</div>' +
+      quitHoursStrip(h) +
+    '</div>';
+  }
+
+  /* 24 小时时段条（戒烟页速览）。统计页也有 24 根柱，那是「分析」视角、可切区间；
+     这里是顶部速览，一根细条。样本少于 5 支不报峰值——3 条记录里 1 条就能当峰值。 */
+  function quitHoursStrip(h) {
+    const bins = craveHours(h.id);
+    let max = 0, total = 0;
+    bins.forEach(function (n) { total += n; if (n > max) max = n; });
+    const bars = bins.map(function (n, i) {
+      const hp = max ? Math.max(n ? 8 : 3, Math.round(n / max * 100)) : 3;
+      return '<i class="qs-bar' + (n === 0 ? ' zero' : (n === max ? ' on' : '')) +
+        '" style="height:' + hp + '%" title="' + pad2(i) + ':00 · ' + n + ' 支"></i>';
+    }).join('');
+    let tip;
+    if (!total) tip = '还没有记录，记几笔就能看出你栽在哪个时段';
+    else if (total < 5) tip = '样本还少（' + total + ' 支），先攒几天';
+    else tip = '最常见：' + pad2(bins.indexOf(max)) + ':00 前后 · ' + max + ' 支';
+    return '<div class="qsum-hours">' +
+      '<div class="qs-head"><small>时段分布</small><span>' + tip + '</span></div>' +
+      '<div class="qs-bars">' + bars + '</div>' +
+      '<div class="qs-axis"><span>0 点</span><span>6</span><span>12</span><span>18</span><span>23 点</span></div>' +
+    '</div>';
   }
 
   /* 按天清空抽烟记录。删的是这一天全部的 cravings（含「忍一次」），
