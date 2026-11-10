@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v75（2026-11-09）
+最后更新：v76（2026-11-10）
 
 ---
 
@@ -454,3 +454,14 @@ $plan = array_merge(
 因为 `slot_key` 带日期，重复通知每天各发一次、单次只发一次，不需要额外状态。
 
 `api.php` 的 `push_test` 增加了可选 `text` 参数，配置页的「重发」就借它把原文再推一次。
+
+### 倒数日提醒（v76）
+
+`api/schedule.php` 的 `lb_schedule_countdowns($state, $date)`：算 `目标日期 - $date` 的天数，
+落在 `remindDays` 里才返回，结构跟 notices 一样（`time / kind='countdown' / id / title / body`）。
+
+- **只对未来发**：`$days < 0` 直接跳过。「已经过去 100 天」不是提醒，是回顾。
+- 天数用 `round` 不用 `floor`：跨夏令时的日子是 23/25 小时，`floor` 会把「还有 1 天」算成 0。
+- 同样**不能并进 `lb_schedule_day`**，否则日历订阅里会冒出倒数日条目
+  （`test-schedule.php` 有专门一条锁它）。
+- `push.php` 的 `lb_push_tick_run` 现在是四路 merge：day / reports / notices / countdowns。

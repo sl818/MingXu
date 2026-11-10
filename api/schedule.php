@@ -409,3 +409,70 @@ function lb_schedule_notices(array $state, string $date): array
     }
     return $out;
 }
+
+/**
+ * 倒数日提醒：距目标日期还剩 N 天时推一条（N 由 remindDays 指定，0 = 当天）。
+ *
+ * 只对未来发。日子过去之后「已过去 N 天」照常显示，但不再响——
+ * 「已经过去 100 天」这种不是提醒，是回顾，不该占通知。
+ *
+ * 去重仍靠 push_sent 的 slot_key（日期|kind|id|时间）：不同档位落在不同日期，
+ * 天然各发一次，不需要额外状态。
+ *
+ * 跟 lb_schedule_notices 一样，**不能并进 lb_schedule_day** ——
+ * 后者被 api/ics.php 复用生成日历订阅，倒数日不是日程。
+ *
+ * @return array<int, array{time:string, kind:string, id:string, title:string, body:string}>
+ */
+function lb_schedule_countdowns(array $state, string $date): array
+{
+    if (!lb_ics_is_date($date)) {
+        return [];
+    }
+    $out = [];
+    $ts = strtotime($date);
+    foreach ((array)($state['countdowns'] ?? []) as $c) {
+        if (!is_array($c)) {
+            continue;
+        }
+        if (($c['on'] ?? true) === false) {
+            continue;
+        }
+        $id = (string)($c['id'] ?? '');
+        $name = trim((string)($c['title'] ?? ''));
+        $target = (string)($c['date'] ?? '');
+        if ($id === '' || $name === '' || !lb_ics_is_date($target)) {
+            continue;
+        }
+        $time = (string)($c['time'] ?? '');
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)) {
+            continue;
+        }
+
+        /* 目标日期 - 今天。用 round 而不是 floor：跨夏令时的日子会有 23/25 小时，
+           floor 会把「还有 1 天」算成 0。 */
+        $days = (int)round((strtotime($target) - $ts) / 86400);
+        if ($days < 0) {
+            continue;
+        }
+        $remind = is_array($c['remindDays'] ?? null)
+            ? array_map('intval', $c['remindDays'])
+            : [];
+        if (!in_array($days, $remind, true)) {
+            continue;
+        }
+
+        $note = trim((string)($c['note'] ?? ''));
+        $body = ($days === 0 ? '就是今天' : '还有 ' . $days . ' 天')
+            . ' · ' . $target
+            . ($note !== '' ? "\n" . $note : '');
+        $out[] = [
+            'time' => $time,
+            'kind' => 'countdown',
+            'id' => $id,
+            'title' => '📅 ' . $name,
+            'body' => $body,
+        ];
+    }
+    return $out;
+}

@@ -360,6 +360,59 @@ foreach ($dayPlan as $x) {
 }
 chk('通知不进日历订阅（lb_schedule_day 不含 notice）', $noticeInDay === 0);
 
+/* ------------------------------------------------------------------ */
+echo '[5] 倒数日' . PHP_EOL;
+
+/* 今天 2026-11-10：距 11-20 还有 10 天，距 11-13 还有 3 天 */
+$cdsOf = static function (array $list, string $date): array {
+    return lb_schedule_countdowns(['countdowns' => $list], $date);
+};
+$cd = static function (array $over) {
+    return array_merge([
+        'id' => 'cd1', 'title' => '考研', 'date' => '2026-11-20',
+        'note' => '记得打印准考证', 'time' => '09:00', 'remindDays' => [3, 1, 0], 'on' => true,
+    ], $over);
+};
+
+chk('提前 10 天不在档位里，不发', count($cdsOf([$cd([])], '2026-11-10')) === 0);
+chk('提前 3 天发一条', count($cdsOf([$cd([])], '2026-11-17')) === 1);
+chk('提前 1 天发一条', count($cdsOf([$cd([])], '2026-11-19')) === 1);
+chk('当天发一条', count($cdsOf([$cd([])], '2026-11-20')) === 1);
+
+$one = $cdsOf([$cd([])], '2026-11-17')[0] ?? [];
+chk('kind 是 countdown', ($one['kind'] ?? '') === 'countdown', json_encode($one, JSON_UNESCAPED_UNICODE));
+chk('标题带名字', strpos((string)($one['title'] ?? ''), '考研') !== false, (string)($one['title'] ?? ''));
+chk('正文写还剩几天', strpos((string)($one['body'] ?? ''), '还有 3 天') !== false, (string)($one['body'] ?? ''));
+chk('备注跟着发出去', strpos((string)($one['body'] ?? ''), '准考证') !== false, (string)($one['body'] ?? ''));
+chk('时间是 09:00', ($one['time'] ?? '') === '09:00', (string)($one['time'] ?? ''));
+
+$today = $cdsOf([$cd([])], '2026-11-20')[0] ?? [];
+chk('当天文案是「就是今天」', strpos((string)($today['body'] ?? ''), '就是今天') !== false, (string)($today['body'] ?? ''));
+
+chk('过去的日子不再提醒', count($cdsOf([$cd([])], '2026-11-25')) === 0);
+chk('暂停的不发', count($cdsOf([$cd(['on' => false])], '2026-11-17')) === 0);
+chk('档位里没有这天就不发', count($cdsOf([$cd(['remindDays' => [7]])], '2026-11-17')) === 0);
+chk('档位为空不发', count($cdsOf([$cd(['remindDays' => []])], '2026-11-17')) === 0);
+chk('没填名字不发', count($cdsOf([$cd(['title' => '  '])], '2026-11-17')) === 0);
+chk('日期格式非法不发', count($cdsOf([$cd(['date' => '2026/11/20'])], '2026-11-17')) === 0);
+chk('时刻非法不发', count($cdsOf([$cd(['time' => '9:00'])], '2026-11-17')) === 0);
+chk('没备注就不多空行', strpos((string)($cdsOf([$cd(['note' => ''])], '2026-11-17')[0]['body'] ?? ''), "\n") === false);
+
+$two = $cdsOf([
+    $cd(['id' => 'a', 'title' => 'A']),
+    $cd(['id' => 'b', 'title' => 'B']),
+], '2026-11-17');
+chk('两个倒数日同一天各发一条', count($two) === 2);
+
+$dayPlan2 = lb_schedule_day(['countdowns' => [$cd([])]], '2026-11-17');
+$cdInDay = 0;
+foreach ($dayPlan2 as $x) {
+    if (($x['kind'] ?? '') === 'countdown') {
+        $cdInDay++;
+    }
+}
+chk('倒数日不进日历订阅（lb_schedule_day 不含 countdown）', $cdInDay === 0);
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

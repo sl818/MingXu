@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v75（2026-11-09）
+最后更新：v76（2026-11-10）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v75（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v75'`） |
+| 代码版本 | v76（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v76'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -96,6 +96,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v73 | 11-08 | 配置页改单栏下滑（不再复用 `.settings-wrap` 的两列瀑布流）；自定义通知的过期判定精确到分钟，过期行整行置灰 + 正文删除线，窄屏按钮换行。回滚点 tag `config-single-v73` |
 | v74 | 11-08 | 今日页「其他习惯」目标 1 次的打卡控件改 `.habit-done` 通栏按钮：未打卡「今天完成」、已打卡「✓ 已完成 · 点一下撤销」，替代被 `flex:1` 拉成整条的单个 `.pip`。目标 ≥2 的格子与 stepper 不动，数据层零改动。新增 `verify-habit-btn` 30 项。回滚点 tag `habit-btn-v74` |
 | v75 | 11-09 | 常驻卡支持自定义顺序：`state.cardOrder` + `cardOrderAt`，标题栏「排序」进排序模式，卡片右上角 ↑↓ 调整，跨设备按 `cardOrderAt` 整份覆盖合并。`PINNED_IDS` 只管集合、顺序由 `orderedPinnedIds()` 决定。不做拖拽、不做取消常驻。回滚点 tag `card-sort-v75` |
+| v76 | 11-10 | 日历页改两栏：日历贴左（去掉 `.cal-wrap` 两处 max-width + margin:auto），右侧新增「倒数日」。`state.countdowns` 只有 date 一个日期，未来/过去现算；`lb_schedule_countdowns` 只对未来提醒，接企业微信。回滚点 tag `countdown-v76` |
 
 ### 两次值得记住的事故
 

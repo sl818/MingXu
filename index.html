@@ -310,7 +310,8 @@ h1,h2,h3,h4,p{margin:0}
 .due.overdue{font-weight:600}
 
 /* ============ 日历 ============ */
-.cal-wrap{max-width:700px}
+/* 宽度由 .cal-layout 的列决定，这里不要再给 max-width：
+   两张卡（这张 + 1034 行那张）都写限宽的话，删了一张另一张会浮上来，日历又开始居中。 */
 .cal-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .month-nav{display:flex;align-items:center;gap:8px}
 .month-nav b{font-size:15px;text-align:center;font-variant-numeric:tabular-nums}
@@ -1030,8 +1031,13 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 /* ---------- 日历（改为热力格） ---------- */
 /* width:100% 不能省：.main 是 flex 容器，不给宽度时 item 会退化成 max-content，
    周视图 620px 的时间线会把整个面板撑出屏幕 */
-/* 右栏那两个面板挪走后，日历不必再挤在 780 里：宽屏用 1040，7 列才够舒展 */
-.cal-wrap{max-width:1040px;width:100%;margin-left:auto;margin-right:auto;min-width:0}
+/* **不要再给这张卡片写 max-width + margin:auto**（v76 去掉的）。
+   那样写会让日历在 .main 里居中，标题左对齐、日历居中，左右各留一条白；
+   宽屏下更明显（1136 里塞 1040，两边各 48）。现在是两栏网格，
+   日历贴左、右栏放倒数日，宽度由列宽决定。
+   width:100% 仍要留着 —— .main 是 flex 容器，不给宽度会退化成 max-content，
+   周视图 620px 的时间线会把面板撑出屏幕。 */
+.cal-wrap{width:100%;min-width:0}
 .cal-top{margin-bottom:18px}
 .month-nav b{font-size:15px;font-weight:600;letter-spacing:.01em;min-width:120px}
 .month-nav .arrow{
@@ -1781,6 +1787,14 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
    下面三卡等宽横排。 */
 .cal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
 .cal-layout .panel{margin-bottom:0}
+/* 宽屏两栏：左日历、右倒数日。三张统计卡跨两栏留在最下面 ——
+   跟着左栏变窄的话，本月小结那几行字会被挤成两行，读起来更费劲。 */
+@media (min-width:1400px){
+  /* 阈值用 1400 而不是 1180：1180 视口下 .main 只有 800 出头，
+     再切 340 给右栏，月历每格只剩 65px，日期和百分比都放不下。 */
+  .cal-layout{grid-template-columns:minmax(0,1fr) 340px}
+  .cal-layout .cal-cards{grid-column:1/-1}
+}
 .cal-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;min-width:0}
 .cal-side-panel{padding:18px 20px;min-width:0;margin:0;
   display:flex;flex-direction:column;align-self:stretch}
@@ -1794,6 +1808,50 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
   .cal-cards{grid-template-columns:minmax(0,1fr)}
   .cal-cards > .cal-side-panel:nth-child(3){grid-column:auto}
 }
+/* ===== 倒数日（v76）=====
+   右栏 340px，跟日历同高。字色一律 --text，层次靠字号/字重，
+   不用 opacity —— 整块压透明度在浅色皮肤下会糊，对比度也算不准。 */
+.cd-panel h3{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cd-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.cd-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.cd-num{flex:none;min-width:50px;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;line-height:1}
+/* 「今天」是两个字，用数字那套 26px 会挤满 50px 宽、还比邻居重一档。
+   降到 15px，靠字重和居中站住位置。 */
+.cd-item.today .cd-num b{font-size:15px;font-weight:600;letter-spacing:0}
+.cd-num b{display:block;font-family:var(--font-serif);font-size:26px;font-weight:500;
+  color:var(--text);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cd-num i{display:block;font-style:normal;font-size:9.5px;color:var(--text);margin-top:3px}
+.cd-main{flex:1;min-width:0}
+.cd-main b{display:block;font-size:13px;font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-main small{display:block;font-size:11px;color:var(--text);margin-top:2px}
+.cd-main em{display:block;font-style:normal;font-size:10.5px;color:var(--text);
+  margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-acts{display:flex;flex:none;gap:2px}
+/* 已过去：底色退到 surface、字用 muted（muted 在 surface 上是安全的，
+   在 surface-2 上会掉到 4.5 以下 —— 跟通知过期行同一个处理） */
+.cd-item.past{background:var(--surface);border-style:dashed}
+.cd-item.past .cd-num b,.cd-item.past .cd-main small,.cd-item.past .cd-main em{color:var(--muted)}
+.cd-item.past .cd-main b{color:var(--muted)}
+.cd-item.off .cd-main b{text-decoration:line-through}
+.cd-group{font-size:10px;color:var(--text);letter-spacing:.06em;margin:6px 0 0}
+.cd-more{border:0;background:transparent;color:var(--text);font:inherit;font-size:11px;
+  text-align:left;padding:4px 0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cd-empty{padding:26px 12px;border:1px dashed var(--line);border-radius:14px;
+  text-align:center;font-size:11.5px;color:var(--text);line-height:1.9;margin-top:12px}
+
+/* 表单里的提醒档位 */
+.cd-remind{margin:12px 0 4px}
+.cd-remind-label{display:block;font-size:11px;color:var(--text);margin-bottom:6px}
+.cd-rd-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.cd-rd{border:1px solid var(--line);background:var(--surface);color:var(--text);
+  font:inherit;font-size:11.5px;padding:6px 11px;border-radius:9px;cursor:pointer}
+.cd-rd.on{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.cd-time{margin-top:10px}
+.cd-time .field{margin:0}
+
 .cal-highlight{display:flex;align-items:baseline;gap:8px;margin:2px 0 12px}
 .cal-highlight b{
   font-family:var(--font-serif);font-size:44px;font-weight:500;
@@ -3631,6 +3689,9 @@ body.modal-open{overflow:hidden}
          所以这个数组丢了某个 id 只会让它回到默认位置，不会让卡片消失。 */
       cardOrder: [],
       cardOrderAt: 0,
+      /* 倒数日：只存一个日期 + 提醒档位，**不存「未来还是过去」**。
+         今天是哪一天决定它往哪边数，存成状态明天就会不同步。 */
+      countdowns: [],
       bodyProfile: { age: 0, height: 0 },
       weights: [],
       essays: [],
@@ -4071,6 +4132,41 @@ body.modal-open{overflow:hidden}
     return out;
   }
 
+  /* 倒数日：{id, title, date, note, time, remindDays, on}
+     date 只到天（倒数天数是日期级的，加时刻没意义）；time 只管「几点推通知」。
+     remindDays 是提前几天提醒，0 = 当天；数组可为空（只显示不提醒）。 */
+  function normalizeCountdowns(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (n) {
+      if (!n || typeof n !== 'object') return;
+      const id = String(n.id || '');
+      const title = String(n.title || '').trim();
+      const date = String(n.date || '');
+      if (!id || seen[id] || !title) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      seen[id] = 1;
+      const days = Array.isArray(n.remindDays)
+        ? n.remindDays.map(function (x) { return Math.round(Number(x)); })
+            .filter(function (x) { return x >= 0 && x <= 365; })
+        : [];
+      out.push({
+        id: id,
+        title: title.slice(0, 40),
+        date: date,
+        note: String(n.note || '').slice(0, 200),
+        time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(n.time || '')) ? String(n.time) : '09:00',
+        /* 去重 + 去 0 之外的重复，顺手升序（30,3,1,0 看着乱） */
+        remindDays: days.filter(function (x, i) { return days.indexOf(x) === i; })
+          .sort(function (a, b) { return b - a; }),
+        on: n.on !== false
+      });
+    });
+    out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    return out;
+  }
+
   function normalizeState(data) {
     if (!data || typeof data !== 'object' || !Array.isArray(data.habits) || !Array.isArray(data.tasks)) return null;
     data.habits = data.habits.filter(h => h && typeof h === 'object');
@@ -4124,6 +4220,7 @@ body.modal-open{overflow:hidden}
     data.notices = normalizeNotices(data.notices);
     data.cardOrder = normalizeCardOrder(data.cardOrder);
     data.cardOrderAt = Math.max(0, Math.round(Number(data.cardOrderAt) || 0));
+    data.countdowns = normalizeCountdowns(data.countdowns);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
     return Object.assign(seedState(), data);
@@ -4836,6 +4933,16 @@ body.modal-open{overflow:hidden}
     const seenNo = {};
     rNo.forEach(function (n) { if (n && n.id) seenNo[n.id] = 1; });
     out.notices = rNo.concat(lNo.filter(function (n) { return n && n.id && !seenNo[n.id]; }));
+
+    /* 倒数日：按 id 去重并集。合并后按日期排，跟 normalize 一致。 */
+    const rCd = Array.isArray(remote.countdowns) ? remote.countdowns : [];
+    const lCd = Array.isArray(local.countdowns) ? local.countdowns : [];
+    const seenCd = {};
+    rCd.forEach(function (n) { if (n && n.id) seenCd[n.id] = 1; });
+    out.countdowns = rCd.concat(lCd.filter(function (n) { return n && n.id && !seenCd[n.id]; }));
+    out.countdowns.sort(function (a, b) {
+      return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+    });
 
 
 
@@ -9059,6 +9166,146 @@ body.modal-open{overflow:hidden}
     '</div>';
   }
 
+  /* ===== 倒数日（v76）=====
+     只存一个日期，未来还是过去由「今天」决定 —— 存成状态的话，明天就对不上了。 */
+  function cdDiff(date) {
+    const d = parseD(date);
+    if (!d || isNaN(d.getTime())) return 0;
+    return Math.round((d.getTime() - parseD(todayStr()).getTime()) / 86400000);
+  }
+  function cdSub(n) {
+    if (n > 0) return '还剩 ' + n + ' 天';
+    if (n === 0) return '就是今天';
+    return '已过去 ' + (-n) + ' 天';
+  }
+  function cdDateCn(date) {
+    const d = parseD(date);
+    if (!d || isNaN(d.getTime())) return date;
+    return (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日' +
+      (d.getFullYear() !== new Date().getFullYear() ? ' · ' + d.getFullYear() : '');
+  }
+  /* 已过去的那组默认只露 3 条，其余折起来——用一年会攒成一长条 */
+  let cdPastOpen = false;
+
+  function countdownRow(x) {
+    const c = x.c;
+    const neg = x.n < 0;
+    const today = x.n === 0;
+    return '<div class="cd-item' + (neg ? ' past' : '') + (today ? ' today' : '') +
+        (c.on ? '' : ' off') + '">' +
+      '<div class="cd-num">' + (today
+        ? '<b>今天</b>'
+        : '<b>' + Math.abs(x.n) + '</b><i>' + (neg ? '天前' : '天') + '</i>') + '</div>' +
+      '<div class="cd-main">' +
+        '<b>' + esc(c.title) + '</b>' +
+        '<small>' + esc(cdDateCn(c.date)) + '</small>' +
+        (c.note ? '<em>' + esc(c.note) + '</em>' : '') +
+      '</div>' +
+      '<div class="cd-acts">' +
+        '<button type="button" class="icon-btn" data-act="cd-toggle" data-id="' + c.id +
+          '" title="' + (c.on ? '暂停提醒' : '开启提醒') + '">' + (c.on ? '⏸' : '▶') + '</button>' +
+        '<button type="button" class="icon-btn" data-act="cd-edit" data-id="' + c.id +
+          '" title="编辑">✎</button>' +
+        '<button type="button" class="icon-btn" data-act="cd-del" data-id="' + c.id +
+          '" title="删除">🗑</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function countdownPanelHtml() {
+    const head = '<h3>倒数日 <button class="btn sm" data-act="cd-new">＋ 新增</button></h3>';
+    const list = Array.isArray(state.countdowns) ? state.countdowns : [];
+    if (!list.length) {
+      return '<div class="panel cd-panel">' + head +
+        '<div class="cd-empty">还没有倒数日。<br>设一个日子，它替你数着。</div>' +
+      '</div>';
+    }
+    const items = list.map(function (c) { return { c: c, n: cdDiff(c.date) }; });
+    const future = items.filter(function (x) { return x.n >= 0; })
+      .sort(function (a, b) { return a.n - b.n; });
+    const past = items.filter(function (x) { return x.n < 0; })
+      .sort(function (a, b) { return b.n - a.n; });
+    const shown = cdPastOpen ? past : past.slice(0, 3);
+    let html = future.map(countdownRow).join('');
+    if (past.length) {
+      html += '<div class="cd-group">已过去 · ' + past.length + ' 个</div>' +
+        shown.map(countdownRow).join('');
+      if (past.length > 3) {
+        html += '<button type="button" class="cd-more" data-act="cd-past-more">' +
+          (cdPastOpen ? '收起' : '展开全部 ' + past.length + ' 个') + '</button>';
+      }
+    }
+    return '<div class="panel cd-panel">' + head + '<div class="cd-list">' + html + '</div></div>';
+  }
+
+  /* 提醒档位：0 就是当天。默认「当天 + 提前 3 天 + 提前 1 天」，够用又不吵。 */
+  const CD_REMIND = [0, 1, 3, 7, 30];
+
+  function countdownModal(c) {
+    const isNew = !c;
+    const cur = c || {
+      title: '', date: fmt(new Date(Date.now() + 30 * 86400000)),
+      note: '', time: '09:00', remindDays: [3, 1, 0], on: true
+    };
+    const chips = CD_REMIND.map(function (d) {
+      const on = (cur.remindDays || []).indexOf(d) >= 0;
+      return '<button type="button" class="cd-rd' + (on ? ' on' : '') + '" data-act="cd-rd"' +
+        ' data-d="' + d + '">' + (d === 0 ? '当天' : '提前 ' + d + ' 天') + '</button>';
+    }).join('');
+    openModal('<form class="modal-card" id="cd-form" data-id="' + esc(isNew ? '' : c.id) + '">' +
+      '<h3>' + (isNew ? '新增倒数日' : '编辑倒数日') + '</h3>' +
+      '<label class="field"><span>名字</span>' +
+        '<input type="text" name="title" maxlength="40" value="' + esc(cur.title) + '" placeholder="比如：考研、爸爸生日"></label>' +
+      '<label class="field"><span>那一天</span>' +
+        '<input type="date" name="date" value="' + esc(cur.date) + '"></label>' +
+      '<label class="field"><span>备注（会跟着通知一起发出去，可不填）</span>' +
+        '<textarea name="note" rows="2" maxlength="200" placeholder="比如：记得带准考证">' + esc(cur.note) + '</textarea></label>' +
+      '<div class="cd-remind">' +
+        '<span class="cd-remind-label">提前提醒</span>' +
+        '<div class="cd-rd-wrap">' + chips + '</div>' +
+      '</div>' +
+      '<div class="cd-time"><label class="field"><span>每次提醒的时刻</span>' +
+        '<input type="time" name="time" value="' + esc(cur.time) + '"></label></div>' +
+      '<p class="hint">只对未来提醒；日子过去之后它照常显示「已过去 N 天」，但不再发通知。' +
+        '同一天别安排太多提醒——企业微信同一分钟超过 20 条会静默丢弃。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function saveCountdownForm(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? String(el.value || '') : '';
+    };
+    const title = get('title').trim();
+    const date = get('date');
+    const time = get('time');
+    if (!title) { toast('给它起个名字'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('请选一个日期'); return; }
+    if (!/^\d{2}:\d{2}$/.test(time)) { toast('请填提醒时刻'); return; }
+    const remindDays = [].slice.call(form.querySelectorAll('.cd-rd.on'))
+      .map(function (b) { return Number(b.dataset.d) || 0; });
+    const id = form.dataset.id || '';
+    const payload = {
+      title: title, date: date, note: get('note').trim(),
+      time: time, remindDays: remindDays, on: true
+    };
+    if (!Array.isArray(state.countdowns)) state.countdowns = [];
+    if (id) {
+      const c = state.countdowns.find(function (x) { return x.id === id; });
+      if (c) Object.assign(c, payload);
+    } else {
+      state.countdowns.push(Object.assign({ id: uid() }, payload));
+    }
+    state.countdowns = normalizeCountdowns(state.countdowns);
+    save();
+    render();
+    closeModal();
+    toast(id ? '已保存' : '记下了 · ' + cdSub(cdDiff(date)));
+  }
+
   function viewWeek() {
     const ws = weekStartOf(calWeek);
     const today = todayStr();
@@ -9186,6 +9433,7 @@ body.modal-open{overflow:hidden}
     const y = calMonth.getFullYear(), m = calMonth.getMonth();
     return v.head +
       '<div class="cal-layout">' + v.panel +
+        countdownPanelHtml() +
         '<div class="cal-cards">' + monthOverview(y, m) + '</div>' +
       '</div>';
   }
@@ -13776,6 +14024,36 @@ body.modal-open{overflow:hidden}
       setCount(selectedDate, id, c - 1);
       render();
     },
+    /* ---- 倒数日（v76） ---- */
+    'cd-new': () => countdownModal(null),
+    'cd-edit': el => {
+      const c = (state.countdowns || []).find(function (x) { return x.id === el.dataset.id; });
+      if (c) countdownModal(c);
+    },
+    'cd-del': el => {
+      const c = (state.countdowns || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!c) return;
+      if (!confirm('删除「' + c.title + '」？\n倒数记录会一起删掉，不能恢复。')) return;
+      state.countdowns = state.countdowns.filter(function (x) { return x.id !== c.id; });
+      save();
+      render();
+      toast('已删除');
+    },
+    /* 暂停只是不发通知，日子照常数着——「还剩几天」是事实，不该被提醒开关影响 */
+    'cd-toggle': el => {
+      const c = (state.countdowns || []).find(function (x) { return x.id === el.dataset.id; });
+      if (!c) return;
+      c.on = !c.on;
+      save();
+      render();
+      toast(c.on ? '已开启提醒' : '已暂停提醒');
+    },
+    'cd-past-more': () => {
+      cdPastOpen = !cdPastOpen;
+      render();
+    },
+    'cd-rd': el => el.classList.toggle('on'),
+
     /* ---- 常驻卡排序（v75） ---- */
     'card-sort': () => {
       cardSortMode = !cardSortMode;
@@ -14402,6 +14680,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'notice-form') {
       e.preventDefault();
       saveNoticeForm(form);
+    } else if (form.id === 'cd-form') {
+      e.preventDefault();
+      saveCountdownForm(form);
     } else if (form.id === 'backfill-form') {
       e.preventDefault();
       saveBackfillForm(form);

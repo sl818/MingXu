@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v75（2026-11-09）
+最后更新：v76（2026-11-10）
 
 ---
 
@@ -159,7 +159,7 @@ render()
 | `habits` | `viewHabits()` | 习惯管理 | `.habits-wrap` `.habit-row` `.habit-today` `.habit-sort` |
 | `weight` | `viewWeight()` | 体重 | `.weight-row` `.chart` |
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
-| `calendar` | `viewCalendar()` | 日历（月 / 周两种） | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` |
+| `calendar` | `viewCalendar()` | 日历（月 / 周两种）+ 倒数日 | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` · `.cd-*` |
 | `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` |
 | `config` | `viewConfig()` | 配置（v71） | `.notice-row` `.notice-warn` `.ntf-box` |
 | `settings` | `viewSettings()` | 设置 | `.layout-grid` `.theme-grid` |
@@ -498,7 +498,7 @@ document.addEventListener('click', e => {
 
 | 函数 | 作用 |
 |---|---|
-| `viewCalendar()` | 入口，按 `calMode` 分派到月或周，并在下方统一挂三卡 |
+| `viewCalendar()` | 入口，按 `calMode` 分派到月或周；`cal-layout` 三块：日历 / `countdownPanelHtml()` / 三卡 |
 | `viewMonth()` | 月视图：格子 = 完成度染色 + 待办 + 百分比 + 心情 |
 | `viewWeek()` | 周视图：0:00–24:00 时间线 |
 | `dayTasks(ds)` | 某天到期的未完成待办，按「优先级 → 开始时间」排 |
@@ -506,6 +506,34 @@ document.addEventListener('click', e => {
 | `taskHitsDay(t, ds)` | 重复任务在某天是否命中（周视图靠它展开未来几周） |
 | `monthHabitsInfo(y,m)` | 本月习惯统计，日历三卡和统计页共用 |
 | `monthOverview(y,m)` | 日历页底部三卡（小结 / 心情 / 体重） |
+
+### 日历页布局与倒数日（v76）
+
+`.cal-layout` 是网格，宽屏（`≥1400px`）两列 `minmax(0,1fr) 340px`：左边日历、右边倒数日，
+三张统计卡 `grid-column:1/-1` 跨两栏留在最下面。窄屏掉回单列，顺序是 日历 → 倒数日 → 三卡。
+
+**日历卡片（`.panel.cal-wrap`）绝不能写 `max-width` + `margin:auto`。**
+之前同时存在两处限宽（700px 和 1040px），后者覆盖前者；删掉 1040 之后 700 又浮上来，
+日历又开始居中——表现为「标题左对齐、日历居中，右边空一条」。
+现在两处都删了，宽度完全由网格列决定。`width:100%` 必须留着：`.main` 是 flex，
+不给宽度会退化成 `max-content`，周视图 620px 的时间线会把面板撑出屏幕。
+
+**倒数日（`countdownPanelHtml`）**
+
+- 数据只有 `date` 一个日期，**不存「未来还是过去」**——`cdDiff(date)` 每次现算，
+  存成状态明天就不同步了。
+- 渲染分两组：未来（`n >= 0`）按天数升序、过去（`n < 0`）按距今升序（最近的在前）。
+- 过去超过 3 个默认只露 3 个，`cd-more` 展开；`cdPastOpen` 是模块级 `let`，纯视图状态。
+- 大数字区：`n > 0` 显示 `N 天`，`n === 0` 显示「今天」（`.today` 降到 15px），
+  `n < 0` 显示 `N 天前`。**副标题只写日期**，天数不重复写第二遍——
+  390px 下重复写会换行。
+- `cd-toggle` 只开关通知，**不影响倒数天数**：还剩几天是事实，不该被提醒开关影响。
+
+**表单（`countdownModal`）**
+
+提醒档位 `CD_REMIND = [0,1,3,7,30]`，0 是当天，用 `.cd-rd` chips 多选（`cd-rd` 切 `.on`）。
+默认「当天 + 提前 1 天 + 提前 3 天」。日期默认今天 + 30 天，免得每次都要点日历。
+
 
 **周视图的两个关键设计**：
 

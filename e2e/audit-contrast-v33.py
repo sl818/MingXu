@@ -64,6 +64,16 @@ for _i in range(3):
 board['data']['cravings'] = _cr
 
 # 配置页要有通知才取得到样本
+# 倒数日：未来 / 过去 / 暂停 三种状态都要有样本
+board['data']['countdowns'] = [
+    {'id': 'cd1', 'title': '考研', 'date': '2026-11-20', 'note': '记得打印准考证',
+     'time': '09:00', 'remindDays': [3, 1, 0], 'on': True},
+    {'id': 'cd2', 'title': '入职', 'date': '2026-10-01', 'note': '',
+     'time': '09:00', 'remindDays': [1, 0], 'on': True},
+    {'id': 'cd3', 'title': '旧事', 'date': '2026-09-01', 'note': '',
+     'time': '09:00', 'remindDays': [0], 'on': False},
+]
+
 board['data']['notices'] = [
     {'id': 'n1', 'text': '该吃维生素了', 'time': '20:00', 'mode': 'daily', 'on': True},
     {'id': 'n2', 'text': '周复盘', 'time': '21:30', 'mode': 'weekly', 'weeks': [1, 4], 'on': True},
@@ -119,7 +129,10 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
 # 日历：月视图格子里的待办、底部三卡
-SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3']
+SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3',
+                  # 倒数日右栏（v76）：大数字、单位、标题、日期、备注、分组标题
+                  '.cd-num b', '.cd-num i', '.cd-main b', '.cd-main small', '.cd-main em',
+                  '.cd-group', '.cd-item.past .cd-main b']
 # 日历：周视图时间线
 SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend']
 # 戒烟常驻卡（v50）：两个按钮、状态字、数据行、里程碑、今日记录
