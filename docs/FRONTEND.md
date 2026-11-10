@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v82（2026-11-10）
+最后更新：v83（2026-11-10）
 
 ---
 
@@ -579,6 +579,8 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 连续无烟 / 忍住了 / 每支成本 / 上次抽。两处口径写在小字上——本月消费按`买烟日期`算（看支出不看消耗），
 平均每天的分母是`戒烟天数`（上限 30）而不是固定 30 天。时段条只数「抽了」，
 统计页那 24 根柱是同一份 `craveHours` 数据的另一套渲染，两者不要合并。
+统计页在 `quitPanel(range)` 之前复用同一个 `quitSumPanel(qh, title, withHours)`，标题换成「戒烟汇总」、`withHours=false` 跳过时段条（下方戒烟分析已有 24 根柱）。
+没有戒烟习惯时两块都不渲染。
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
 （纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。
 「上一包对比」只在戒烟页宽卡显示（`quitCard` 第三个参数 `compare=true` 才渲染），今日页窄卡不塞。

@@ -10364,7 +10364,7 @@ body.modal-open{overflow:hidden}
      ① 「本月消费」按买烟日期算（月头买一条整笔算在月头，看的是支出不是消耗）；
      ② 「平均每天」的分母是戒烟天数（上限 30），不是固定 30 天——刚开始记的前
         半个月会被当成 0 支，均值被压低，「折合几小时一根」跟着一起错。 */
-  function quitSumPanel(h) {
+  function quitSumPanel(h, title, withHours) {
     const packs = Array.isArray(state.packs) ? state.packs : [];
     const now = new Date();
     const dow = (now.getDay() + 6) % 7;
@@ -10449,7 +10449,7 @@ body.modal-open{overflow:hidden}
     const card = function (label, big, sub) {
       return '<div class="qsum"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
     };
-    return '<div class="panel"><h3>数据汇总</h3>' +
+    return '<div class="panel"><h3>' + (title || '数据汇总') + '</h3>' +
       '<div class="qsum-grid">' +
         card('今天', todayS + ' 支', diffText) +
         card('本周买烟', wk.length + ' 包', '¥' + wkCost.toFixed(0)) +
@@ -10463,7 +10463,9 @@ body.modal-open{overflow:hidden}
           unit ? unitSub : '买烟时填价格就能算') +
         card('上次抽', lastText, lastSub) +
       '</div>' +
-      quitHoursStrip(h) +
+      /* 统计页紧跟「戒烟分析」，那边已经有 24 根柱 + 峰值说明。
+         同一页画两遍同一份数据只会让人以为口径不同。 */
+      (withHours === false ? '' : quitHoursStrip(h)) +
     '</div>';
   }
 
@@ -10991,6 +10993,9 @@ body.modal-open{overflow:hidden}
       (logRows || '<div class="empty-box">还没有操作记录，去今日页点一下习惯试试。</div>') +
       '</div>';
 
+    /* 没有戒烟习惯时两块都不渲染；有的话「汇总」在前、「分析」在后 */
+    const qhSum = quitHabit();
+
     return '' +
       '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图灰线 = 无记录，浅色 = 未达标，实心 = 达标（≥75%）。</p></div>' +
         '<div class="stats-acts">' +
@@ -11015,6 +11020,7 @@ body.modal-open{overflow:hidden}
       '<div class="panel"><h3>本月习惯 <span class="muted-sm">（只看有记录的日子）</span></h3>' +
         monthHabitRowsHtml(now.getFullYear(), now.getMonth()) +
       '</div>' +
+      (qhSum ? quitSumPanel(qhSum, '戒烟汇总 <span class="muted-sm">（口径同戒烟页）</span>', false) : '') +
       quitPanel(range) +
       medTrendPanel(range, rangeDays) +
       '<div class="panel"><h3>习惯明细 <span class="muted-sm">（最近 ' + range + ' 天）</span></h3>' +

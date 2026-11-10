@@ -164,7 +164,9 @@ SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.w
 SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
                    '.quit-card .move-lines > span', '.quit-card .move-foot']
 # 统计页：勋章墙 + 时段图坐标轴
-SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b']
+# v83 起「戒烟汇总」8 张卡也出现在统计页，同一套样式换个页面底，要单独取样
+SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b',
+                   '.qsum small', '.qsum b', '.qsum span']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
