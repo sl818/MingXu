@@ -891,6 +891,53 @@ body{
 .due.overdue{color:color-mix(in srgb,var(--bad) 86%,var(--text))}
 
 /* ---------- 看板：宽屏右侧信息栏 ---------- */
+/* ===== 任务完成度面板（v80）=====
+   待办页底部和统计页共用同一个函数，所以样式只写一份。
+   五格 + 一条达成率进度条：数字在 surface-2 上，文字一律 --text / --muted，
+   不用强调色写字——九套皮肤里 --accent 深浅差很多，大字也未必过 AA。 */
+.ts-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-bottom:14px}
+.ts-head h3{margin:0}
+.ts-range{display:flex;gap:6px;flex-wrap:wrap}
+.ts-chip{border:1px solid var(--line);background:var(--surface);color:var(--text);
+  font:inherit;font-size:11.5px;font-weight:500;padding:4px 11px;border-radius:8px;cursor:pointer;
+  transition:background .15s,border-color .15s}
+.ts-chip:hover{border-color:var(--line-strong)}
+.ts-chip.on{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.ts-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.ts-cell{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 8px;text-align:center;min-width:0}
+.ts-cell b{display:block;font-family:var(--font-serif);font-size:26px;font-weight:500;
+  line-height:1.1;color:var(--text);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ts-cell span{display:block;margin-top:5px;font-size:11px;color:var(--muted);
+  white-space:nowrap}
+/* 窄屏：五格并排，格子只有 60 出头，字号和间距都要收一档才能一行放下 */
+@media (max-width:560px){
+  .ts-grid{gap:6px}
+  .ts-cell{padding:10px 4px;border-radius:10px}
+  .ts-cell b{font-size:22px}
+  .ts-cell span{font-size:10px;margin-top:4px}
+  .ts-chip{padding:4px 8px;font-size:11px}
+  .ts-rate{gap:8px}
+}
+/* 只给「已完成」加淡强调底，其余四格一个样。
+   「已取消」原来用虚线框，手机上看着像「没填满的占位」，去掉了。
+   只改底色和边框、文字颜色不动，这样对比度在任何皮肤下都跟普通格子一样。 */
+.ts-cell.ok{background:color-mix(in srgb,var(--accent) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--accent) 38%,var(--line))}
+/* 「已完成」这格的标签坐在 accent 淡底上，--muted 在 paper / clay / mist / neu /
+   slate 上只有 4.05–4.43，过不了 AA（审计抓的）。彩色底上的小字只能用 --text，
+   层次靠字号和字重，不靠压灰。 */
+.ts-cell.ok span{color:var(--text)}
+.ts-rate{display:flex;align-items:center;gap:12px;margin-top:14px}
+.ts-bar{flex:1;min-width:0;height:8px;border-radius:99px;background:var(--surface-2);
+  border:1px solid var(--line);overflow:hidden}
+.ts-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;
+  transition:width .3s}
+.ts-rate span{flex:none;font-size:12px;color:var(--text)}
+.ts-rate span b{font-weight:600;font-variant-numeric:tabular-nums}
+.ts-note{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6}
+
 .board-shell{display:block}
 .board-rail{display:none}
 .board-col-wrap{min-width:0}
@@ -1619,6 +1666,8 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .sum-table th{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap}
 .sum-table .num{text-align:right;white-space:nowrap}
 .sum-foot{font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+/* 表格下方的一行口径说明。放在 .sum-table 之后，字号比正文小一档，不抢数字。 */
+.sum-hint{font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.6}
 @media print{
   /* 打印时 body 下只保留模态根节点，其余（导航、页面、悬浮按钮、toast）全部收起 */
   body > *:not(#modal-root){display:none !important}
@@ -4343,6 +4392,9 @@ body.modal-open{overflow:hidden}
   let calMode = 'month';
   let calWeek = new Date();
   let statsRange = 30;
+  /* 任务完成度的范围。和 statsRange 分开存：那个是习惯完成率的天数，
+     两个面板放在不同页面，共用会互相干扰。0 = 全部。 */
+  let taskRange = 30;
   let essayTag = '';
 
   function autoTheme() {
@@ -8748,6 +8800,71 @@ body.modal-open{overflow:hidden}
       '</article>';
   }
 
+  /* ===== 任务完成度（v80） =====
+     时间窗口按 **createdAt** 圈定，再看这批任务现在的状态。
+     为什么不按完成时间：那样会出现「本月新增 5、完成 20」——完成的是上个月建的，
+     数字对不上。按创建时间，几个数字才能加起来等于「新增」。
+     归档不是状态，是「从看板收起来」：一条任务可以既已完成又已归档，
+     所以它只做一句小字标注，不占那五格。 */
+  const TASK_RANGES = [[7, '近 7 天'], [30, '近 1 月'], [90, '近 3 月'], [0, '全部']];
+
+  function taskPool(range) {
+    const all = Array.isArray(state.tasks) ? state.tasks : [];
+    if (!range) return all;
+    const from = fmt(addDays(new Date(), -(range - 1)));
+    return all.filter(function (t) {
+      const c = String(t.createdAt || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(c)) return c >= from;
+      /* createdAt 缺失的老任务（早期导入的数据）：退回 due，再没有就只进「全部」。
+         所以「近 1 月」的数字可能比直觉小一点，这是数据本身的问题，不是算错。 */
+      return !!t.due && t.due >= from;
+    });
+  }
+
+  function taskStats(range) {
+    const pool = taskPool(range);
+    const st = { n: pool.length, todo: 0, doing: 0, done: 0, cancelled: 0, arch: 0 };
+    pool.forEach(function (t) {
+      if (Object.prototype.hasOwnProperty.call(st, t.status)) st[t.status]++;
+      if (t.archivedAt) st.arch++;
+    });
+    /* 达成率 = 完成 ÷ 新增。取消也算在分母里 —— 取消了也是「没做成」，
+       只按完成+取消算会让数字虚高。 */
+    st.rate = st.n ? st.done / st.n : 0;
+    return st;
+  }
+
+  function taskStatsPanel() {
+    const st = taskStats(taskRange);
+    const pct = Math.round(st.rate * 100);
+    const cells = [
+      ['新增', st.n, ''],
+      ['待办', st.todo, ''],
+      ['进行中', st.doing, ''],
+      ['已完成', st.done, 'ok'],
+      ['已取消', st.cancelled, '']
+    ].map(function (c) {
+      return '<div class="ts-cell' + (c[2] ? ' ' + c[2] : '') + '">' +
+        '<b>' + c[1] + '</b><span>' + c[0] + '</span></div>';
+    }).join('');
+    const chips = TASK_RANGES.map(function (r) {
+      return '<button type="button" class="ts-chip' + (taskRange === r[0] ? ' on' : '') +
+        '" data-act="task-range" data-v="' + r[0] + '">' + r[1] + '</button>';
+    }).join('');
+    const note = st.n
+      ? st.done + ' / ' + st.n + ' 条已完成' + (st.arch ? ' · 其中 ' + st.arch + ' 条已归档' : '')
+      : '这个范围里还没有新建任务。';
+    return '<section class="panel task-stat">' +
+      '<div class="ts-head"><h3>任务完成度</h3><div class="ts-range">' + chips + '</div></div>' +
+      '<div class="ts-grid">' + cells + '</div>' +
+      '<div class="ts-rate">' +
+        '<div class="ts-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<span>达成率 <b>' + pct + '%</b></span>' +
+      '</div>' +
+      '<div class="ts-note">' + note + '</div>' +
+    '</section>';
+  }
+
   function viewBoard() {
     const cols = [
       { key: 'todo', label: '待办', color: '#8a8f83', hint: '想到的事先放这里，拖动卡片可推进' },
@@ -8832,7 +8949,9 @@ body.modal-open{overflow:hidden}
             '收进历史，随时可以找回' +
           '</div>' +
         '</aside>' +
-      '</div>';
+      '</div>' +
+      /* 看板下面跨全宽：不做成右上角的小卡，那里已经有「清理已完成 / 归档 / 新建」三颗按钮了 */
+      taskStatsPanel();
   }
 
   /* ============================================================
@@ -9804,6 +9923,23 @@ body.modal-open{overflow:hidden}
   /* ---------- 月度健康小结 ----------
      和「本月回顾」的区别：那边是一屏内的速览，这边是能打印出来交给医生的东西，
      所以要有明细（每种药、每个习惯的完成情况）和生成时间。 */
+  /* 某天某个习惯的「完成度」，0~1。
+     · 戒除 / 戒烟：守住 1、破了 0（和 met 一致）
+     · 用药习惯：已服 ÷ 应服（吃了 3 剂 / 4 剂 = 75%）
+     · 计数类：实际次数 ÷ 目标次数，封顶 1（喝 3 杯 / 目标 9 杯 = 33%）
+     跟 met() 的区别就在最后一种：met 只有 0 和 1，它表达不了「做了 3/9」。
+     **只给月度小结用**，不要拿它替换 dayStats —— 那个是「达标」的二元定义，
+     日历热力、连续达标天数、统计页柱状图全都依赖它。 */
+  function habitDayAcc(h, d) {
+    if (isQuitLike(h)) return met(h, d) ? 1 : 0;
+    if (h.med) {
+      const sched = medScheduledCount(d);
+      return sched ? Math.min(medTakenCount(d) / sched, 1) : 0;
+    }
+    const target = Math.max(1, Number(h.target) || 1);
+    return Math.min(countOf(d, h.id) / target, 1);
+  }
+
   function monthSummaryData() {
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth();
@@ -9872,23 +10008,47 @@ body.modal-open{overflow:hidden}
 
     const habits = [];
     state.habits.filter(h => !h.optional && !isArchived(h)).forEach(h => {
-      let done = 0, n = 0;
+      let done = 0, n = 0, acc = 0;
       days.forEach(d => {
         if (h.med && medScheduledCount(d) === 0) return;   /* 那天没药，这个习惯不计分母 */
         n++;
         if (met(h, d)) done++;
+        acc += habitDayAcc(h, d);
       });
       if (!n) return;
-      habits.push({ name: h.name || '习惯', done, n, pct: Math.round(done / n * 100) });
+      /* pct = 完成度（按实际完成量折算）；done/n 还是「完全做到的天数」，两者都留着。
+         以前 pct 就是 done/n，喝水每天 3 杯 / 目标 9 杯 会显示 0% ——
+         跟一口没喝同分，而这份小结是要打印出来给医生看的，那个 0 会被读成「完全没做」。 */
+      habits.push({
+        name: h.name || '习惯',
+        done, n,
+        pct: Math.round(acc / n * 100),
+        hit: Math.round(done / n * 100)
+      });
     });
     habits.sort((a, b) => a.pct - b.pct);
+
+    /* 「有记录的日子里的平均完成度」。
+       不用 rateOver()：它算的是 dayStats 的二元口径，「喝了一半」记 0，
+       会跟上面那张表的百分比打架（表里 33%，这里却说整体 12%）。
+       dayStats 本身不能改，日历热力和连续达标都挂在它上面。 */
+    let accSum = 0, accN = 0;
+    days.forEach(d => {
+      if (!hasRecords(d)) return;
+      const hs = activeHabits(d);
+      if (!hs.length) return;
+      let s2 = 0;
+      hs.forEach(h => { s2 += habitDayAcc(h, d); });
+      accSum += s2 / hs.length;
+      accN++;
+    });
 
     const t = new Date();
     return {
       label: y + ' 年 ' + (m + 1) + ' 月',
       span: days[0] + ' 至 ' + today + '（' + elapsed + ' 天）',
       elapsed, recorded, qualified, best,
-      avgRate: rateOver(days),
+      avgRate: { rate: accN ? accSum / accN : 0, days: accN },
       weight, med: { sched, taken, pct: sched ? Math.round(taken / sched * 100) : null, byMed, prn },
       habits,
       generatedAt: fmt(t) + ' ' + pad2(t.getHours()) + ':' + pad2(t.getMinutes())
@@ -9917,12 +10077,14 @@ body.modal-open{overflow:hidden}
 
     const habitTable = r.habits.length
       ? '<table class="sum-table">' +
-          '<tr><th>习惯</th><th class="num">完成 / 应完成</th><th class="num">完成率</th></tr>' +
+          '<tr><th>习惯</th><th class="num">达标天数</th><th class="num">完成度</th></tr>' +
           r.habits.map(x =>
             '<tr><td>' + esc(x.name) + '</td>' +
             '<td class="num">' + x.done + ' / ' + x.n + '</td>' +
             '<td class="num">' + x.pct + '%</td></tr>').join('') +
-        '</table>'
+        '</table>' +
+        '<p class="sum-hint">达标天数 = 当天完全做到的天数；完成度 = 按实际完成量折算' +
+          '（目标 9 杯、实际 3 杯记 33%）。</p>'
       : '<p class="sum-lead">本月没有需要打卡的习惯。</p>';
 
     let weightTxt;
@@ -9957,7 +10119,7 @@ body.modal-open{overflow:hidden}
           '<p class="sum-lead">' + esc(r.label) + '已过 ' + r.elapsed + ' 天：有记录 <b>' + r.recorded +
           '</b> 天（' + pctOf(r.recorded) + '%），达标 <b>' + r.qualified + '</b> 天，最长连续 <b>' +
           r.best + '</b> 天。' +
-          (r.avgRate.days ? '有记录的日子里平均完成率 ' +
+          (r.avgRate.days ? '有记录的日子平均完成度 ' +
             Math.round(r.avgRate.rate * 100) + '%。' : '') +
           '</p>' +
         '</div>' +
@@ -10625,13 +10787,9 @@ body.modal-open{overflow:hidden}
       weightStatsPanel(range) +
       medPanel +
       logPanel +
-      '<div class="panel"><h3>任务概览</h3>' +
-        '<div class="cal-summary" style="margin:0">' +
-          '<span>待办 <b>' + liveTasks().filter(t => t.status === 'todo').length + '</b></span>' +
-          '<span>进行中 <b>' + liveTasks().filter(t => t.status === 'doing').length + '</b></span>' +
-          '<span>已完成 <b>' + doneTasks.length + '</b></span>' +
-        '</div>' +
-      '</div>';
+      /* 原来那块「任务概览」只列了三个当前数，没有时间维度也看不出达成率，
+         换成同一套面板：待办页底部和这里共用，数字口径完全一致。 */
+      taskStatsPanel();
   }
 
   /* ============================================================
@@ -13955,6 +14113,12 @@ body.modal-open{overflow:hidden}
       const r = Number(el.dataset.range) || 30;
       if ([7, 30, 90].indexOf(r) < 0) return;
       statsRange = r;
+      render();
+    },
+    'task-range': el => {
+      const v = Number(el.dataset.v);
+      if ([0, 7, 30, 90].indexOf(v) < 0) return;
+      taskRange = v;
       render();
     },
     'pick-day': el => {

@@ -144,6 +144,11 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
+# 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
+# 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
+SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
+              '.ts-cell.ok b', '.ts-cell.ok span', '.ts-rate span',
+              '.ts-rate span b', '.ts-note']
 # 日历：月视图格子里的待办、底部三卡
 SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3',
                   # 倒数日右栏（v76）：大数字、单位、标题、日期、备注、分组标题
@@ -230,6 +235,9 @@ with sync_playwright() as p:
             nav(pg, 'quit')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_QUIT_PAGE)
+            nav(pg, 'board')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_BOARD)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_STATS)

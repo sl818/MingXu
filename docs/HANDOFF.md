@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v79（2026-11-10）
+最后更新：v80（2026-11-10）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v79（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v79'`） |
+| 代码版本 | v80（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v80'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -100,6 +100,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v77 | 11-10 | 修「手机推送的 webhook 切设备后要重填」：`pushLoad` 的重绘条件漏了 `config`。地址其实一直在服务器上，推送没失效。改成只读 + 「修改链接」两态，清空才删地址；只读态「暂停推送」不再带空值去保存（那会真清空）。新增 `verify-push-lock` 27 项。回滚点 tag `push-lock-v77` |
 | v78 | 11-10 | 修「导入备份把抽烟 / 买烟 / 自定义通知 / 倒数日清空」：`repairBackup` 以前是白名单（14 个字段），v68 之后新增的 6 个顶层字段全被丢弃，还把残缺 state 推回云端。改成白名单内逐项清洗 + **白名单外原样带过**。新增 `verify-import-keep` 13 项。回滚点 tag `import-keep-v78` |
 | v79 | 11-10 | 戒除习惯新增 `slipMode`（每日单次 / 每日多次）：多次走 `.quit-add` 按钮+ `.quit-undo` 撤销最后一条，单次行为完全不变。数据层零改动（`quitSlips` 本来就是计数）。新增 `verify-quit-multi` 32 项。回滚点 tag `quit-multi-v79` |
+| v80 | 11-10 | 月度小结的「完成度」从二元达标改成按完成量折算（喝水 3/9 杯 = 33%，不再是 0）；新增「任务完成度」面板（待办页底部 + 统计页）：新增/待办/进行中/已完成/已取消 + 达成率，近 7 天/1 月/3 月/全部，按 `createdAt` 圈定。新增 `verify-stats-v80` 32 项。回滚点 tag `stats-v80` |
 
 ### 两次值得记住的事故
 

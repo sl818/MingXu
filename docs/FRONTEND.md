@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v79（2026-11-10）
+最后更新：v80（2026-11-10）
 
 ---
 
@@ -160,7 +160,7 @@ render()
 | `weight` | `viewWeight()` | 体重 | `.weight-row` `.chart` |
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
 | `calendar` | `viewCalendar()` | 日历（月 / 周两种）+ 倒数日 | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` · `.cd-*` |
-| `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` |
+| `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` `.ts-*` |
 | `config` | `viewConfig()` | 配置（v71） | `.notice-row` `.notice-warn` `.ntf-box` |
 | `settings` | `viewSettings()` | 设置 | `.layout-grid` `.theme-grid` |
 | `more` | `viewMore()` | 「更多」页 | `.more-grid` `.more-card` |
@@ -516,11 +516,42 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `liveTasks()` `archivedTasks()` `pendingTasks(d)` `taskRepeatLabel(t)` `dueText(t)`
 `nextRepeatDate(date,r,w,d)` `completeRecurringTask(t,d)` `uncompleteRecurringTask(t)`
 
+### 7.5.1 统计口径（v80）
+
+**月度小结的「完成度」不是「达标率」。** 两个都留着，别合并：
+
+| 列 | 算法 | 说明 |
+|---|---|---|
+| 达标天数 | `met(h,d)` 为真的天数 / 总天数 | 二元事实：那天完全做到了没有 |
+| 完成度 | `Σ habitDayAcc(h,d) / 天数` | 按实际完成量折算 |
+
+`habitDayAcc()`：戒除/戒烟 → 守住 1、破了 0；用药习惯 → 已服÷应服；计数类 → 实际÷目标（封顶 1）。
+
+以前最后一列直接就是 `达标天数 / 天数`，喝水目标 9 杯、实际每天 3 杯 → **0%**，
+跟一口没喝同分。而这份小结是要打印出来给医生的，那个 0 会被读成「完全没做」。
+
+**`dayStats()` / `rateOver()` 不能跟着改**：它们的二元口径是「达标」的定义，
+日历热力、连续达标天数、统计页柱状图、`dayQualified` 全挂在上面。改了会连带一片。
+所以月度小结单独走一套 `habitDayAcc()`，弹窗底部那句「有记录的日子平均完成度」也用这套，
+保证弹窗内部两个数字不打架。
+
+**任务完成度面板**（`taskStatsPanel()`，待办页底部 + 统计页各一份）：
+
+- 时间窗口按 **`createdAt`** 圈定，再看这批任务现在的状态。
+  按完成时间圈会出现「本月新增 5、完成 20」（完成的是上月建的），数字对不上。
+- 达成率 = `已完成 ÷ 新增`，**取消也算在分母里**（取消了也是没做成）。
+- 「已归档」不是状态，是「从看板收起来」——一条任务可以既已完成又已归档，
+  所以只做一句小字标注，不占那五格。
+- `createdAt` 缺失的老任务退回 `due`，再没有就只进「全部」。
+- 范围存模块级 `taskRange`（0 = 全部），和 `statsRange` 分开——两个面板在不同页面。
+
 ### 7.5 渲染组件（返回 HTML 字符串）
 
 `habitCard(h,d)` `vitalCard(h,d)` `medCard(h,d)` `breathingCard(h,d)` `moveCardHtml(h,d)`
 `taskRow(t,d)` `taskCard(t)` `taskDetailHtml(t)` `medRowHtml(med)` `medSheetHtml(d)`
 `monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
+`habitDayAcc(h,d)`（单日单习惯的完成度 0~1，只给月度小结用）
+`taskPool(range)` `taskStats(range)` `taskStatsPanel()`（任务完成度，待办页与统计页共用）
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
