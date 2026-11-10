@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v76（2026-11-10）
+最后更新：v77（2026-11-10）
 
 ---
 
@@ -295,7 +295,7 @@ document.addEventListener('click', e => {
 | 搜索与命令 | `search-open` `cmd-run` `search-pick` |
 | 提醒 | `remind-dismiss` `remind-go` `notify-on` `notify-off` |
 | 日历订阅 | `ics-copy` `ics-reset` `ics-export` |
-| 手机推送 | `push-test` `push-off` `push-refresh` |
+| 手机推送 | `push-edit` `push-cancel` `push-save` `push-test` `push-off` `push-refresh` |
 | 云账号 | `cloud-login` `cloud-register` `forgot-password` `cloud-account` `cloud-logout` `cloud-sync` `cloud-retry` `sync-dismiss` |
 | 管理员 | `admin-panel` `admin-reset` `admin-toggle` |
 | 数据导出 | `export-json` `export-csv` `import-json` `reset` |
@@ -387,6 +387,28 @@ document.addEventListener('click', e => {
 
 交互是「排序模式 + ↑↓」，不是拖拽：卡片里全是「点一根 / 完成 / 撤销」这类密集按钮，
 拖拽时手指一偏就会误触发；5 张卡用 ↑↓ 最多点 4 次，够用。
+
+### 手机推送的 webhook（v77）
+
+地址存在 **服务器**（`users.push_webhook`），不在浏览器里。
+`tools/push_tick.php` 从库里读，所以**换手机、换浏览器、清缓存都不影响推送**。
+
+界面上是两态（`pushEditing`，模块级 `let`）：
+
+- **只读**：input 带 `readonly` + `.is-locked`（虚线边、浅底），按钮是
+  「修改链接 / 发一条测试 / 暂停推送 / 刷新」
+- **编辑**：点「修改链接」后清空、聚焦，按钮是「保存 / 取消」
+
+两条铁律：
+
+1. **`pushSave(enable, useInput)` 的第二个参数决定读哪儿的地址。**
+   只读态的「暂停推送」必须传 `false`——用 `pushCfg.webhook`，不能用输入框。
+   输入框在还没加载完时是空的，拿它保存会把服务器上的地址清空。
+2. **`pushLoad()` 的重绘条件要包含 `config`**。v71 把面板搬到配置页时只写了
+   `view === 'settings'`，于是异步加载完成后不重绘，输入框永远停在渲染那一刻的空值——
+   这就是「切设备后要重新填」的真正原因（地址其实一直在库里）。
+
+只有编辑态清空并保存才会删地址（带 `confirm`）。「暂停推送」只改 `push_enabled`。
 
 - 入口在「今日打卡」标题栏右侧（`.sec-acts`），排序态换成「恢复默认 / 完成」
 - `cardSortMode` 是模块级 `let`，纯视图状态，不进 state，刷新即退出
