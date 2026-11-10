@@ -13392,7 +13392,13 @@ body.modal-open{overflow:hidden}
 
     const cleanMoods = normalizeMoods(data.moods);
 
-    return {
+    /* v78 前这里是「白名单」：只列上面这 14 个字段，其余一概丢弃。
+       v68 加进来的 cravings / packs、v71 的 notices、v75 的 cardOrder、v76 的 countdowns
+       全都没同步进来——导入那一刻它们被静默丢掉，紧接着 save() 又把这份残缺的 state
+       推上云端，等于把用户数据直接抹掉（导出是全量、导入是白名单，两边从来就不对称）。
+       现在改成：已知的新字段显式 normalize，**其余不认识的顶层键原样带过**。
+       多带一个无害字段的代价是零，漏记一次的代价是用户的数据。 */
+    const out = {
       version: 2,
       schemaVersion: SCHEMA_VERSION,
       view: 'today',
@@ -13406,8 +13412,21 @@ body.modal-open{overflow:hidden}
       tasks: tasks,
       bodyProfile: bodyProfile,
       weights: weights,
-      essays: essays
+      essays: essays,
+      cravings: normalizeCravings(data.cravings),
+      packs: normalizePacks(data.packs),
+      notices: normalizeNotices(data.notices),
+      countdowns: normalizeCountdowns(data.countdowns),
+      cardOrder: normalizeCardOrder(data.cardOrder),
+      cardOrderAt: Math.max(0, Math.round(Number(data.cardOrderAt) || 0))
     };
+
+    /* 兜底：以后再加顶层字段也不会被这张表吃掉 */
+    Object.keys(data).forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(out, k)) return;
+      out[k] = data[k];
+    });
+    return out;
   }
 
   /* 从「导出备份 JSON」还原数据，让备份链条闭环。

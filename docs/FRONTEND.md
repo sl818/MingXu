@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v77（2026-11-10）
+最后更新：v78（2026-11-10）
 
 ---
 
@@ -387,6 +387,28 @@ document.addEventListener('click', e => {
 
 交互是「排序模式 + ↑↓」，不是拖拽：卡片里全是「点一根 / 完成 / 撤销」这类密集按钮，
 拖拽时手指一偏就会误触发；5 张卡用 ↑↓ 最多点 4 次，够用。
+
+### 导入备份：不认识的字段必须原样带过（v78）
+
+`handleImport` 走 `repairBackup(data)` 清洗，早期它是一张**白名单**：只有写进 return 的
+14 个字段能活下来，其余一概丢弃。
+
+导出是 `JSON.stringify(state)`（全量 20 个字段），导入是白名单（14 个）——**两边从来不对称**。
+v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`cardOrder` + `cardOrderAt`（v75）、
+`countdowns`（v76）全都没同步进这张表。于是导入一次就等于把抽烟记录、买烟记录、自定义通知、
+倒数日全部清空，紧接着 `save()` 又把这份残缺的 state 推上云端——**不可逆**。
+
+现在：
+
+1. 已知的新字段显式 normalize（`normalizeCravings` / `normalizePacks` / `normalizeNotices` /
+   `normalizeCountdowns` / `normalizeCardOrder`）；
+2. **其余不认识的顶层键原样带过**，兜底永远成立。
+
+**铁律：以后新增任何顶层字段，`repairBackup` 的 return 必须同步。**
+只维护白名单就是在赌「每次加功能都记得改这里」，赌输一次就是用户的全部数据。
+
+`e2e/verify-import-keep.py` 锁这条：真实走一遍导入，断言六类数据条数一致、
+陌生字段（`futureField`）也保留、刷新后仍在、配置页与日历页能正常渲染。
 
 ### 手机推送的 webhook（v77）
 
