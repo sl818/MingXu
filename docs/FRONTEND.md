@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v80（2026-11-10）
+最后更新：v81（2026-11-10）
 
 ---
 
@@ -516,6 +516,23 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `liveTasks()` `archivedTasks()` `pendingTasks(d)` `taskRepeatLabel(t)` `dueText(t)`
 `nextRepeatDate(date,r,w,d)` `completeRecurringTask(t,d)` `uncompleteRecurringTask(t)`
 
+### 7.5.2 考核算法说明弹窗（v81）
+
+统计页头部 `考核算法`（`data-act="algo-open"` → `algoModal()`），把上面那套口径写成用户能读的说明，
+九个部分：单个习惯怎么算做到 / 当天完成率 / 75% 门槛 / 日历颜色 / 连续达标 /
+为什么只统计有记录的日子 / 月度小结的两个数字 / 用药任务戒烟的特殊口径 / 不参与考核的。
+
+**这个弹窗是代码的镜像，不是文案。** 里面的阈值和判定必须和
+`met()` / `dayStats()` / `dayQualified()` / `rateOver()` / `habitDayAcc()` / `taskStats()` 一一对应。
+改了那几个函数的阈值或口径，**必须同步改这个弹窗** —— 说明跟数字对不上，比没有说明更糟。
+
+`e2e/verify-algo-modal.py`（29 项）锁住结构：九个 `.algo-h`、四张 `.algo-table`、
+关键阈值 75%、以及「达标天数 / 完成度」「创建时间」这些词还在。
+
+样式：`.algo-card` 比默认 `.modal-card` 宽一档（`min(660px,100%)`），因为有两列表格。
+`<560px` 时表格**整体改成块级**（`display:block` + 隐藏表头），每行变成「类型在上、判定在下」——
+两列硬挤会把第一列压成竖排的「计/数/类」。
+
 ### 7.5.1 统计口径（v80）
 
 **月度小结的「完成度」不是「达标率」。** 两个都留着，别合并：
@@ -552,6 +569,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `monthReviewPanel()` `medTrendPanel(range,days)` `monthSummaryData()` `openMonthSummary()`
 `habitDayAcc(h,d)`（单日单习惯的完成度 0~1，只给月度小结用）
 `taskPool(range)` `taskStats(range)` `taskStatsPanel()`（任务完成度，待办页与统计页共用）
+`algoModal()`（考核算法说明弹窗，统计页头部按钮 `algo-open`）
 `quitPanel(range)`（戒烟分析面板，没有 quit 习惯时返回空串）
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）

@@ -143,7 +143,8 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
               '.quit-undo', '.quit-count span']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
-SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span']
+SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',
+              '.stats-acts .btn', '.stats-acts .range-switch button']
 # 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
 # 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
 SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',

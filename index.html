@@ -2699,6 +2699,44 @@ body.modal-open{overflow:hidden}
 .range-switch{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);flex:none}
 .range-switch button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:11px;padding:5px 9px;border-radius:7px;cursor:pointer;white-space:nowrap}
 .range-switch button.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+
+/* 「考核算法」按钮 + 右侧分段控件排一行。两者高度不一样，必须 align-items:center，
+   否则按钮会被 stretch 拉到跟分段控件同高，看着像两个不同组件拼在一起。 */
+.stats-acts{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* ===== 考核算法弹窗（v81）=====
+   结构照月度小结来：小节标题 + 表格 + 说明段。表格复用 .sum-table，只调行距。 */
+/* 比默认 .modal-card 的 540 宽一档：这张弹窗有两列表格，540 会把判定那列挤成几字宽。 */
+.algo-card{width:min(660px,100%)}
+.algo-lead{font-size:12.5px;color:var(--text);line-height:1.75;margin:0 0 6px;
+  padding:11px 13px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+.algo-h{font-size:13px;font-weight:650;color:var(--text);margin:20px 0 8px;
+  padding-left:9px;border-left:3px solid var(--accent)}
+.algo-p{font-size:12.5px;color:var(--text);line-height:1.8;margin:0 0 8px}
+.algo-formula{font-size:12.5px;color:var(--text);line-height:1.7;margin:10px 0;
+  padding:10px 13px;border-radius:10px;text-align:center;
+  background:color-mix(in srgb,var(--accent) 9%,var(--surface));
+  border:1px dashed color-mix(in srgb,var(--accent) 34%,var(--line))}
+/* 表格第一列是「类型 + 小字例子」，第二列是判定，所以第一列不换行、顶部对齐 */
+.algo-table td{padding:8px 8px;vertical-align:top;line-height:1.65}
+.algo-table td:first-child{white-space:nowrap;width:1%}
+.algo-table td b{font-weight:600}
+.algo-ex{font-size:10.5px;color:var(--muted);font-weight:400}
+.algo-foot{margin-top:18px;padding:11px 13px;border-radius:12px;
+  background:var(--surface-2);border:1px solid var(--line);
+  font-size:12px;color:var(--text);line-height:1.75}
+/* 窄屏：两列表格在这个宽度下没法看——第一列会被压成竖排的「计/数/类」。
+   改成「每行一块」：类型标题在上、判定文字在下，表头直接藏掉。 */
+@media (max-width:560px){
+  .algo-table,.algo-table tbody,.algo-table tr,.algo-table td{display:block;width:100%}
+  .algo-table th{display:none}
+  .algo-table tr{padding:9px 0;border-bottom:1px solid var(--line)}
+  .algo-table tr:last-child{border-bottom:0}
+  .algo-table td{border:0;padding:0;white-space:normal}
+  .algo-table td:first-child{width:auto;margin-bottom:3px}
+  .algo-h{margin-top:16px}
+  .stats-acts{gap:8px}
+}
 .more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}
 .more-card{display:flex;align-items:flex-start;gap:12px;text-align:left;width:100%;padding:17px;border:1px solid var(--line);border-radius:15px;background:var(--surface);box-shadow:var(--shadow);color:var(--text);cursor:pointer}
 .more-card:hover{border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
@@ -10566,6 +10604,100 @@ body.modal-open{overflow:hidden}
   }
 
 
+  /* 考核算法说明（v81）。
+     **里面的每条判定都必须和代码一一对应**：met() / dayStats() / dayQualified() /
+     rateOver() / habitDayAcc() / taskStats()。阈值改了这里不同步，说明就会跟数字对不上，
+     那比没有说明更糟。改这些函数时顺手看一眼这个弹窗。 */
+  function algoModal() {
+    const tr = (a, b) => '<tr><td>' + a + '</td><td>' + b + '</td></tr>';
+    openModal(
+      '<div class="modal-card algo-card">' +
+        '<h3>考核算法</h3>' +
+        '<p class="algo-lead">本站只看<b>当天做到了没有</b>，不累计分数、不扣分、不倒扣历史。' +
+          '每个习惯先各自判定「今天算不算做到」，再把当天所有该做的习惯汇总成一个百分比。</p>' +
+
+        '<h4 class="algo-h">一、单个习惯：今天算不算「做到」</h4>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>类型</th><th>判定</th></tr>' +
+          tr('<b>计数类</b><br><span class="algo-ex">喝水、读书</span>',
+             '当天次数 <b>≥ 目标次数</b>。目标 8 杯喝了 8 杯才算，7 杯不算') +
+          tr('<b>单次类</b><br><span class="algo-ex">早睡、签到</span>',
+             '目标 1 次，打个卡就算做到') +
+          tr('<b>戒除类</b><br><span class="algo-ex">不喝奶茶</span>',
+             '当天<b>一条「破了」都没有</b>就算守住 —— 什么都不用点') +
+          tr('<b>戒烟</b>', '当天<b>没有「点一根」</b>就算做到；点了「忍一次」不影响') +
+          tr('<b>用药</b><br><span class="algo-ex">站点自带的常驻卡</span>',
+             '当天该吃的剂次<b>全部记录了</b>才算，少吃一次就是没做到') +
+        '</table>' +
+
+        '<h4 class="algo-h">二、当天的完成率</h4>' +
+        '<p class="algo-p">先算「今天该做几个」。<b>应做习惯</b> = 所有未归档、且没被标记成「非必做」的习惯。' +
+          '用药习惯如果当天没有排期（比如这个疗程结束了），就不算进应做里。</p>' +
+        '<p class="algo-formula">完成率 = 今天做到的习惯数 ÷ 今天应做的习惯数</p>' +
+        '<p class="algo-p">例：今天应做 5 个，做到 3 个 → 60%。做 0 个就是 0%，不会因为「昨天做得好」而加分。</p>' +
+
+        '<h4 class="algo-h">三、「达标日」的门槛是 75%</h4>' +
+        '<p class="algo-p">当天完成率 <b>≥ 75%</b>，这一天记为一个「达标日」。</p>' +
+        '<p class="algo-p">为什么不是 100：一天里有一两件没做到很常见。用 100 分制，' +
+          '一次疏漏就会把整段连续记录清零，那不是激励，是劝退。75% 允许你偶尔失手，' +
+          '但不能长期放任——5 个习惯要做到 4 个。</p>' +
+
+        '<h4 class="algo-h">四、日历上的颜色</h4>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>颜色深浅</th><th>含义</th></tr>' +
+          tr('无填充', '当天没有记录，或者还没到的日子') +
+          tr('1 档（最浅）', '完成率 1% – 39%') +
+          tr('2 档', '完成率 40% – 74%') +
+          tr('3 档', '完成率 75% – 99%（已达标记为「达标日」）') +
+          tr('4 档（最深）', '完成率 100%，当天全部做到') +
+        '</table>' +
+
+        '<h4 class="algo-h">五、连续达标怎么数</h4>' +
+        '<p class="algo-p">从今天往前一天天数，数到第一个不达标的日子为止。' +
+          '<b>今天还没达标时，从昨天开始数</b> —— 当天还有时间，不该先判负。</p>' +
+        '<p class="algo-p">单个习惯的「连续 N 天」用同一套逻辑，只是把「当天完成率 ≥ 75%」' +
+          '换成「这个习惯当天做到了」。</p>' +
+
+        '<h4 class="algo-h">六、为什么只统计「有记录」的日子</h4>' +
+        '<p class="algo-p"><b>「有记录」= 这一天你至少打过一个卡，或者记过一次用药。</b>' +
+          '没记录的日子不进分母，也不会被判成 0 分。</p>' +
+        '<p class="algo-p">这样出差一周、换手机没同步、或者压根忘了记，都不会把平均值拖垮。' +
+          '代价是：某天只记了一笔、其余空着，这天也算「有记录」，完成率会被算低——' +
+          '这是宁可少算也不错算的取舍。</p>' +
+
+        '<h4 class="algo-h">七、月度小结里的两个数字</h4>' +
+        '<p class="algo-p">这两列<b>不是一回事</b>，别互相替代：</p>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>列</th><th>算法</th></tr>' +
+          tr('<b>达标天数</b>', '那天<b>完全做到</b>才算 1 天，做一半不算') +
+          tr('<b>完成度</b>', '按实际完成量折算：喝水目标 9 杯、每天 3 杯 → 33%') +
+        '</table>' +
+        '<p class="algo-p">同一行可能出现「达标 0 天，完成度 33%」——它不是矛盾：' +
+          '一次都没完全做到，但也不是一口没喝。医生看的是完成度，你自己看的是达标天数。</p>' +
+
+        '<h4 class="algo-h">八、用药、任务、戒烟的特殊口径</h4>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>模块</th><th>算法</th></tr>' +
+          tr('<b>用药依从</b>', '按<b>剂次</b>算，不按天。一天两次的药吃了一次 = 50%') +
+          tr('<b>任务完成度</b>', '按<b>创建时间</b>圈定一批任务，达成率 = 已完成 ÷ 新增。' +
+             '取消的也算在分母里（没做成就是没做成）；归档只是从看板收起来，单独标注') +
+          tr('<b>戒烟连续</b>', '从最后一次「点一根」的<b>第二天</b>算起；一次都没记过，' +
+             '就从「开始日期」算') +
+        '</table>' +
+
+        '<h4 class="algo-h">九、不参与考核的</h4>' +
+        '<p class="algo-p">体重、随笔、心情、日历上的待办——<b>只记录，不打分</b>。' +
+          '体重看趋势，随笔和心情是自己回看的，不该变成考核指标。</p>' +
+
+        '<div class="algo-foot">规则只为帮你看见趋势。连续天数断了不代表白做，' +
+          '完成度低也不代表失败——真正有用的是「这个月比上个月好一点」。</div>' +
+
+        '<div class="modal-actions"><span class="spacer"></span>' +
+          '<button type="button" class="btn primary" data-act="close-modal">知道了</button></div>' +
+      '</div>'
+    );
+  }
+
   function viewStats() {
     const now = new Date();
     const range = [7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
@@ -10760,9 +10892,12 @@ body.modal-open{overflow:hidden}
 
     return '' +
       '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图灰线 = 无记录，浅色 = 未达标，实心 = 达标（≥75%）。</p></div>' +
-        '<div class="range-switch">' + [7, 30, 90].map(n =>
-          '<button type="button" class="' + (range === n ? 'active' : '') + '" data-act="set-stats-range" data-range="' + n + '">' + n + ' 天</button>'
-        ).join('') + '</div></div>' +
+        '<div class="stats-acts">' +
+          '<button type="button" class="btn sm" data-act="algo-open">考核算法</button>' +
+          '<div class="range-switch">' + [7, 30, 90].map(n =>
+            '<button type="button" class="' + (range === n ? 'active' : '') + '" data-act="set-stats-range" data-range="' + n + '">' + n + ' 天</button>'
+          ).join('') + '</div>' +
+        '</div></div>' +
       '<div class="stat-grid">' +
         '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
         '<div class="stat-card"><small>近 ' + range + ' 天完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
@@ -14115,6 +14250,7 @@ body.modal-open{overflow:hidden}
       statsRange = r;
       render();
     },
+    'algo-open': () => { algoModal(); },
     'task-range': el => {
       const v = Number(el.dataset.v);
       if ([0, 7, 30, 90].indexOf(v) < 0) return;
