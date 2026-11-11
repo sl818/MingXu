@@ -461,7 +461,12 @@ with sync_playwright() as p:
     if run('3.4'):
         nav(pg, 'stats')
         rv = pg.evaluate("""() => {
-            const cells = Array.from(document.querySelectorAll('.rv-cell')).map(e => ({
+            /* v85 起总览底部还有一组「任务」三格，也是 .rv-cell，必须只在「本月回顾」那块里取 */
+            const blk = Array.from(document.querySelectorAll('.sblock')).find(b => {
+                const t = b.querySelector('.sblock-head b');
+                return t && t.textContent.trim().indexOf('本月回顾') === 0;
+            });
+            const cells = Array.from((blk || document).querySelectorAll('.rv-cell')).map(e => ({
                 label: e.querySelector('small').textContent.trim(),
                 value: e.querySelector('b').textContent.trim(),
                 sub: (e.querySelector('span') || {}).textContent || ''

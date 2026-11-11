@@ -3606,6 +3606,12 @@ body.modal-open{overflow:hidden}
 .sblock{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 .sblock-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
 .sblock-head b{font-size:13px;font-weight:600;color:var(--text)}
+.sh-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+/* 总览里的任务达成率细条：只是图形、不带文字，用 accent 实底 */
+/* 三格固定三列：手机段 .rv-grid 是 auto-fit，三格会掉成两行白吃 200px */
+.tk-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.tk-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:12px}
+.tk-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
 /* 统计页分段控件（本月 / 近 N 天 / 趋势）。跟 .range-switch 分开写：
    那个是页头的 7/30/90，复用会让 e2e 里按 .range-switch 定位的选择器变歧义 */
 .shead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
@@ -11041,6 +11047,13 @@ body.modal-open{overflow:hidden}
         ? (medStats || '<div class="empty-box">还没有用药记录。</div>')
         : medTrendBody(range, rangeDays));
 
+    /* 任务：原来是独立一块「任务完成度」，与待办页底部完全重复（v84 删掉了）。
+       但统计页少了任务就等于缺一角，所以在总览末尾压成一行三格 + 一条细进度条；
+       完整五格仍然只在待办页（点「看待办」过去看）。口径跟那边同一套 taskStats。 */
+    const tst = taskStats(taskRange);
+    const tkPct = Math.round(tst.rate * 100);
+    const tkRange = (TASK_RANGES.find(r => r[0] === taskRange) || [30, '近 1 月'])[1];
+
     return '' +
       '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图灰线 = 无记录，浅色 = 未达标，实心 = 达标（≥75%）。</p></div>' +
         '<div class="stats-acts">' +
@@ -11062,6 +11075,23 @@ body.modal-open{overflow:hidden}
           '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div>' +
         '</div>' +
         monthReviewBody() +
+        '<div class="sblock">' +
+          '<div class="sblock-head"><b>任务</b>' +
+            '<div class="sh-right">' +
+              '<span class="muted-sm">完整的五格明细在待办页底部</span>' +
+              '<button type="button" class="btn sm" data-act="more-go" data-view="board">看待办</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rv-grid tk-grid">' +
+            '<div class="rv-cell"><small>新增</small><b>' + tst.n + ' <i>条</i></b>' +
+              '<span>' + tkRange + '</span></div>' +
+            '<div class="rv-cell"><small>已完成</small><b>' + tst.done + ' <i>条</i></b>' +
+              '<span>含归档 ' + tst.arch + ' 条</span></div>' +
+            '<div class="rv-cell"><small>达成率</small><b>' + tkPct + '%</b>' +
+              '<span>完成 ÷ 新增</span></div>' +
+          '</div>' +
+          '<div class="tk-bar"><i style="width:' + tkPct + '%"></i></div>' +
+        '</div>' +
       '</div>' +
 
       /* 习惯：本月网格 / 近 N 天明细 / 操作时间线，同一份数据的三种粒度 */

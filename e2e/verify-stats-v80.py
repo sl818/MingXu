@@ -186,13 +186,42 @@ def main():
         chk('新增 19 条（比近 1 月多那条 9 月的）', by_label(st, '新增') == 19, str(by_label(st, '新增')))
         chk('已完成 11 条', by_label(st, '已完成') == 11, str(by_label(st, '已完成')))
 
-        print('[4] v84 起统计页不再重复这块面板（只在待办页底部）')
+        print('[4] 统计页不再重复整块面板，改成总览里的一行摘要（v85）')
         go(pg, 'stats')
         st2 = stats(pg)
-        chk('统计页没有重复的任务完成度', st2 is None, str(st2))
+        chk('统计页没有重复的任务完成度面板', st2 is None, str(st2))
         chk('统计页也没有「任务概览」残留',
             pg.locator('.cal-summary').count() == 0,
             'cal-summary=%d' % pg.locator('.cal-summary').count())
+
+        tk = pg.evaluate("""() => {
+            const cells = [...document.querySelectorAll('.tk-grid .rv-cell')].map(c => ({
+                label: (c.querySelector('small') || {}).textContent || '',
+                big: (c.querySelector('b') || {}).textContent || ''
+            }));
+            const bar = document.querySelector('.tk-bar');
+            const fill = bar && bar.querySelector('i');
+            const btn = document.querySelector('[data-act="more-go"][data-view="board"]');
+            return {
+                cells: cells,
+                ratio: bar && fill ? Math.round(fill.getBoundingClientRect().width /
+                    bar.getBoundingClientRect().width * 100) : -1,
+                btn: btn ? btn.textContent.trim() : ''
+            };
+        }""")
+        chk('总览里有任务摘要三格',
+            [c['label'] for c in tk['cells']] == ['新增', '已完成', '达成率'], str(tk['cells']))
+        num = lambda c: int(''.join(ch for ch in c['big'] if ch.isdigit()) or 0)
+        chk('摘要的「新增」与待办页一致', num(tk['cells'][0]) == by_label(st, '新增'),
+            '%s vs %s' % (tk['cells'][0]['big'], by_label(st, '新增')))
+        chk('摘要的「已完成」与待办页一致', num(tk['cells'][1]) == by_label(st, '已完成'),
+            '%s vs %s' % (tk['cells'][1]['big'], by_label(st, '已完成')))
+        chk('摘要的达成率与待办页一致', tk['cells'][2]['big'].strip() == st['rate'].split(' ')[-1].strip()
+            or tk['cells'][2]['big'].strip() in st['rate'],
+            '%s vs %s' % (tk['cells'][2]['big'], st['rate']))
+        chk('细进度条宽度 = 达成率 ±2', abs(tk['ratio'] - int(tk['cells'][2]['big'].replace('%', ''))) <= 2,
+            '条 %d%% vs 数字 %s' % (tk['ratio'], tk['cells'][2]['big']))
+        chk('有「看待办」跳转按钮', tk['btn'] == '看待办', tk['btn'])
 
         # ---------------- 月度小结 ----------------
         print('[5] 月度小结：计数类按完成量折算')

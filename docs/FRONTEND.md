@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v84（2026-11-10）
+最后更新：v85（2026-11-11）
 
 ---
 
@@ -581,7 +581,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 分区小标题用 `.sblock-head`（**不是 h3**），`.sblock` 带一条上分隔线。
 - `monthReviewBody()` / `medTrendBody(range,rangeDays)` / `quitPanelBody(range)` 只返回内容，不带 `.panel` 外壳
 - `quitSumCardsHtml(h,withHours)` 返回 8 张卡；`quitSumPanel(h)` 才是戒烟页用的整块外壳
-- `taskStatsPanel()` 只在待办页底部，统计页不再重复一份
+- `taskStatsPanel()` 整块只在待办页底部；统计页把它压成总览末尾的一行——`taskStats(taskRange)` 取数，`.tk-grid`（三格固定三列）+ `.tk-bar` 细进度条，右上 `data-act="more-go" data-view="board"` 跳过去看五格明细
 - 考核算法弹窗（v81 `algoModal`）**还没跟着 v84 的分区改口径**，待完善
 数据汇总（`quitSumPanel`）8 张卡 + 一根 24 小时时段条：今天 / 本周买烟 / 本月消费 / 平均每天 /
 连续无烟 / 忍住了 / 每支成本 / 上次抽。两处口径写在小字上——本月消费按`买烟日期`算（看支出不看消耗），

@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v84（2026-11-10）
+最后更新：v85（2026-11-11）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v84（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v84'`） |
+| 代码版本 | v85（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v85'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -105,6 +105,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v82 | 11-10 | 戒烟「数据汇总」从 4 张卡扩到 8 张 + 一根 24 小时时段条：新增连续无烟 / 忍住了（含忍住率）/ 每支成本 / 上次抽，并把两处口径写进小字——本月消费按买烟日期算、平均每天的分母改成戒烟天数（上限 30）而不是固定 30 天。全部现算，零新增字段。对比度审计同步加 3 个选择器（1674 取样）。回滚点 tag `quit-sum-v82` |
 | v83 | 11-10 | 把戒烟「数据汇总」同一组 8 张卡放到统计页（`quitSumPanel(h,title,withHours)`，统计页传 `withHours=false`）——下方「戒烟分析」已有完整的 24 根柱，同一页画两遍同一份数据只会让人以为口径不同。顺序：汇总在前、分析在后；没有戒烟习惯时两块都不渲染。新增 `verify-quit-sum` 20 项。回滚点 tag `stats-quit-sum-v83` |
 | v84 | 11-10 | 统计页重排：14 个面板并成 6 块（总览 / 习惯 / 用药 / 戒烟 / 体重），同主题用分段控件切；桌面 4052px → 2253px（4.3 屏 → 2.4 屏），手机 5009 → 3031（5.9 → 3.6 屏）。任务完成度从统计页移除（待办页底部已有）。新增 `statsHabitTab`/`statsMedTab`/`statsQuitOpen` 三个**模块级**变量（不进 state）。同步改 `verify-batch3`/`verify-calendar-v47`/`verify-stats-v80`/`verify-quit-sum` 的选择器。考核算法弹窗**未同步**，待完善。回滚点 tag `stats-merge-v84` |
+| v85 | 11-11 | 统计页补回任务：v84 去重时把「任务完成度」整块删掉，导致统计里习惯/用药/戒烟/体重都有、唯独任务缺席。改在**总览末尾**压一行三格（新增 / 已完成 / 达成率）+ 一条细进度条 `tk-bar`，口径复用 `taskStats(taskRange)` 与待办页完全一致，右上一个「看待办」跳过去看五格明细。桌面 2253 → 2445px（2.6 屏），手机 3031 → 3224px（3.8 屏）。`.tk-grid` 三格必须固定三列（手机 auto-fit 会掉两行白吃 200px）。`verify-stats-v80` 加 6 项、`verify-batch3` 的 `.rv-cell` 取样范围要限定在本月回顾块内。回滚点 tag `stats-task-v85` |
 
 ### 两次值得记住的事故
 

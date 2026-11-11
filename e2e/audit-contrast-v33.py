@@ -147,7 +147,9 @@ SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',
               '.stats-acts .btn', '.stats-acts .range-switch button',
               # v84 分区后新增：分段控件（当前格是 accent 字压 surface 底）、分区小标题
               '.sblock-head b', '.sblock-head span', '.shead h3',
-              '.stab button', '.stab button.on']
+              '.stab button', '.stab button.on',
+              # v85 总览里的任务摘要三格（.rv-cell 的另一处用法）
+              '.tk-grid .rv-cell small', '.tk-grid .rv-cell b', '.tk-grid .rv-cell span']
 # 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
 # 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
 SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
