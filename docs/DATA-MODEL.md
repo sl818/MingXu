@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v85（2026-11-11）
+最后更新：v86（2026-11-13）
 
 ---
 
@@ -377,6 +377,26 @@ if (本地 cardOrderAt > 远端 cardOrderAt) 用本地整份;  // 否则保持�
 
 两边都是 0（从没排过）时保持远端，也就是默认顺序。
 
+### 5.7b `navOrder` / `navOrderAt` —— 导航顺序（v86）
+
+```js
+navOrder: ['today', 'meds', 'quit', ...],   // 只存 key 顺序，不存分组
+navOrderAt: 1763000000000
+```
+
+| 字段 | 说明 |
+|---|---|
+| `navOrder` | 导航项的 key 顺序。只存顺序，**不存集合**——有哪些页永远由 `NAV` 决定 |
+| `navOrderAt` | 最后修改时刻（毫秒）。合并时只认它 |
+
+`normalizeNavOrder()` 只去重和剔空值，**不剔未知 key**：`NAV` 是后面才声明的 `const`，
+状态初始化时它还在 TDZ 里，引用会直接抛错。未知 key 交给 `orderedNav()` 在渲染时忽略。
+
+**组间固定**：`orderedNav()` 先按 `group`（记录 / 回顾）排，再按 `navOrder` 排名。
+UI 只给组内 ↑↓，但导入的备份不一定规整，所以这层兜底写在排序函数里而不是 UI 里。
+
+**合并规则：整份覆盖**（同 `cardOrder`），绝不能按 key 并集。
+
 ### 5.8 `countdowns[]` —— 倒数日（v76）
 
 ```js
@@ -424,7 +444,7 @@ countdowns: [{ id: 'cd1', title: '考研初试', date: '2026-11-20',
 **导出 = 全量 `JSON.stringify(state)`；导入 = `repairBackup()` 清洗后重建。**
 
 历史上导入是一张白名单，只保留 14 个字段，导致 v68 之后新增的
-`cravings` / `packs` / `notices` / `cardOrder` / `cardOrderAt` / `countdowns`
+`cravings` / `packs` / `notices` / `cardOrder` / `cardOrderAt` / `navOrder` / `navOrderAt` / `countdowns`
 在导入时被静默丢弃，并把残缺 state 推回云端（v78 修）。
 
 现在的规则：白名单内的字段逐项清洗，**白名单外的顶层键原样带过**。

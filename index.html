@@ -367,6 +367,23 @@ h1,h2,h3,h4,p{margin:0}
    .main 是 flex column，子项带 max-width 又没 margin:auto 会被顶到左边，
    右侧留一条空白，跟今日/用药/待办对不齐（cal-wrap 靠 margin:auto 才居中）。 */
 .settings-wrap{max-width:none}
+/* 设置页「导航顺序」（v86）：一行一项，右侧 ↑↓。组标题用 --text 不降级，
+   数量那截用 color-mix（跟 .rv-cell span 同一套），--muted 在部分皮肤上不够 */
+.no-list{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.no-group{display:flex;flex-direction:column;gap:6px}
+.no-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text)}
+.no-head span{font-weight:400;font-size:9.5px;color:color-mix(in srgb,var(--text) 62%,var(--muted))}
+.no-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface-2)}
+.no-ico{display:flex;align-items:center;color:var(--text);flex:none}
+/* icon() 返回的是裸 svg，尺寸一直由 .nav-item svg 给的；这里换了父级，必须自己定 */
+.no-ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-linecap:round;
+  stroke-linejoin:round;stroke-width:1.7}
+.no-move .icon-btn{color:var(--text)}
+.no-row b{flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--text)}
+.no-move{display:flex;gap:2px;flex:none}
+.no-move .icon-btn:disabled{opacity:.35;cursor:default}
 /* 配置页单栏往下排。**不要复用 .settings-wrap** —— 它在大屏是 columns:2 瀑布流，
    配置页每块都要横着读（通知列表、推送配置、安装说明），分两栏会把阅读顺序打乱。
    宽度依旧交给 .main，这里不写 max-width。 */
@@ -3854,6 +3871,11 @@ body.modal-open{overflow:hidden}
          所以这个数组丢了某个 id 只会让它回到默认位置，不会让卡片消失。 */
       cardOrder: [],
       cardOrderAt: 0,
+      /* 导航顺序：同样**只存顺序，不存集合** —— 有哪些页永远由 NAV 决定，
+         所以这里丢了某个 key 只会让它回到默认位置，不会让入口消失。
+         组间固定（记录在前、回顾在后），只允许组内调。 */
+      navOrder: [],
+      navOrderAt: 0,
       /* 倒数日：只存一个日期 + 提醒档位，**不存「未来还是过去」**。
          今天是哪一天决定它往哪边数，存成状态明天就会不同步。 */
       countdowns: [],
@@ -4385,6 +4407,8 @@ body.modal-open{overflow:hidden}
     data.notices = normalizeNotices(data.notices);
     data.cardOrder = normalizeCardOrder(data.cardOrder);
     data.cardOrderAt = Math.max(0, Math.round(Number(data.cardOrderAt) || 0));
+    data.navOrder = normalizeNavOrder(data.navOrder);
+    data.navOrderAt = Math.max(0, Math.round(Number(data.navOrderAt) || 0));
     data.countdowns = normalizeCountdowns(data.countdowns);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
@@ -5130,6 +5154,13 @@ body.modal-open{overflow:hidden}
     if (lOAt > rOAt) {
       out.cardOrder = Array.isArray(local.cardOrder) ? local.cardOrder.slice() : [];
       out.cardOrderAt = lOAt;
+    }
+    /* 导航顺序同理：整份覆盖，绝不按 key 并集（并集会拼出两端交错的顺序） */
+    const lNAt = Number(local.navOrderAt) || 0;
+    const rNAt = Number(remote.navOrderAt) || 0;
+    if (lNAt > rNAt) {
+      out.navOrder = Array.isArray(local.navOrder) ? local.navOrder.slice() : [];
+      out.navOrderAt = lNAt;
     }
 
     // 身体档案
@@ -11753,7 +11784,14 @@ body.modal-open{overflow:hidden}
   /* 手机端「更多」抽屉：一次列出所有页面，不必再进设置往下找。
      桌面端不显示（桌面侧栏本来就有全部页面），但留着也无害。 */
   function morePagesSheet() {
-    const items = MORE_PAGES.concat([{ key: 'settings', label: '设置', icon: 'settings' }]);
+    /* 抽屉顺序跟 PC 导航共用同一份排序（v86）：
+       只取「手机上没常驻 tabbar 的那些页」+ 设置，按 orderedNav 的顺序摆。 */
+    const moreSet = {};
+    MORE_PAGES.forEach(function (pg) { moreSet[pg.key] = 1; });
+    moreSet.settings = 1;
+    const items = orderedNav()
+      .filter(function (n) { return moreSet[n.key]; })
+      .map(function (n) { return { key: n.key, label: n.label, icon: n.icon }; });
     const cells = items.map(function (p2) {
       return '<button type="button" class="ps-cell' + (view === p2.key ? ' active' : '') + '"' +
         ' data-act="more-go" data-view="' + p2.key + '">' +
@@ -12327,6 +12365,36 @@ body.modal-open{overflow:hidden}
     }
   }
 
+  /* 设置页的「导航顺序」：只给组内 ↑↓。
+     不跨组是有意的——三区布局靠 group 插「记录 / 回顾」小标题，
+     一旦允许记录组里插进「统计」，标题会重复出现，整个左栏就散了。 */
+  function navOrderHtml() {
+    const list = orderedNav();
+    const isDefault = list.every(function (n, i) { return n.key === NAV[i].key; });
+    const groups = NAV_GROUPS.map(function (g) {
+      const items = list.filter(function (n) { return n.group === g; });
+      const rows = items.map(function (n, i) {
+        const btn = function (dir, txt, off) {
+          return '<button type="button" class="icon-btn"' + (off ? ' disabled' : '') +
+            ' data-act="nav-move" data-key="' + n.key + '" data-dir="' + dir + '" title="' + txt + '">' +
+            (dir < 0 ? '↑' : '↓') + '</button>';
+        };
+        return '<div class="no-row">' +
+          '<span class="no-ico">' + icon(n.icon) + '</span>' +
+          '<b>' + esc(n.label) + '</b>' +
+          '<span class="no-move">' + btn(-1, '上移', i === 0) + btn(1, '下移', i === items.length - 1) + '</span>' +
+        '</div>';
+      }).join('');
+      return '<div class="no-group">' +
+        '<div class="no-head">' + g + '<span>' + items.length + ' 项</span></div>' + rows + '</div>';
+    }).join('');
+    return '<div class="no-list">' + groups + '</div>' +
+      '<div class="btn-row" style="margin-top:12px">' +
+        '<button type="button" class="btn sm" data-act="nav-reset"' + (isDefault ? ' disabled' : '') +
+        '>恢复默认顺序</button>' +
+      '</div>';
+  }
+
   function viewSettings() {
     return '' +
       '<div class="page-head"><div><h2>设置</h2><p>外观、主题与账号。</p></div></div>' +
@@ -12350,6 +12418,11 @@ body.modal-open{overflow:hidden}
             '<span class="layout-desc">左栏分组 · 右侧摘要栏</span>' +
           '</button>' +
         '</div>' +
+      '</div>' +
+      '<div class="panel"><h3>导航顺序</h3>' +
+        '<p class="muted-sm" style="margin-bottom:2px">三种排版和手机「更多」抽屉共用这一个顺序。' +
+          '只能在组内上下调：「记录」组在前、「回顾」组在后。</p>' +
+        navOrderHtml() +
       '</div>' +
       '<div class="panel"><h3>主题</h3>' +
         '<p class="muted-sm" style="margin-bottom:2px">选一套配色；所有主题都支持浅色 / 深色，选择会记住。</p>' +
@@ -12421,6 +12494,41 @@ body.modal-open{overflow:hidden}
     { key: 'stats', label: '统计', icon: 'stats', desc: '完成率与习惯分布' },
     { key: 'config', label: '配置', icon: 'config', desc: '自定义通知、订阅与数据' }
   ];
+
+  /* 导航顺序的清洗：只留字符串 + 去重。
+     **刻意不在这里过滤「NAV 里有没有这个 key」** —— NAV 是下面才声明的 const，
+     状态初始化时它还在 TDZ 里，引用会直接报错。未知 key 交给 orderedNav() 在渲染时忽略。 */
+  function normalizeNavOrder(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = {};
+    const out = [];
+    raw.forEach(function (k) {
+      const v = String(k || '');
+      if (!v || seen[v]) return;
+      seen[v] = 1;
+      out.push(v);
+    });
+    return out.slice(0, 32);
+  }
+
+  /* 实际导航顺序：NAV 常量只管「有哪些页 + 默认顺序」，顺序全部由这里算。
+     跟 PINNED_IDS / orderedPinnedIds 是同一个分工——常量管集合，顺序单独算。 */
+  const NAV_GROUPS = ['记录', '回顾'];
+  function orderedNav() {
+    const pref = Array.isArray(state.navOrder) ? state.navOrder : [];
+    const rank = function (k) {
+      const i = pref.indexOf(k);
+      return i < 0 ? 1e4 + NAV.findIndex(function (n) { return n.key === k; }) : i;
+    };
+    return NAV.slice().sort(function (a, b) {
+      /* 组间固定：记录在前、回顾在后。UI 只给组内上下调，
+         但导入的备份不一定规整，这里兜一层。 */
+      const ga = NAV_GROUPS.indexOf(a.group);
+      const gb = NAV_GROUPS.indexOf(b.group);
+      if (ga !== gb) return ga - gb;
+      return rank(a.key) - rank(b.key);
+    });
+  }
 
   function siteFooter() {
     return '<footer class="site-footer">' +
@@ -12597,7 +12705,7 @@ body.modal-open{overflow:hidden}
       icon(n.icon) + '<span>' + (wide && n.wideLabel ? n.wideLabel : n.label) + '</span></button>';
     if (wide) {
       let html = '', lastGroup = '';
-      NAV.forEach(n => {
+      orderedNav().forEach(n => {
         if (n.group !== lastGroup) {
           html += '<div class="nav-group">' + n.group + '</div>';
           lastGroup = n.group;
@@ -12606,7 +12714,7 @@ body.modal-open{overflow:hidden}
       });
       $('#nav').innerHTML = html;
     } else {
-      $('#nav').innerHTML = NAV.map(navItem).join('');
+      $('#nav').innerHTML = orderedNav().map(navItem).join('');
     }
     const su = $('#side-user');
     if (su) {
@@ -14005,7 +14113,9 @@ body.modal-open{overflow:hidden}
       notices: normalizeNotices(data.notices),
       countdowns: normalizeCountdowns(data.countdowns),
       cardOrder: normalizeCardOrder(data.cardOrder),
-      cardOrderAt: Math.max(0, Math.round(Number(data.cardOrderAt) || 0))
+      cardOrderAt: Math.max(0, Math.round(Number(data.cardOrderAt) || 0)),
+      navOrder: normalizeNavOrder(data.navOrder),
+      navOrderAt: Math.max(0, Math.round(Number(data.navOrderAt) || 0))
     };
 
     /* 兜底：以后再加顶层字段也不会被这张表吃掉 */
@@ -15301,6 +15411,35 @@ body.modal-open{overflow:hidden}
       try { localStorage.setItem(LAYOUT_KEY, layout); } catch (e) {}
       render();
       toast('排版：' + (layout === 'top' ? '顶部导航条' : (layout === 'side' ? '左侧导航条' : '三区布局')));
+    },
+    /* 导航顺序：只在同组内换位。写的是**完整一份 key 数组**，
+       合并时才能整份覆盖，不会拼出两端交错的顺序（同 cardOrder）。 */
+    'nav-move': el => {
+      const key = el.dataset.key || '';
+      const dir = Number(el.dataset.dir) || 0;
+      const list = orderedNav();
+      const cur = list.find(function (n) { return n.key === key; });
+      if (!cur || !dir) return;
+      const same = list.filter(function (n) { return n.group === cur.group; }).map(function (n) { return n.key; });
+      const i = same.indexOf(key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= same.length) return;
+      const tmp = same[i];
+      same[i] = same[j];
+      same[j] = tmp;
+      let k = 0;
+      const out = list.map(function (n) { return n.group === cur.group ? same[k++] : n.key; });
+      state.navOrder = out;
+      state.navOrderAt = Date.now();
+      save();
+      render();
+    },
+    'nav-reset': () => {
+      state.navOrder = [];
+      state.navOrderAt = Date.now();
+      save();
+      render();
+      toast('导航顺序已恢复默认');
     },
     'sync-dismiss': () => {
       syncDismissed = true;

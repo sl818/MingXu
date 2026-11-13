@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v85（2026-11-11）
+最后更新：v86（2026-11-13）
 
 ---
 
@@ -234,8 +234,13 @@ MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
 ```
 
-**改导航顺序只改 `NAV`**。手机底部是 `MOBILE_NAV`，两者独立。
-`verify-v15.py` 里有硬编码的期望顺序（`EXPECT_NAV`），改了要同步。
+`NAV` 只是**字典 + 默认顺序**，实际渲染顺序统一由 `orderedNav()` 算（v86）：
+先按 `group`（记录 / 回顾）分段，段内按 `state.navOrder` 排，没排到的按默认补后面。
+改默认顺序改 `NAV`；用户自己调的顺序存在 `state.navOrder`，设置页「导航顺序」只给组内 ↑↓。
+手机底部 `MOBILE_NAV` 是固定 4 格 + 「+」+「更多」，**不跟随排序**；
+「更多」抽屉（`morePagesSheet`）跟随 `orderedNav()`。
+`verify-v15.py` 里有硬编码的期望顺序（`EXPECT_NAV`），改默认顺序要同步；
+用户排序的行为由 `verify-nav-order.py` 锁。
 
 ---
 

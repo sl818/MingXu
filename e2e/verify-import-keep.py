@@ -79,6 +79,8 @@ BACKUP = {
     ],
     'cardOrder': ['h_drink', 'h_med'],
     'cardOrderAt': 1794225546519,
+    'navOrder': ['settings', 'today'],          # v86 导航顺序也要能过导入
+    'navOrderAt': 1794225546519,
     # 模拟「将来又加了一个顶层字段」——白名单不认识，也必须原样带过
     'futureField': {'hello': 'world'},
 }
@@ -131,6 +133,8 @@ def main():
             str(len(sv.get('countdowns') or [])))
         chk('服务端 cardOrder 保留', (sv.get('cardOrder') or [])[:2] == ['h_drink', 'h_med'],
             str(sv.get('cardOrder')))
+        chk('服务端 navOrder 保留', (sv.get('navOrder') or [])[:2] == ['settings', 'today'],
+            str(sv.get('navOrder')))
         chk('服务端陌生字段保留', (sv.get('futureField') or {}).get('hello') == 'world',
             str(sv.get('futureField')))
 

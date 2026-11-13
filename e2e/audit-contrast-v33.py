@@ -131,7 +131,9 @@ JS = """
 
 # v71 起「提醒 / 日历订阅 / 手机推送 / 安装」整块搬到了配置页，设置页只剩排版和主题。
 # 取样点跟着搬，否则会在设置页报一堆「元素缺失」，把真正的回归淹掉。
-SELS_SETTINGS = ['.layout-name', '.layout-desc', '.theme-name', '.theme-desc']
+SELS_SETTINGS = ['.layout-name', '.layout-desc', '.theme-name', '.theme-desc',
+                  # v86 设置页「导航顺序」：组标题 + 行名
+                  '.no-head', '.no-head span', '.no-row b']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go',
               # 「其他习惯」目标 1 次的打卡按钮（v74）。mock 里 h_run 已打卡、h_plan 没打，
               # 两种状态各取一次；用 :not(.on) 区分，否则第一个匹配到的永远是 on 态。

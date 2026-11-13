@@ -94,7 +94,8 @@ with sync_playwright() as p:
     chk('抽屉打开', bool(sheet), '')
     # v61 加「戒烟」→ 7 项；v71 加「配置」→ 8 项
     chk('八个入口齐全（%s）' % '/'.join(sheet['labels']),
-        sheet['labels'] == ['戒烟', '习惯', '随笔', '体重', '日历', '统计', '配置', '设置'],
+    # v86 起抽屉顺序跟随 orderedNav()，体重排在随笔前 —— 按集合比，顺序归 verify-nav-order 管
+        sorted(sheet['labels']) == sorted(['戒烟', '习惯', '体重', '随笔', '日历', '统计', '配置', '设置']),
         json.dumps(sheet['labels'], ensure_ascii=False))
     chk('抽屉停在底部导航之上（bottom=%d / vh=%d / 栏高=%d）' % (sheet['bottom'], sheet['vh'], sheet['barH']),
         abs(sheet['bottom'] - (sheet['vh'] - sheet['barH'])) <= 2,
