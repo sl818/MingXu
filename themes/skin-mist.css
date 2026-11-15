@@ -3,24 +3,27 @@
    ------------------------------------------------------------
    视觉定位：柔和疗愈系列。雾蓝 / 云白 / 静谧，浅色与深色独立配色。
    落地方式：新增主题键 mist，与默认主题平级，仅写外观。
-   对比度（WCAG AA，正文 ≥ 4.5:1）：正文 13.42:1 / 次要 5.23:1 / 主色文字 5.86:1 / 主按钮 5.74:1 / 侧栏导航 5.43:1 / 侧栏激活 6.81:1 / Hero 正文 6.73:1 / Hero 次要 4.78:1 / 深·正文 14.50:1 / 深·次要 6.83:1 / 深·主色 7.42:1 / 深·主按钮 7.98:1 / 深·侧导航 8.45:1 / 深·Hero 正文 8.35:1
+   v97 重新设计浅色层：原来 --bg(#f4f7fa) 与 --surface(#fff) 明度几乎相同、描边和投影又太轻，
+   云（卡片）融化在雾里，整页一片泛白、主次不分。现在把「天」压成有灰度的雾蓝、云用纯白加
+   清晰投影浮起来、文字用更深的雾蓝海军色 —— 主次靠明度梯度，不靠字号。
+   对比度由 audit-contrast-v33.py 全量把关（5 皮肤 × 明暗），改任何颜色 token 后必须重跑。
    ============================================================ */
 
 /* ===== 1. 令牌 · 浅色 ===== */
 :root[data-skin="mist"]{
-  --bg:#f4f7fa;
-  --bg-glow:#fafbfd;
+  --bg:#e7edf4;
+  --bg-glow:#edf2f7;
   --surface:#ffffff;
-  --surface-2:#eef2f7;
-  --surface-3:#e2e9f1;
-  --text:#24303d;
-  --muted:#5f6e7e;
-  --line:#dfe6ee;
-  --line-strong:#c2cdda;
-  --accent:#43688a;
+  --surface-2:#f0f4f9;
+  --surface-3:#e0e8f2;
+  --text:#1d2a36;
+  --muted:#5a6b7c;
+  --line:#d4dfe9;
+  --line-strong:#b6c5d4;
+  --accent:#3f648a;
   --accent-2:#7b9cb8;
-  --accent-strong:#33526f;
-  --accent-soft:#e8eef4;
+  --accent-strong:#2f4c6a;
+  --accent-soft:#e3ecf4;
   --on-accent:#fbfdff;
   --good:#3e7d63;
   --warn:#93612e;
@@ -30,16 +33,16 @@
   --gold-ink:#614f2d;
   --warn-soft:#f0e9e2;
   --bad-soft:#f4eaea;
-  --shadow:0 1px 2px rgba(26,38,52,0.04),0 16px 34px -26px rgba(26,38,52,0.28);
+  --shadow:0 1px 3px rgba(24,38,52,0.08),0 10px 28px -14px rgba(24,38,52,0.22);
   --shadow-lg:0 30px 60px -40px rgba(26,38,52,0.42);
   --radius:20px;
   --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --font-serif:"Noto Serif SC","Songti SC","STSong","Source Han Serif SC",Georgia,serif;
   --font-mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  --side-bg:#f8fafc;
-  --side-bg-2:#eef3f7;
+  --side-bg:#eaf0f6;
+  --side-bg-2:#e3ebf2;
   --side-glow:rgba(67,104,138,0.14);
-  --side-border:#dadee1;
+  --side-border:#c9d4df;
   --side-line:#e3e6e9;
   --side-shadow:rgba(26,38,52,0.16);
   --side-text:#2c3844;
@@ -81,8 +84,8 @@
   --toast-text:#f2f7fb;
   --glow-a:rgba(67,104,138,0.13);
   --glow-b:rgba(138,113,64,0.16);
-  --bg-top:#fbfcfd;
-  --bg-bottom:#eaedf0;
+  --bg-top:#eef3f7;
+  --bg-bottom:#dfe6ee;
   --accent-glow:rgba(51,82,111,0.9);
   --accent-glow-2:rgba(51,82,111,0.9);
   --tint:rgba(26,38,52,0.04);
@@ -211,8 +214,8 @@
 @media (min-width:1360px){
   :root[data-skin="mist"][data-layout="top"]{
     --rail:max(0px, calc((100vw - 1240px) / 2));
-    --rail-tint:color-mix(in srgb,var(--accent) 9%,transparent);
-    --rail-line:color-mix(in srgb,var(--accent) 20%,transparent);
+    --rail-tint:color-mix(in srgb,var(--accent) 12%,transparent);
+    --rail-line:color-mix(in srgb,var(--accent) 24%,transparent);
   }
   :root[data-skin="mist"][data-layout="top"] body::after{
     content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
