@@ -28,7 +28,7 @@ def chk(name, ok, detail=''):
         print('  ✗ %s  << %s' % (name, detail))
 
 
-DEFAULT = ['today', 'meds', 'quit', 'board', 'habits', 'weight', 'essays',
+DEFAULT = ['today', 'meds', 'quit', 'board', 'money', 'habits', 'weight', 'essays',
            'calendar', 'stats', 'config', 'settings']
 NAV_ORDER_JS = "() => [...document.querySelectorAll('#nav .nav-item')].map(b => b.dataset.nav)"
 
@@ -76,36 +76,40 @@ with sync_playwright() as p:
     print('\n[2] 设置页的排序面板')
     go(pg, 'settings')
     r = rows(pg)
-    chk('共 11 行', len(r) == 11, str(len(r)))
-    chk('记录 7 项 + 回顾 4 项',
-        [x['n'] for x in r] == ['今日', '用药', '戒烟', '待办', '习惯', '体重', '随笔',
+    chk('共 12 行', len(r) == 12, str(len(r)))
+    chk('记录 8 项 + 回顾 4 项',
+        [x['n'] for x in r] == ['今日', '用药', '戒烟', '待办', '清债', '习惯', '体重', '随笔',
                                 '日历', '统计', '配置', '设置'], str([x['n'] for x in r]))
     chk('组首「今日」不能再上移', r[0]['dis'] == [True, False], str(r[0]))
-    chk('记录组尾「随笔」不能再下移', r[6]['dis'] == [False, True], str(r[6]))
-    chk('回顾组首「日历」不能再上移', r[7]['dis'] == [True, False], str(r[7]))
-    chk('组尾「设置」不能再下移', r[10]['dis'] == [False, True], str(r[10]))
+    chk('记录组尾「随笔」不能再下移', r[7]['dis'] == [False, True], str(r[7]))
+    chk('回顾组首「日历」不能再上移', r[8]['dis'] == [True, False], str(r[8]))
+    chk('组尾「设置」不能再下移', r[11]['dis'] == [False, True], str(r[11]))
 
     print('\n[3] 把「统计」在回顾组内上移一格')
     move(pg, 'stats', -1)
     r2 = rows(pg)
-    chk('面板里变成 统计 在 日历 前面',
-        [x['n'] for x in r2][7:9] == ['统计', '日历'], str([x['n'] for x in r2][7:9]))
-    chk('「统计」已经到组首，上移被禁用', r2[7]['dis'] == [True, False], str(r2[7]))
+    names2 = [x['n'] for x in r2]
+    # 用「名字找下标」而不是硬编码位置：导航项以后再加，下标就会漂
+    i_st = names2.index('统计')
+    chk('面板里变成 统计 在 日历 前面', i_st + 1 == names2.index('日历'), str(names2[i_st - 1:]))
+    chk('「统计」已经到组首，上移被禁用', r2[i_st]['dis'] == [True, False], str(r2[i_st]))
+    keys2 = pg.evaluate(NAV_ORDER_JS)
     chk('导航条跟着变',
-        pg.evaluate(NAV_ORDER_JS)[7:9] == ['stats', 'calendar'], str(pg.evaluate(NAV_ORDER_JS)))
+        keys2.index('stats') + 1 == keys2.index('calendar'), str(keys2))
 
-    print('\n[4] 三种排版都用同一个顺序')
-    for lay in ('wide', 'top'):   # v87 删掉「左侧导航条」
+    print('\n[4] 两种排版都用同一个顺序')
+    for lay in ('wide', 'top'):
         pg.evaluate("(l) => document.querySelector('[data-act=\"set-layout\"][data-layout=\"'+l+'\"]').click()", lay)
         pg.wait_for_timeout(600)
         got = pg.evaluate(NAV_ORDER_JS)
-        chk('排版 %s 的顺序一致' % lay, got[7:9] == ['stats', 'calendar'], str(got))
+        chk('排版 %s 的顺序一致' % lay,
+            got.index('stats') + 1 == got.index('calendar'), str(got))
 
     print('\n[5] 刷新之后还在（存进了 state）')
     pg.wait_for_timeout(1200)
     login(pg)
-    chk('重新加载后顺序保持', pg.evaluate(NAV_ORDER_JS)[7:9] == ['stats', 'calendar'],
-        str(pg.evaluate(NAV_ORDER_JS)))
+    keys3 = pg.evaluate(NAV_ORDER_JS)
+    chk('重新加载后顺序保持', keys3.index('stats') + 1 == keys3.index('calendar'), str(keys3))
 
     print('\n[6] 手机「更多」抽屉跟随同一个顺序')
     pg2 = br.new_page(viewport={'width': 390, 'height': 844})

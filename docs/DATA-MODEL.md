@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v87（2026-11-15）
+最后更新：v88（2026-11-15）
 
 ---
 
@@ -396,6 +396,42 @@ navOrderAt: 1763000000000
 UI 只给组内 ↑↓，但导入的备份不一定规整，所以这层兜底写在排序函数里而不是 UI 里。
 
 **合并规则：整份覆盖**（同 `cardOrder`），绝不能按 key 并集。
+
+### 5.7c `money` / `moneyAt` —— 清债（v88）
+
+```js
+money: {
+  v: 1,
+  debts:      [{ id, name, type, balance, start, apr, min, due, note, clearedAt, u }],
+  extra:      1000,          // 每月在最低还款之外多还的「加速钱」
+  strategy:   'snowball',    // snowball | avalanche | custom
+  customOrder: [],
+  snowflakes: [{ id, ym, amount, note, u }],   // 一次性多还
+  startYM:    '',            // 空 = 下个月
+  log:        [{ id, date, debtId, debtName, amount, note, u }],
+  incomes:    [{ id, name, amount, u }],
+  cats:       [{ id, name, kind:'fixed'|'daily', budget, u }],
+  spends:     [{ id, date, catId, catName, amount, note, u }],
+  notify:     { on:false, before:[3,1,0], time:'09:00' }   // v92 才用
+}
+moneyAt: 1763000000000
+```
+
+**为什么是一个子对象而不是十个顶层字段**：顶层字段每加一个，`normalizeState` /
+`mergeStates` / `repairBackup` 三处都要跟着改，v78 那次导入清空数据就是漏了第三处。
+收成一个对象，三处各加两行就够。
+
+**合并**：六个集合走 `mergeById()` 按 id 并集，**同 id 取 `u` 更大的那份**
+（债是可编辑实体，跟 `packs` 那种只增不改的不一样，直接远端优先会把本地刚改的余额吃掉）；
+`extra` / `strategy` / `customOrder` / `startYM` / `notify` 这些单值字段没有各自的修改时间，
+只能整组比 `moneyAt` —— 新的那端覆盖旧的。
+
+**不参与考核**：清债数据不写 `habits` / `checks` / `tasks`，
+所以 `rateOver` / `dayStats` / `taskStats` / `habitDayAcc` 全都看不见它。
+（用户说过「以后可能要做」，到时候得另开一套口径，别往 `dayStats` 里塞。）
+
+**还款日不进日历事件流**（v92 要做时注意）：只做展示和提醒，
+**不要写成 task 或 check**，否则会混进完成率。
 
 ### 5.8 `countdowns[]` —— 倒数日（v76）
 

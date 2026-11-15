@@ -385,6 +385,51 @@ h1,h2,h3,h4,p{margin:0}
 .no-row b{flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--text)}
 .no-move{display:flex;gap:2px;flex:none}
 .no-move .icon-btn:disabled{opacity:.35;cursor:default}
+/* ===== 清债（v88）===== */
+/* 子页面切换条：手机六颗放不下，横滑 + 两侧渐隐，不折行 */
+.subbar{display:flex;align-items:center;margin:0 0 16px}
+.subbar .subtab{overflow-x:auto;max-width:100%;scrollbar-width:none}
+.subbar .subtab::-webkit-scrollbar{display:none}
+@media (max-width:760px){
+  .subbar{margin-bottom:14px}
+  .subbar .subtab{width:100%}
+  .subtab button{flex:0 0 auto;padding:7px 12px}
+}
+.money-hero{display:flex;flex-direction:column;gap:2px}
+.money-hero small{font-size:10.5px;letter-spacing:.08em;color:var(--muted)}
+.mh-big{font-size:32px;line-height:1.2;font-weight:650;letter-spacing:-.02em;color:var(--text);
+  font-variant-numeric:tabular-nums;margin:2px 0 4px}
+.mh-sub{font-size:11.5px;color:var(--text);opacity:.78}
+.mhc-bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:14px 0 12px}
+.mhc-bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.money-kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.money-kpi span{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--muted)}
+.money-kpi b{font-size:15px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.money-curve{display:block;width:100%;height:auto}
+.mc-area{fill:color-mix(in srgb,var(--accent) 14%,transparent)}
+.mc-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.mlist{display:flex;flex-direction:column;gap:2px}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:10px;
+  padding:9px 2px;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:0}
+.mrow-name{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow-num{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.mrow-at{font-size:10.5px;color:var(--muted);min-width:74px;text-align:right}
+.mdebt-list{display:flex;flex-direction:column;gap:10px}
+.mdebt{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px 14px}
+.mdebt.closed{opacity:.72}
+.mdebt-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.mdebt-top b{min-width:0;margin-right:auto;font-size:13.5px;font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mdebt-tag{flex:none;font-size:9.5px;padding:2px 7px;border-radius:999px;
+  border:1px solid var(--line);color:var(--text)}
+.mdebt-num{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:8px}
+.mdebt-num b{font-size:19px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.mdebt-num span{font-size:10.5px;color:var(--muted)}
+.mdebt-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:10px}
+.mdebt-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.mdebt-acts{display:flex;gap:8px}
+
 /* 配置页单栏往下排。**不要复用 .settings-wrap** —— 它在大屏是 columns:2 瀑布流，
    配置页每块都要横着读（通知列表、推送配置、安装说明），分两栏会把阅读顺序打乱。
    宽度依旧交给 .main，这里不写 max-width。 */
@@ -3750,6 +3795,13 @@ body.modal-open{overflow:hidden}
          所以这个数组丢了某个 id 只会让它回到默认位置，不会让卡片消失。 */
       cardOrder: [],
       cardOrderAt: 0,
+      /* 清债（v88）。整块存成一个子对象，**不拆成十个顶层字段**——
+         顶层字段一多，normalizeState / mergeStates / repairBackup 三处就容易漏，
+         v78 那次导入清空数据就是这么来的。 */
+      money: moneySeed(),
+      /* 清债里那些「单值」设置（加速钱、策略、起始月、提醒开关）没有各自的
+         修改时间，只能靠整块的 moneyAt 比先后。 */
+      moneyAt: 0,
       /* 导航顺序：同样**只存顺序，不存集合** —— 有哪些页永远由 NAV 决定，
          所以这里丢了某个 key 只会让它回到默认位置，不会让入口消失。
          组间固定（记录在前、回顾在后），只允许组内调。 */
@@ -4286,6 +4338,8 @@ body.modal-open{overflow:hidden}
     data.notices = normalizeNotices(data.notices);
     data.cardOrder = normalizeCardOrder(data.cardOrder);
     data.cardOrderAt = Math.max(0, Math.round(Number(data.cardOrderAt) || 0));
+    data.money = normalizeMoney(data.money);
+    data.moneyAt = Math.max(0, Math.round(Number(data.moneyAt) || 0));
     data.navOrder = normalizeNavOrder(data.navOrder);
     data.navOrderAt = Math.max(0, Math.round(Number(data.navOrderAt) || 0));
     data.countdowns = normalizeCountdowns(data.countdowns);
@@ -5033,6 +5087,27 @@ body.modal-open{overflow:hidden}
     if (lOAt > rOAt) {
       out.cardOrder = Array.isArray(local.cardOrder) ? local.cardOrder.slice() : [];
       out.cardOrderAt = lOAt;
+    }
+    /* 清债：集合按 id 并集（同 packs / cravings），单值字段比 moneyAt 取新的。
+       代价和别处一样：只在一端删掉的记录会被另一端合回来。 */
+    const lM = local.money && typeof local.money === 'object' ? local.money : null;
+    const rM = remote.money && typeof remote.money === 'object' ? remote.money : null;
+    if (lM || rM) {
+      const lm = lM || {}, rm = rM || {};
+      const merged = Object.assign({}, rm, lm);
+      ['debts', 'log', 'snowflakes', 'incomes', 'cats', 'spends'].forEach(function (k) {
+        merged[k] = mergeById(Array.isArray(rm[k]) ? rm[k] : [], Array.isArray(lm[k]) ? lm[k] : []);
+      });
+      const lK = Number(local.moneyAt) || 0;
+      const rK = Number(remote.moneyAt) || 0;
+      /* 单值设置（加速钱 / 策略 / 起始月 / 提醒）只认更新的那一端 */
+      if (rK > lK) {
+        ['extra', 'strategy', 'customOrder', 'startYM', 'notify'].forEach(function (k) {
+          if (rm[k] !== undefined) merged[k] = rm[k];
+        });
+      }
+      out.money = merged;
+      out.moneyAt = Math.max(lK, rK);
     }
     /* 导航顺序同理：整份覆盖，绝不按 key 并集（并集会拼出两端交错的顺序） */
     const lNAt = Number(local.navOrderAt) || 0;
@@ -6564,6 +6639,7 @@ body.modal-open{overflow:hidden}
      ============================================================ */
   const ICONS = {
     today: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M5.2 18.8l1.4-1.4M17.4 6.6l1.4-1.4"/>',
+    money: '<path d="M3.2 8.2h13.3a2.3 2.3 0 0 1 2.3 2.3v6.8a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2V8.2z"/><path d="M3.2 8.2A2.6 2.6 0 0 1 5.8 5.6h10"/><circle cx="16" cy="13.8" r="1.15"/>',
     board: '<rect x="3" y="4" width="5" height="16" rx="1.6"/><rect x="9.5" y="4" width="5" height="10" rx="1.6"/><rect x="16" y="4" width="5" height="13" rx="1.6"/>',
     habits: '<path d="M4 12.5l4.2 4.2L20 5.5"/><path d="M4 6.5h6"/>',
     quit: '<rect x="3" y="9" width="3.5" height="7" rx="1.1"/><rect x="6.5" y="9" width="13" height="4" rx="1.1"/><path d="M8.5 7.2c0-1.6 1-2.4 2.2-2.4s1.3.9 2.6.9 1.4-.9 2.6-.9 2.2.8 2.2 2.4"/>',
@@ -10747,6 +10823,510 @@ body.modal-open{overflow:hidden}
     );
   }
 
+  /* ============================================================
+     清债（v88 起）
+     数据全在 state.money 一个子对象里，**不碰 habits / checks / tasks**，
+     所以达成率、完成率、日历热力一律不会把它算进去。
+     ============================================================ */
+
+  function moneySeed() {
+    return {
+      v: 1,
+      debts: [],
+      /* 每月在最低还款之外多还的钱（加速钱） */
+      extra: 0,
+      strategy: 'snowball',
+      customOrder: [],
+      /* 一次性多还：年终奖、退税 */
+      snowflakes: [],
+      /* 计划起始月，空字符串 = 下个月 */
+      startYM: '',
+      log: [],
+      incomes: [],
+      cats: [],
+      spends: [],
+      /* v92 用，先占位。默认关闭，用户自己开 */
+      notify: { on: false, before: [3, 1, 0], time: '09:00' }
+    };
+  }
+
+  const MONEY_TYPES = [
+    { key: 'card', label: '信用卡' },
+    { key: 'loan', label: '网贷' },
+    { key: 'friend', label: '亲友借款' },
+    { key: 'other', label: '其他' }
+  ];
+  const MONEY_STRATEGIES = [
+    { key: 'snowball', label: '雪球法', desc: '先还金额最小的，最快看到进展' },
+    { key: 'avalanche', label: '雪崩法', desc: '先还利息最高的，总利息最少' },
+    { key: 'custom', label: '自定义', desc: '自己排顺序' }
+  ];
+  /* 30 年还不够就不算了——数字再大也只是吓人，没有参考价值 */
+  const MONEY_MAX_MONTHS = 360;
+
+  function money() {
+    const m = state.money;
+    return (m && typeof m === 'object' && !Array.isArray(m)) ? m : moneySeed();
+  }
+  function moneyNum(v) {
+    const n = Number(v);
+    return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+  }
+  function moneyList(k) {
+    const v = money()[k];
+    return Array.isArray(v) ? v : [];
+  }
+  function moneyTypeLabel(k) {
+    const t = MONEY_TYPES.filter(function (x) { return x.key === k; })[0];
+    return t ? t.label : '其他';
+  }
+  function moneyStrategyLabel(k) {
+    const t = MONEY_STRATEGIES.filter(function (x) { return x.key === k; })[0];
+    return t ? t.label : '雪球法';
+  }
+  /* 还在欠的债。余额 ≤ 0.01 视为还完（跟原版一致） */
+  function moneyLive() {
+    return moneyList('debts').filter(function (d) { return Number(d.balance) > 0.005; });
+  }
+  function moneyTotals() {
+    let start = 0, left = 0;
+    moneyList('debts').forEach(function (d) {
+      const st = Number(d.start) || Number(d.balance) || 0;
+      start += Math.max(0, st);
+      left += Math.max(0, Number(d.balance) || 0);
+    });
+    return { start: start, left: left, paid: Math.max(0, start - left), n: moneyLive().length };
+  }
+
+  /* 月份工具（不带时分秒，避免夏令时那种坑） */
+  function ymNow() {
+    const d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  }
+  function ymAdd(ym, n) {
+    const y = Number(String(ym).slice(0, 4));
+    const m = Number(String(ym).slice(5, 7)) - 1 + n;
+    const d = new Date(y, m, 1);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  }
+  function ymLabel(ym) {
+    if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return '—';
+    return Number(String(ym).slice(0, 4)) + ' 年 ' + Number(String(ym).slice(5, 7)) + ' 月';
+  }
+
+  /* 按 id 并集，**同一 id 取 u 更大的那份**。
+     债、流水这类是可编辑实体，跟 packs 不一样——远端那份可能是旧的，
+     直接 remote 优先会把本地刚改的余额吃掉。 */
+  function mergeById(rm, lm) {
+    const out = [];
+    const pos = {};
+    rm.forEach(function (x) {
+      if (!x || !x.id) return;
+      pos[x.id] = out.length;
+      out.push(x);
+    });
+    lm.forEach(function (x) {
+      if (!x || !x.id) return;
+      if (pos[x.id] === undefined) { pos[x.id] = out.length; out.push(x); return; }
+      const i = pos[x.id];
+      if ((Number(x.u) || 0) > (Number(out[i].u) || 0)) out[i] = x;
+    });
+    return out;
+  }
+
+  function normalizeMoney(raw) {
+    const out = moneySeed();
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    const arr = function (v) { return Array.isArray(v) ? v.filter(function (x) { return x && typeof x === 'object'; }) : []; };
+    out.debts = arr(raw.debts).map(function (d) {
+      const bal = moneyNum(d.balance);
+      return {
+        id: String(d.id || uid()),
+        name: String(d.name || '').slice(0, 24),
+        type: MONEY_TYPES.some(function (t) { return t.key === d.type; }) ? d.type : 'card',
+        balance: bal,
+        /* 初始额缺省就等于余额：老数据或手写 JSON 都能用 */
+        start: moneyNum(d.start) || bal,
+        apr: Math.min(200, Math.max(0, Number(d.apr) || 0)),
+        min: Math.min(999999, Math.max(0, Number(d.min) || 0)),
+        due: Math.min(31, Math.max(1, Math.round(Number(d.due) || 1))),
+        note: String(d.note || '').slice(0, 60),
+        u: Math.max(0, Math.round(Number(d.u) || 0))
+      };
+    });
+    out.log = arr(raw.log).map(function (x) {
+      return {
+        id: String(x.id || uid()), date: String(x.date || '').slice(0, 10),
+        debtId: String(x.debtId || ''), debtName: String(x.debtName || '').slice(0, 24),
+        amount: moneyNum(x.amount), note: String(x.note || '').slice(0, 60),
+        u: Math.max(0, Math.round(Number(x.u) || 0))
+      };
+    });
+    out.snowflakes = arr(raw.snowflakes).map(function (x) {
+      return {
+        id: String(x.id || uid()), ym: /^\d{4}-\d{2}$/.test(String(x.ym || '')) ? x.ym : '',
+        amount: moneyNum(x.amount), note: String(x.note || '').slice(0, 60),
+        u: Math.max(0, Math.round(Number(x.u) || 0))
+      };
+    });
+    out.incomes = arr(raw.incomes).map(function (x) {
+      return { id: String(x.id || uid()), name: String(x.name || '').slice(0, 20),
+        amount: moneyNum(x.amount), u: Math.max(0, Math.round(Number(x.u) || 0)) };
+    });
+    out.cats = arr(raw.cats).map(function (x) {
+      return { id: String(x.id || uid()), name: String(x.name || '').slice(0, 20),
+        kind: x.kind === 'fixed' ? 'fixed' : 'daily', budget: moneyNum(x.budget),
+        u: Math.max(0, Math.round(Number(x.u) || 0)) };
+    });
+    out.spends = arr(raw.spends).map(function (x) {
+      return { id: String(x.id || uid()), date: String(x.date || '').slice(0, 10),
+        catId: String(x.catId || ''), catName: String(x.catName || '').slice(0, 20),
+        amount: moneyNum(x.amount), note: String(x.note || '').slice(0, 60),
+        u: Math.max(0, Math.round(Number(x.u) || 0)) };
+    });
+    out.extra = moneyNum(raw.extra);
+    out.strategy = MONEY_STRATEGIES.some(function (t) { return t.key === raw.strategy; })
+      ? raw.strategy : 'snowball';
+    out.customOrder = Array.isArray(raw.customOrder)
+      ? raw.customOrder.map(String).filter(Boolean).slice(0, 60) : [];
+    out.startYM = /^\d{4}-\d{2}$/.test(String(raw.startYM || '')) ? raw.startYM : '';
+    const nt = (raw.notify && typeof raw.notify === 'object') ? raw.notify : {};
+    out.notify = {
+      on: !!nt.on,
+      time: /^\d{2}:\d{2}$/.test(String(nt.time || '')) ? nt.time : '09:00',
+      before: Array.isArray(nt.before)
+        ? nt.before.map(function (x) { return Math.max(0, Math.round(Number(x) || 0)); }).slice(0, 5)
+        : [3, 1, 0]
+    };
+    return out;
+  }
+
+  /* 策略只决定顺序，金额分配逻辑三套完全一样 */
+  function moneyOrder(list, strat) {
+    const arr = list.slice();
+    if (strat === 'avalanche') {
+      arr.sort(function (a, b) {
+        return (Number(b.apr) || 0) - (Number(a.apr) || 0) ||
+          (Number(a.balance) || 0) - (Number(b.balance) || 0);
+      });
+    } else if (strat === 'custom') {
+      const pref = Array.isArray(money().customOrder) ? money().customOrder : [];
+      arr.sort(function (a, b) {
+        const ia = pref.indexOf(a.id), ib = pref.indexOf(b.id);
+        return (ia < 0 ? 1e4 : ia) - (ib < 0 ? 1e4 : ib);
+      });
+    } else {
+      arr.sort(function (a, b) {
+        return (Number(a.balance) || 0) - (Number(b.balance) || 0) ||
+          (Number(b.apr) || 0) - (Number(a.apr) || 0);
+      });
+    }
+    return arr;
+  }
+
+  /* 逐月模拟。规则跟原版「还清日」一致：
+     ① 每笔先计息（余额 × 年化 ÷ 12，四舍五入到分）
+     ② 每笔各还最低还款（不超过余额）
+     ③ 剩下的钱（加速钱 + 当月一次性多还）按策略顺序全砸第一笔，清掉后滚到下一笔
+     最多算 360 个月。 */
+  function moneySimulate(strat) {
+    const live = moneyLive();
+    const total = live.reduce(function (a, d) { return a + (Number(d.balance) || 0); }, 0);
+    const res = {
+      done: true, months: 0, payoff: '', totalInt: 0, series: [Math.round(total * 100) / 100],
+      monthlyMin: 0, monthly: 0, startYM: '', left: total, clearAt: {}
+    };
+    if (!live.length) return res;
+    const order = moneyOrder(live, strat || money().strategy);
+    const cur = order.map(function (d) { return Number(d.balance) || 0; });
+    const apr = order.map(function (d) { return Math.max(0, Number(d.apr) || 0) / 100; });
+    const min = order.map(function (d) { return Math.max(0, Number(d.min) || 0); });
+    res.monthlyMin = Math.round(min.reduce(function (a, b) { return a + b; }, 0) * 100) / 100;
+    const extra = Math.max(0, Number(money().extra) || 0);
+    res.monthly = Math.round((res.monthlyMin + extra) * 100) / 100;
+    const start = /^\d{4}-\d{2}$/.test(String(money().startYM || ''))
+      ? money().startYM : ymAdd(ymNow(), 1);
+    res.startYM = start;
+    /* 月供总额**在计划开始时就固定**：各笔最低还款之和 + 加速钱。
+       某笔清掉后它不再吃钱，那份额自然留在预算里给下一笔 ——
+       这才是「清掉一笔，它原来的月供自动加到下一笔上」。
+       每月重新算 Σ最低 的话，清掉一笔预算就少一块，永远滚不起来。 */
+    const base = res.monthlyMin + extra;
+    let series = [Math.round(total * 100) / 100];
+    let totalInt = 0;
+    let m = 0;
+    while (m < MONEY_MAX_MONTHS) {
+      const ym = ymAdd(start, m);
+      /* ① 计息 */
+      for (let i = 0; i < cur.length; i++) {
+        if (cur[i] <= 0.005) continue;
+        const it = Math.round(cur[i] * apr[i] / 12 * 100) / 100;
+        cur[i] = Math.round((cur[i] + it) * 100) / 100;
+        totalInt = Math.round((totalInt + it) * 100) / 100;
+      }
+      /* ② 各还最低，累计本月已经花掉多少 */
+      let spent = 0;
+      for (let i = 0; i < cur.length; i++) {
+        if (cur[i] <= 0.005) continue;
+        const pay = Math.min(min[i], cur[i]);
+        cur[i] = Math.round((cur[i] - pay) * 100) / 100;
+        spent = Math.round((spent + pay) * 100) / 100;
+        if (cur[i] <= 0.005 && !res.clearAt[order[i].id]) res.clearAt[order[i].id] = ym;
+      }
+      /* ③ 预算里剩下的（含清账腾出来的份额 + 一次性多还）按顺序砸 */
+      let pool = base;
+      moneyList('snowflakes').forEach(function (sf) {
+        if (sf.ym === ym) pool += Math.max(0, Number(sf.amount) || 0);
+      });
+      pool = Math.round((pool - spent) * 100) / 100;
+      for (let i = 0; i < cur.length && pool > 0.005; i++) {
+        if (cur[i] <= 0.005) continue;
+        const pay = Math.min(pool, cur[i]);
+        cur[i] = Math.round((cur[i] - pay) * 100) / 100;
+        pool = Math.round((pool - pay) * 100) / 100;
+        if (cur[i] <= 0.005 && !res.clearAt[order[i].id]) res.clearAt[order[i].id] = ym;
+      }
+      let left = 0;
+      for (let i = 0; i < cur.length; i++) if (cur[i] > 0.005) left += cur[i];
+      left = Math.round(left * 100) / 100;
+      series.push(left);
+      m++;
+      if (left <= 0.005) {
+        res.done = true; res.months = m; res.payoff = ym; res.left = 0;
+        break;
+      }
+      res.done = false; res.months = m; res.left = left;
+      if (m >= MONEY_MAX_MONTHS) break;
+    }
+    res.totalInt = totalInt;
+    res.series = series;
+    return res;
+  }
+
+  /* ---------- 通用子页面（v88） ----------
+     状态是模块级字典，**不进 state**：进了 state 就要改 normalizeState /
+     mergeStates / repairBackup 三处，而且两端切换的子页不同会互相覆盖。
+     别的页面想分子页，传 [{key,label,render}] 就行。 */
+  const subTab = {};
+  function subTabOf(pageKey, tabs) {
+    const cur = subTab[pageKey];
+    return tabs.some(function (t) { return t.key === cur; }) ? cur : (tabs[0] ? tabs[0].key : '');
+  }
+  function subTabsHtml(pageKey, tabs, cur) {
+    return '<div class="stab subtab">' + tabs.map(function (t) {
+      return '<button type="button" class="' + (t.key === cur ? 'on' : '') +
+        '" data-act="subtab" data-page="' + pageKey + '" data-tab="' + t.key + '">' + t.label + '</button>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- 清债页 ----------
+     六个子页一次注册，但**只渲染做完了的那几个**（没有 v 字段 = 已就绪）。
+     点进去一片空白比看不到更让人恼火，做完一版放出一版。 */
+  const MONEY_TABS = [
+    { key: 'overview', label: '总览' },
+    { key: 'debts', label: '我的债' },
+    { key: 'budget', label: '预算', v: 90 },
+    { key: 'plan', label: '计划', v: 89 },
+    { key: 'log', label: '记录', v: 89 },
+    { key: 'tools', label: '工具', v: 91 }
+  ];
+
+  function moneySubtitle() {
+    const t = moneyTotals();
+    if (!t.n) return '把每一笔债填进来，才能算出哪天还清。';
+    const sim = moneySimulate(money().strategy);
+    if (!sim.done) return '还剩 ¥' + moneyText(t.left) + ' · 按当前计划 30 年也还不完';
+    return '还剩 ¥' + moneyText(t.left) + ' · 按「' + moneyStrategyLabel(money().strategy) + '」' +
+      ymLabel(sim.payoff) + '还清';
+  }
+  function moneyText(n) {
+    const v = Number(n) || 0;
+    if (v >= 10000) {
+      /* 只留一位小数：9.5 万，别写成 9.50 万 */
+      const w = Math.round(v / 1000) / 10;
+      return (w % 1 === 0 ? w.toFixed(0) : w.toFixed(1)) + ' 万';
+    }
+    return String(Math.round(v));
+  }
+
+  function moneyCurveSvg(series) {
+    const W = 640, H = 132, L = 6, R = 6, T = 10, B = 16;
+    const n = series.length;
+    const max = Math.max.apply(null, series.concat([1]));
+    const px = function (i) { return L + (n <= 1 ? 0 : i / (n - 1) * (W - L - R)); };
+    const py = function (v) { return T + (1 - v / max) * (H - T - B); };
+    let d = '';
+    series.forEach(function (v, i) { d += (i ? 'L' : 'M') + px(i).toFixed(1) + ' ' + py(v).toFixed(1) + ' '; });
+    const area = d + 'L' + px(n - 1).toFixed(1) + ' ' + py(0).toFixed(1) +
+      ' L' + px(0).toFixed(1) + ' ' + py(0).toFixed(1) + ' Z';
+    return '<svg class="money-curve" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="剩余欠款曲线">' +
+      '<path class="mc-area" d="' + area + '"/>' +
+      '<path class="mc-line" d="' + d + '"/></svg>';
+  }
+
+  function moneyOverviewView() {
+    const t = moneyTotals();
+    if (!t.n) {
+      return '<div class="panel"><div class="empty-box">还没有债务。<br>' +
+        '把每一笔填进来（剩多少、年化多少、每月最低还多少），才能算出还清日。<br><br>' +
+        '<button type="button" class="btn primary" data-act="money-debt-new">记第一笔债</button></div></div>';
+    }
+    const sim = moneySimulate(money().strategy);
+    const pct = t.start ? Math.min(100, Math.round(t.paid / t.start * 100)) : 0;
+    const hero = '<div class="panel money-hero">' +
+      '<small>预计还清</small>' +
+      '<b class="mh-big">' + (sim.done ? ymLabel(sim.payoff) : '30 年内还不完') + '</b>' +
+      '<span class="mh-sub">' + (sim.done
+        ? '还要 ' + sim.months + ' 个月 · 利息合计 ¥' + sim.totalInt.toFixed(0)
+        : '最低还款比利息还少，欠款会越滚越大，先提高月供或协商降息') + '</span>' +
+      '<div class="mhc-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="money-kpi">' +
+        '<span>总欠款<b>¥' + t.left.toFixed(0) + '</b></span>' +
+        '<span>已还<b>¥' + t.paid.toFixed(0) + '</b></span>' +
+        '<span>每月还款<b>¥' + sim.monthly.toFixed(0) + '</b></span>' +
+      '</div>' +
+    '</div>';
+    const curve = '<div class="panel"><h3>剩余欠款 <span class="muted-sm">（按当前计划，' +
+      (sim.series.length - 1) + ' 个月归零）</span></h3>' +
+      moneyCurveSvg(sim.series) +
+      '<p class="hint">横轴是月份，纵轴是当月还款后还剩多少。加速钱和一次性多还会让曲线掉得更快。</p></div>';
+    /* 按模拟出来的清账月份排——这才是「先还哪笔」，
+       按金额排会跟标题打架（小额先清，列在前面） */
+    const list = moneyLive().slice().sort(function (a, b) {
+      return String(sim.clearAt[a.id] || '9999-99').localeCompare(String(sim.clearAt[b.id] || '9999-99'));
+    }).map(function (d) {
+      const clear = sim.clearAt[d.id];
+      return '<div class="mrow">' +
+        '<span class="mrow-name">' + esc(d.name || '未命名') + '</span>' +
+        '<span class="mrow-num">¥' + (Number(d.balance) || 0).toFixed(0) + '</span>' +
+        '<span class="mrow-at">' + (clear ? ymLabel(clear) : '30 年内') + '</span>' +
+      '</div>';
+    }).join('');
+    const order = '<div class="panel"><h3>还款顺序 <span class="muted-sm">（' +
+      moneyStrategyLabel(money().strategy) + '）</span></h3>' +
+      '<div class="mlist">' + list + '</div>' +
+      '<p class="hint">顺序在「计划」页切换。清掉一笔后，它原来的月供会自动加到下一笔上。</p></div>';
+    return hero + curve + order;
+  }
+
+  function moneyDebtsView() {
+    const all = moneyList('debts');
+    if (!all.length) {
+      return '<div class="panel"><div class="empty-box">还没有债务。' +
+        '<div class="btn-row" style="justify-content:center;margin-top:12px">' +
+        '<button type="button" class="btn primary" data-act="money-debt-new">记第一笔债</button></div></div></div>';
+    }
+    const live = all.filter(function (d) { return Number(d.balance) > 0.005; });
+    const done = all.filter(function (d) { return Number(d.balance) <= 0.005; });
+    const row = function (d, closed) {
+      const st = Number(d.start) || Number(d.balance) || 0;
+      const pct = st ? Math.min(100, Math.round((st - (Number(d.balance) || 0)) / st * 100)) : 0;
+      return '<div class="mdebt' + (closed ? ' closed' : '') + '">' +
+        '<div class="mdebt-top"><b>' + esc(d.name || '未命名') + '</b>' +
+          '<span class="mdebt-tag">' + moneyTypeLabel(d.type) + '</span></div>' +
+        '<div class="mdebt-num"><b>¥' + (Number(d.balance) || 0).toFixed(0) + '</b>' +
+          '<span>年化 ' + (Number(d.apr) || 0) + '% · 月还 ¥' + (Number(d.min) || 0).toFixed(0) +
+          ' · 每月 ' + d.due + ' 日</span></div>' +
+        (closed ? '' : '<div class="mdebt-bar"><i style="width:' + pct + '%"></i></div>') +
+        '<div class="mdebt-acts">' +
+          '<button type="button" class="btn sm" data-act="money-debt-edit" data-id="' + esc(d.id) + '">编辑</button>' +
+          '<button type="button" class="btn sm danger-red" data-act="money-debt-del" data-id="' + esc(d.id) + '">删除</button>' +
+        '</div>' +
+      '</div>';
+    };
+    return '<div class="panel"><h3>还在还 <span class="muted-sm">（' + live.length + ' 笔）</span></h3>' +
+      '<div class="mdebt-list">' + (live.map(function (d) { return row(d, false); }).join('') ||
+        '<div class="empty-box">全部还清了。</div>') + '</div></div>' +
+      (done.length
+        ? '<div class="panel"><h3>已还清 <span class="muted-sm">（' + done.length + ' 笔）</span></h3>' +
+          '<div class="mdebt-list">' + done.map(function (d) { return row(d, true); }).join('') + '</div></div>'
+        : '');
+  }
+
+  function viewMoney() {
+    const ready = MONEY_TABS.filter(function (t) { return !t.v; });
+    const cur = subTabOf('money', ready);
+    const body = cur === 'debts' ? moneyDebtsView() : moneyOverviewView();
+    return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
+        '<div class="head-actions">' +
+          '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="subbar">' + subTabsHtml('money', ready, cur) + '</div>' +
+      body;
+  }
+
+  function moneyDebtModal(d) {
+    const isNew = !d;
+    const v = d || { name: '', type: 'card', balance: '', apr: 18, min: '', due: 5, note: '' };
+    openModal('<form class="modal-card" id="money-form" data-id="' + esc(v.id || '') + '">' +
+      '<h3>' + (isNew ? '记一笔债' : '编辑债务') + '</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>名称</span>' +
+          '<input name="name" maxlength="24" value="' + esc(v.name || '') + '" placeholder="例如：信用卡A"></label>' +
+        '<label class="field"><span>类型</span><select name="type">' +
+          MONEY_TYPES.map(function (t) {
+            return '<option value="' + t.key + '"' + (t.key === v.type ? ' selected' : '') + '>' + t.label + '</option>';
+          }).join('') + '</select></label>' +
+        '<label class="field"><span>剩余欠款（元）</span>' +
+          '<input name="balance" type="number" min="0" step="0.01" value="' + (Number(v.balance) || '') + '" placeholder="38000"></label>' +
+        '<label class="field"><span>年化利率（%）</span>' +
+          '<input name="apr" type="number" min="0" max="200" step="0.01" value="' + (Number(v.apr) || 0) + '"></label>' +
+        '<label class="field"><span>最低月还款（元）</span>' +
+          '<input name="min" type="number" min="0" step="0.01" value="' + (Number(v.min) || '') + '" placeholder="1900"></label>' +
+        '<label class="field"><span>每月还款日</span>' +
+          '<input name="due" type="number" min="1" max="31" step="1" value="' + (Number(v.due) || 1) + '"></label>' +
+        '<label class="field wide"><span>备注（可选）</span>' +
+          '<input name="note" maxlength="60" value="' + esc(v.note || '') + '"></label>' +
+      '</div>' +
+      '<p class="hint">「剩余欠款」填现在的账单余额；「最低月还款」填账单上的最低还款额。' +
+        '利息按 余额 × 年化 ÷ 12 估算，跟银行实际账单会有几分钱误差，以账单为准。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneyDebt(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const name = get('name');
+    const balance = moneyNum(get('balance'));
+    if (!name) { toast('给它起个名字'); return; }
+    if (!(balance > 0) && !form.dataset.id) { toast('剩余欠款要大于 0'); return; }
+    const rec = {
+      name: name.slice(0, 24),
+      type: get('type') || 'card',
+      balance: balance,
+      apr: Math.min(200, Math.max(0, Number(get('apr')) || 0)),
+      min: Math.max(0, Number(get('min')) || 0),
+      due: Math.min(31, Math.max(1, Math.round(Number(get('due')) || 1))),
+      note: get('note').slice(0, 60),
+      u: Date.now()
+    };
+    const m = normalizeMoney(money());
+    const id = form.dataset.id || '';
+    if (id) {
+      const p = m.debts.filter(function (x) { return x.id === id; })[0];
+      if (!p) { closeModal(); return; }
+      /* 余额改动后初始额不动——进度条要的是「一共欠过多少」 */
+      Object.assign(p, rec);
+    } else {
+      rec.id = uid();
+      rec.start = balance;
+      rec.clearedAt = '';
+      m.debts.push(rec);
+    }
+    state.money = m;
+    state.moneyAt = Date.now();
+    save();
+    render();
+    closeModal();
+    toast(id ? '债务已更新' : '债务已记下');
+  }
+
   function viewStats() {
     const now = new Date();
     const range = [7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
@@ -12334,12 +12914,13 @@ body.modal-open{overflow:hidden}
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
+  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
   const NAV = [
     { key: 'today', label: '今日', icon: 'today', group: '记录', wideLabel: '今日' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
     { key: 'quit', label: '戒烟', icon: 'quit', group: '记录', wideLabel: '戒烟' },
     { key: 'board', label: '待办', icon: 'board', group: '记录', wideLabel: '待办看板' },
+    { key: 'money', label: '清债', icon: 'money', group: '记录', wideLabel: '清债' },
     { key: 'habits', label: '习惯', icon: 'habits', group: '记录', wideLabel: '习惯' },
     { key: 'weight', label: '体重', icon: 'weight', group: '记录', wideLabel: '体重与 BMI' },
     { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
@@ -12360,6 +12941,7 @@ body.modal-open{overflow:hidden}
     { key: '__more', label: '更多', icon: 'more' }
   ];
   const MORE_PAGES = [
+    { key: 'money', label: '清债', icon: 'money', desc: '债务与还款计划' },
     { key: 'quit', label: '戒烟', icon: 'quit', desc: '戒烟打卡与买烟记录' },
     { key: 'habits', label: '习惯', icon: 'habits', desc: '每日习惯与常驻卡' },
     { key: 'essays', label: '随笔', icon: 'essay', desc: '随手记录文字和片段' },
@@ -13988,6 +14570,8 @@ body.modal-open{overflow:hidden}
       countdowns: normalizeCountdowns(data.countdowns),
       cardOrder: normalizeCardOrder(data.cardOrder),
       cardOrderAt: Math.max(0, Math.round(Number(data.cardOrderAt) || 0)),
+      money: normalizeMoney(data.money),
+      moneyAt: Math.max(0, Math.round(Number(data.moneyAt) || 0)),
       navOrder: normalizeNavOrder(data.navOrder),
       navOrderAt: Math.max(0, Math.round(Number(data.navOrderAt) || 0))
     };
@@ -15308,6 +15892,27 @@ body.modal-open{overflow:hidden}
       save();
       render();
     },
+    'subtab': el => {
+      subTab[el.dataset.page || ''] = el.dataset.tab || '';
+      render();
+    },
+    'money-debt-new': () => moneyDebtModal(null),
+    'money-debt-edit': el => {
+      const d = moneyList('debts').filter(function (x) { return x.id === el.dataset.id; })[0];
+      if (d) moneyDebtModal(d);
+    },
+    'money-debt-del': el => {
+      const d = moneyList('debts').filter(function (x) { return x.id === el.dataset.id; })[0];
+      if (!d) return;
+      if (!confirm('删除「' + d.name + '」？这笔债的历史记录不会跟着删。')) return;
+      const m = normalizeMoney(money());
+      m.debts = m.debts.filter(function (x) { return x.id !== el.dataset.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save();
+      render();
+      toast('已删除');
+    },
     'nav-reset': () => {
       state.navOrder = [];
       state.navOrderAt = Date.now();
@@ -15391,6 +15996,9 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'weight-form') {
       e.preventDefault();
       saveWeightForm(form);
+    } else if (form.id === 'money-form') {
+      e.preventDefault();
+      saveMoneyDebt(form);
     } else if (form.id === 'pack-form') {
       e.preventDefault();
       savePackForm(form);

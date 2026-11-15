@@ -2,13 +2,13 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v87（2026-11-15）
+最后更新：v88（2026-11-15）
 
 ---
 
 ## 一句话状态
 
-已上线稳定运行。十一个页面 + 三布局 + 九套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
+已上线稳定运行。十二个页面 + 两布局 + 五套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
 全部验证通过。技术债集中在「单文件 13,600 行」和「备份未异地」两处，不影响使用。
 
 ---
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v86（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v86'`） |
+| 代码版本 | v88（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v88'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -108,6 +108,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v85 | 11-11 | 统计页补回任务：v84 去重时把「任务完成度」整块删掉，导致统计里习惯/用药/戒烟/体重都有、唯独任务缺席。改在**总览末尾**压一行三格（新增 / 已完成 / 达成率）+ 一条细进度条 `tk-bar`，口径复用 `taskStats(taskRange)` 与待办页完全一致，右上一个「看待办」跳过去看五格明细。桌面 2253 → 2445px（2.6 屏），手机 3031 → 3224px（3.8 屏）。`.tk-grid` 三格必须固定三列（手机 auto-fit 会掉两行白吃 200px）。`verify-stats-v80` 加 6 项、`verify-batch3` 的 `.rv-cell` 取样范围要限定在本月回顾块内。回滚点 tag `stats-task-v85` |
 | v86 | 11-13 | 导航顺序自定义（**组内**排序）：设置页新增「导航顺序」，记录 7 项 / 回顾 4 项各自 ↑↓，「恢复默认」按默认序判灰。一个 `navOrder` 数组喂三种排版 + 手机「更多」抽屉（`orderedNav()` 统一算，`NAV` 只当字典）。组间固定记录在前——三区布局靠 `group` 插小标题，允许跨组会让标题重复。新增 `navOrder`/`navOrderAt` 两个顶层字段（normalizeState / mergeStates / repairBackup 三处同步，整份覆盖不比并集）。抽屉顺序改为跟随导航，`verify-mobile-nav` 改按集合比。新增 `verify-nav-order` 21 项。回滚点 tag `nav-order-v86` |
 | v87 | 11-15 | 删掉 4 套主题（石墨朱砂 mono / 柔光拟态 clay / 苔绿森野 forest / 赛博霓虹 cyber）和「左侧导航条」排版。主题：`SKINS` 少 4 项、删掉 forest / cyber 两个独立皮肤文件、`themes.css` 按规则剔除 mono/clay 全部选择器（294 → 143 条）、SW 清单同步；老用户存的 skin 由已有白名单自动回落 `paper`。排版：设置页 3 张卡 → 2 张，`lifeboard.layout` 存的 `side` 一律退回 `top`。同步 4 份测试的皮肤/排版清单，对比度审计从 9 皮肤 1926 取样降到 5 皮肤 1070 取样。回滚点 tag `trim-skins-v87` |
+| v88 | 11-15 | 清债第一版（移植「还清日」）：`state.money` 一个子对象 + `moneyAt`（三处同步，集合按 id 并集、单值比 `moneyAt`）；**通用子页面机制**（模块级 `subTab` 字典，不进 state）；NAV 加「清债」（待办之后、习惯之前，手机走「更多」抽屉）；总览（还清日 / 进度 / 剩余欠款曲线 / 还款顺序）+ 我的债（增删改、已还清区）。**月供总额在计划开始时固定**，某笔清掉后份额自动滚给下一笔。新增 `verify-money-v88` 20 项。回滚点 tag `money-v88` |
 
 ### 两次值得记住的事故
 

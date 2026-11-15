@@ -74,6 +74,21 @@ board['data']['countdowns'] = [
      'time': '09:00', 'remindDays': [0], 'on': False},
 ]
 
+# 清债（v88）：审计要取到总览和债务卡，没有债就只剩空状态
+board['data']['money'] = {
+    'v': 1,
+    'debts': [
+        {'id': 'md1', 'name': '信用卡A', 'type': 'card', 'balance': 38000, 'start': 45000,
+         'apr': 18, 'min': 1900, 'due': 5, 'note': '', 'clearedAt': '', 'u': 1},
+        {'id': 'md2', 'name': '亲友', 'type': 'friend', 'balance': 20000, 'start': 20000,
+         'apr': 0, 'min': 500, 'due': 1, 'note': '', 'clearedAt': '', 'u': 1},
+    ],
+    'extra': 1000, 'strategy': 'snowball', 'customOrder': [], 'snowflakes': [],
+    'startYM': '', 'log': [], 'incomes': [], 'cats': [], 'spends': [],
+    'notify': {'on': False, 'before': [3, 1, 0], 'time': '09:00'},
+}
+board['data']['moneyAt'] = 1
+
 # 戒除多次模式（v79）：一个已破（.quit-add.broken + .quit-undo）、一个未破
 _qm = int(datetime(2026, 10, 25, 9, 0).timestamp())
 _qbase = {'type': 'quit', 'target': 1, 'unit': '次', 'note': '',
@@ -175,6 +190,12 @@ SELS_QUIT_TODAY = ['.quit-btn', '.quit-btn.undo', '.quit-card .mv-status',
 SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b',
                    '.qsum small', '.qsum b', '.qsum span']
 # 戒烟页（导航在用药后）：汇总卡、买烟记录、月历
+# 清债页（v88）。**总览和「我的债」是两个子页，选择器必须分开取**——
+# 混成一份的话，总览里永远找不到债务卡、债务页里永远找不到还清日，两边都记「元素缺失」。
+SELS_MONEY = ['.money-hero small', '.mh-big', '.mh-sub', '.money-kpi b', '.money-kpi span',
+              '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on']
+SELS_MONEY_DEBTS = ['.mdebt-tag', '.mdebt-num b', '.mdebt-num span',
+                    '.subtab button', '.subtab button.on']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
@@ -250,6 +271,12 @@ with sync_playwright() as p:
             nav(pg, 'board')
             pg.wait_for_timeout(900)
             res += pg.evaluate(JS, SELS_BOARD)
+            nav(pg, 'money')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_MONEY)
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="debts"]')
+            pg.wait_for_timeout(500)
+            res += pg.evaluate(JS, SELS_MONEY_DEBTS)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             # v84：用药趋势和戒烟分析都藏在分段控件 / 折叠后面，取样前先点开，
@@ -289,7 +316,7 @@ with sync_playwright() as p:
 print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
       % (len(skins), len(skins) * 2,
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
-         + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK), checked))
+         + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

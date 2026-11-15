@@ -81,6 +81,10 @@ BACKUP = {
     'cardOrderAt': 1794225546519,
     'navOrder': ['settings', 'today'],          # v86 导航顺序也要能过导入
     'navOrderAt': 1794225546519,
+    'money': {'debts': [{'id': 'md1', 'name': '房贷', 'balance': 5000, 'start': 5000,
+                         'apr': 4, 'min': 200, 'due': 8, 'type': 'other', 'u': 1}],
+              'extra': 300, 'strategy': 'avalanche'},
+    'moneyAt': 1794225546519,
     # 模拟「将来又加了一个顶层字段」——白名单不认识，也必须原样带过
     'futureField': {'hello': 'world'},
 }
@@ -135,6 +139,8 @@ def main():
             str(sv.get('cardOrder')))
         chk('服务端 navOrder 保留', (sv.get('navOrder') or [])[:2] == ['settings', 'today'],
             str(sv.get('navOrder')))
+        chk('服务端 money 保留', (sv.get('money') or {}).get('extra') == 300,
+            str((sv.get('money') or {}).get('extra')))
         chk('服务端陌生字段保留', (sv.get('futureField') or {}).get('hello') == 'world',
             str(sv.get('futureField')))
 

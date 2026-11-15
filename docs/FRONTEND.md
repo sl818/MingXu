@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v87（2026-11-15）
+最后更新：v88（2026-11-15）
 
 ---
 
@@ -577,6 +577,8 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `algoModal()`（考核算法说明弹窗，统计页头部按钮 `algo-open`）
 `quitPanelBody(range)`（戒烟分析面板内容，没有 quit 习惯时整块不渲染）
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitHoursStrip(h)`
+`viewMoney()` `moneyOverviewView()` `moneyDebtsView()` `moneySimulate(strat)` `moneyOrder(list,strat)`
+`moneyDebtModal(d)` `saveMoneyDebt(form)` `subTabOf(pageKey,tabs)` `subTabsHtml(pageKey,tabs,cur)`
 `quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
 `packModal(pack)` `savePackForm(form)` `quitHabit()`（戒烟页）
