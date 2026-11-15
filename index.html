@@ -16,7 +16,7 @@
 (function(){
   try{
     var s = localStorage.getItem('lifeboard.skin');
-    if(['paper','slate','mono','clay','mist','forest','neu','cyber','retro'].indexOf(s) >= 0) document.documentElement.setAttribute('data-skin', s);
+    if(['paper','slate','mono','clay','mist','forest','neu','cyber','retro','cloud-haze','cloud-float','cloud-focus'].indexOf(s) >= 0) document.documentElement.setAttribute('data-skin', s);
     var lay = localStorage.getItem('lifeboard.layout');
     /* v87 删掉「左侧导航条」，老用户存的 side 一律退回 top */
     if(['top','wide'].indexOf(lay) < 0) lay = 'top';
@@ -3833,6 +3833,7 @@ body.modal-open{overflow:hidden}
 <link rel="stylesheet" href="themes/themes.css">
 <link rel="stylesheet" href="themes/custom.css">
 <link rel="stylesheet" href="themes/skin-mist.css">
+<link rel="stylesheet" href="themes/skin-cloud.css">
 <link rel="stylesheet" href="themes/skin-neu.css">
 <link rel="stylesheet" href="themes/skin-retro.css">
 </head>
@@ -3940,6 +3941,9 @@ body.modal-open{overflow:hidden}
     { key: 'paper', name: '暖绒 · 鼠尾草', desc: '鼠尾草 / 奶油纸 / 柔和', bg: '#f8f3ea', card: '#fffcf6', side: '#3f5a49', accent: '#567458' },
     { key: 'slate', name: '冷雾 · 矩阵', desc: '雾蓝 / 全息 / 科技', bg: '#eaf2f7', card: '#fbfdff', side: '#071725', accent: '#16708a' },
     { key: 'mist',  name: '雾蓝 · 云水', desc: '雾蓝 / 云白 / 静谧', bg: '#f4f7fa', card: '#ffffff', side: '#dce7f0', accent: '#43688a' },
+    { key: 'cloud-haze',  name: '云晕 · 柔光', desc: '柔焦光斑 / 无纹理 / 静谧', bg: '#e9eef5', card: '#ffffff', side: '#eaf0f6', accent: '#3f648a' },
+    { key: 'cloud-float', name: '浮纸 · 抬升', desc: '留白干净 / 版心浮起', bg: '#e8edf2', card: '#ffffff', side: '#e6ecf2', accent: '#43688a' },
+    { key: 'cloud-focus', name: '聚光 · 晕影', desc: '四周晕影 / 中间亮 / 聚焦', bg: '#dbe4ed', card: '#ffffff', side: '#e3eaf2', accent: '#34567a' },
     { key: 'neu',   name: '拟态 · 素白', desc: '新拟态 / 软浮雕', bg: '#e4e9f0', card: '#e4e9f0', side: '#e4e9f0', accent: '#4a5876' },
     { key: 'retro', name: '复古 · 街机', desc: '像素 / 块状阴影 / 撞色', bg: '#fdf6e3', card: '#fffdf7', side: '#fdf6e3', accent: '#c2441e' }
   ];

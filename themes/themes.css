@@ -1,7 +1,8 @@
 /* ============================================================
    晚风Todo 主题层
    只放主题变量与主题组件覆盖；不要在这里写布局、HTML 或数据逻辑。
-   当前主题键：paper / slate / mist / neu / retro（mono、clay、forest、cyber 已于 v87 删除）
+   当前主题键：paper / slate / mist / neu / retro / cloud-haze / cloud-float / cloud-focus
+   （mono、clay、forest、cyber 已于 v87 删除；云系三主题见 skin-cloud.css）
    AI 请优先只改 themes/custom.css。
    ============================================================ */
 

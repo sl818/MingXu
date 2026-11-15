@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""命令卡（.se-cmd）的对比度审计：9 皮肤 × 明暗。
+"""命令卡（.se-cmd）的对比度审计：按 skins 清单逐套 × 明暗。
 
 这张卡底下是 --accent-soft，是带强调色的浅底而不是中性色，
 深色皮肤下最容易和 --text 撞色，所以单独量一次。
@@ -47,7 +47,7 @@ JS = """
 # 命令模式下 .se-hint / .se-group 不显示，所以要分两次取样
 SELS_CMD = ['.se-cmd .se-title', '.se-cmd .se-meta']
 SELS_IDLE = ['.se-hint', '.se-group']
-skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
+skins = ['paper', 'slate', 'mist', 'neu', 'retro', 'cloud-haze', 'cloud-float', 'cloud-focus']
 
 bad, skipped, missing, checked = [], [], [], 0
 with sync_playwright() as p:
@@ -93,8 +93,8 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）'
-      % (len(SELS_CMD) + len(SELS_IDLE), checked))
+print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
+      % (len(skins), len(skins) * 2, len(SELS_CMD) + len(SELS_IDLE), checked))
 print('跳过：%d %s' % (len(skipped), skipped[:3]))
 print('元素缺失：%d %s' % (len(missing), missing[:3]))
 print('低于 WCAG AA：%d' % len(bad))

@@ -238,7 +238,7 @@ SELS_CONFIG_PAGE = ['.notice-when', '.notice-text', '.notice-warn',
                     '.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
                     '.pc-sec-head', '.pc-count']
 # v87 删掉 mono / clay / forest / cyber 四套皮肤，审计只跑剩下的
-skins = ['paper', 'slate', 'mist', 'neu', 'retro']
+skins = ['paper', 'slate', 'mist', 'neu', 'retro', 'cloud-haze', 'cloud-float', 'cloud-focus']
 
 # 安装提示要出现：未装、未关闭
 board['data']['habits'][2]['suggestTime'] = '09:00'

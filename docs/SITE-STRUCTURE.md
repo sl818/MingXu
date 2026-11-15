@@ -3,7 +3,7 @@
 > 这份文件原来是"网站结构说明"，内容已并入更详细的分册。
 > 现在只留两件事：**文档地图** 和 **主题相关的准确信息**。
 
-最后更新：v97（2026-11-15）
+最后更新：v98（2026-11-15）
 
 ---
 
@@ -66,7 +66,7 @@ CSS 通过属性选择器覆盖变量：
 :root[data-skin="paper"][data-theme="dark"] { --bg: ...; }
 ```
 
-### 3.1 九套皮肤
+### 3.1 八套皮肤
 
 **以 `index.html` 里的 `SKINS` 常量为准**，下表是 v46 时的状态：
 
@@ -77,11 +77,16 @@ CSS 通过属性选择器覆盖变量：
 | `mist` | 雾蓝 · 云水 | `themes/skin-mist.css` |
 | `neu` | 拟态 · 素白 | `themes/skin-neu.css` |
 | `retro` | 复古 · 街机 | `themes/skin-retro.css` |
+| `cloud-haze` | 云晕 · 柔光 | `themes/skin-cloud.css`（云系共用） |
+| `cloud-float` | 浮纸 · 抬升 | 同上 |
+| `cloud-focus` | 聚光 · 晕影 | 同上 |
 
 > `mist` 在 v97 重设计了浅色层：`--bg #e7edf4`（雾蓝灰）托起纯白卡片，主次靠明度梯度；
 > v95 又加了宽屏版心装饰：留白区雾底 + 竖向细纹 + 版心左右 1px 分界线，
 > 全部由 `themes/skin-mist.css` 里的 `--rail` 和两个 body 伪元素实现，
 > **只作用于 `[data-layout="top"]` 且视口 ≥1360px**；改 `.main` 的 max-width（1240 / 1680）要同步那里。
+>
+> v98 新增的云系三主题**不共用这套竖纹**：`themes/skin-cloud.css` 用 `[data-skin^="cloud-"]` 前缀选择器承载三套的组件层，末尾变体段分别给「云晕光斑 / 浮纸投影 / 聚光晕影」，宽屏 ≥1100px 才叠背景装饰，打印与窄屏一律干净。
 
 > v87 删除 `mono` / `clay` / `forest` / `cyber` 四套皮肤（含 CSS 文件与 SW 清单）。
 > `paper` / `slate` 的变量在 `index.html` 内联，其余三套在 `themes/skin-*.css`。
@@ -109,11 +114,11 @@ CSS 通过属性选择器覆盖变量：
 3. 在 `SKINS` 常量加一项（key / name / desc / 四个预览色）。
 4. **在首屏内联脚本的白名单数组里加 key**，否则刷新后皮肤不生效：
    ```js
-   ['paper','slate','mist','neu','retro'].indexOf(s) >= 0
+   ['paper','slate','mist','neu','retro','cloud-haze', 'cloud-float', 'cloud-focus'].indexOf(s) >= 0
    ```
 5. **把文件加进 `service-worker.js` 的 `ASSETS`**，否则离线时皮肤丢失。
 6. 推进 `CACHE` 版本号。
-7. 跑对比度审计：`python e2e/audit-contrast-v33.py`（9 皮肤 × 明暗，会报不达标和跳过数）。
+7. 跑对比度审计：`python e2e/audit-contrast-v33.py`（8 皮肤 × 明暗，会报不达标和跳过数）。
 
 第 2–4 步属于核心注册，**建议由维护者做**；AI 先把 CSS 写到 `themes/custom.css` 更安全。
 

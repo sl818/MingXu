@@ -21,7 +21,7 @@
   install/
   db/
   tools/
-  themes/themes.css   ← 现有四套主题，禁止改
+  themes/themes.css   ← 现有主题变量层，禁止改
 
 主题层（只能写这里）
   themes/custom.css   ← AI 唯一输出文件
@@ -37,6 +37,9 @@ slate  冷雾 · 矩阵
 mist   雾蓝 · 云水
 neu    拟态 · 素白
 retro  复古 · 街机
+cloud-haze   云晕 · 柔光
+cloud-float  浮纸 · 抬升
+cloud-focus  聚光 · 晕影
 ```
 
 AI 应选择一个现有键写覆盖，默认建议用 `paper`。

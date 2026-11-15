@@ -42,7 +42,7 @@ body { ... }
 * { ... }
 ```
 
-否则会污染其他三套主题。
+否则会污染其他主题。
 
 ## 3. 主题键
 
@@ -55,9 +55,14 @@ body { ... }
 | `mist` | 雾蓝 · 云水 |
 | `neu` | 拟态 · 素白 |
 | `retro` | 复古 · 街机 |
+| `cloud-haze` | 云晕 · 柔光 |
+| `cloud-float` | 浮纸 · 抬升 |
+| `cloud-focus` | 聚光 · 晕影 |
 
 > v87 删除了 `mono`（石墨 · 朱砂）、`clay`（柔光 · 拟态）、`forest`（苔绿 · 森野）、
 > `cyber`（赛博 · 霓虹）四套皮肤，连同各自的 CSS 一并移除。
+
+> 云系三键共用 `themes/skin-cloud.css` 的 `[data-skin^="cloud-"]` 选择器，差异只在文件末尾变体段；改基座组件规则时会同时影响三套。
 
 AI 可以覆盖已有键，但**不要自行新增键**。新增键需要维护者在 `index.html` 的 `SKINS` 和首屏白名单里注册，见 [SITE-STRUCTURE.md](SITE-STRUCTURE.md)。
 
@@ -243,7 +248,7 @@ transform 造成的结构位移
 2. 不写 HTML、JS、API、布局、display/grid/flex/宽高/内外边距。
 3. 必须同时提供浅色和深色（[data-theme="dark"]）。
 4. 不要 @import 外部字体或图片。
-5. 不要新增主题键；只覆盖现有 paper / slate / mist / neu / retro 之一。
+5. 不要新增主题键；只覆盖现有 paper / slate / mist / neu / retro / cloud-haze / cloud-float / cloud-focus 之一。
 6. 输出完整的 themes/custom.css 内容，不要输出 <style> 标签。
 
 设计目标：
@@ -257,7 +262,7 @@ transform 造成的结构位移
 
 ## 13. 验收清单
 
-- [ ] 四套主题互不污染
+- [ ] 八套主题互不污染
 - [ ] 浅色模式可读
 - [ ] 深色模式可读
 - [ ] 侧栏、Hero、面板、习惯卡、统计卡、日历、弹窗都检查过
