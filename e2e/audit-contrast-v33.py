@@ -218,6 +218,9 @@ SELS_MONEY_BUDGET = ['.mbud-li span', '.mbud-li b', '.mbud-net span', '.mbud-net
                      '.mbud-net small', '.mdaily b', '.mdaily span', '.msum span', '.msum b',
                      '.minc-name', '.minc-amt', '.mcat-name', '.mcat-bud',
                      '.mspend-date', '.mspend-cat', '.mspend-amt', '.mym b']
+# 工具子页（v91）：换算四格、对照表、真实年化、风险体检
+SELS_MONEY_TOOLS = ['.mrate-cell small', '.mrate-cell b', '.mtbl-row', '.mtbl-row.head',
+                    '.mapr b', '.mapr span', '.mrisk-body b', '.mrisk-body span']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
@@ -308,6 +311,9 @@ with sync_playwright() as p:
             pg.click('[data-act="subtab"][data-page="money"][data-tab="log"]')
             pg.wait_for_timeout(600)
             res += pg.evaluate(JS, SELS_MONEY_LOG)
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="tools"]')
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_MONEY_TOOLS)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             # v84：用药趋势和戒烟分析都藏在分段控件 / 折叠后面，取样前先点开，
@@ -349,7 +355,7 @@ print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样�
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
          + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG)
-         + len(SELS_MONEY_BUDGET), checked))
+         + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

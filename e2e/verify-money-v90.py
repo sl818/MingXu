@@ -108,7 +108,7 @@ with sync_playwright() as p:
 
     print('\n[1] 子页放出来了')
     tabs = pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
-    chk('预算已放出、工具还没放', '预算' in tabs and '工具' not in tabs, str(tabs))
+    chk('预算已放出（工具在 v91 也放出来了）', '预算' in tabs and '工具' in tabs, str(tabs))
     tab(pg, 'budget')
 
     print('\n[2] 空态')

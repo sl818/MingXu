@@ -536,9 +536,38 @@ h1,h2,h3,h4,p{margin:0}
   padding-top:11px;border-top:1px solid var(--line)}
 .msum span{font-size:11px;color:var(--text)}
 .msum b{font-size:14px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+/* 工具页（v91）：利率换算四格 + 对照表 + 风险体检 */
+.mrate-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 16px}
+.mrate-cell{display:flex;flex-direction:column;gap:3px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.mrate-cell small{font-size:10.5px;line-height:1.3;color:var(--text)}
+.mrate-cell b{font-size:15px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.mtbl{display:flex;flex-direction:column;margin-top:4px}
+.mtbl-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+  padding:8px 2px;border-bottom:1px solid var(--line);font-size:11.5px;
+  color:var(--text);font-variant-numeric:tabular-nums}
+.mtbl-row:last-child{border-bottom:0}
+.mtbl-row.head{font-size:10px;color:var(--muted);border-bottom-color:var(--line)}
+.mapr{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:12px 0 2px}
+.mapr b{font-size:30px;font-weight:650;letter-spacing:-.02em;color:var(--text);
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.mapr span{font-size:11.5px;color:var(--text)}
+.mrisk{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.mrisk:last-child{border-bottom:0}
+/* 圆点只是图形，不进对比度审计；文字一律 --text */
+.mrisk-dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;
+  background:var(--line-strong)}
+.mrisk-dot.warn{background:var(--bad)}
+.mrisk-body{min-width:0}
+.mrisk-body b{display:block;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px}
+.mrisk-body span{font-size:11px;line-height:1.55;color:var(--text)}
+@media (max-width:760px){
+  .mrate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (max-width:560px){
   .mbud-legend{grid-template-columns:1fr}
   .mdaily b{font-size:24px}
+  .mtbl-row{font-size:11px;gap:8px}
 }
 
 
@@ -3811,6 +3840,7 @@ body.modal-open{overflow:hidden}
 <div class="toast" id="toast"></div>
 <!-- 备份导入：隐藏的真实 file input，由 data-act="import-json" 触发点击 -->
 <input type="file" id="import-file" accept=".json,application/json" hidden>
+<input type="file" id="money-import-file" accept=".json,application/json" hidden>
 
 <script>
 (function () {
@@ -11146,7 +11176,7 @@ body.modal-open{overflow:hidden}
      ② 每笔各还最低还款（不超过余额）
      ③ 剩下的钱（加速钱 + 当月一次性多还）按策略顺序全砸第一笔，清掉后滚到下一笔
      最多算 360 个月。 */
-  function moneySimulate(strat, detail) {
+  function moneySimulate(strat, detail, override) {
     const live = moneyLive();
     const total = live.reduce(function (a, d) { return a + (Number(d.balance) || 0); }, 0);
     const res = {
@@ -11159,7 +11189,11 @@ body.modal-open{overflow:hidden}
     const apr = order.map(function (d) { return Math.max(0, Number(d.apr) || 0) / 100; });
     const min = order.map(function (d) { return Math.max(0, Number(d.min) || 0); });
     res.monthlyMin = Math.round(min.reduce(function (a, b) { return a + b; }, 0) * 100) / 100;
-    const extra = Math.max(0, Number(money().extra) || 0);
+    /* override 只在「工具页算不加速要还多久」时用：传 0 = 假设一分加速钱都没有。
+       不传就照旧读 state，现有调用一个都不用改。 */
+    const extra = override === undefined
+      ? Math.max(0, Number(money().extra) || 0)
+      : Math.max(0, Number(override) || 0);
     res.monthly = Math.round((res.monthlyMin + extra) * 100) / 100;
     const start = /^\d{4}-\d{2}$/.test(String(money().startYM || ''))
       ? money().startYM : ymAdd(ymNow(), 1);
@@ -11265,7 +11299,7 @@ body.modal-open{overflow:hidden}
     { key: 'budget', label: '预算' },
     { key: 'plan', label: '计划' },
     { key: 'log', label: '记录' },
-    { key: 'tools', label: '工具', v: 91 }
+    { key: 'tools', label: '工具' }
   ];
 
   function moneySubtitle() {
@@ -11920,13 +11954,209 @@ body.modal-open{overflow:hidden}
       : '已记还款 ¥' + real.toFixed(0));
   }
 
+  /* ---------- 工具（v91） ---------- */
+  /* 两个计算器都是「输入 → 点按钮算 → 结果显示在页面上」，
+     不做实时联动：全量重绘的页面里，input 事件一触发就重新渲染，焦点会丢。 */
+  let moneyRateApr = 18;
+  let moneyLoanTry = { cash: 10000, pay: 1000, n: 12 };
+
+  /* 月息几分：1 分 = 1% 月息，1 厘 = 0.1% */
+  function moneyRateWords(apr) {
+    const m = apr / 12;
+    if (!(m > 0)) return '0';
+    return m >= 1 ? (Math.round(m * 10) / 10) + ' 分' : (Math.round(m * 100) / 100 * 10) + ' 厘';
+  }
+
+  /* 真实年化：借 cash，每月还 pay，还 n 期。
+     二分求月利率让「未来还款的现值 = 到手金额」，再乘 12。
+     这比「利息 ÷ 本金」准得多——后者会把「先扣手续费」那种贷款算便宜一半。 */
+  function moneyAprOf(cash, pay, n) {
+    if (!(cash > 0) || !(pay > 0) || !(n > 0)) return 0;
+    if (pay * n <= cash) return 0;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      let pv = 0;
+      for (let k = 1; k <= n; k++) pv += pay / Math.pow(1 + mid, k);
+      if (pv > cash) lo = mid; else hi = mid;
+    }
+    return Math.round((lo + hi) / 2 * 1200 * 10) / 10;
+  }
+
+  function moneyRiskRows() {
+    const rows = [];
+    const live = moneyLive();
+    const sp = moneyBudgetSplit();
+    const sim = moneySimulate(money().strategy, false);
+    const noExtra = moneySimulate(money().strategy, false, 0);
+
+    const hi = live.filter(function (d) { return (Number(d.apr) || 0) >= 15; })
+      .sort(function (a, b) { return (Number(b.apr) || 0) - (Number(a.apr) || 0); });
+    if (hi.length) {
+      rows.push({ warn: true, t: hi.length + ' 笔债年化超过 15%',
+        d: '最高是「' + hi[0].name + '」' + (Number(hi[0].apr) || 0) + '%。' +
+           '同样的钱先砸最高息那笔（雪崩法），总利息最少。' });
+    } else if (live.length) {
+      rows.push({ warn: false, t: '没有高息债',
+        d: '所有债年化都在 15% 以下，先还哪笔差别不大，按雪球法图个痛快也行。' });
+    }
+
+    if (sp.debt > 0 && sp.income > 0) {
+      const pct = Math.round(sp.debt / sp.income * 100);
+      rows.push({ warn: pct > 40, t: '月供占收入 ' + pct + '%',
+        d: pct > 40
+          ? '超过 40% 了，日子会很紧。先看能不能把高息那笔换成低息的，' +
+            '或者把加速钱压一压换口气——撑不住的时候，少还一点比断了强。'
+          : '还在 40% 以内，属于能扛的范围。' });
+    }
+
+    if (live.length && (Number(money().extra) > 0) && noExtra.months > sim.months) {
+      rows.push({ warn: false,
+        t: '加速钱让你早 ' + (noExtra.months - sim.months) + ' 个月还完',
+        d: '只还最低要 ' + noExtra.months + ' 个月，现在每月多还 ¥' +
+           (Number(money().extra) || 0).toFixed(0) + '，' + sim.months + ' 个月就清了。' });
+    } else if (live.length && !(Number(money().extra) > 0)) {
+      rows.push({ warn: false, t: '还没设加速钱',
+        d: '加速钱是每月在最低还款之外多还的部分。哪怕只填 200，还清日都会明显提前。' });
+    }
+
+    if (sp.income > 0 && sp.rest < 0) {
+      rows.push({ warn: true, t: '每月缺口 ¥' + Math.abs(sp.rest).toFixed(0),
+        d: '固定开支 + 日常预算 + 月供已经超过收入。要么减预算，要么加收入，' +
+           '不然迟早要借新钱——以贷养贷是滚起来最快的那种。' });
+    } else if (sp.income > 0) {
+      rows.push({ warn: false, t: '每月还能剩 ¥' + sp.rest.toFixed(0),
+        d: '建议先留够 1 个月开销当应急金，剩下的再拿去加速还款。' });
+    }
+    return rows;
+  }
+
+  function moneyToolsView() {
+    const apr = moneyRateApr;
+    const mMonth = apr / 12;
+    const per10k = 10000 * mMonth / 100;
+    const ratePanel = '<div class="panel"><h3>利率换算 ' +
+      '<span class="muted-sm">（把「月息 1 分」「日息万五」换成同一种说法）</span></h3>' +
+      '<div class="mfield">' +
+        '<span>年化利率</span>' +
+        '<input id="money-apr" type="number" min="0" step="0.1" value="' + apr + '">' +
+        '<span>%</span>' +
+        '<button type="button" class="btn sm" data-act="money-rate-calc">换算</button>' +
+      '</div>' +
+      '<div class="mrate-grid">' +
+        '<div class="mrate-cell"><small>月息</small><b>' +
+          (Math.round(mMonth * 100) / 100) + '%</b></div>' +
+        '<div class="mrate-cell"><small>月息（几分利）</small><b>' +
+          moneyRateWords(apr) + '</b></div>' +
+        /* 日息「万分之几」：apr 是百分数，先除 100 变小数，再除 365，再乘 10000 —— 化简就是 apr/365*100。
+       第一次写成 apr/365*10000，借 1 万一年 18% 会显示「日息万 493」，差了整整 100 倍。 */
+        '<div class="mrate-cell"><small>日息</small><b>万 ' +
+          (Math.round(apr / 365 * 100 * 10) / 10) + '</b></div>' +
+        '<div class="mrate-cell"><small>借 1 万 · 每月利息</small><b>¥' +
+          per10k.toFixed(0) + '</b></div>' +
+      '</div>' +
+      '<div class="mtbl">' +
+        '<div class="mtbl-row head"><span>说法</span><span>折合年化</span><span>借 1 万每月</span></div>' +
+        [['月息 5 厘', 6], ['月息 1 分', 12], ['月息 1.5 分', 18],
+         ['月息 2 分', 24], ['日息万 5', 18.25]].map(function (x) {
+          return '<div class="mtbl-row"><span>' + x[0] + '</span><span>' + x[1] + '%</span>' +
+            '<span>¥' + (10000 * x[1] / 1200).toFixed(0) + '</span></div>';
+        }).join('') +
+      '</div>' +
+      '<p class="hint">同一笔钱，说法一换就看不出贵不贵了——' +
+      '「日息万五」听着少，年化是 18.25%。</p></div>';
+
+    const t = moneyLoanTry;
+    const real = moneyAprOf(t.cash, t.pay, t.n);
+    const totalPay = t.pay * t.n;
+    const interest = Math.max(0, totalPay - t.cash);
+    const loanPanel = '<div class="panel"><h3>这笔钱实际多贵 ' +
+      '<span class="muted-sm">（按「到手多少、每月还多少」反算年化）</span></h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>到手金额（元）</span>' +
+          '<input id="money-loan-cash" type="number" min="0" step="100" value="' + t.cash + '"></label>' +
+        '<label class="field"><span>每月还（元）</span>' +
+          '<input id="money-loan-pay" type="number" min="0" step="10" value="' + t.pay + '"></label>' +
+        '<label class="field"><span>还几期</span>' +
+          '<input id="money-loan-n" type="number" min="1" max="360" step="1" value="' + t.n + '"></label>' +
+      '</div>' +
+      /* 按钮不能塞进 .field：那个类里的控件是 width:100%，一进去就撑成整行宽 */
+      '<div class="btn-row" style="margin-top:10px">' +
+        '<button type="button" class="btn" data-act="money-loan-calc">算真实年化</button></div>' +
+      '<div class="mapr"><b>' + (real > 0 ? real + '%' : '0%') + '</b>' +
+        '<span>真实年化</span></div>' +
+      '<div class="msum"><span>总还款 <b>¥' + totalPay.toFixed(0) + '</b></span>' +
+        '<span>总利息 <b>¥' + interest.toFixed(0) + '</b></span>' +
+        '<span>本金 <b>¥' + Number(t.cash).toFixed(0) + '</b></span></div>' +
+      '<p class="hint">' + (real >= 24
+        ? '这个年化已经很高了——借 1 万一年要还 ' + Math.round(real) + '% 的利息，' +
+          '能换低息的就换，换不了就优先砸它。'
+        : (real > 0
+          ? '这是「分期还款」的真实成本，比「利息 ÷ 本金」算出来的高，因为本金在逐月变少。'
+          : '还款总额不高于到手金额，利息为 0 或数字不对，检查一下输入。')) + '</p></div>';
+
+    const risks = moneyRiskRows();
+    const riskPanel = '<div class="panel"><h3>风险体检 ' +
+      '<span class="muted-sm">（按你填的债和预算现算，不上传）</span></h3>' +
+      (risks.length ? risks.map(function (r) {
+        return '<div class="mrisk"><i class="mrisk-dot' + (r.warn ? ' warn' : '') + '"></i>' +
+          '<div class="mrisk-body"><b>' + esc(r.t) + '</b><span>' + esc(r.d) + '</span></div></div>';
+      }).join('') : '<div class="empty-box">先记一笔债，才有得体检。</div>') +
+      '<p class="hint">这只是帮你算账，不构成任何借贷或投资建议。</p></div>';
+
+    const backupPanel = '<div class="panel"><h3>清债备份</h3>' +
+      '<p class="muted-sm" style="margin-bottom:10px">清债数据跟着账号同步在云端。' +
+      '下面这两个按钮只管清债——不会带上打卡、用药、体重那些记录，' +
+      '换账号搬债务时用它们正好。整站备份在「设置 → 数据管理」里。</p>' +
+      '<div class="btn-row">' +
+        '<button type="button" class="btn" data-act="money-export">导出清债 JSON</button>' +
+        '<button type="button" class="btn" data-act="money-import">导入清债 JSON</button>' +
+      '</div>' +
+      '<p class="privacy-note">🔒 导出的文件里有债务名称、余额和每一笔消费，' +
+      '等于把家底写在纸上。别传公开网盘、群文件或聊天窗口。</p></div>';
+
+    return ratePanel + loanPanel + riskPanel + backupPanel;
+  }
+
+  function handleMoneyImport(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('导入失败：文件超过 5MB，不像是清债备份。'); return; }
+    const reader = new FileReader();
+    reader.onerror = () => alert('导入失败：文件读取出错，请重新选择。');
+    reader.onload = () => {
+      let data;
+      try {
+        data = JSON.parse(String(reader.result));
+      } catch (err) {
+        alert('导入失败：不是有效的 JSON 文件。');
+        return;
+      }
+      /* 两种都认：本站导出的 {money:{…}}，以及别的工具写的裸 money 对象 */
+      const raw = (data && typeof data === 'object' && data.money && typeof data.money === 'object')
+        ? data.money
+        : (data && typeof data === 'object' && Array.isArray(data.debts) ? data : null);
+      if (!raw) { alert('导入失败：文件里没有清债数据。'); return; }
+      if (!confirm('导入会替换当前全部清债数据（债 / 还款 / 收入 / 分类 / 开销），' +
+        '其他页面不受影响。继续？')) return;
+      state.money = normalizeMoney(raw);
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('清债数据已恢复');
+    };
+    reader.readAsText(file);
+  }
+
   function viewMoney() {
     const ready = MONEY_TABS.filter(function (t) { return !t.v; });
     const cur = subTabOf('money', ready);
     const body = cur === 'debts' ? moneyDebtsView()
       : (cur === 'plan' ? moneyPlanView()
         : (cur === 'log' ? moneyLogView()
-          : (cur === 'budget' ? moneyBudgetView() : moneyOverviewView())));
+          : (cur === 'budget' ? moneyBudgetView()
+            : (cur === 'tools' ? moneyToolsView() : moneyOverviewView()))));
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
         '<div class="head-actions">' +
           '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
@@ -13305,7 +13535,7 @@ body.modal-open{overflow:hidden}
     return '<div class="panel"><h3>数据管理</h3>' +
       '<p class="muted-sm" style="margin-bottom:4px">数据存在云端，服务器每天还会自动留一份快照（保留 30 天），所以不必天天手动导出。但建议偶尔导一次 JSON 存到自己电脑上——整个站点万一出问题，手里那份才是最后的保险。</p>' +
       '<p class="muted-sm" style="margin-bottom:4px">导入会<b>整体替换</b>当前数据，导入前先导出一份更稳妥。</p>' +
-      '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重和随笔原文，<b>等同于一份明文病历</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
+      '<p class="privacy-note">🔒 导出的 JSON 含你全部的打卡、用药、体重、随笔原文，以及清债里的<b>债务金额和每一笔消费</b>——<b>等同于一份明文病历加账本</b>。请只存在自己的电脑或加密盘里，不要上传到公开网盘、群文件或聊天窗口。</p>' +
       '<div class="btn-row">' +
         '<button class="btn" data-act="history-open">历史版本</button>' +
         '<button class="btn" data-act="export-json">导出备份 JSON</button>' +
@@ -16683,6 +16913,41 @@ body.modal-open{overflow:hidden}
       moneySpendYM = next;
       render();
     },
+    'money-rate-calc': () => {
+      const el = document.getElementById('money-apr');
+      if (!el) return;
+      const v = Number(el.value);
+      if (!isFinite(v) || v < 0) { toast('填个 0 以上的数'); return; }
+      moneyRateApr = Math.min(1000, v);
+      render();
+    },
+    'money-loan-calc': () => {
+      const read = function (id, dft) {
+        const el = document.getElementById(id);
+        const v = el ? Number(el.value) : NaN;
+        return isFinite(v) && v > 0 ? v : dft;
+      };
+      moneyLoanTry = {
+        cash: read('money-loan-cash', 10000),
+        pay: read('money-loan-pay', 1000),
+        n: Math.min(360, Math.round(read('money-loan-n', 12)))
+      };
+      render();
+    },
+    'money-export': () => {
+      const stamp = todayStr().replace(/-/g, '');
+      download('清债备份-' + stamp + '.json', JSON.stringify({
+        app: 'wanfeng-todo-money', v: 1,
+        exportedAt: new Date().toISOString(),
+        money: normalizeMoney(money())
+      }, null, 2));
+      toast('已导出清债备份 · 含金额，勿传公开链接');
+    },
+    'money-import': () => {
+      const input = document.getElementById('money-import-file');
+      if (!input) { toast('导入组件未就绪，请刷新页面'); return; }
+      input.click();
+    },
     'money-debt-edit': el => {
       const d = moneyList('debts').filter(function (x) { return x.id === el.dataset.id; })[0];
       if (d) moneyDebtModal(d);
@@ -16921,6 +17186,8 @@ body.modal-open{overflow:hidden}
 
   const importFile = document.getElementById('import-file');
   if (importFile) importFile.addEventListener('change', handleImport);
+  const moneyImportFile = document.getElementById('money-import-file');
+  if (moneyImportFile) moneyImportFile.addEventListener('change', handleMoneyImport);
 
   window.addEventListener('online', () => {
     if (cloud.pending && cloud.user && !cloud.pushing) cloudPush(false);
