@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v91（2026-11-15）
+最后更新：v92（2026-11-15）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v91（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v91'`） |
+| 代码版本 | v92（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v92'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -112,6 +112,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v89 | 11-15 | 清债第二版：**计划**（加速钱 / 三策略切换与自定义排序 / 三办法对比表 / 逐月还款表 / 一次性多还）+ **记录**（记还款、超额按余额算、撤销）。`moneySimulate(strat, detail)` 多了逐月明细，只在计划页按需算。**坑：函数里 `const money = ...` 会把 `money()` 遮蔽，前面调用直接 TDZ**；`.mstart span` 用 `--muted` 在 4.0–4.36 不达标。新增 `verify-money-v89` 24 项。回滚点 tag `money-v89` |
 | v90 | 11-15 | 清债第三版：**预算**（钱怎么分四段堆叠条 / 今天还能花 / 收入明细 / 分类预算固定·日常 / 开销流水带翻月）+ **开销记账**。「每日可花」只摊日常类，`(日常预算 − 本月已花) ÷ 本月剩余天数`，固定开支不参与摊；删分类不删流水（`catName` 留快照，找不到分类的按日常计）。流水只渲染当月，历史翻月看。新增 `verify-money-v90` 29 项。回滚点 tag `money-v90` |
 | v91 | 11-15 | 清债第四版：**工具**（利率换算四格 + 常用对照表 / 「到手多少、每月还多少」反算真实年化 `moneyAprOf` 二分 IRR / 风险体检四条）+ **清债专属 JSON 导出导入**（只含 `state.money`，跨账号搬债务不带健康数据；也认裸 money 对象）。`moneySimulate(strat, detail, override)` 多了第三参，只给「不加速要还多久」用。**坑：日息「万分之几」写成 `apr/365*10000`，18% 显示成「万 493」，差 100 倍**（正确是 `apr/365*100`）。**坑：按钮塞进 `.field` 会撑成整行宽**（那个类里控件是 width:100%）。文案：数据管理页隐私提示补上债务金额与消费。新增 `verify-money-v91` 33 项。回滚点 tag `money-v91` |
+| v92 | 11-15 | 清债第五版（收尾）：**还款日进日历**（月视图格子里一个「还款」标签、周视图全天行 `💳 债名`，`dayDebts()` 小月按月末）+ **企微提醒**（`lb_schedule_debts()`，开关默认关，档位 3/1/0，时刻可改）+ **ics 订阅**（前端 `buildICS` 与 `api/ics.php` 两处同步，跟同一个 `money.notify.on` 开关）。还款日**只展示，不写 task/check**，所以不进任何完成率。**修了一个真 bug：`api/ics.php` 从「今天」起算，今天是 25 号、还款日 31 号时会一步跳到下个月，把本月还剩的那次还款整个吞掉**——改成从本月 1 号起算、用 `first day of next month` 推进（`+1 month` 遇 31 号会溢出）。`verify-ics-subscribe` 补清债样例后立刻抓到这个前后端不一致，另修了脚本里 `php81` 的死路径与「订阅面板在配置页」的旧位置。新增 `verify-money-v92` 23 项、日程单测 +24 条、日历单测 +11 条。回滚点 tag `money-v92` |
 
 ### 两次值得记住的事故
 

@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v91（2026-11-15）
+最后更新：v92（2026-11-15）
 
 ---
 
@@ -412,7 +412,7 @@ money: {
   incomes:    [{ id, name, amount, u }],
   cats:       [{ id, name, kind:'fixed'|'daily', budget, u }],
   spends:     [{ id, date, catId, catName, amount, note, u }],
-  notify:     { on:false, before:[3,1,0], time:'09:00' }   // v92 才用
+  notify:     { on:false, before:[3,1,0], time:'09:00' }   // v92 起生效，默认关
 }
 moneyAt: 1763000000000
 ```

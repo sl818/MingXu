@@ -411,6 +411,64 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         $count++;
     }
 
+    /* ---- 还款日：每月固定一天，跟着 money.notify.on 走 ----
+       开关关着就不进订阅，跟企微提醒用同一个开关（用户要求「提醒非强制」）。
+       前端 buildICS 里那段必须跟这里逐条对齐，否则「下载的日历有、
+       订阅的没有」这种怪事就会发生。
+
+       已知限制：RRULE 用 BYMONTHDAY=due，29/30/31 号在小月不会产生实例
+       （iCalendar 规范如此）。页面日历和企微提醒走的是「小月按月末」，
+       两者在 2 月会有出入。还款日设在 28 号以内就完全没这个问题。 */
+    $money = isset($state['money']) && is_array($state['money']) ? $state['money'] : [];
+    $mnt = isset($money['notify']) && is_array($money['notify']) ? $money['notify'] : [];
+    if (($mnt['on'] ?? false) === true) {
+        [$nh, $nm] = lb_ics_clock((string)($mnt['time'] ?? ''), '09:00');
+        $debts = isset($money['debts']) && is_array($money['debts']) ? $money['debts'] : [];
+        foreach ($debts as $d) {
+            if (!is_array($d)) {
+                continue;
+            }
+            $bal = (float)($d['balance'] ?? 0);
+            if ($bal <= 0.005) {
+                continue;   // 已还清的债不该还挂在日历上
+            }
+            $due = max(1, min(31, (int)($d['due'] ?? 1)));
+            /* **从本月 1 号起算**，不能从「今天」起算 ——
+               今天是 25 号、还款日 31 号时，从今天起算会一步推到下个月，
+               把本月还剩的那次还款整个跳过（前端 buildICS 是从 1 号起的，
+               两边一对就露馅，verify-ics-subscribe 就是干这个的）。 */
+            $start = $todayDate->setDate(
+                (int)$todayDate->format('Y'), (int)$todayDate->format('n'), 1
+            )->setTime($nh, $nm);
+            $start = $start->setDate(
+                (int)$start->format('Y'), (int)$start->format('n'),
+                min($due, (int)$start->format('t'))
+            )->setTime($nh, $nm);
+            $guard = 0;
+            while ($start <= $now && $guard < 40) {
+                /* 用 first day of next month 推进：直接 +1 month 遇到 31 号
+                   会溢出（10-31 +1 month = 12-01），月份就跳过去了。 */
+                $start = $start->modify('first day of next month')->setTime($nh, $nm);
+                $start = $start->setDate(
+                    (int)$start->format('Y'), (int)$start->format('n'),
+                    min($due, (int)$start->format('t'))
+                )->setTime($nh, $nm);
+                $guard++;
+            }
+            $note = '还剩 ¥' . number_format($bal, 0, '.', '')
+                . ' · 最低 ¥' . number_format((float)($d['min'] ?? 0), 0, '.', '')
+                . ' · 年化 ' . (int)($d['apr'] ?? 0) . '%';
+            $out[] = lb_ics_event(
+                'debt-' . (string)($d['id'] ?? ''),
+                $start, $start->modify('+15 minutes'),
+                '💳 还款 · ' . (string)($d['name'] ?? '债务'),
+                $note,
+                'FREQ=MONTHLY;BYMONTHDAY=' . $due
+            );
+            $count++;
+        }
+    }
+
     $out[] = 'END:VCALENDAR';
     return ['text' => implode("\r\n", $out) . "\r\n", 'count' => $count];
 }

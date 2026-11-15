@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v91（2026-11-15）
+最后更新：v92（2026-11-15）
 
 ---
 
@@ -464,4 +464,21 @@ $plan = array_merge(
 - 天数用 `round` 不用 `floor`：跨夏令时的日子是 23/25 小时，`floor` 会把「还有 1 天」算成 0。
 - 同样**不能并进 `lb_schedule_day`**，否则日历订阅里会冒出倒数日条目
   （`test-schedule.php` 有专门一条锁它）。
-- `push.php` 的 `lb_push_tick_run` 现在是四路 merge：day / reports / notices / countdowns。
+- `push.php` 的 `lb_push_tick_run` 现在是**五路 merge**：day / reports / notices / countdowns / debts。
+
+### 还款提醒（v92）
+
+`api/schedule.php` 的 `lb_schedule_debts($state, $date)`：遍历 `money.debts`，按 `due`（每月几号）
+算「距下次还款还有几天」，落在 `money.notify.before` 里才返回。
+
+- **开关默认关**：`money.notify.on !== true` 时整段返回空。用户明确要求「提醒非强制」。
+- `kind='debt'`，`title='💳 还款 · 债名'`，`body` 带「还有 N 天 · 日期 · 还剩 · 最低」。
+- 余额为 0 的债跳过：已还清的还在提醒是噪音。
+- 小月按月末（`min(due, date('t'))`），跟前端 `dayDebts()`、`api/ics.php` 同一口径。
+- 同样**不能并进 `lb_schedule_day`**，否则关掉提醒的人订阅里依然有还款条目。
+
+`api/ics.php` 里还款日的事件**跟着同一个开关**：关了就不进订阅。
+**起算日必须是本月 1 号**——从「今天」起算的话，25 号看 31 号的还款会一步推到下个月。
+推进用 `first day of next month`，`+1 month` 遇 31 号会溢出到再下个月。
+已知限制：`RRULE;BYMONTHDAY=29/30/31` 在不存在该日的小月不产生实例（iCalendar 规范），
+页面日历和企微提醒走的是「按月末」，2 月会有出入；还款日设在 28 号以内没这个问题。

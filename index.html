@@ -561,6 +561,20 @@ h1,h2,h3,h4,p{margin:0}
 .mrisk-body{min-width:0}
 .mrisk-body b{display:block;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:3px}
 .mrisk-body span{font-size:11px;line-height:1.55;color:var(--text)}
+/* 还款日进日历（v92）：格子里的标记 + 周视图全天行的小条 */
+.cal-debts{display:flex;flex-wrap:wrap;gap:3px;z-index:1;margin:0 0 2px}
+.cal-debt{font-style:normal;font-size:9px;line-height:1.5;padding:0 5px;border-radius:4px;
+  border:1px solid var(--line-strong);background:var(--surface);
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-ad-debt{display:inline-flex;align-items:center;max-width:100%;
+  font-size:10px;line-height:1.5;padding:1px 5px;border-radius:5px;
+  border:1px dashed var(--line-strong);color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:560px){
+  /* 手机格子放不下「还款」两个字，缩成一个点；完整信息在 title 里 */
+  .cal-debt{font-size:0;width:5px;height:5px;padding:0;border:0;border-radius:50%;
+    background:var(--accent)}
+}
 @media (max-width:760px){
   .mrate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -9751,7 +9765,11 @@ body.modal-open{overflow:hidden}
       const list = day.data.allday;
       const shown = list.slice(0, 2);
       const rest = list.length - shown.length;
+      const db = dayDebts(day.date);
       allday += '<div class="wk-ad-cell">' +
+        db.map(d => '<span class="wk-ad-debt" title="还款 · ' + esc(d.name) +
+          ' · 剩 ¥' + (Number(d.balance) || 0).toFixed(0) + '">💳 ' +
+          esc(String(d.name).slice(0, 5)) + '</span>').join('') +
         shown.map(t => '<button class="wk-ad-item" data-act="wk-open" data-date="' + day.date +
           '" data-kind="task" data-start="-1" title="' + esc(t.title) + '">' + esc(t.title) + '</button>').join('') +
         (rest > 0 ? '<span class="wk-ad-more">+' + rest + '</span>' : '') +
@@ -9875,6 +9893,13 @@ body.modal-open{overflow:hidden}
       const moodKey = (state.moods && state.moods[ds]) || '';
       const moodInfo = MOOD_MAP[moodKey];
       const wr = wmap[ds];
+      /* 还款日：硬日子，排在待办上面。只展示，**不写进 tasks / checks** ——
+         一旦变成待办就会混进完成率，而清债是不参与考核的。 */
+      const db = dayDebts(ds);
+      const dbHtml = db.length
+        ? '<span class="cal-debts"><i class="cal-debt">还款' +
+            (db.length > 1 ? '×' + db.length : '') + '</i></span>'
+        : '';
       /* 待办：桌面显示最多 2 条标题，手机上 CSS 换成「N 项」 */
       const dt = dayTasks(ds);
       const dtShown = dt.slice(0, 2);
@@ -9893,9 +9918,12 @@ body.modal-open{overflow:hidden}
         ' title="' + ds + ' · 完成 ' + st.done + '/' + st.total + (rec ? '' : '（无记录）') +
           (moodInfo ? ' · 心情：' + moodInfo.label : '') +
           (wr ? ' · 体重 ' + wr.weight + ' kg · BMI ' + wr.bmi : '') +
-          (dt.length ? ' · 待办 ' + dt.length + ' 项：' + dt.map(x => x.title).join('、') : '') + '">' +
+          (dt.length ? ' · 待办 ' + dt.length + ' 项：' + dt.map(x => x.title).join('、') : '') +
+          (db.length ? ' · 还款：' + db.map(x => x.name + ' 剩 ¥' + (Number(x.balance) || 0).toFixed(0)).join('、') : '') +
+          '">' +
         '<span class="cal-fill"></span>' +
         '<span class="cal-num">' + day + '</span>' +
+        dbHtml +
         dtHtml +
         '<span class="cal-foot">' +
           (wr ? '<span class="cal-weight-dot" title="体重 ' + wr.weight + ' kg · BMI ' + wr.bmi + '"></span>' : '') +
@@ -11030,6 +11058,20 @@ body.modal-open{overflow:hidden}
   function moneyLive() {
     return moneyList('debts').filter(function (d) { return Number(d.balance) > 0.005; });
   }
+  /* 某天是不是还款日。debts[].due 是「每月几号」，小月按月末算 ——
+     跟后端 lb_schedule_debts、api/ics.php 必须同一口径，否则日历、订阅、
+     企微提醒三处会对不上。 */
+  function dayDebts(ds) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ds || ''))) return [];
+    const d = parseD(ds);
+    const dom = d.getDate();
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return moneyLive().filter(function (x) {
+      const due = Math.min(31, Math.max(1, Math.round(Number(x.due) || 1)));
+      return Math.min(due, last) === dom;
+    });
+  }
+
   function moneyTotals() {
     let start = 0, left = 0;
     moneyList('debts').forEach(function (d) {
@@ -12104,6 +12146,31 @@ body.modal-open{overflow:hidden}
       }).join('') : '<div class="empty-box">先记一笔债，才有得体检。</div>') +
       '<p class="hint">这只是帮你算账，不构成任何借贷或投资建议。</p></div>';
 
+    const nt = (money().notify && typeof money().notify === 'object')
+      ? money().notify : { on: false, before: [3, 1, 0], time: '09:00' };
+    const before = Array.isArray(nt.before) ? nt.before : [3, 1, 0];
+    const notifyPanel = '<div class="panel"><h3>还款提醒 ' +
+      '<span class="muted-sm">（默认关闭；开了才会推企微、也才进日历订阅）</span></h3>' +
+      '<div class="mfield"><span>状态</span>' +
+        '<button type="button" class="btn sm' + (nt.on ? ' primary' : '') +
+          '" data-act="money-notify-toggle">' + (nt.on ? '已开启' : '已关闭') + '</button>' +
+        '<span class="mfield-sub">' + (nt.on ? '到点推企业微信' : '不会推送任何消息') + '</span>' +
+      '</div>' +
+      '<div class="mfield" style="margin-top:10px"><span>提前提醒</span>' +
+        '<span class="stab">' + [3, 1, 0].map(function (d) {
+          return '<button type="button" class="' + (before.indexOf(d) >= 0 ? 'on' : '') +
+            '" data-act="money-notify-day" data-day="' + d + '">' +
+            (d === 0 ? '当天' : '提前 ' + d + ' 天') + '</button>';
+        }).join('') + '</span>' +
+      '</div>' +
+      '<div class="mfield" style="margin-top:10px"><span>推送时刻</span>' +
+        '<input id="money-notify-time" type="time" value="' + esc(nt.time || '09:00') + '">' +
+        '<button type="button" class="btn sm" data-act="money-notify-save">保存</button>' +
+      '</div>' +
+      '<p class="hint">还款日只会标在日历上，<b>不会变成待办</b>，所以不参与任何完成率计算。' +
+      (nt.on ? '<br>推送走「配置 → 企业微信推送」里那个机器人，没配过先去配。' : '') +
+      (moneyLive().length ? '' : '<br>目前还没有未还清的债，开了也不会响。') + '</p></div>';
+
     const backupPanel = '<div class="panel"><h3>清债备份</h3>' +
       '<p class="muted-sm" style="margin-bottom:10px">清债数据跟着账号同步在云端。' +
       '下面这两个按钮只管清债——不会带上打卡、用药、体重那些记录，' +
@@ -12115,7 +12182,7 @@ body.modal-open{overflow:hidden}
       '<p class="privacy-note">🔒 导出的文件里有债务名称、余额和每一笔消费，' +
       '等于把家底写在纸上。别传公开网盘、群文件或聊天窗口。</p></div>';
 
-    return ratePanel + loanPanel + riskPanel + backupPanel;
+    return ratePanel + loanPanel + riskPanel + notifyPanel + backupPanel;
   }
 
   function handleMoneyImport(e) {
@@ -15799,6 +15866,38 @@ body.modal-open{overflow:hidden}
       count++;
     });
 
+    /* 还款日：每月固定一天，跟着 money.notify.on 走。
+       **必须和 api/ics.php 里那段完全一致** —— 前端导出文件和订阅地址
+       是两条路，一处口径不同就会出现「下载的日历有、订阅的没有」。
+
+       due 是「每月几号」：超出当月天数时按月末（31 号在 2 月就是 28/29 号），
+       跟后端 lb_schedule_debts 用同一个兜底。 */
+    const mnt = (state.money && state.money.notify && typeof state.money.notify === 'object')
+      ? state.money.notify : null;
+    if (mnt && mnt.on) {
+      const [nh, nm] = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(mnt.time || ''))
+        ? String(mnt.time).split(':').map(Number) : [9, 0];
+      (Array.isArray(state.money.debts) ? state.money.debts : []).forEach(d => {
+        if (!d || !(Number(d.balance) > 0.005)) return;
+        const due = Math.min(31, Math.max(1, Math.round(Number(d.due) || 1)));
+        /* 从本月开始找第一个「今天之后」的还款日 */
+        let start = new Date(now.getFullYear(), now.getMonth(), 1, nh, nm);
+        start = new Date(start.getFullYear(), start.getMonth(),
+          Math.min(due, new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()), nh, nm);
+        let guard = 0;
+        while (start <= now && guard < 40) {
+          const ny = start.getFullYear(), nmo = start.getMonth() + 1;
+          start = new Date(ny, nmo, Math.min(due, new Date(ny, nmo + 1, 0).getDate()), nh, nm);
+          guard++;
+        }
+        const note = '还剩 ¥' + (Number(d.balance) || 0).toFixed(0) +
+          ' · 最低 ¥' + (Number(d.min) || 0).toFixed(0) + ' · 年化 ' + (Number(d.apr) || 0) + '%';
+        out.push(icsEvent('debt-' + d.id, start, new Date(start.getTime() + 15 * 60000),
+          '💳 还款 · ' + String(d.name || '债务'), note, 'FREQ=MONTHLY;BYMONTHDAY=' + due));
+        count++;
+      });
+    }
+
     out.push('END:VCALENDAR');
     return { text: out.join('\r\n') + '\r\n', count: count };
   }
@@ -16933,6 +17032,43 @@ body.modal-open{overflow:hidden}
         n: Math.min(360, Math.round(read('money-loan-n', 12)))
       };
       render();
+    },
+    'money-notify-toggle': () => {
+      const m = normalizeMoney(money());
+      m.notify.on = !m.notify.on;
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast(m.notify.on ? '还款提醒已开启' : '还款提醒已关闭');
+    },
+    'money-notify-day': el => {
+      const day = Math.max(0, Math.min(30, Math.round(Number(el.dataset.day) || 0)));
+      const m = normalizeMoney(money());
+      const cur = Array.isArray(m.notify.before) ? m.notify.before.slice() : [];
+      const i = cur.indexOf(day);
+      if (i >= 0) {
+        /* 一档都不留就没提醒了，留最后一档 */
+        if (cur.length === 1) { toast('至少留一个提醒档位'); return; }
+        cur.splice(i, 1);
+      } else {
+        cur.push(day);
+      }
+      m.notify.before = cur.sort(function (a, b) { return b - a; }).slice(0, 5);
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+    },
+    'money-notify-save': () => {
+      const el = document.getElementById('money-notify-time');
+      if (!el) return;
+      const t = String(el.value || '').trim();
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) { toast('时刻格式不对'); return; }
+      const m = normalizeMoney(money());
+      m.notify.time = t;
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('提醒时刻：每天 ' + t);
     },
     'money-export': () => {
       const stamp = todayStr().replace(/-/g, '');

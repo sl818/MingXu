@@ -5,7 +5,7 @@
 而「响应头对不对」「HEAD 能不能用」「订阅请求会不会留下垃圾 session 文件」
 这些问题只有真发一次请求才看得见。小米日历加不上订阅就是死在这一层。
 
-依赖：tempfile/php81/php.exe（pdo_sqlite 扩展）。没有就跳过并说明。
+依赖：tempfile/php82（或 php81）/php.exe（pdo_sqlite 扩展）。没有就跳过并说明。
 
 用法：python e2e/verify-api-http.py
 """
@@ -22,7 +22,10 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PHP = os.path.join(tempfile.gettempdir(), 'php81', 'php.exe')
+# 本机 PHP 版本随环境变，先找 php82 再退回 php81
+PHP = os.path.join(tempfile.gettempdir(), 'php82', 'php.exe')
+if not os.path.exists(PHP):
+    PHP = os.path.join(tempfile.gettempdir(), 'php81', 'php.exe')
 SITE = os.path.join(tempfile.gettempdir(), 'lb-http-test')
 TOKEN = 'a' * 64
 PORT = 8917

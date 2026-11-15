@@ -80,8 +80,9 @@ board['data']['money'] = {
     'debts': [
         {'id': 'md1', 'name': '信用卡A', 'type': 'card', 'balance': 38000, 'start': 45000,
          'apr': 18, 'min': 1900, 'due': 5, 'note': '', 'clearedAt': '', 'u': 1},
+        # due=25 对齐审计时钟的「今天」，否则日历里取不到 .cal-debt / .wk-ad-debt
         {'id': 'md2', 'name': '亲友', 'type': 'friend', 'balance': 20000, 'start': 20000,
-         'apr': 0, 'min': 500, 'due': 1, 'note': '', 'clearedAt': '', 'u': 1},
+         'apr': 0, 'min': 500, 'due': 25, 'note': '', 'clearedAt': '', 'u': 1},
     ],
     'extra': 1000, 'strategy': 'snowball', 'customOrder': [],
     'snowflakes': [{'id': 'sf1', 'ym': '2026-12', 'amount': 5000, 'note': '年终奖', 'u': 1}],
@@ -186,11 +187,13 @@ SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
               '.ts-rate span b', '.ts-note']
 # 日历：月视图格子里的待办、底部三卡
 SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3',
+                  '.cal-debt',
                   # 倒数日右栏（v76）：大数字、单位、标题、日期、备注、分组标题
                   '.cd-num b', '.cd-num i', '.cd-main b', '.cd-main small', '.cd-main em',
                   '.cd-group', '.cd-item.past .cd-main b']
 # 日历：周视图时间线
-SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend']
+SELS_CAL_WEEK = ['.wk-wd', '.wk-num', '.wk-hour', '.wk-ev b', '.wk-ad-item', '.wk-legend',
+                 '.wk-ad-debt']
 # 戒烟常驻卡（v50）：两个按钮、状态字、数据行、里程碑、今日记录
 # .cl-item 的底色是 rgba 浅红/浅绿，文字一律 --text，不单独取样
 # 时间轴和里程碑进度条都换成了 20 支格子，格子是纯色块没有文字，

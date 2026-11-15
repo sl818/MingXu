@@ -230,6 +230,57 @@ chk('折行后拼回原文（去掉续行空格和转义）', (function () use (
     return strpos($joined, $long) !== false || strpos(str_replace('\\,', ',', $joined), $long) !== false;
 })());
 
+/* ------------------------------------------------------------------ */
+echo "[9] 还款日进订阅" . PHP_EOL;
+
+$debtState = static function (array $over = [], array $nt = []): array {
+    return ['money' => [
+        'notify' => array_merge(['on' => true, 'time' => '09:00', 'before' => [3, 1, 0]], $nt),
+        'debts' => [array_merge([
+            'id' => 'd1', 'name' => '信用卡A', 'type' => 'card', 'balance' => 38000,
+            'start' => 45000, 'apr' => 18, 'min' => 1900, 'due' => 5, 'note' => '',
+        ], $over)],
+    ]];
+};
+
+$built = lb_ics_build($debtState(), $now);
+chk('开关开着才有还款日', strpos($built['text'], '还款') !== false, (string)$built['count']);
+chk('UID 带 debt- 前缀', strpos($built['text'], 'UID:debt-d1@') !== false);
+chk('RRULE 是每月 5 号', strpos($built['text'], 'FREQ=MONTHLY;BYMONTHDAY=5') !== false);
+chk('描述里有剩余和最低', strpos($built['text'], '38000') !== false
+    && strpos($built['text'], '1900') !== false);
+
+$off = lb_ics_build($debtState([], ['on' => false]), $now);
+chk('开关关着不进订阅', strpos($off['text'], 'UID:debt-d1@') === false, (string)$off['count']);
+
+$none = lb_ics_build(['money' => ['debts' => [['id' => 'd1', 'name' => 'X', 'balance' => 100, 'due' => 5]]]], $now);
+chk('没有 notify 字段时不进订阅', strpos($none['text'], 'UID:debt-d1@') === false);
+
+$paid = lb_ics_build($debtState(['balance' => 0]), $now);
+chk('已还清的不进订阅', strpos($paid['text'], 'UID:debt-d1@') === false);
+
+$nine = lb_ics_build($debtState([], ['time' => '21:30']), $now);
+chk('用提醒时刻 21:30', strpos($nine['text'], 'T213000') !== false,
+    substr($nine['text'], (int)strpos($nine['text'], 'DTSTART'), 60));
+chk('从下一个还款日开始（11-05）',
+    strpos($nine['text'], 'DTSTART;TZID=Asia/Shanghai:20261105T213000') !== false,
+    substr($nine['text'], (int)strpos($nine['text'], 'DTSTART'), 60));
+
+/* 10 月有 31 号、今天才 25 号 → 下次就是**本月**的 10-31，不能推到下个月。
+   这条曾经是错的：从「今天」起算的话，10-25 已经过点，一步就跳到 11-30，
+   把本月还剩的那次还款整个吞掉。 */
+$m31 = lb_ics_build($debtState(['due' => 31], ['time' => '09:00']), $now);
+chk('本月还款日还没到就排在本月（10-31）',
+    strpos($m31['text'], 'DTSTART;TZID=Asia/Shanghai:20261031T090000') !== false,
+    substr($m31['text'], (int)strpos($m31['text'], 'DTSTART'), 60));
+
+/* 换到 11 月：11 月只有 30 天，31 号要落到月末 */
+$nov = new DateTimeImmutable('2026-11-25 10:00:00', $tz);
+$m31b = lb_ics_build($debtState(['due' => 31], ['time' => '09:00']), $nov);
+chk('31 号在 11 月落到 30 号',
+    strpos($m31b['text'], 'DTSTART;TZID=Asia/Shanghai:20261130T090000') !== false,
+    substr($m31b['text'], (int)strpos($m31b['text'], 'DTSTART'), 60));
+
 echo "\n" . str_repeat('=', 46) . "\n";
 echo 'PASS ' . $pass . ' / ' . ($pass + count($fails)) . "\n";
 if ($fails) {

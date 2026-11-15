@@ -18,7 +18,10 @@ import tempfile
 from icalendar import Calendar
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PHP = os.path.join(tempfile.gettempdir(), 'php81', 'php.exe')
+# 本机 PHP 版本随环境变，先找 php82 再退回 php81
+PHP = os.path.join(tempfile.gettempdir(), 'php82', 'php.exe')
+if not os.path.exists(PHP):
+    PHP = os.path.join(tempfile.gettempdir(), 'php81', 'php.exe')
 NOW = '2026-10-25 10:00:00'
 TMP = tempfile.gettempdir()
 
@@ -92,6 +95,19 @@ STATE = {
     ],
     'checks': {}, 'notes': {}, 'moods': {}, 'events': [], 'doses': {},
     'bodyProfile': {'age': 30, 'height': 170}, 'weights': [], 'essays': [],
+    # v92 还款日：开关开着才进订阅。两笔债一个在 31 号（小月要落到月末），
+    # 一个已还清（不该出现在任何日历里）
+    'money': {
+        'notify': {'on': True, 'time': '09:00', 'before': [3, 1, 0]},
+        'debts': [
+            {'id': 'd1', 'name': '信用卡A', 'type': 'card', 'balance': 38000,
+             'start': 45000, 'apr': 18, 'min': 1900, 'due': 5, 'note': ''},
+            {'id': 'd2', 'name': '月末那笔', 'type': 'loan', 'balance': 12000,
+             'start': 12000, 'apr': 12, 'min': 800, 'due': 31, 'note': ''},
+            {'id': 'd3', 'name': '已还清', 'type': 'friend', 'balance': 0,
+             'start': 5000, 'apr': 0, 'min': 0, 'due': 20, 'note': ''},
+        ],
+    },
 }
 
 # ---------- A. PHP 生成 ----------
@@ -132,7 +148,8 @@ with sync_playwright() as p:
     pg.fill('input[name="password"]', 'test@sl00.top')
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
-    nav(pg, 'settings')
+    # 日历订阅面板在「配置」页（v71 起从设置页搬过去），不是「设置」页
+    nav(pg, 'config')
     pg.wait_for_timeout(500)
     pg.locator('[data-act="ics-export"]').click()
     pg.wait_for_timeout(800)

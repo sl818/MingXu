@@ -413,6 +413,84 @@ foreach ($dayPlan2 as $x) {
 }
 chk('倒数日不进日历订阅（lb_schedule_day 不含 countdown）', $cdInDay === 0);
 
+/* ------------------------------------------------------------------ */
+echo '[6] 还款提醒' . PHP_EOL;
+
+$dbtOf = static function (array $debts, string $date, array $nt = []): array {
+    return lb_schedule_debts(['money' => [
+        'notify' => array_merge(['on' => true, 'time' => '09:00', 'before' => [3, 1, 0]], $nt),
+        'debts' => $debts,
+    ]], $date);
+};
+$db = static function (array $over) {
+    return array_merge([
+        'id' => 'dd1', 'name' => '信用卡A', 'balance' => 38000, 'min' => 1900,
+        'apr' => 18, 'due' => 15, 'type' => 'card',
+    ], $over);
+};
+
+/* 今天锚点 2026-11-10，还款日 15 号 */
+chk('距还款还有 5 天，档位 [3,1,0] 不发', count($dbtOf([$db([])], '2026-11-10')) === 0);
+chk('提前 3 天发', count($dbtOf([$db([])], '2026-11-12')) === 1);
+chk('提前 1 天发', count($dbtOf([$db([])], '2026-11-14')) === 1);
+chk('当天发', count($dbtOf([$db([])], '2026-11-15')) === 1);
+
+$one = $dbtOf([$db([])], '2026-11-12')[0] ?? [];
+chk('kind 是 debt', ($one['kind'] ?? '') === 'debt', json_encode($one, JSON_UNESCAPED_UNICODE));
+chk('标题带债名', strpos((string)($one['title'] ?? ''), '信用卡A') !== false, (string)($one['title'] ?? ''));
+chk('正文写还有几天', strpos((string)($one['body'] ?? ''), '还有 3 天') !== false, (string)($one['body'] ?? ''));
+chk('正文带日期', strpos((string)($one['body'] ?? ''), '2026-11-15') !== false, (string)($one['body'] ?? ''));
+chk('正文带剩余与最低', strpos((string)($one['body'] ?? ''), '38000') !== false
+    && strpos((string)($one['body'] ?? ''), '1900') !== false, (string)($one['body'] ?? ''));
+
+$todayOne = $dbtOf([$db([])], '2026-11-15')[0] ?? [];
+chk('当天文案是「就是今天」',
+    strpos((string)($todayOne['body'] ?? ''), '就是今天') !== false,
+    (string)($todayOne['body'] ?? ''));
+
+/* 跨月：11-16 之后本月还款日已过，指向 12-15 */
+chk('本月已过 → 下月还有 29 天，不发', count($dbtOf([$db([])], '2026-11-16')) === 0);
+chk('跨月提前 3 天照常发', count($dbtOf([$db([])], '2026-12-12')) === 1);
+$cross = $dbtOf([$db([])], '2026-12-12')[0] ?? [];
+chk('跨月正文日期是下月那天',
+    strpos((string)($cross['body'] ?? ''), '2026-12-15') !== false, (string)($cross['body'] ?? ''));
+
+/* 开关默认关 */
+chk('开关关着一条都不发', count($dbtOf([$db([])], '2026-11-12', ['on' => false])) === 0);
+chk('开关字段缺失也当关',
+    count(lb_schedule_debts(['money' => ['debts' => [$db([])]]], '2026-11-12')) === 0);
+chk('没有 money 字段不报错',
+    count(lb_schedule_debts(['money' => []], '2026-11-12')) === 0);
+
+/* 边界 */
+chk('已还清（余额 0）不发', count($dbtOf([$db(['balance' => 0])], '2026-11-12')) === 0);
+chk('没填名字不发', count($dbtOf([$db(['name' => '  '])], '2026-11-12')) === 0);
+chk('档位没有这天不发',
+    count($dbtOf([$db([])], '2026-11-12', ['before' => [7]])) === 0);
+chk('时刻非法退回 09:00',
+    ($dbtOf([$db([])], '2026-11-12', ['time' => '9:00'])[0]['time'] ?? '') === '09:00');
+
+/* 小月按月末：due=31 在 2 月就是 28 号 */
+$feb = $dbtOf([$db(['due' => 31])], '2026-02-28', ['before' => [0]]);
+chk('31 号在 2 月落到 28 号（当天发）', count($feb) === 1, json_encode($feb, JSON_UNESCAPED_UNICODE));
+chk('落在月末的日期写的是 2026-02-28',
+    strpos((string)($feb[0]['body'] ?? ''), '2026-02-28') !== false, (string)($feb[0]['body'] ?? ''));
+
+$two = $dbtOf([
+    $db(['id' => 'a', 'name' => 'A']),
+    $db(['id' => 'b', 'name' => 'B']),
+], '2026-11-12');
+chk('两笔债同日各发一条', count($two) === 2);
+
+$dbInDay = 0;
+foreach (lb_schedule_day(['money' => ['notify' => ['on' => true], 'debts' => [$db([])]]],
+    '2026-11-12') as $x) {
+    if (($x['kind'] ?? '') === 'debt') {
+        $dbInDay++;
+    }
+}
+chk('还款日不进日历订阅（lb_schedule_day 不含 debt）', $dbInDay === 0);
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

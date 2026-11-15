@@ -476,3 +476,82 @@ function lb_schedule_countdowns(array $state, string $date): array
     }
     return $out;
 }
+
+/**
+ * 还款提醒：清债里每笔债的「每月几号」到了，提前 N 天推一条。
+ *
+ * 跟 lb_schedule_notices / lb_schedule_countdowns 一样，**不能并进
+ * lb_schedule_day**：后者会被 api/ics.php 复用来生成订阅日历，
+ * 而还款提醒要跟随 money.notify.on 这个开关。混进去的话，关掉提醒的人
+ * 订阅里依然会冒出一堆还款条目。
+ *
+ * 开关默认关（用户明确要求「提醒非强制」）：
+ * money.notify.on 不为 true 就整段不产生任何提醒。
+ *
+ * 小月按月末：due 是「每月几号」，2 月没有 31 号就落在 28/29。
+ * 这点跟前端 dayDebts()、api/ics.php 必须同一口径。
+ *
+ * @return array<int, array{time:string, kind:string, id:string, title:string, body:string}>
+ */
+function lb_schedule_debts(array $state, string $date): array
+{
+    if (!lb_ics_is_date($date)) {
+        return [];
+    }
+    $money = isset($state['money']) && is_array($state['money']) ? $state['money'] : [];
+    $nt = isset($money['notify']) && is_array($money['notify']) ? $money['notify'] : [];
+    if (($nt['on'] ?? false) !== true) {
+        return [];
+    }
+    $time = (string)($nt['time'] ?? '');
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)) {
+        $time = '09:00';
+    }
+    $before = isset($nt['before']) && is_array($nt['before'])
+        ? array_map('intval', $nt['before'])
+        : [3, 1, 0];
+
+    $ts = strtotime($date);
+    $out = [];
+    foreach ((array)($money['debts'] ?? []) as $d) {
+        if (!is_array($d)) {
+            continue;
+        }
+        $id = (string)($d['id'] ?? '');
+        $name = trim((string)($d['name'] ?? ''));
+        $bal = (float)($d['balance'] ?? 0);
+        /* 已还清的不再提醒 —— 「还剩 0 元」不是提醒，是噪音 */
+        if ($id === '' || $name === '' || $bal <= 0.005) {
+            continue;
+        }
+        $due = max(1, min(31, (int)($d['due'] ?? 1)));
+
+        /* 本月还款日：超出当月天数时按月末 */
+        $eff = min($due, (int)date('t', $ts));
+        $dueDay = date('Y-m', $ts) . '-' . str_pad((string)$eff, 2, '0', STR_PAD_LEFT);
+        if ($dueDay < $date) {
+            /* 本月已经过了，看下个月那天 */
+            $nextTs = strtotime(date('Y-m-01', $ts) . ' +1 month');
+            $eff = min($due, (int)date('t', $nextTs));
+            $dueDay = date('Y-m', $nextTs) . '-' . str_pad((string)$eff, 2, '0', STR_PAD_LEFT);
+        }
+        /* round 不用 floor：跨夏令时那天是 23/25 小时 */
+        $days = (int)round((strtotime($dueDay) - $ts) / 86400);
+        if ($days < 0 || !in_array($days, $before, true)) {
+            continue;
+        }
+
+        $body = ($days === 0 ? '就是今天' : '还有 ' . $days . ' 天')
+            . ' · ' . $dueDay
+            . "\n还剩 ¥" . number_format($bal, 0, '.', '')
+            . ' · 最低 ¥' . number_format((float)($d['min'] ?? 0), 0, '.', '');
+        $out[] = [
+            'time' => $time,
+            'kind' => 'debt',
+            'id' => $id,
+            'title' => '💳 还款 · ' . $name,
+            'body' => $body,
+        ];
+    }
+    return $out;
+}
