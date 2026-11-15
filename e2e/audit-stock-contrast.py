@@ -57,9 +57,14 @@ JS = """
 """
 
 SELS_STOCK = ['.stock-name', '.stock-now', '.stock-flag', '.stock-hint']
+# 清债介绍（v93）：导语 / 分级标题 / 正文 / 公式 / 来源块 / 行内 code
+SELS_MONEY_INTRO = ['.algo-lead', '.algo-h', '.algo-p', '.algo-formula',
+                    '.algo-src > b', '.algo-src p', '.algo-src a',
+                    '.algo-card code', '.algo-foot']
 SELS_SUMMARY = ['.sum-head span', '.sum-big', '.sum-lead', '.sum-table th',
                 '.sum-table td', '.sum-foot']
-skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
+# v87 删除 mono / clay / forest / cyber，只跑剩下的 5 套
+skins = ['paper', 'slate', 'mist', 'neu', 'retro']
 
 bad, skipped, missing, checked = [], 0, [], 0
 skip_detail = {}
@@ -95,6 +100,14 @@ with sync_playwright() as p:
             pg.click('[data-act="month-summary"]')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_SUMMARY)
+            pg.click('[data-act="close-modal"]')
+            pg.wait_for_timeout(300)
+
+            nav(pg, 'money')
+            pg.wait_for_timeout(700)
+            pg.click('[data-act="money-intro"]')
+            pg.wait_for_timeout(600)
+            res += pg.evaluate(JS, SELS_MONEY_INTRO)
 
             for r in res:
                 checked += 1
@@ -112,8 +125,9 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）'
-      % (len(SELS_STOCK) + len(SELS_SUMMARY), checked))
+print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
+      % (len(skins), len(skins) * 2,
+         len(SELS_STOCK) + len(SELS_SUMMARY) + len(SELS_MONEY_INTRO), checked))
 print('跳过（渐变/透明背景）：%d  %s' % (skipped, skip_detail))
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

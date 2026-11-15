@@ -2828,6 +2828,21 @@ body.modal-open{overflow:hidden}
 .algo-table td:first-child{white-space:nowrap;width:1%}
 .algo-table td b{font-weight:600}
 .algo-ex{font-size:10.5px;color:var(--muted);font-weight:400}
+/* 清债介绍弹窗底部的来源块：链接用 --text + 下划线，不用 accent 色 ——
+   小字用 accent 在墨绿/雾蓝几套皮肤上过不了 4.5，下划线本身就是可点的信号。 */
+.algo-src{margin-top:16px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--surface-2)}
+/* 只作用于「来源」这个标题，正文里的 <b> 必须保持行内，
+   否则一句话会被顶成三段 */
+.algo-src > b{display:block;font-size:11px;font-weight:600;color:var(--text);
+  letter-spacing:.04em;margin-bottom:8px}
+.algo-src p{margin:0 0 7px;font-size:11.5px;line-height:1.75;color:var(--text)}
+.algo-src p:last-child{margin-bottom:0}
+.algo-card code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;padding:1px 5px;border-radius:4px;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--text)}
+.algo-src a{color:var(--text);text-decoration:underline;text-underline-offset:2px;
+  word-break:break-all}
 .algo-foot{margin-top:18px;padding:11px 13px;border-radius:12px;
   background:var(--surface-2);border:1px solid var(--line);
   font-size:12px;color:var(--text);line-height:1.75}
@@ -12216,6 +12231,124 @@ body.modal-open{overflow:hidden}
     reader.readAsText(file);
   }
 
+  /* 清债介绍：功能 / 算法 / 用法 / 来源。
+     放在弹窗里而不是新开一页 —— 这是「看一次就够」的内容，
+     真占一页会稀释六个子页的分量。 */
+  function moneyIntroModal() {
+    const tr = function (a, b) { return '<tr><td>' + a + '</td><td>' + b + '</td></tr>'; };
+    openModal(
+      '<div class="modal-card algo-card">' +
+        '<h3>清债是怎么算的</h3>' +
+        '<p class="algo-lead">清债是从开源项目「还清日」搬进来重写的一页。' +
+          '它只回答四件事：<b>欠了多少、哪天能还完、每个月的钱怎么分、先还哪笔最省</b>。' +
+          '不做记账癖，数据跟着账号走。</p>' +
+
+        '<h4 class="algo-h">一、六个子页各干什么</h4>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>子页</th><th>内容</th></tr>' +
+          tr('<b>总览</b>', '还清日大字、总体进度、剩余欠款曲线、按清账顺序排的债') +
+          tr('<b>我的债</b>', '记债：名称 / 类型 / 余额 / 年化 / 最低月还 / 还款日。可改可删，' +
+             '余额改成 0 就自动进「已还清」') +
+          tr('<b>预算</b>', '收入明细、分类预算（固定 / 日常）、今天还能花、开销流水（可翻月）') +
+          tr('<b>计划</b>', '加速钱、三种策略切换、三办法对比、逐月还款表、一次性多还') +
+          tr('<b>记录</b>', '记一笔还款（余额自动减）、历史、撤销') +
+          tr('<b>工具</b>', '利率换算、真实年化、风险体检、清债备份、还款提醒') +
+        '</table>' +
+
+        '<h4 class="algo-h">二、还清日是怎么算出来的</h4>' +
+        '<p class="algo-p">从「起始月」开始，一个月一个月往后推，每个月做三件事：</p>' +
+        '<p class="algo-p"><b>① 先计息</b>：每笔余额 × 年化 ÷ 12，四舍五入到分。' +
+          '没有利息的债（亲友借款）这里就是 0。</p>' +
+        '<p class="algo-p"><b>② 各还最低</b>：每笔还 <code>min(最低还款, 当前余额)</code>，' +
+          '不会还成负数。</p>' +
+        '<p class="algo-p"><b>③ 剩下的钱全砸第一笔</b>：按策略顺序，' +
+          '把「本月总额 − 已还最低」剩下的部分一次性砸向排最前面的那笔。' +
+          '砸清后<b>它原来的月供份额留在池子里</b>，继续砸下一笔。</p>' +
+        '<p class="algo-formula">余额全部归零的那个月 = 还清日</p>' +
+        '<p class="algo-p">最多算 360 个月（30 年）。算不完就写「30 年也还不完」，' +
+          '这时候要么加加速钱，要么先处理高息那笔。</p>' +
+
+        '<h4 class="algo-h">三、三种策略的差别只在「顺序」</h4>' +
+        '<table class="sum-table algo-table">' +
+          '<tr><th>策略</th><th>排序</th><th>适合</th></tr>' +
+          tr('<b>雪球法</b>', '余额从小到大', '想早点看到「清掉一笔」，靠成就感撑下去') +
+          tr('<b>雪崩法</b>', '年化从高到低', '只想少付利息，不在乎先后顺序') +
+          tr('<b>自定义</b>', '你自己 ↑↓ 排', '有笔人情债想先还清') +
+        '</table>' +
+        '<p class="algo-p">三种策略<b>分钱的逻辑完全一样</b>，只有排序不同。' +
+          '计划页那张对比表，就是把三种排序各跑一遍的结果放在一起。</p>' +
+
+        '<h4 class="algo-h">四、月供为什么一开始就固定</h4>' +
+        '<p class="algo-p">这是最容易看错的一处。<b>每月还款总额 = 各笔最低之和 + 加速钱</b>，' +
+          '在计划开始时算一次就固定下来。</p>' +
+        '<p class="algo-p">某笔清掉后它不再吃钱，那份钱自动滚给下一笔——' +
+          '这才是「还完一笔，压力立刻转过去」的真实情况。</p>' +
+        '<p class="algo-p">如果每月重新算一遍「各笔最低之和」，清掉一笔预算就少一块，' +
+          '永远滚不起来，还清日会被算得比实际长很多。</p>' +
+
+        '<h4 class="algo-h">五、「今天还能花」怎么来的</h4>' +
+        '<p class="algo-formula">(日常预算合计 − 本月已花) ÷ 本月剩余天数</p>' +
+        '<p class="algo-p"><b>只摊「日常」类</b>。房租水电属于固定开支，' +
+          '摊进按天的钱里会让「今天能花」直接变成负数，那就失去意义了。' +
+          '固定开支只参与「钱怎么分」那条堆叠条。</p>' +
+
+        '<h4 class="algo-h">六、真实年化（工具页）</h4>' +
+        '<p class="algo-p">填「到手多少、每月还多少、还几期」，用二分法反解 IRR：' +
+          '找出让未来每期还款的现值正好等于到手金额的那个月利率，再乘 12。</p>' +
+        '<p class="algo-p">例：到手 10000、每月还 1000、还 12 期 → <b>35.1%</b>。' +
+          '不是「利息 2000 ÷ 本金 10000 = 20%」——本金在逐月变少，' +
+          '利息是按还没还的部分算的，按总额算会把贵的东西算便宜一半。</p>' +
+
+        '<h4 class="algo-h">七、提醒和日历</h4>' +
+        '<p class="algo-p">还款日会标在日历上：月视图格子里一个「还款」小标签，' +
+          '周视图在全天行放一条 <b>💳 债名</b>。<b>但不会生成待办</b>——' +
+          '所以它不进任何完成率。</p>' +
+        '<p class="algo-p">提醒<b>默认关</b>，在「工具 → 还款提醒」里自己开。' +
+          '可设提前 3 天 / 1 天 / 当天，时刻也能改。' +
+          '例：还款日 15 号、提前 3 天 → 12 号早上 9 点推一条企微。</p>' +
+        '<p class="algo-p">还款日按「每月几号」重复，<b>小月按月末</b>：' +
+          '31 号在 2 月就是 28/29 号。页面日历、企微提醒、日历订阅三处用同一口径。</p>' +
+
+        '<h4 class="algo-h">八、不参与考核</h4>' +
+        '<p class="algo-p">清债的数据全部放在独立的 <code>state.money</code> 里，' +
+          '不写习惯、不写打卡、不写待办。所以完成率、连续达标、日历热力' +
+          '<b>全都看不见它</b>——欠债不该让「今天做得怎么样」变难看。</p>' +
+
+        '<h4 class="algo-h">九、建议这么用</h4>' +
+        '<p class="algo-p"><b>1.</b> 先去「我的债」把每笔填清楚。余额填<b>现在还剩多少</b>，' +
+          '不是当初借多少；初始额自动等于余额。</p>' +
+        '<p class="algo-p"><b>2.</b> 看「总览」的还清日。先接受那个日期，别急着调数字——' +
+          '它反映的是现状，不是判决。</p>' +
+        '<p class="algo-p"><b>3.</b> 去「计划」把加速钱往上试，看还清日提前几个月。' +
+          '找到「咬咬牙能坚持」的那个数，而不是「理论上最快」的那个数。</p>' +
+        '<p class="algo-p"><b>4.</b> 对比三种策略。省利息最多不等于你能坚持最久，' +
+          '选那个让你有进度感的。</p>' +
+        '<p class="algo-p"><b>5.</b> 每还完一笔就来「记录」记一下，余额自动减。' +
+          '记错了能撤销。</p>' +
+        '<p class="algo-p"><b>6.</b> 如果想知道「今天还能花多少」，就去「预算」把收入和' +
+          '日常类预算填上，整页就活了。</p>' +
+
+        '<div class="algo-foot">钱的问题说到底是现金流问题。' +
+          '这个页不做道德评价——它只把「照现在这样还要多久」摊开给你看，' +
+          '剩下的决定权在你。</div>' +
+
+        '<div class="algo-src">' +
+          '<b>来源</b>' +
+          '<p>移植自开源项目「还清日」（MIT 许可），原作者 cyberdaddyleo。</p>' +
+          '<p>文档：<a href="https://acnik117j8hl.feishu.cn/wiki/XFEFw7o8siqHbnkIBJicNq08nQd" ' +
+            'target="_blank" rel="noopener noreferrer">acnik117j8hl.feishu.cn/wiki/XFEFw7o8siqHbnkIBJicNq08nQd</a></p>' +
+          '<p>代码：<a href="https://github.com/cyberdaddyleo/huanqingri" ' +
+            'target="_blank" rel="noopener noreferrer">github.com/cyberdaddyleo/huanqingri</a></p>' +
+          '<p>原版是纯本地存储的单文件应用。搬进本站后页面结构、样式、数据模型都重写过，' +
+            '数据跟着账号同步到云端；<b>计算口径保持一致</b>，差别只在提醒和日历这块是新加的。</p>' +
+        '</div>' +
+
+        '<div class="modal-actions"><span class="spacer"></span>' +
+          '<button type="button" class="btn primary" data-act="close-modal">知道了</button></div>' +
+      '</div>'
+    );
+  }
+
   function viewMoney() {
     const ready = MONEY_TABS.filter(function (t) { return !t.v; });
     const cur = subTabOf('money', ready);
@@ -12226,6 +12359,7 @@ body.modal-open{overflow:hidden}
             : (cur === 'tools' ? moneyToolsView() : moneyOverviewView()))));
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
         '<div class="head-actions">' +
+          '<button class="btn" data-act="money-intro">清债介绍</button>' +
           '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
         '</div>' +
       '</div>' +
@@ -16905,6 +17039,7 @@ body.modal-open{overflow:hidden}
       subTab[el.dataset.page || ''] = el.dataset.tab || '';
       render();
     },
+    'money-intro': () => moneyIntroModal(),
     'money-debt-new': () => moneyDebtModal(null),
     'money-strategy': el => {
       const k = el.dataset.key;
