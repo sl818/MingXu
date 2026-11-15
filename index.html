@@ -479,6 +479,68 @@ h1,h2,h3,h4,p{margin:0}
 .mlog-amt{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
 .mlog-note{font-size:10.5px;color:var(--muted);padding:0 2px 6px 54px;margin-top:-4px}
 
+/* ===== 清债 · 预算（v90）===== */
+/* 钱怎么分：一条横向堆叠条。四段颜色只靠 accent 的深浅区分，
+   图例里带文字标签，所以不靠颜色单独传达信息。 */
+.mbud-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;
+  background:var(--line);margin:4px 0 14px}
+.mbud-bar i{display:block;height:100%}
+.mbud-bar .b1{background:var(--accent)}
+.mbud-bar .b2{background:color-mix(in srgb,var(--accent) 62%,var(--surface-2))}
+.mbud-bar .b3{background:color-mix(in srgb,var(--accent) 30%,var(--surface-2))}
+.mbud-bar .b4{background:transparent}
+.mbud-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px}
+.mbud-li{display:flex;align-items:baseline;gap:7px;min-width:0}
+.mbud-dot{flex:none;width:8px;height:8px;border-radius:2px;background:var(--accent);
+  transform:translateY(-1px)}
+.mbud-dot.d2{background:color-mix(in srgb,var(--accent) 62%,var(--surface-2))}
+.mbud-dot.d3{background:color-mix(in srgb,var(--accent) 30%,var(--surface-2))}
+.mbud-dot.d4{background:var(--line-strong)}
+.mbud-li span{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.mbud-li b{margin-left:auto;font-size:12px;font-weight:600;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.mbud-net{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.mbud-net span{font-size:11.5px;color:var(--text)}
+.mbud-net b{font-size:18px;font-weight:650;letter-spacing:-.01em;color:var(--text);
+  font-variant-numeric:tabular-nums}
+.mbud-net small{font-size:10.5px;color:var(--muted)}
+/* 每日可花 */
+.mdaily{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+.mdaily b{font-size:28px;font-weight:650;letter-spacing:-.02em;color:var(--text);
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.mdaily span{font-size:11.5px;color:var(--text)}
+.mdaily-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:12px}
+.mdaily-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+/* 收入 / 分类 / 流水行 */
+.mcat,.mspend,.minc{display:grid;align-items:center;gap:10px;padding:8px 2px;
+  border-bottom:1px solid var(--line)}
+.mcat:last-child,.mspend:last-child,.minc:last-child{border-bottom:0}
+.minc{grid-template-columns:minmax(0,1fr) auto auto}
+.mcat{display:flex;flex-wrap:wrap;gap:8px}
+.mspend{grid-template-columns:44px minmax(0,1fr) auto auto}
+.minc-name,.mcat-name,.mspend-cat{font-size:12.5px;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minc-amt,.mspend-amt{font-size:13px;font-weight:600;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.mcat-bud{margin-left:auto;font-size:12px;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.mcat-name{flex:0 1 auto}
+.mspend-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mym{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.mym b{font-size:12.5px;font-weight:600;color:var(--text);min-width:84px;text-align:center;
+  font-variant-numeric:tabular-nums}
+/* 三个数字一行的合计条 */
+.msum{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:12px;
+  padding-top:11px;border-top:1px solid var(--line)}
+.msum span{font-size:11px;color:var(--text)}
+.msum b{font-size:14px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+@media (max-width:560px){
+  .mbud-legend{grid-template-columns:1fr}
+  .mdaily b{font-size:24px}
+}
+
 
 /* 配置页单栏往下排。**不要复用 .settings-wrap** —— 它在大屏是 columns:2 瀑布流，
    配置页每块都要横着读（通知列表、推送配置、安装说明），分两栏会把阅读顺序打乱。
@@ -11200,7 +11262,7 @@ body.modal-open{overflow:hidden}
   const MONEY_TABS = [
     { key: 'overview', label: '总览' },
     { key: 'debts', label: '我的债' },
-    { key: 'budget', label: '预算', v: 90 },
+    { key: 'budget', label: '预算' },
     { key: 'plan', label: '计划' },
     { key: 'log', label: '记录' },
     { key: 'tools', label: '工具', v: 91 }
@@ -11448,6 +11510,302 @@ body.modal-open{overflow:hidden}
   }
 
   /* ---------- 记录 ---------- */
+  /* ---------- 预算（v90） ----------
+     口径说明（页面小字上也要写）：
+     · 固定开支 / 日常预算都是**每月额度**，不是本月实际
+     · 「每日可花」只算日常类，固定开支（房租水电）不参与按天摊
+     · 剩余 = 收入 - 固定 - 日常 - 债务月供，可以是负数 */
+  let moneySpendYM = '';
+  function moneySpendMonth() {
+    return /^\d{4}-\d{2}$/.test(String(moneySpendYM || '')) ? moneySpendYM : ymNow();
+  }
+  function moneyCats(kind) {
+    const list = moneyList('cats');
+    return kind ? list.filter(function (c) { return c.kind === kind; }) : list;
+  }
+  function moneySum(list, key) {
+    return Math.round(list.reduce(function (a, x) {
+      return a + (Number(x[key]) || 0);
+    }, 0) * 100) / 100;
+  }
+  function moneyBudgetSplit() {
+    const income = moneySum(moneyList('incomes'), 'amount');
+    const fixed = moneySum(moneyCats('fixed'), 'budget');
+    const daily = moneySum(moneyCats('daily'), 'budget');
+    const sim = moneySimulate(money().strategy, false);
+    const debt = moneyLive().length ? (Number(sim.monthly) || 0) : 0;
+    return {
+      income: income, fixed: fixed, daily: daily, debt: debt,
+      rest: Math.round((income - fixed - daily - debt) * 100) / 100
+    };
+  }
+  /* 本月日常类已花。分类被删掉的流水按「日常」算——
+     钱已经花出去了，不能因为它挂的分类不存在就从账上消失。 */
+  function moneyDailySpentThisMonth() {
+    const ym = ymNow();
+    const dailyIds = moneyCats('daily').map(function (c) { return c.id; });
+    return Math.round(moneyList('spends').filter(function (x) {
+      if (String(x.date).slice(0, 7) !== ym) return false;
+      const c = moneyCats().filter(function (y) { return y.id === x.catId; })[0];
+      return c ? c.kind === 'daily' : (dailyIds.indexOf(x.catId) >= 0 || !x.catId);
+    }).reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0) * 100) / 100;
+  }
+  function moneyDailyLeft() {
+    const now = new Date();
+    const y = now.getFullYear(), mo = now.getMonth();
+    const days = new Date(y, mo + 1, 0).getDate();
+    const restDays = Math.max(1, days - now.getDate() + 1);
+    const budget = moneySum(moneyCats('daily'), 'budget');
+    const spent = moneyDailySpentThisMonth();
+    const left = Math.round((budget - spent) * 100) / 100;
+    return {
+      budget: budget, spent: spent, left: left, rest: restDays,
+      perDay: Math.round(left / restDays * 100) / 100,
+      pct: budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0
+    };
+  }
+
+  function moneyBudgetView() {
+    const sp = moneyBudgetSplit();
+    const dl = moneyDailyLeft();
+    const total = Math.max(0.01, Math.max(sp.income, sp.fixed + sp.daily + sp.debt));
+    const w = function (n) {
+      return Math.max(0, Math.round(Math.max(0, n) / total * 1000) / 10);
+    };
+
+    const head = '<div class="panel"><h3>这个月怎么分 ' +
+      '<span class="muted-sm">（按已填的收入与每月预算）</span></h3>' +
+      (sp.income > 0 ? (
+        '<div class="mbud-bar">' +
+          '<i class="b1" style="width:' + w(sp.fixed) + '%"></i>' +
+          '<i class="b2" style="width:' + w(sp.daily) + '%"></i>' +
+          '<i class="b3" style="width:' + w(sp.debt) + '%"></i>' +
+          '<i class="b4" style="width:' + w(sp.rest) + '%"></i>' +
+        '</div>' +
+        '<div class="mbud-legend">' +
+          '<div class="mbud-li"><i class="mbud-dot d1"></i><span>固定开支</span><b>¥' +
+            sp.fixed.toFixed(0) + '</b></div>' +
+          '<div class="mbud-li"><i class="mbud-dot d2"></i><span>日常预算</span><b>¥' +
+            sp.daily.toFixed(0) + '</b></div>' +
+          '<div class="mbud-li"><i class="mbud-dot d3"></i><span>债务月供</span><b>¥' +
+            sp.debt.toFixed(0) + '</b></div>' +
+          '<div class="mbud-li"><i class="mbud-dot d4"></i><span>剩余可支配</span><b>¥' +
+            Math.round(sp.rest).toFixed(0) + '</b></div>' +
+        '</div>' +
+        '<div class="mbud-net">' +
+          '<span>' + (sp.rest >= 0 ? '每月还能剩' : '每月还差') + '</span>' +
+          '<b>¥' + Math.abs(sp.rest).toFixed(0) + '</b>' +
+          '<small>收入 ¥' + sp.income.toFixed(0) + ' − 固定 ¥' + sp.fixed.toFixed(0) +
+            ' − 日常 ¥' + sp.daily.toFixed(0) + ' − 月供 ¥' + sp.debt.toFixed(0) + '</small>' +
+        '</div>'
+      ) : '<div class="empty-box">先填一下每月收入，才能算「钱怎么分」。<br><br>' +
+          '<button type="button" class="btn primary" data-act="money-income-new">添加收入</button></div>') +
+      '</div>';
+
+    const daily = '<div class="panel"><h3>今天还能花 ' +
+      '<span class="muted-sm">（只算日常类，不含固定开支）</span></h3>' +
+      (dl.budget > 0 ? (
+        '<div class="mdaily"><b>¥' + dl.perDay.toFixed(0) + '</b>' +
+          '<span>今天 / 之后每天</span></div>' +
+        '<div class="mdaily-bar"><i style="width:' + dl.pct + '%"></i></div>' +
+        '<div class="msum"><span>日常预算 <b>¥' + dl.budget.toFixed(0) + '</b></span>' +
+          '<span>本月已花 <b>¥' + dl.spent.toFixed(0) + '</b></span>' +
+          '<span>本月还剩 <b>' + dl.rest + '</b> 天</span>' +
+          '<span>结余 <b>¥' + dl.left.toFixed(0) + '</b></span></div>'
+      ) : '<div class="empty-box">还没有日常类预算。加一个「吃饭」「交通」这样的分类，' +
+          '才会算每日可花。<br><br>' +
+          '<button type="button" class="btn" data-act="money-cat-new">加分类预算</button></div>') +
+      '</div>';
+
+    const incs = moneyList('incomes');
+    const income = '<div class="panel"><h3>收入 <span class="muted-sm">（每月，税后到手）</span></h3>' +
+      (incs.length ? '<div class="mlist">' + incs.map(function (x) {
+        return '<div class="minc">' +
+          '<span class="minc-name">' + esc(x.name) + '</span>' +
+          '<span class="minc-amt">¥' + (Number(x.amount) || 0).toFixed(0) + '</span>' +
+          '<button type="button" class="btn sm" data-act="money-income-del" data-id="' +
+            esc(x.id) + '">删除</button>' +
+        '</div>';
+      }).join('') + '</div>' : '<div class="empty-box">还没有填收入。</div>') +
+      '<div class="btn-row" style="margin-top:12px">' +
+        '<button type="button" class="btn sm" data-act="money-income-new">添加收入</button>' +
+        (incs.length ? '<span class="spacer"></span><span class="muted-sm">合计 ¥' +
+          sp.income.toFixed(0) + '</span>' : '') +
+      '</div></div>';
+
+    const cats = moneyCats();
+    const catPanel = '<div class="panel"><h3>开支预算 ' +
+      '<span class="muted-sm">（每月额度，不是本月实际）</span></h3>' +
+      (cats.length ? '<div class="mlist">' + cats.map(function (c) {
+        return '<div class="mcat">' +
+          '<span class="mcat-name">' + esc(c.name) + '</span>' +
+          '<span class="mdebt-tag">' + (c.kind === 'fixed' ? '固定' : '日常') + '</span>' +
+          '<span class="mcat-bud">¥' + (Number(c.budget) || 0).toFixed(0) + '</span>' +
+          '<button type="button" class="btn sm" data-act="money-cat-del" data-id="' +
+            esc(c.id) + '">删除</button>' +
+        '</div>';
+      }).join('') + '</div>' : '<div class="empty-box">还没有分类预算。<br>' +
+        '固定＝房租水电这类雷打不动的；日常＝吃饭交通这类按天摊的。</div>') +
+      '<div class="btn-row" style="margin-top:12px">' +
+        '<button type="button" class="btn sm" data-act="money-cat-new">加分类预算</button>' +
+        (cats.length ? '<span class="spacer"></span><span class="muted-sm">固定 ¥' +
+          sp.fixed.toFixed(0) + ' · 日常 ¥' + sp.daily.toFixed(0) + '</span>' : '') +
+      '</div></div>';
+
+    /* 流水按查看月份取；默认本月。只渲染当月，历史翻月看——
+       spends 会一直长，全铺出来手机要滑很久。 */
+    const ym = moneySpendMonth();
+    const rows = moneyList('spends').filter(function (x) {
+      return String(x.date).slice(0, 7) === ym;
+    }).sort(function (a, b) {
+      return String(b.date).localeCompare(String(a.date)) || (Number(b.u) || 0) - (Number(a.u) || 0);
+    });
+    const spentSum = moneySum(rows, 'amount');
+    const spendPanel = '<div class="panel"><h3>开销流水</h3>' +
+      '<div class="mym">' +
+        '<button type="button" class="btn sm" data-act="money-spend-ym" data-dir="-1">上月</button>' +
+        '<b>' + ymShort(ym) + '</b>' +
+        '<button type="button" class="btn sm" data-act="money-spend-ym" data-dir="1">下月</button>' +
+        '<span class="spacer"></span>' +
+        '<button type="button" class="btn sm primary" data-act="money-spend-new">记一笔开销</button>' +
+      '</div>' +
+      (rows.length ? '<div class="mlist">' + rows.map(function (x) {
+        return '<div class="mspend">' +
+          '<span class="mspend-date">' + esc(String(x.date).slice(5)) + '</span>' +
+          '<span class="mspend-cat">' + esc(x.catName || '未分类') + '</span>' +
+          '<span class="mspend-amt">¥' + (Number(x.amount) || 0).toFixed(0) + '</span>' +
+          '<button type="button" class="btn sm" data-act="money-spend-del" data-id="' +
+            esc(x.id) + '">删除</button>' +
+        '</div>';
+      }).join('') + '</div>' : '<div class="empty-box">这个月还没有记开销。</div>') +
+      (rows.length ? '<div class="msum"><span>共 <b>' + rows.length + '</b> 笔</span>' +
+        '<span>合计 <b>¥' + spentSum.toFixed(0) + '</b></span></div>' : '') +
+      '</div>';
+
+    return head + daily + income + catPanel + spendPanel;
+  }
+
+  function moneyIncomeModal() {
+    openModal('<form class="modal-card" id="money-income-form">' +
+      '<h3>添加一笔收入</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>名称</span>' +
+          '<input name="name" maxlength="20" placeholder="工资" value="工资"></label>' +
+        '<label class="field"><span>每月到手（元）</span>' +
+          '<input name="amount" type="number" min="0" step="100" placeholder="9000"></label>' +
+      '</div>' +
+      '<p class="hint">填税后到手的数，奖金这种不固定的不用算进来。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneyIncome(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const name = get('name').slice(0, 20);
+    const amount = moneyNum(get('amount'));
+    if (!name) { toast('填个名称'); return; }
+    if (!(amount > 0)) { toast('金额要大于 0'); return; }
+    const m = normalizeMoney(money());
+    m.incomes.push({ id: uid(), name: name, amount: amount, u: Date.now() });
+    state.money = m;
+    state.moneyAt = Date.now();
+    save(); render(); closeModal();
+    toast('已加收入：' + name + ' ¥' + amount.toFixed(0));
+  }
+
+  function moneyCatModal() {
+    openModal('<form class="modal-card" id="money-cat-form">' +
+      '<h3>加一个分类预算</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>分类名</span>' +
+          '<input name="name" maxlength="20" placeholder="吃饭"></label>' +
+        '<label class="field"><span>类型</span><select name="kind">' +
+          '<option value="daily">日常（按天摊，算每日可花）</option>' +
+          '<option value="fixed">固定（房租水电，不按天摊）</option>' +
+        '</select></label>' +
+        '<label class="field wide"><span>每月额度（元）</span>' +
+          '<input name="budget" type="number" min="0" step="50" placeholder="1500"></label>' +
+      '</div>' +
+      '<p class="hint">只有「日常」类会参与每日可花的计算。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneyCat(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const name = get('name').slice(0, 20);
+    const budget = moneyNum(get('budget'));
+    if (!name) { toast('填个分类名'); return; }
+    if (!(budget > 0)) { toast('额度要大于 0'); return; }
+    const m = normalizeMoney(money());
+    m.cats.push({
+      id: uid(), name: name, kind: get('kind') === 'fixed' ? 'fixed' : 'daily',
+      budget: budget, u: Date.now()
+    });
+    state.money = m;
+    state.moneyAt = Date.now();
+    save(); render(); closeModal();
+    toast('已加分类：' + name + ' ¥' + budget.toFixed(0) + '/月');
+  }
+
+  function moneySpendModal() {
+    const cats = moneyCats();
+    if (!cats.length) { toast('先加一个分类预算'); return; }
+    openModal('<form class="modal-card" id="money-spend-form">' +
+      '<h3>记一笔开销</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>分类</span><select name="catId">' +
+          cats.map(function (c) {
+            return '<option value="' + esc(c.id) + '">' + esc(c.name) +
+              '（' + (c.kind === 'fixed' ? '固定' : '日常') + '）</option>';
+          }).join('') + '</select></label>' +
+        '<label class="field"><span>金额（元）</span>' +
+          '<input name="amount" type="number" min="0" step="0.01" placeholder="38"></label>' +
+        '<label class="field"><span>日期</span>' +
+          '<input name="date" type="date" value="' + todayStr() + '"></label>' +
+        '<label class="field wide"><span>备注（可选）</span>' +
+          '<input name="note" maxlength="60" placeholder="午饭"></label>' +
+      '</div>' +
+      '<p class="hint">日常类的开销会当场扣掉「今天还能花」的额度。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">记下</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneySpend(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const date = get('date');
+    const amount = moneyNum(get('amount'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('选个日期'); return; }
+    if (!(amount > 0)) { toast('金额要大于 0'); return; }
+    const m = normalizeMoney(money());
+    const cat = m.cats.filter(function (c) { return c.id === get('catId'); })[0];
+    m.spends.push({
+      id: uid(), date: date, catId: cat ? cat.id : '', catName: cat ? cat.name : '',
+      amount: amount, note: get('note').slice(0, 60), u: Date.now()
+    });
+    state.money = m;
+    state.moneyAt = Date.now();
+    save(); render(); closeModal();
+    moneySpendYM = date.slice(0, 7);   /* 记完跳到那个月，否则记上月的一笔看不见 */
+    render();
+    toast('已记：¥' + amount.toFixed(0));
+  }
+
   function moneyLogView() {
     const logs = moneyList('log').slice().sort(function (a, b) {
       return String(b.date).localeCompare(String(a.date)) || (Number(b.u) || 0) - (Number(a.u) || 0);
@@ -11567,7 +11925,8 @@ body.modal-open{overflow:hidden}
     const cur = subTabOf('money', ready);
     const body = cur === 'debts' ? moneyDebtsView()
       : (cur === 'plan' ? moneyPlanView()
-        : (cur === 'log' ? moneyLogView() : moneyOverviewView()));
+        : (cur === 'log' ? moneyLogView()
+          : (cur === 'budget' ? moneyBudgetView() : moneyOverviewView())));
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
         '<div class="head-actions">' +
           '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
@@ -16282,6 +16641,48 @@ body.modal-open{overflow:hidden}
       save(); render();
       toast('已撤销');
     },
+    'money-income-new': () => moneyIncomeModal(),
+    'money-income-del': el => {
+      const m = normalizeMoney(money());
+      m.incomes = m.incomes.filter(function (x) { return x.id !== el.dataset.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('已删除');
+    },
+    'money-cat-new': () => moneyCatModal(),
+    'money-cat-del': el => {
+      const c = moneyList('cats').filter(function (x) { return x.id === el.dataset.id; })[0];
+      if (!c) return;
+      if (!confirm('删除分类「' + c.name + '」？已经记过的开销不会跟着删。')) return;
+      const m = normalizeMoney(money());
+      m.cats = m.cats.filter(function (x) { return x.id !== c.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('已删除');
+    },
+    'money-spend-new': () => moneySpendModal(),
+    'money-spend-del': el => {
+      const sp = moneyList('spends').filter(function (x) { return x.id === el.dataset.id; })[0];
+      if (!sp) return;
+      if (!confirm('删除这笔 ¥' + (Number(sp.amount) || 0).toFixed(0) + ' 的开销？')) return;
+      const m = normalizeMoney(money());
+      m.spends = m.spends.filter(function (x) { return x.id !== sp.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('已删除');
+    },
+    'money-spend-ym': el => {
+      const dir = Number(el.dataset.dir) || 0;
+      const next = ymAdd(moneySpendMonth(), dir);
+      /* 不让往前翻到 1970 或者翻到十年后，翻出去只会看到空列表 */
+      const lo = ymAdd(ymNow(), -60), hi = ymAdd(ymNow(), 12);
+      if (next < lo || next > hi) return;
+      moneySpendYM = next;
+      render();
+    },
     'money-debt-edit': el => {
       const d = moneyList('debts').filter(function (x) { return x.id === el.dataset.id; })[0];
       if (d) moneyDebtModal(d);
@@ -16390,6 +16791,15 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'money-log-form') {
       e.preventDefault();
       saveMoneyLog(form);
+    } else if (form.id === 'money-income-form') {
+      e.preventDefault();
+      saveMoneyIncome(form);
+    } else if (form.id === 'money-cat-form') {
+      e.preventDefault();
+      saveMoneyCat(form);
+    } else if (form.id === 'money-spend-form') {
+      e.preventDefault();
+      saveMoneySpend(form);
     } else if (form.id === 'pack-form') {
       e.preventDefault();
       savePackForm(form);

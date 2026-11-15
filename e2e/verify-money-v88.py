@@ -95,8 +95,8 @@ with sync_playwright() as p:
     chk('空状态有说明文案', '还没有债务' in pg.evaluate("() => document.body.textContent"))
     # 子页是「做完一版放出一版」，所以这里只断言「还没做的没放出来」
     tabs0 = pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
-    chk('未做完的子页还没放出来（预算 / 工具）',
-        '预算' not in tabs0 and '工具' not in tabs0, str(tabs0))
+    # 每做完一版就放出一版，所以这里只断言「还没做的没放出来」
+    chk('未做完的子页还没放出来（工具）', '工具' not in tabs0, str(tabs0))
 
     print('\n[3] 记一笔债 → 总览数字')
     add_debt(pg, '测试债A', 1200, 0, 100)

@@ -88,7 +88,15 @@ board['data']['money'] = {
     'startYM': '2026-11',
     'log': [{'id': 'lg1', 'date': '2026-10-20', 'debtId': 'md1', 'debtName': '信用卡A',
              'amount': 1900, 'note': '这个月多还了一点', 'u': 1}],
-    'incomes': [], 'cats': [], 'spends': [],
+    # v90 预算页：没有收入/分类/流水的话整页只剩空态，选择器全都「元素缺失」。
+    # 日期跟着 pg.clock（2026-10-25）走，流水才落在这个月里。
+    'incomes': [{'id': 'mi1', 'name': '工资', 'amount': 12000, 'u': 1}],
+    'cats': [{'id': 'mc1', 'name': '房租', 'kind': 'fixed', 'budget': 3500, 'u': 1},
+             {'id': 'mc2', 'name': '吃饭', 'kind': 'daily', 'budget': 2000, 'u': 1}],
+    'spends': [{'id': 'ms1', 'date': '2026-10-20', 'catId': 'mc2', 'catName': '吃饭',
+                'amount': 58, 'note': '午饭', 'u': 1},
+               {'id': 'ms2', 'date': '2026-10-22', 'catId': 'mc2', 'catName': '吃饭',
+                'amount': 42, 'note': '', 'u': 1}],
     'notify': {'on': False, 'before': [3, 1, 0], 'time': '09:00'},
 }
 board['data']['moneyAt'] = 1
@@ -205,6 +213,11 @@ SELS_MONEY_PLAN = ['.mstart b', '.mstart span', '.mfield > span', '.mcmp-name',
                    '.mcmp-name i', '.mcmp-cell', '.mtag', '.mtr-ym', '.mtr-left',
                    '.msnow b', '.msnow span']
 SELS_MONEY_LOG = ['.mlog-date', '.mlog-name', '.mlog-amt', '.mlog-note']
+# 预算子页（v90）：分账图例、每日可花、收入/分类/流水三种行
+SELS_MONEY_BUDGET = ['.mbud-li span', '.mbud-li b', '.mbud-net span', '.mbud-net b',
+                     '.mbud-net small', '.mdaily b', '.mdaily span', '.msum span', '.msum b',
+                     '.minc-name', '.minc-amt', '.mcat-name', '.mcat-bud',
+                     '.mspend-date', '.mspend-cat', '.mspend-amt', '.mym b']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
@@ -286,6 +299,9 @@ with sync_playwright() as p:
             pg.click('[data-act="subtab"][data-page="money"][data-tab="debts"]')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_MONEY_DEBTS)
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="budget"]')
+            pg.wait_for_timeout(700)
+            res += pg.evaluate(JS, SELS_MONEY_BUDGET)
             pg.click('[data-act="subtab"][data-page="money"][data-tab="plan"]')
             pg.wait_for_timeout(700)
             res += pg.evaluate(JS, SELS_MONEY_PLAN)
@@ -332,7 +348,8 @@ print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样�
       % (len(skins), len(skins) * 2,
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
-         + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG), checked))
+         + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG)
+         + len(SELS_MONEY_BUDGET), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

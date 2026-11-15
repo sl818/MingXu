@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v89（2026-11-15）
+最后更新：v90（2026-11-15）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v89（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v89'`） |
+| 代码版本 | v90（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v90'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -110,6 +110,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v87 | 11-15 | 删掉 4 套主题（石墨朱砂 mono / 柔光拟态 clay / 苔绿森野 forest / 赛博霓虹 cyber）和「左侧导航条」排版。主题：`SKINS` 少 4 项、删掉 forest / cyber 两个独立皮肤文件、`themes.css` 按规则剔除 mono/clay 全部选择器（294 → 143 条）、SW 清单同步；老用户存的 skin 由已有白名单自动回落 `paper`。排版：设置页 3 张卡 → 2 张，`lifeboard.layout` 存的 `side` 一律退回 `top`。同步 4 份测试的皮肤/排版清单，对比度审计从 9 皮肤 1926 取样降到 5 皮肤 1070 取样。回滚点 tag `trim-skins-v87` |
 | v88 | 11-15 | 清债第一版（移植「还清日」）：`state.money` 一个子对象 + `moneyAt`（三处同步，集合按 id 并集、单值比 `moneyAt`）；**通用子页面机制**（模块级 `subTab` 字典，不进 state）；NAV 加「清债」（待办之后、习惯之前，手机走「更多」抽屉）；总览（还清日 / 进度 / 剩余欠款曲线 / 还款顺序）+ 我的债（增删改、已还清区）。**月供总额在计划开始时固定**，某笔清掉后份额自动滚给下一笔。新增 `verify-money-v88` 20 项。回滚点 tag `money-v88` |
 | v89 | 11-15 | 清债第二版：**计划**（加速钱 / 三策略切换与自定义排序 / 三办法对比表 / 逐月还款表 / 一次性多还）+ **记录**（记还款、超额按余额算、撤销）。`moneySimulate(strat, detail)` 多了逐月明细，只在计划页按需算。**坑：函数里 `const money = ...` 会把 `money()` 遮蔽，前面调用直接 TDZ**；`.mstart span` 用 `--muted` 在 4.0–4.36 不达标。新增 `verify-money-v89` 24 项。回滚点 tag `money-v89` |
+| v90 | 11-15 | 清债第三版：**预算**（钱怎么分四段堆叠条 / 今天还能花 / 收入明细 / 分类预算固定·日常 / 开销流水带翻月）+ **开销记账**。「每日可花」只摊日常类，`(日常预算 − 本月已花) ÷ 本月剩余天数`，固定开支不参与摊；删分类不删流水（`catName` 留快照，找不到分类的按日常计）。流水只渲染当月，历史翻月看。新增 `verify-money-v90` 29 项。回滚点 tag `money-v90` |
 
 ### 两次值得记住的事故
 

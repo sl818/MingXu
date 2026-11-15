@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v89（2026-11-15）
+最后更新：v90（2026-11-15）
 
 ---
 
@@ -579,6 +579,9 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitHoursStrip(h)`
 `viewMoney()` `moneyOverviewView()` `moneyDebtsView()` `moneySimulate(strat)` `moneyOrder(list,strat)`
 `moneyPlanView()` `moneyCompareHtml()` `moneyTableHtml()` `moneyCustomOrderHtml()`
+`moneyBudgetView()` `moneyBudgetSplit()` `moneyDailyLeft()` `moneySpendMonth()`
+`moneyIncomeModal()` `saveMoneyIncome(form)` `moneyCatModal()` `saveMoneyCat(form)`
+`moneySpendModal()` `saveMoneySpend(form)`
 `moneyLogView()` `moneySnowModal()` `saveMoneySnow(form)` `moneyLogModal()` `saveMoneyLog(form)`
 `moneyDebtModal(d)` `saveMoneyDebt(form)` `subTabOf(pageKey,tabs)` `subTabsHtml(pageKey,tabs,cur)`
 `quitPacksPanel(h)`
