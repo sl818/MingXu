@@ -74,6 +74,14 @@
   --bad:#dd5a5a;
   --shadow:0 1px 2px rgba(20,25,40,.04), 0 10px 26px rgba(20,25,40,.06);
   --radius:16px;
+  /* 图表固定色（v96）：只给「这个月怎么分」这类需要同时对比多段数据的图形用。
+     不能用 --accent / --good 这些语义色 —— 它们在各皮肤下色相不同，
+     paper 的 accent 就是鼠尾草绿，跟 --good 几乎同色，四段又糊成一片。
+     蓝 / 绿 / 红 / 黄四色两两色相相差 ≥35°，小面积相邻也分得开。 */
+  --chart-1:#4a7fb5;
+  --chart-2:#4c9b6e;
+  --chart-3:#bb4a45;
+  --chart-4:#e2b53d;
   color-scheme:light;
 }
 
@@ -412,7 +420,7 @@ h1,h2,h3,h4,p{margin:0}
 .mrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:10px;
   padding:9px 2px;border-bottom:1px solid var(--line)}
 .mrow:last-child{border-bottom:0}
-.mrow-name{font-size:13px;font-weight:600;color:var(--text);
+.mrow-name{font-size:13.5px;font-weight:700;color:var(--text);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mrow-num{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
 .mrow-at{font-size:10.5px;color:var(--muted);min-width:74px;text-align:right}
@@ -484,24 +492,24 @@ h1,h2,h3,h4,p{margin:0}
 /* 钱怎么分：一条横向堆叠条。
    v95 起改成语义分色 —— 原来四段只用 accent 的深浅，
    实际截图里 62% 和 30% 的差别肉眼几乎分不出。
-   现在：固定=主色 / 日常=绿 / 月供=红 / 剩余=金；
+   现在用固定的图表色（--chart-1..4）：固定=蓝 / 日常=绿 / 月供=红 / 剩余=黄；
    段与段之间留 1px 缝（box-shadow 画在左侧，不占宽度）。
    颜色只做辅助，图例仍带文字和金额。 */
 .mbud-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;
   background:var(--line);margin:4px 0 14px}
 .mbud-bar i{display:block;height:100%}
 .mbud-bar i+i{box-shadow:-1px 0 0 var(--surface)}
-.mbud-bar .b1{background:var(--accent)}
-.mbud-bar .b2{background:var(--good)}
-.mbud-bar .b3{background:var(--bad)}
-.mbud-bar .b4{background:var(--gold)}
+.mbud-bar .b1{background:var(--chart-1)}
+.mbud-bar .b2{background:var(--chart-2)}
+.mbud-bar .b3{background:var(--chart-3)}
+.mbud-bar .b4{background:var(--chart-4)}
 .mbud-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px}
 .mbud-li{display:flex;align-items:baseline;gap:7px;min-width:0}
-.mbud-dot{flex:none;width:9px;height:9px;border-radius:2px;background:var(--accent);
+.mbud-dot{flex:none;width:9px;height:9px;border-radius:2px;background:var(--chart-1);
   transform:translateY(-1px)}
-.mbud-dot.d2{background:var(--good)}
-.mbud-dot.d3{background:var(--bad)}
-.mbud-dot.d4{background:var(--gold)}
+.mbud-dot.d2{background:var(--chart-2)}
+.mbud-dot.d3{background:var(--chart-3)}
+.mbud-dot.d4{background:var(--chart-4)}
 .mbud-li span{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
 .mbud-li b{margin-left:auto;font-size:12px;font-weight:600;color:var(--text);
@@ -526,7 +534,7 @@ h1,h2,h3,h4,p{margin:0}
 .minc{grid-template-columns:minmax(0,1fr) auto auto}
 .mcat{display:flex;flex-wrap:wrap;gap:8px}
 .mspend{grid-template-columns:44px minmax(0,1fr) auto auto}
-.minc-name,.mcat-name,.mspend-cat{font-size:12.5px;font-weight:600;color:var(--text);
+.minc-name,.mcat-name,.mspend-cat{font-size:13px;font-weight:700;color:var(--text);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .minc-amt,.mspend-amt{font-size:13px;font-weight:600;color:var(--text);
   font-variant-numeric:tabular-nums;white-space:nowrap}

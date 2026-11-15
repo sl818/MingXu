@@ -103,7 +103,13 @@ with sync_playwright() as p:
         t: e.textContent.trim(), w: getComputedStyle(e).fontWeight,
         numW: '' }))""")
     chk('有还款顺序行', len(names) == 2, str(names))
-    chk('每行名称都是 600', all(n['w'] == '600' for n in names), str(names))
+    # 600 在中文系统字体上常被渲染成常规体，用户实测「等于没加粗」，所以锁 700
+    chk('每行名称都是 700', all(n['w'] == '700' for n in names), str(names))
+    chk('名称字号比金额大半级（13.5 / 13）',
+        pg.evaluate("() => { const a=document.querySelector('.mrow-name');"
+                    " const b=document.querySelector('.mrow-num');"
+                    " return parseFloat(getComputedStyle(a).fontSize) - "
+                    "parseFloat(getComputedStyle(b).fontSize); }") == 0.5, '')
     nums = pg.evaluate("() => [...document.querySelectorAll('.mrow-num')].map(e => e.textContent.trim())")
     chk('金额还在（名称没被替换）', len(nums) == 2 and nums[0].startswith('¥'), str(nums))
     chk('名称文字就是债务名', [n['t'] for n in names] == ['测试个人', '测试平台'],
@@ -111,9 +117,9 @@ with sync_playwright() as p:
 
     print('\n[2] 预算页：收入 / 分类名称加粗')
     tab(pg, 'budget')
-    chk('收入名称 600', weight(pg, '.minc-name') == '600', weight(pg, '.minc-name'))
-    chk('分类名称 600', weight(pg, '.mcat-name') == '600', weight(pg, '.mcat-name'))
-    chk('流水分类名 600', weight(pg, '.mspend-cat') == '600', weight(pg, '.mspend-cat'))
+    chk('收入名称 700', weight(pg, '.minc-name') == '700', weight(pg, '.minc-name'))
+    chk('分类名称 700', weight(pg, '.mcat-name') == '700', weight(pg, '.mcat-name'))
+    chk('流水分类名 700', weight(pg, '.mspend-cat') == '700', weight(pg, '.mspend-cat'))
     chk('金额没跟着变粗', weight(pg, '.minc-amt') == '600', '金额本来就 600，保持不变即可')
 
     print('\n[3] 这个月怎么分：四段语义分色')
@@ -129,16 +135,34 @@ with sync_playwright() as p:
         return {
             bars: [...document.querySelectorAll('.mbud-bar i')].map(e => getComputedStyle(e).backgroundColor),
             dots: [...document.querySelectorAll('.mbud-dot')].map(e => getComputedStyle(e).backgroundColor),
-            want: ['--accent', '--good', '--bad', '--gold'].map(k => probe('var(' + k + ')'))
+            want: ['--chart-1', '--chart-2', '--chart-3', '--chart-4'].map(k => probe('var(' + k + ')'))
         };
     }""")
     bar, dots, want = got['bars'], got['dots'], got['want']
     chk('四段都在', len(bar) == 4, str(bar))
     chk('四段颜色互不相同', len(set(bar)) == 4, str(bar))
     # 关键：就是四个语义变量，不再是 accent 的深浅混合
-    names = ['固定=主色', '日常=绿', '月供=红', '剩余=金']
+    names = ['固定=蓝', '日常=绿', '月供=红', '剩余=黄']
     for i in range(4):
         chk('第%d段是%s' % (i + 1, names[i]), bar[i] == want[i], '%s vs %s' % (bar[i], want[i]))
+    # 关键回归：不能再出现「同一色系的深浅」。算 HSL 色相，两两至少差 35°。
+    # 以前 b2/b3 是 accent 混白，色相完全相同、只差明度，实机上就是一片蓝。
+    import colorsys
+
+    def hue_of(rgb_s):
+        n = [int(x) for x in rgb_s[rgb_s.index('(') + 1:rgb_s.index(')')].split(',')[:3]]
+        return colorsys.rgb_to_hls(n[0] / 255, n[1] / 255, n[2] / 255)[0] * 360
+
+    hs = [hue_of(c) for c in bar]
+    worst = None
+    for i in range(len(hs)):
+        for j in range(i + 1, len(hs)):
+            d = abs(hs[i] - hs[j])
+            d = min(d, 360 - d)
+            if worst is None or d < worst[0]:
+                worst = (d, i + 1, j + 1)
+    chk('四段两两色相至少差 35°', worst[0] >= 35,
+        '第%d段与第%d段只差 %.0f°' % (worst[1], worst[2], worst[0]))
     chk('图例圆点与条形同色', dots == bar, '%s vs %s' % (dots, bar))
     chk('条形加粗到 12px',
         pg.evaluate("() => getComputedStyle(document.querySelector('.mbud-bar')).height") == '12px',
@@ -158,13 +182,14 @@ with sync_playwright() as p:
         };
         return {
             bars: [...document.querySelectorAll('.mbud-bar i')].map(e => getComputedStyle(e).backgroundColor),
-            want: ['--accent', '--good', '--bad', '--gold'].map(k => probe('var(' + k + ')'))
+            want: ['--chart-1', '--chart-2', '--chart-3', '--chart-4'].map(k => probe('var(' + k + ')'))
         };
     }""")
     chk('深色四段互不相同', len(set(got2['bars'])) == 4, str(got2['bars']))
     chk('深色也按同一套语义变量', got2['bars'] == got2['want'],
         '%s vs %s' % (got2['bars'], got2['want']))
-    chk('深色与浅色不是同一组色（确实换过令牌）', got2['bars'] != bar, '')
+    # 图表色是固定的，深色下不该变 —— 变了反而说明又挂到主题色上了
+    chk('深色沿用同一组图表色', got2['bars'] == bar, '%s vs %s' % (got2['bars'], bar))
     pg.evaluate("() => { document.documentElement.dataset.theme='light'; }")
     pg.wait_for_timeout(400)
 
