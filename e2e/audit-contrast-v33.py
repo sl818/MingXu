@@ -188,7 +188,8 @@ SELS_CONFIG_PAGE = ['.notice-when', '.notice-text', '.notice-warn',
                     '.notice-row.past .notice-text', '.notice-row.past .notice-when',
                     '.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
                     '.pc-sec-head', '.pc-count']
-skins = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
+# v87 删掉 mono / clay / forest / cyber 四套皮肤，审计只跑剩下的
+skins = ['paper', 'slate', 'mist', 'neu', 'retro']
 
 # 安装提示要出现：未装、未关闭
 board['data']['habits'][2]['suggestTime'] = '09:00'
@@ -285,8 +286,9 @@ with sync_playwright() as p:
             ctx.close()
     br.close()
 
-print('检查：9 皮肤 × 明暗 = 18 组 × %d 个元素（共 %d 次取样）'
-      % (len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
+print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
+      % (len(skins), len(skins) * 2,
+         len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))

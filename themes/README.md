@@ -24,26 +24,19 @@ tools/
 ## 现有主题键
 
 ```text
-paper   暖绒 · 鼠尾草   (由 custom.css 覆盖)
-slate   冷雾 · 矩阵
-mono    石墨 · 朱砂
-clay    柔光 · 拟态
+paper   暖绒 · 鼠尾草   (index.html 内联 + custom.css 覆盖)
+slate   冷雾 · 矩阵     (index.html 内联)
 mist    雾蓝 · 云水     (skin-mist.css)
-ember   暖橙 · 琥珀     (skin-ember.css)
-rose    藕粉 · 樱云     (skin-rose.css)
-forest  苔绿 · 森野     (skin-forest.css)
-tech    科技 · 星舰     (skin-tech.css)
 neu     拟态 · 素白     (skin-neu.css)
-anime   动漫 · 樱糖     (skin-anime.css)
-cyber   赛博 · 霓虹     (skin-cyber.css)
-glass   液态 · 玻璃     (skin-glass.css)
-lux     黑金 · 奢华     (skin-lux.css)
-print   杂志 · 编辑     (skin-print.css)
 retro   复古 · 街机     (skin-retro.css)
-ocean   海岛 · 假日     (skin-ocean.css)
 ```
 
-柔和疗愈系列（mist / ember / rose / forest）与风格化主题（tech / neu / anime / cyber / glass）
+**v87 删除了 mono（石墨 · 朱砂）、clay（柔光 · 拟态）、forest（苔绿 · 森野）、
+cyber（赛博 · 霓虹）四套皮肤**，连同 `skin-forest.css` / `skin-cyber.css` 两个文件和
+`service-worker.js` 的预缓存清单一起移除。旧用户保存在 `lifeboard.skin` 里的这四个键
+会自动回落到 `paper`。
+
+剩下三套（mist / neu / retro）
 都是自包含的独立文件 `themes/skin-*.css`，加载在 `custom.css` 之后，已注册进 `index.html` 的 SKINS 数组与首屏白名单。
 柔和疗愈系列用 `node design/gen-skins.mjs` 生成，风格化主题用 `node design/gen-styles.mjs` 生成，
 `node design/verify-skins.mjs` 统一校验。

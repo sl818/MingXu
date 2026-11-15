@@ -108,7 +108,7 @@ with sync_playwright() as p:
     br = p.chromium.launch(channel='chrome', headless=True)
 
     # ---------- A. 三布局 × 8 页面 ----------
-    for layout in ('wide', 'top', 'side'):
+    for layout in ('wide', 'top'):
         board['data'] = json.loads(json.dumps(BASE_DATA))
         ctx = br.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=1)
         pg = ctx.new_page()
@@ -191,10 +191,10 @@ with sync_playwright() as p:
     pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(400)
     pg.fill('input[name="email"]', 'test@sl00.top'); pg.fill('input[name="password"]', 'test@sl00.top')
     pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(2800)
-    for target, chk in [('wide', 'grid'), ('side', 'grid'), ('top', 'flex')]:
+    for target, chk in [('wide', 'grid'), ('top', 'flex')]:
         pg.click('.nav-item[data-nav="settings"]'); pg.wait_for_timeout(900)
         n = pg.locator('button[data-act="set-layout"]').count()
-        if target == 'wide' and n != 3:
+        if target == 'wide' and n != 2:
             rec('排版选择器 3 张卡片', False, f'{n} 张')
         pg.click(f'[data-act="set-layout"][data-layout="{target}"]'); pg.wait_for_timeout(900)
         got = pg.evaluate("() => ({lay: document.documentElement.dataset.layout, app: getComputedStyle(document.querySelector('.app')).display})")
@@ -207,7 +207,7 @@ with sync_playwright() as p:
     ctx.close()
 
     # ---------- C. 移动端三布局 ----------
-    for layout in ('wide', 'top', 'side'):
+    for layout in ('wide', 'top'):
         ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2)
         pg = ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(f'[m-{layout}] {e}'[:180]))

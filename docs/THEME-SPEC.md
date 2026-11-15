@@ -50,10 +50,14 @@ body { ... }
 
 | key | 当前主题 |
 |---|---|
-| `paper` | 晴空 · 白蓝 |
+| `paper` | 暖绒 · 鼠尾草 |
 | `slate` | 冷雾 · 矩阵 |
-| `mono` | 石墨 · 朱砂 |
-| `clay` | 柔光 · 拟态 |
+| `mist` | 雾蓝 · 云水 |
+| `neu` | 拟态 · 素白 |
+| `retro` | 复古 · 街机 |
+
+> v87 删除了 `mono`（石墨 · 朱砂）、`clay`（柔光 · 拟态）、`forest`（苔绿 · 森野）、
+> `cyber`（赛博 · 霓虹）四套皮肤，连同各自的 CSS 一并移除。
 
 AI 可以覆盖已有键，但**不要自行新增键**。新增键需要维护者在 `index.html` 的 `SKINS` 和首屏白名单里注册，见 [SITE-STRUCTURE.md](SITE-STRUCTURE.md)。
 
@@ -238,7 +242,7 @@ transform 造成的结构位移
 2. 不写 HTML、JS、API、布局、display/grid/flex/宽高/内外边距。
 3. 必须同时提供浅色和深色（[data-theme="dark"]）。
 4. 不要 @import 外部字体或图片。
-5. 不要新增主题键；只覆盖现有 paper/slate/mono/clay 之一。
+5. 不要新增主题键；只覆盖现有 paper / slate / mist / neu / retro 之一。
 6. 输出完整的 themes/custom.css 内容，不要输出 <style> 标签。
 
 设计目标：

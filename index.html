@@ -18,7 +18,8 @@
     var s = localStorage.getItem('lifeboard.skin');
     if(['paper','slate','mono','clay','mist','forest','neu','cyber','retro'].indexOf(s) >= 0) document.documentElement.setAttribute('data-skin', s);
     var lay = localStorage.getItem('lifeboard.layout');
-    if(['top','side','wide'].indexOf(lay) < 0) lay = 'top';
+    /* v87 删掉「左侧导航条」，老用户存的 side 一律退回 top */
+    if(['top','wide'].indexOf(lay) < 0) lay = 'top';
     document.documentElement.setAttribute('data-layout', lay);
     var m = localStorage.getItem('lifeboard.theme.mode');
     if(['auto','light','dark'].indexOf(m) < 0) m = 'auto';
@@ -2162,98 +2163,6 @@ body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
   --card-top:#1b2434;--toast-bg:#1b2436;--toast-text:#eef2ff;
 }
 
-/* 极简 · 黑白 */
-:root[data-skin="mono"]{
-  --bg:#f5f5f1;--surface:#ffffff;--surface-2:#f7f7f3;--surface-3:#e9e9e2;
-  --text:#171714;--muted:#6f6f66;--line:#e0e0d7;--line-strong:#c7c7bb;
-  --accent:#1f1f1c;--accent-2:#3a3a34;--accent-strong:#000000;--accent-soft:#ecece5;--on-accent:#fbfbf6;
-  --good:#3d6b4f;--warn:#9a6a2f;--bad:#b0433a;--gold:#b0433a;--gold-soft:#f2e2df;--gold-ink:#8f2f27;
-  --shadow:0 1px 2px rgba(0,0,0,.04);--shadow-lg:0 30px 60px -34px rgba(0,0,0,.35);
-  --bg-glow:#fbfbf7;
-  --side-bg:#f7f6f0;--side-bg-2:#f1f0e9;--side-glow:rgba(0,0,0,.03);
-  --side-border:rgba(0,0,0,.08);--side-line:rgba(0,0,0,.08);--side-shadow:rgba(0,0,0,.18);
-  --side-text:#171714;--side-small:#86867c;--side-nav:#5f5f56;
-  --side-hover:rgba(0,0,0,.05);--side-active-bg:#171714;--side-active-text:#f7f6f0;
-  --side-muted:#77776f;--side-link:#5f5f56;--side-foot:#77776f;
-  --logo-bg:#171714;--logo-border:#171714;--logo-color:#f7f6f0;
-  --hero-bg:#1b1b18;--hero-bg-2:#141412;--hero-bg-3:#0d0d0c;
-  --hero-glow:rgba(255,255,255,.06);--hero-border:rgba(255,255,255,.08);--hero-shadow:rgba(0,0,0,.8);
-  --hero-text:#f7f6f0;--hero-muted:#b9b9ae;--hero-date:#b9b9ae;
-  --hero-accent:#e8e5d8;--hero-line:rgba(232,229,216,.5);
-  --hero-control-bg:rgba(255,255,255,.05);--hero-control-border:rgba(255,255,255,.16);--hero-control-text:#f0efe7;--hero-control-hover:rgba(255,255,255,.12);
-  --hero-chip-bg:rgba(255,255,255,.05);--hero-chip-border:rgba(255,255,255,.14);--hero-chip-text:#d9d9d0;
-  --hero-tag:#f0c8c0;--hero-tag-border:rgba(240,200,192,.35);--hero-ring:#f0c8c0;--hero-ring-track:rgba(255,255,255,.14);
-  --card-top:#ffffff;--toast-bg:#171714;--toast-text:#f7f6f0;
-}
-:root[data-skin="mono"][data-theme="dark"]{
-  --bg:#0f0f0e;--surface:#191917;--surface-2:#1e1e1b;--surface-3:#262622;
-  --text:#ecece4;--muted:#a0a094;--line:#2e2e29;--line-strong:#44443c;
-  --accent:#e7e4d8;--accent-2:#f2efe4;--accent-strong:#ffffff;--accent-soft:#2a2a25;--on-accent:#121210;
-  --good:#7fbf9a;--warn:#d5a06a;--bad:#e08a7d;--gold:#e08a7d;--gold-soft:#3a2421;--gold-ink:#e08a7d;
-  --shadow:0 1px 2px rgba(0,0,0,.45);--shadow-lg:0 30px 60px -30px rgba(0,0,0,.95);
-  --bg-glow:#141412;
-  --side-bg:#0b0b0a;--side-bg-2:#070706;--side-glow:rgba(255,255,255,.03);
-  --side-border:rgba(255,255,255,.07);--side-line:rgba(255,255,255,.07);--side-shadow:rgba(0,0,0,.9);
-  --side-text:#ecece4;--side-small:#8c8c82;--side-nav:#a8a89c;
-  --side-hover:rgba(255,255,255,.06);--side-active-bg:#ecece4;--side-active-text:#121210;
-  --side-muted:#8c8c82;--side-link:#a8a89c;--side-foot:#8c8c82;
-  --logo-bg:rgba(255,255,255,.06);--logo-border:rgba(255,255,255,.16);--logo-color:#ecece4;
-  --hero-bg:#141412;--hero-bg-2:#0f0f0e;--hero-bg-3:#090908;
-  --hero-glow:rgba(255,255,255,.05);--hero-border:rgba(255,255,255,.08);--hero-shadow:rgba(0,0,0,.9);
-  --hero-text:#f7f6f0;--hero-muted:#b9b9ae;--hero-date:#b9b9ae;
-  --hero-accent:#e08a7d;--hero-line:rgba(224,138,125,.45);
-  --hero-control-bg:rgba(255,255,255,.06);--hero-control-border:rgba(255,255,255,.16);--hero-control-text:#f0efe7;--hero-control-hover:rgba(255,255,255,.12);
-  --hero-chip-bg:rgba(255,255,255,.05);--hero-chip-border:rgba(255,255,255,.14);--hero-chip-text:#d9d9d0;
-  --hero-tag:#e08a7d;--hero-tag-border:rgba(224,138,125,.45);--hero-ring:#e08a7d;--hero-ring-track:rgba(255,255,255,.14);
-  --card-top:#1c1c19;--toast-bg:#ecece4;--toast-text:#121210;
-}
-
-/* 暖沙 · 陶土 */
-:root[data-skin="clay"]{
-  --bg:#f4e9da;--surface:#fffaf2;--surface-2:#f9f0e3;--surface-3:#ecdcc6;
-  --text:#2a1d15;--muted:#7d6a59;--line:#e6d4bd;--line-strong:#d2b998;
-  --accent:#a8573c;--accent-2:#c06a4a;--accent-strong:#84402b;--accent-soft:#f3e2d9;--on-accent:#fffaf2;
-  --good:#4f7d5c;--warn:#b47a3c;--bad:#a8433a;--gold:#c08a3e;--gold-soft:#f4e6c8;--gold-ink:#8a5f24;
-  --shadow:0 1px 2px rgba(70,45,25,.06);--shadow-lg:0 30px 60px -34px rgba(50,30,15,.5);
-  --bg-glow:#fbf3e7;
-  --side-bg:#3a2a22;--side-bg-2:#241812;--side-glow:rgba(224,170,100,.12);
-  --side-border:rgba(255,240,220,.08);--side-line:rgba(255,240,220,.09);--side-shadow:rgba(35,18,10,.85);
-  --side-text:#f8ecdd;--side-small:#b49a84;--side-nav:#cbb29c;
-  --side-hover:rgba(255,240,220,.07);--side-active-bg:#f8ecdd;--side-active-text:#3a2a22;
-  --side-muted:#a58b76;--side-link:#cbb29c;--side-foot:#b49a84;
-  --logo-bg:rgba(255,240,220,.06);--logo-border:rgba(255,240,220,.18);--logo-color:#f8ecdd;
-  --hero-bg:#6b3f2e;--hero-bg-2:#55301f;--hero-bg-3:#422416;
-  --hero-glow:rgba(224,170,100,.20);--hero-border:rgba(255,240,220,.10);--hero-shadow:rgba(35,18,10,.9);
-  --hero-text:#fff4e8;--hero-muted:#e0c4af;--hero-date:#d6b294;
-  --hero-accent:#e0b070;--hero-line:rgba(224,176,112,.55);
-  --hero-control-bg:rgba(255,240,220,.06);--hero-control-border:rgba(255,240,220,.16);--hero-control-text:#f6e6d4;--hero-control-hover:rgba(255,240,220,.14);
-  --hero-chip-bg:rgba(255,240,220,.05);--hero-chip-border:rgba(255,240,220,.13);--hero-chip-text:#e8d1bd;
-  --hero-tag:#f0cfa0;--hero-tag-border:rgba(224,176,112,.45);--hero-ring:#e0b070;--hero-ring-track:rgba(255,240,220,.15);
-  --card-top:#fffbf5;--toast-bg:#2a1d15;--toast-text:#fff4e8;
-}
-:root[data-skin="clay"][data-theme="dark"]{
-  --bg:#14100c;--surface:#1f1813;--surface-2:#261d16;--surface-3:#2f241b;
-  --text:#f0e5d8;--muted:#b09a86;--line:#35281f;--line-strong:#4a382a;
-  --accent:#d98b62;--accent-2:#e8a27a;--accent-strong:#efb08a;--accent-soft:#3a261c;--on-accent:#1a0f09;
-  --good:#7fbf9a;--warn:#d5a06a;--bad:#e08a7d;--gold:#d7a35a;--gold-soft:#3a2c1a;--gold-ink:#d7a35a;
-  --shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 30px 60px -30px rgba(0,0,0,.9);
-  --bg-glow:#1a130d;
-  --side-bg:#1a120d;--side-bg-2:#0f0a07;--side-glow:rgba(224,170,100,.10);
-  --side-border:rgba(255,240,220,.07);--side-line:rgba(255,240,220,.08);--side-shadow:rgba(0,0,0,.9);
-  --side-text:#f0e5d8;--side-small:#a58b76;--side-nav:#c0a790;
-  --side-hover:rgba(255,240,220,.06);--side-active-bg:#f0e5d8;--side-active-text:#2a1d15;
-  --side-muted:#9a826e;--side-link:#c0a790;--side-foot:#a58b76;
-  --logo-bg:rgba(255,240,220,.05);--logo-border:rgba(255,240,220,.16);--logo-color:#f0e5d8;
-  --hero-bg:#3d2317;--hero-bg-2:#2c180f;--hero-bg-3:#1f100a;
-  --hero-glow:rgba(224,170,100,.16);--hero-border:rgba(255,240,220,.09);--hero-shadow:rgba(0,0,0,.9);
-  --hero-text:#fff4e8;--hero-muted:#d8bca6;--hero-date:#c9a583;
-  --hero-accent:#e0b070;--hero-line:rgba(224,176,112,.45);
-  --hero-control-bg:rgba(255,240,220,.06);--hero-control-border:rgba(255,240,220,.16);--hero-control-text:#f6e6d4;--hero-control-hover:rgba(255,240,220,.14);
-  --hero-chip-bg:rgba(255,240,220,.05);--hero-chip-border:rgba(255,240,220,.14);--hero-chip-text:#e8d1bd;
-  --hero-tag:#e0b070;--hero-tag-border:rgba(224,176,112,.45);--hero-ring:#e0b070;--hero-ring-track:rgba(255,240,220,.15);
-  --card-top:#241b14;--toast-bg:#f0e5d8;--toast-text:#2a1d15;
-}
-
 /* ===== 组件使用主题变量 ===== */
 body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(0,0,0,0) 62%),var(--bg)}
 [data-theme="dark"] body{background:radial-gradient(900px 420px at 92% -10%,var(--bg-glow) 0%,rgba(0,0,0,0) 62%),var(--bg)}
@@ -2319,26 +2228,6 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 [data-theme="dark"] .mstat.sad{--mood:#d99a9a}
 [data-theme="dark"] .mstat.ok{--mood:#d7b169}
 [data-theme="dark"] .mstat.happy{--mood:#5fbf9c}
-
-/* 极简主题：更方的卡片 */
-[data-skin="mono"] .hero,
-[data-skin="mono"] .panel,
-[data-skin="mono"] .habit-card,
-[data-skin="mono"] .vital-card,
-[data-skin="mono"] .task-row,
-[data-skin="mono"] .task,
-[data-skin="mono"] .stat-card,
-[data-skin="mono"] .col,
-[data-skin="mono"] .cal-cell,
-[data-skin="mono"] .modal-card,
-[data-skin="mono"] .theme-card{border-radius:12px}
-[data-skin="mono"] .habit-bar{border-radius:0 0 12px 12px}
-[data-skin="mono"] .btn,
-[data-skin="mono"] .quick-add input,
-[data-skin="mono"] .field input,
-[data-skin="mono"] .field select,
-[data-skin="mono"] .field textarea,
-[data-skin="mono"] .nav-item{border-radius:8px}
 
 /* ===== 设置：主题选择 ===== */
 .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:12px;margin:14px 0 18px}
@@ -2934,10 +2823,6 @@ body.modal-open{overflow:hidden}
 .layout-pv-top i:nth-child(1){width:100%;height:9px;background:var(--accent)}
 .layout-pv-top i:nth-child(2){width:100%;height:24px}
 .layout-pv-top i:nth-child(3){width:62%;height:6px}
-.layout-pv-side{flex-direction:row}
-.layout-pv-side i:nth-child(1){width:15px;height:100%;background:var(--accent)}
-.layout-pv-side i:nth-child(2){flex:1;height:100%}
-.layout-pv-side i:nth-child(3){display:none}
 .layout-pv-wide{flex-direction:row}
 .layout-pv-wide i:nth-child(1){width:12px;height:100%;background:var(--accent)}
 .layout-pv-wide i:nth-child(2){flex:1;height:100%}
@@ -3716,9 +3601,7 @@ body.modal-open{overflow:hidden}
 <link rel="stylesheet" href="themes/themes.css">
 <link rel="stylesheet" href="themes/custom.css">
 <link rel="stylesheet" href="themes/skin-mist.css">
-<link rel="stylesheet" href="themes/skin-forest.css">
 <link rel="stylesheet" href="themes/skin-neu.css">
-<link rel="stylesheet" href="themes/skin-cyber.css">
 <link rel="stylesheet" href="themes/skin-retro.css">
 </head>
 <body>
@@ -3824,12 +3707,8 @@ body.modal-open{overflow:hidden}
   const SKINS = [
     { key: 'paper', name: '暖绒 · 鼠尾草', desc: '鼠尾草 / 奶油纸 / 柔和', bg: '#f8f3ea', card: '#fffcf6', side: '#3f5a49', accent: '#567458' },
     { key: 'slate', name: '冷雾 · 矩阵', desc: '雾蓝 / 全息 / 科技', bg: '#eaf2f7', card: '#fbfdff', side: '#071725', accent: '#16708a' },
-    { key: 'mono',  name: '石墨 · 朱砂', desc: '石白 / 墨黑 / 朱砂', bg: '#f0ece4', card: '#fffdf8', side: '#ece6dc', accent: '#c24b3a' },
-    { key: 'clay',  name: '柔光 · 拟态', desc: '柔灰 / 浮雕 / 内阴影', bg: '#e9edf2', card: '#e9edf2', side: '#eef2f7', accent: '#5b7fa6' },
     { key: 'mist',  name: '雾蓝 · 云水', desc: '雾蓝 / 云白 / 静谧', bg: '#f4f7fa', card: '#ffffff', side: '#dce7f0', accent: '#43688a' },
-    { key: 'forest', name: '苔绿 · 森野', desc: '苔绿 / 森野 / 沉稳', bg: '#f2f5f0', card: '#fbfdf9', side: '#e0eadb', accent: '#3e6b4f' },
     { key: 'neu',   name: '拟态 · 素白', desc: '新拟态 / 软浮雕', bg: '#e4e9f0', card: '#e4e9f0', side: '#e4e9f0', accent: '#4a5876' },
-    { key: 'cyber', name: '赛博 · 霓虹', desc: '霓虹品红 / 荧光青', bg: '#f1e8ff', card: '#faf5ff', side: '#170a2a', accent: '#9727e3' },
     { key: 'retro', name: '复古 · 街机', desc: '像素 / 块状阴影 / 撞色', bg: '#fdf6e3', card: '#fffdf7', side: '#fdf6e3', accent: '#c2441e' }
   ];
 
@@ -4531,7 +4410,7 @@ body.modal-open{overflow:hidden}
   let layout = (function () {
     try {
       const l = localStorage.getItem(LAYOUT_KEY);
-      return (l === 'side' || l === 'wide') ? l : 'top';
+      return l === 'wide' ? l : 'top';   /* v87 起没有 side 了 */
     } catch (e) { return 'top'; }
   })();
   let dragId = null;
@@ -12407,11 +12286,6 @@ body.modal-open{overflow:hidden}
             '<span class="layout-name">顶部导航条' + (layout === 'top' ? ' <i>✓</i>' : '') + '</span>' +
             '<span class="layout-desc">内容全宽 · 横向导航</span>' +
           '</button>' +
-          '<button class="layout-card' + (layout === 'side' ? ' active' : '') + '" data-act="set-layout" data-layout="side">' +
-            '<span class="layout-preview layout-pv-side"><i></i><i></i><i></i></span>' +
-            '<span class="layout-name">左侧导航条' + (layout === 'side' ? ' <i>✓</i>' : '') + '</span>' +
-            '<span class="layout-desc">侧边导航 · 经典布局</span>' +
-          '</button>' +
           '<button class="layout-card' + (layout === 'wide' ? ' active' : '') + '" data-act="set-layout" data-layout="wide">' +
             '<span class="layout-preview layout-pv-wide"><i></i><i></i><i></i><i></i></span>' +
             '<span class="layout-name">三区布局' + (layout === 'wide' ? ' <i>✓</i>' : '') + '</span>' +
@@ -15406,11 +15280,11 @@ body.modal-open{overflow:hidden}
     },
     'set-layout': el => {
       const next = el.dataset.layout;
-      layout = (next === 'side' || next === 'wide') ? next : 'top';
+      layout = next === 'wide' ? 'wide' : 'top';
       document.documentElement.setAttribute('data-layout', layout);
       try { localStorage.setItem(LAYOUT_KEY, layout); } catch (e) {}
       render();
-      toast('排版：' + (layout === 'top' ? '顶部导航条' : (layout === 'side' ? '左侧导航条' : '三区布局')));
+      toast('排版：' + (layout === 'top' ? '顶部导航条' : '三区布局'));
     },
     /* 导航顺序：只在同组内换位。写的是**完整一份 key 数组**，
        合并时才能整份覆盖，不会拼出两端交错的顺序（同 cardOrder）。 */

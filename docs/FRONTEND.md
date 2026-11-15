@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v86（2026-11-13）
+最后更新：v87（2026-11-15）
 
 ---
 
@@ -30,12 +30,12 @@
 |---|---|---|
 | 42–443 | （无） | **基础样式**。设计变量、布局骨架、通用组件、各页面雏形、弹窗、提示、响应式 |
 | 444–1798 | `visual-v2` | **视觉重构**。按组件重写：基底、侧栏、主区域、按钮、今日 Hero、习惯卡、待办、看板、日历、统计、设置、弹窗、常驻卡、喝水、运动、用药、深色、响应式 |
-| 1799–2210 | `skins` | **皮肤**。4 套内置皮肤变量（paper/slate/mono/clay）+ 组件改用主题变量 + 主题选择 UI + 移动端侧栏 + 介绍页 |
+| 1799–2210 | `skins` | **皮肤**。2 套内置皮肤变量（paper/slate，v87 删掉 mono/clay）+ 组件改用主题变量 + 主题选择 UI + 移动端侧栏 + 介绍页 |
 | 2211–2580 | `new-pages` | **新页面补充**。统计卡、补记提示、提醒横幅、本月回顾、焦点样式、骨架屏、减少动效、体重折线、更多抽屉、移动新建面板、悬浮 ＋、呼吸卡 |
 | 2582–2929 | `layout-v3` | **三布局**。排版卡片、Hero 战报、页脚贴底、手机 Hero 重排、wide 主列、导航分组、侧栏账户卡、今日页页头、按钮三档、柱状三态、同步指示器 |
 | 2930–2993 | `notify-v33` | **提醒与推送**。提醒面板、安装提示、推送中心（今日计划 + 最近发送） |
 
-**剩下 5 套皮肤在外部文件**：`themes/skin-{mist,forest,neu,cyber,retro}.css`，
+**剩下 3 套皮肤在外部文件**：`themes/skin-{mist,neu,retro}.css`（v87 删掉 forest / cyber），
 通过 `<link>` 后加载，所以能覆盖内置样式。
 
 **看到同名规则被定义多次是正常的**（`.main` 有 9 处）。排查样式问题时，
@@ -703,7 +703,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 
 ```
 dataset.theme  = light | dark      ← 明暗
-dataset.skin   = paper | slate | mono | clay | mist | forest | neu | cyber | retro
+dataset.skin   = paper | slate | mist | neu | retro        // v87 删掉 mono/clay/forest/cyber
                                       ← 9 套皮肤（4 套内置 + 5 套外部 CSS）
 dataset.layout = top | side | wide  ← 三种 PC 布局
 ```
@@ -847,7 +847,7 @@ const cloud = {
 5. **`selectedDate` 是模块级 `let`**，`page.evaluate` 里读不到（ReferenceError）。
    测试要通过 DOM 或接口间接验证。
 6. **纯视图状态不要放进 `state`**（筛选、展开、轮播索引），否则会触发无意义的云同步。
-7. **`var(--bad)` 不能用于小字**：clay 皮肤下是 `#e08a7d`，11.5px 在浅底只有 2.2:1。
+7. **`var(--bad)` 不能用于小字**：已删的 clay 皮肤当年 `#e08a7d` 在浅底只有 2.2:1（教训保留，新皮肤同理）。
    `var(--muted)` 不能用于彩色底（`--accent-soft`）上的小字，只有 4.2–4.49。
    两类都改用 `var(--text)`，层次靠字号和字重。**已踩三次。**
 8. **`#modal-root` 是 body 直接子元素**。打印样式靠 `body > *:not(#modal-root){display:none}`

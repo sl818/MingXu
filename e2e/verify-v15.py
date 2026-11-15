@@ -112,7 +112,7 @@ with sync_playwright() as p:
     br = p.chromium.launch(channel='chrome', headless=True)
 
     # ---------- 桌面：三布局 ----------
-    for layout in ('top', 'side', 'wide'):
+    for layout in ('top', 'wide'):   # v87 删掉「左侧导航条」
         board.update(make_board(FOUR))
         ctx = br.new_context(viewport={'width': 1440, 'height': 950})
         pg = ctx.new_page()

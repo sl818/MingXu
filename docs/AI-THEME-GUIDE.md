@@ -32,10 +32,11 @@
 ## 2. 可选主题键
 
 ```text
-paper  晴空 · 白蓝
+paper  暖绒 · 鼠尾草
 slate  冷雾 · 矩阵
-mono   石墨 · 朱砂
-clay   柔光 · 拟态
+mist   雾蓝 · 云水
+neu    拟态 · 素白
+retro  复古 · 街机
 ```
 
 AI 应选择一个现有键写覆盖，默认建议用 `paper`。
@@ -218,7 +219,7 @@ AI 只输出 `themes/custom.css` 的完整内容：
 2. 不写 HTML、JS、API、布局、display/grid/flex/宽高/内外边距。
 3. 必须同时提供浅色和深色（[data-theme="dark"]）。
 4. 不要 @import 外部字体或图片。
-5. 只覆盖现有 paper / slate / mono / clay 之一。
+5. 只覆盖现有 paper / slate / mist / neu / retro 之一。
 6. 只输出完整的 themes/custom.css 内容，不要 <style> 标签。
 
 主题键：paper

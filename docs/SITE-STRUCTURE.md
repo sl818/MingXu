@@ -3,7 +3,7 @@
 > 这份文件原来是"网站结构说明"，内容已并入更详细的分册。
 > 现在只留两件事：**文档地图** 和 **主题相关的准确信息**。
 
-最后更新：v86（2026-11-13）
+最后更新：v87（2026-11-15）
 
 ---
 
@@ -74,13 +74,12 @@ CSS 通过属性选择器覆盖变量：
 |---|---|---|
 | `paper` | 暖绒 · 鼠尾草 | `index.html` 的 `#skins` 块 |
 | `slate` | 冷雾 · 矩阵 | 同上 |
-| `mono` | 石墨 · 朱砂 | 同上 |
-| `clay` | 柔光 · 拟态 | 同上 |
 | `mist` | 雾蓝 · 云水 | `themes/skin-mist.css` |
-| `forest` | 苔绿 · 森野 | `themes/skin-forest.css` |
 | `neu` | 拟态 · 素白 | `themes/skin-neu.css` |
-| `cyber` | 赛博 · 霓虹 | `themes/skin-cyber.css` |
 | `retro` | 复古 · 街机 | `themes/skin-retro.css` |
+
+> v87 删除 `mono` / `clay` / `forest` / `cyber` 四套皮肤（含 CSS 文件与 SW 清单）。
+> `paper` / `slate` 的变量在 `index.html` 内联，其余三套在 `themes/skin-*.css`。
 
 > `THEME-SPEC.md` 和 `AI-THEME-GUIDE.md` 里如果列的还是"四套主题"（晴空 · 白蓝等旧名），
 > 那是 v32 之前的版本，**以 `SKINS` 常量和上表为准**。变量契约本身没变，仍然有效。
@@ -105,7 +104,7 @@ CSS 通过属性选择器覆盖变量：
 3. 在 `SKINS` 常量加一项（key / name / desc / 四个预览色）。
 4. **在首屏内联脚本的白名单数组里加 key**，否则刷新后皮肤不生效：
    ```js
-   ['paper','slate','mono','clay','mist','forest','neu','cyber','retro'].indexOf(s) >= 0
+   ['paper','slate','mist','neu','retro'].indexOf(s) >= 0
    ```
 5. **把文件加进 `service-worker.js` 的 `ASSETS`**，否则离线时皮肤丢失。
 6. 推进 `CACHE` 版本号。

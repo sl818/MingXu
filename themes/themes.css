@@ -1,16 +1,15 @@
 /* ============================================================
    晚风Todo 主题层
    只放主题变量与主题组件覆盖；不要在这里写布局、HTML 或数据逻辑。
-   当前主题键：paper / slate / mono / clay
+   当前主题键：paper / slate / mist / neu / retro（mono、clay、forest、cyber 已于 v87 删除）
    AI 请优先只改 themes/custom.css。
    ============================================================ */
 
 /* ===== skins-v3 (extracted from index.html) ===== */
 /* ============================================================
-   三套重做主题（冷雾 slate 保持原样）
+   重做主题（冷雾 slate 保持原样）
    1. 晨雾 · 雪松   paper
-   2. 石墨 · 朱砂   mono
-   3. 深海 · 鎏金   clay
+   （石墨 · 朱砂 mono、深海 · 鎏金 clay 已随 v87 删除）
    ============================================================ */
 
 /* ============================================================
@@ -86,218 +85,26 @@
 /* ============================================================
    2. 石墨 · 朱砂 —— 石白、墨黑、编辑网格
    ============================================================ */
-:root[data-skin="mono"]{
-  --bg:#f0ece4;
-  --bg-glow:#fbf7ef;
-  --surface:#fffdf8;
-  --surface-2:#f4efe6;
-  --surface-3:#e7e1d5;
-  --text:#171613;
-  --muted:#69645b;
-  --line:#d6cec0;
-  --line-strong:#1c1b18;
-  --accent:#c24b3a;
-  --accent-2:#a83b2d;
-  --accent-strong:#8e2f24;
-  --accent-soft:#f1ddd7;
-  --on-accent:#fffaf3;
-  --good:#3f6b4e;
-  --warn:#a96d2e;
-  --bad:#b03c30;
-  --gold:#b58a3c;
-  --gold-soft:#f1e4c5;
-  --shadow:0 0 0 rgba(0,0,0,0);
-  --shadow-lg:0 30px 60px -44px rgba(23,22,19,.45);
-  --font-serif:Georgia,"Times New Roman","Songti SC",serif;
-  --side-bg:#ece6dc;--side-bg-2:#e4ddd1;--side-text:#171613;--side-nav:#5f5a51;
-  --hero-bg:#171613;--hero-bg-2:#171613;--hero-bg-3:#171613;
-  --hero-text:#fff8ed;--hero-muted:#d8cfbf;--hero-date:#e5b7a9;--hero-ring:#c24b3a;
-  --card-top:#fffdf8;--gold-ink:#8e2f24;
-}
-:root[data-skin="mono"][data-theme="dark"]{
-  --bg:#0d0d0b;
-  --bg-glow:#171713;
-  --surface:#1a1916;
-  --surface-2:#211f1b;
-  --surface-3:#2a2721;
-  --text:#efe9dd;
-  --muted:#a39b8d;
-  --line:#3a352c;
-  --line-strong:#d8cdbb;
-  --accent:#e06a55;
-  --accent-2:#c24b3a;
-  --accent-strong:#f08a75;
-  --accent-soft:#3b211c;
-  --on-accent:#160b08;
-  --good:#7fbf9a;
-  --warn:#d5a06a;
-  --bad:#e08a7d;
-  --gold:#d7b169;
-  --gold-soft:#3a3221;
-  --shadow:0 0 0 rgba(0,0,0,0);
-  --shadow-lg:0 30px 60px -36px rgba(0,0,0,.9);
-  --side-bg:#14130f;--side-bg-2:#0d0d0b;--side-text:#efe9dd;--side-nav:#b3aa9b;
-  --hero-bg:#171613;--hero-bg-2:#171613;--hero-bg-3:#171613;
-  --hero-text:#fff8ed;--hero-muted:#d8cfbf;--hero-date:#e5b7a9;--hero-ring:#e06a55;
-  --card-top:#1a1916;--gold-ink:#e08a7d;
-}
-:root[data-skin="mono"] body{
-  background:
-    linear-gradient(90deg,rgba(23,22,19,.035) 1px,rgba(0,0,0,0) 1px) 0 0/72px 72px,
-    linear-gradient(rgba(23,22,19,.035) 1px,rgba(0,0,0,0) 1px) 0 0/72px 72px,
-    linear-gradient(180deg,#f4f0e8,#eee9df);
-}
-:root[data-skin="mono"][data-theme="dark"] body{
-  background:
-    linear-gradient(90deg,rgba(239,233,221,.035) 1px,rgba(0,0,0,0) 1px) 0 0/72px 72px,
-    linear-gradient(rgba(239,233,221,.035) 1px,rgba(0,0,0,0) 1px) 0 0/72px 72px,
-    #0d0d0b;
-}
-:root[data-skin="mono"] .sidebar{
-  background:linear-gradient(180deg,#ece6dc 0%,#e4ddd1 100%);
-  border-right:2px solid #1c1b18;
-  box-shadow:none;
-}
-:root[data-skin="mono"] .brand{border-bottom:1px solid rgba(28,27,24,.22)}
-:root[data-skin="mono"] .logo{
-  background:#171613;border-color:#171613;color:#f7f0e4;
-  border-radius:4px;box-shadow:none;
-}
-:root[data-skin="mono"] .brand-text b{color:#171613;font-family:var(--font-serif);font-weight:600;font-size:17px}
-:root[data-skin="mono"] .brand-text small{color:#6e685e}
-:root[data-skin="mono"] .nav-item{color:#5f5a51;border-radius:3px}
-:root[data-skin="mono"] .nav-item:hover{background:rgba(28,27,24,.06);color:#171613}
-:root[data-skin="mono"] .nav-item.active{background:#171613;color:#f8f2e8;box-shadow:none}
-:root[data-skin="mono"] .side-foot{color:#6e685e;border-top-color:rgba(28,27,24,.22)}
-:root[data-skin="mono"] .side-foot span{color:#6e685e}
-:root[data-skin="mono"] .link-btn{color:#5f5a51}
-:root[data-skin="mono"] .link-btn:hover{color:#c24b3a}
-:root[data-skin="mono"] .side-foot span::before{background:#c24b3a}
-:root[data-skin="mono"][data-theme="dark"] .sidebar{
-  background:#14130f;border-right-color:#d8cdbb;
-}
-:root[data-skin="mono"][data-theme="dark"] .brand-text b{color:#efe9dd}
-:root[data-skin="mono"][data-theme="dark"] .brand-text small{color:#a39b8d}
-:root[data-skin="mono"][data-theme="dark"] .nav-item{color:#b3aa9b}
-:root[data-skin="mono"][data-theme="dark"] .nav-item.active{background:#efe9dd;color:#171613}
-:root[data-skin="mono"][data-theme="dark"] .side-foot{color:#9d9486;border-top-color:#3a352c}
-:root[data-skin="mono"][data-theme="dark"] .side-foot span{color:#9d9486}
-:root[data-skin="mono"][data-theme="dark"] .brand{border-bottom-color:#3a352c}
-:root[data-skin="mono"][data-theme="dark"] .link-btn{color:#b3aa9b}
-
-:root[data-skin="mono"] .page-head h2{
-  font-family:var(--font-serif);
-  font-size:29px;font-weight:600;letter-spacing:-.01em;
-}
-:root[data-skin="mono"] .page-head p{font-size:11.5px;letter-spacing:.03em;color:var(--muted)}
-:root[data-skin="mono"] .section-head{border-top:2px solid #1c1b18;margin-top:38px;padding-top:16px}
-:root[data-skin="mono"] .section-head::after{display:none}
-:root[data-skin="mono"] .section-head h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
-:root[data-skin="mono"] .panel{
-  background:#fffdf8;border:1px solid #1c1b18;border-radius:6px;
-  box-shadow:none;
-}
-:root[data-skin="mono"] .panel h3{
-  font-family:var(--font-sans);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-  padding-bottom:10px;border-bottom:1px solid rgba(28,27,24,.16);
-}
-
-:root[data-skin="mono"] .btn{border-radius:4px;border-color:#1c1b18;box-shadow:none;font-weight:600;letter-spacing:.02em}
-:root[data-skin="mono"] .btn.primary{background:#171613;border-color:#171613;color:#fff8ed;box-shadow:none}
-:root[data-skin="mono"] .btn.primary:hover{background:#c24b3a;border-color:#c24b3a}
-:root[data-skin="mono"] .btn.sm{border-radius:3px}
-:root[data-skin="mono"] .hero{
-  background:#171613;border:1px solid #171613;border-radius:8px;
-  box-shadow:8px 8px 0 #c24b3a;
-}
-:root[data-skin="mono"] .hero::before{background:linear-gradient(90deg,rgba(194,75,58,0),#c24b3a,rgba(194,75,58,0))}
-:root[data-skin="mono"] .hero h1{font-family:var(--font-serif);font-size:32px;font-weight:500;letter-spacing:-.02em}
-:root[data-skin="mono"] .hero-date{color:#e5b7a9}
-:root[data-skin="mono"] .hero-tag{color:#ffd6ca;border-color:#a83b2d}
-:root[data-skin="mono"] .hero-chips span{background:transparent;border-color:rgba(255,248,237,.22);color:#e9e1d3;border-radius:2px}
-:root[data-skin="mono"] .hero-pct b{color:#fff8ed}
-:root[data-skin="mono"] .habit-card,
-:root[data-skin="mono"] .vital-card{
-  background:#fffdf8;border:1px solid #1c1b18;border-radius:6px;box-shadow:none;
-}
-:root[data-skin="mono"] .habit-card:hover,
-:root[data-skin="mono"] .vital-card:hover{transform:translateY(-2px);box-shadow:4px 4px 0 #1c1b18}
-:root[data-skin="mono"] .habit-icon{border-radius:4px;background:#f4efe6;border-color:#1c1b18}
-:root[data-skin="mono"] .stat-card{
-  background:#fffdf8;border:1px solid #1c1b18;border-radius:4px;box-shadow:none;
-}
-:root[data-skin="mono"] .stat-card:first-child{background:#171613;border-color:#171613}
-:root[data-skin="mono"] .stat-card:first-child small,
-:root[data-skin="mono"] .stat-card:first-child span,
-:root[data-skin="mono"] .stat-card:first-child b i{color:#bdb3a3}
-:root[data-skin="mono"] .stat-card:first-child b{color:#f0a58f}
-:root[data-skin="mono"] .stat-card b{font-family:var(--font-serif);font-weight:600}
-:root[data-skin="mono"] .bar-wrap i{background:#c24b3a}
-:root[data-skin="mono"] .cal-cell{border-radius:3px;background:#fffdf8;border-color:#cfc7b9}
-:root[data-skin="mono"] .cal-cell.is-today{border-color:#c24b3a;box-shadow:0 0 0 1px #c24b3a}
-:root[data-skin="mono"] .cal-cell[data-level="4"] .cal-fill{background:#c24b3a}
-:root[data-skin="mono"] .field input,
-:root[data-skin="mono"] .field select,
-:root[data-skin="mono"] .field textarea{background:#fffdf8;border-color:#1c1b18;border-radius:3px;box-shadow:none}
-:root[data-skin="mono"] .modal-card{background:#fffdf8;border:1px solid #1c1b18;border-radius:6px}
-:root[data-skin="mono"] .field-link{color:#c24b3a;border-bottom-color:rgba(194,75,58,.4)}
-:root[data-skin="mono"][data-theme="dark"] .panel,
-:root[data-skin="mono"][data-theme="dark"] .habit-card,
-:root[data-skin="mono"][data-theme="dark"] .vital-card,
-:root[data-skin="mono"][data-theme="dark"] .stat-card,
-:root[data-skin="mono"][data-theme="dark"] .cal-cell,
-:root[data-skin="mono"][data-theme="dark"] .field input,
-:root[data-skin="mono"][data-theme="dark"] .field select,
-:root[data-skin="mono"][data-theme="dark"] .field textarea,
-:root[data-skin="mono"][data-theme="dark"] .modal-card{
-  background:#1a1916;border-color:#d8cdbb;
-}
-:root[data-skin="mono"][data-theme="dark"] .stat-card:first-child{background:#e9e2d5;border-color:#e9e2d5}
-:root[data-skin="mono"][data-theme="dark"] .stat-card:first-child b{color:#8e2f24}
-:root[data-skin="mono"][data-theme="dark"] .stat-card:first-child small,
-:root[data-skin="mono"][data-theme="dark"] .stat-card:first-child span,
-:root[data-skin="mono"][data-theme="dark"] .stat-card:first-child b i{color:#5f5a51}
-
-:root[data-skin="mono"][data-theme="dark"] .panel h3{border-bottom-color:rgba(239,233,221,.18)}
 
 /* ============================================================
    3. 深海 · 鎏金 —— 海玻璃、深青、鎏金
    ============================================================ */
 
-:root[data-skin="clay"] .panel::before{
-  content:"";position:absolute;left:22px;right:22px;top:0;height:1px;pointer-events:none;
-  background:linear-gradient(90deg,rgba(224,188,122,0),rgba(181,141,79,.55),rgba(224,188,122,0));
-}
-
 /* 深海 · 鎏金：深色模式 */
 
 /* 三套共用的小修整 */
-:root[data-skin="paper"] .hero,
-:root[data-skin="mono"] .hero,
-:root[data-skin="clay"] .hero{overflow:hidden}
-:root[data-skin="paper"] .panel h3,
-:root[data-skin="mono"] .panel h3,
-:root[data-skin="clay"] .panel h3{position:relative;padding-left:10px}
-:root[data-skin="paper"] .panel h3::before,
-:root[data-skin="mono"] .panel h3::before,
-:root[data-skin="clay"] .panel h3::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--gold)}
-:root[data-skin="mono"] .hero{box-shadow:8px 8px 0 var(--accent)}
-:root[data-skin="mono"][data-theme="dark"] .hero{box-shadow:8px 8px 0 var(--accent)}
-
-:root[data-skin="mono"] .panel h3::before{background:var(--accent)}
+:root[data-skin="paper"] .hero{overflow:hidden}
+:root[data-skin="paper"] .panel h3{position:relative;padding-left:10px}
+:root[data-skin="paper"] .panel h3::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--gold)}
 
 @media (max-width:560px){
-  :root[data-skin="paper"] .hero h1,
-  :root[data-skin="mono"] .hero h1,
-  :root[data-skin="clay"] .hero h1{font-size:26px}
-  :root[data-skin="paper"] .page-head h2,
-  :root[data-skin="mono"] .page-head h2,
-  :root[data-skin="clay"] .page-head h2{font-size:24px}
+:root[data-skin="paper"] .hero h1{font-size:26px}
+:root[data-skin="paper"] .page-head h2{font-size:24px}
 }
 
 /* ===== skins-v4 (extracted from index.html) ===== */
 /* ============================================================
-   skins-v4：重做雾紫、冷雾科技、森夜；石墨朱砂保持不变
+   skins-v4：重做雾紫、冷雾科技、森夜（石墨朱砂已于 v87 删除）
    ============================================================ */
 
 /* ============================================================
@@ -507,78 +314,19 @@
    3. 森夜 · 萤火（clay）
    ============================================================ */
 
-:root[data-skin="clay"] .sidebar{
-  background:
-    radial-gradient(380px 300px at 10% 104%,rgba(214,163,74,.16),rgba(214,163,74,0) 70%),
-    linear-gradient(180deg,#142d1e 0%,#0d2116 56%,#06130c 100%);
-  border-right-color:rgba(214,163,74,.14);
-}
-
-:root[data-skin="clay"] .brand-text b{font-family:var(--font-serif);font-weight:500;font-size:17px;letter-spacing:.02em}
-
-:root[data-skin="clay"] .side-foot span::before{background:#d6a34a;box-shadow:0 0 10px rgba(214,163,74,.45)}
-
-:root[data-skin="clay"] .panel{
-  position:relative;
-  background:
-    radial-gradient(360px 180px at 100% 0%,rgba(224,237,216,.55),rgba(224,237,216,0) 60%),
-    linear-gradient(180deg,#fcfdf7,#f7faf1);
-  border-color:var(--line);border-radius:22px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),var(--shadow);
-}
-
-:root[data-skin="clay"] .section-head::after{background:var(--gold)}
-
-:root[data-skin="clay"] .hero{
-  border-radius:28px;
-  background:
-    radial-gradient(520px 280px at 88% 0%,rgba(214,163,74,.24),rgba(214,163,74,0) 68%),
-    radial-gradient(460px 300px at 2% 108%,rgba(91,143,90,.20),rgba(91,143,90,0) 68%),
-    linear-gradient(135deg,#1c3d28 0%,#13301f 52%,#0a2013 100%);
-  border-color:rgba(214,163,74,.18);
-  box-shadow:0 32px 64px -42px rgba(5,25,12,.95),inset 0 1px 0 rgba(255,255,255,.08);
-}
-:root[data-skin="clay"] .hero::before{background:linear-gradient(90deg,rgba(214,163,74,0),rgba(214,163,74,.7),rgba(214,163,74,0))}
-:root[data-skin="clay"] .hero h1{font-family:var(--font-serif);font-size:32px;font-weight:500;letter-spacing:-.03em}
-
-:root[data-skin="clay"] .habit-card,
-:root[data-skin="clay"] .vital-card{
-  background:linear-gradient(180deg,color-mix(in srgb,var(--hc) 5%,#fcfdf7) 0%,#fcfdf7 60%);
-  border-color:var(--line);border-top:2px solid color-mix(in srgb,var(--gold) 45%,var(--line));
-  border-radius:22px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),var(--shadow);
-}
-:root[data-skin="clay"] .habit-card:hover,
-:root[data-skin="clay"] .vital-card:hover{border-top-color:var(--gold);box-shadow:var(--shadow-lg)}
-
-:root[data-skin="clay"] .stat-card{
-  background:linear-gradient(155deg,#fcfdf7,#f4f8ee);
-  border-color:var(--line);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),var(--shadow);
-}
-:root[data-skin="clay"] .stat-card:first-child{
-  background:radial-gradient(240px 160px at 86% 0%,rgba(214,163,74,.18),rgba(214,163,74,0) 70%),linear-gradient(145deg,#1c3d28,#0b2415);
-  border-color:rgba(214,163,74,.26);color:#f8fff4;
-}
-:root[data-skin="clay"] .stat-card:first-child small,
-:root[data-skin="clay"] .stat-card:first-child span,
-:root[data-skin="clay"] .stat-card:first-child b i{color:#b4ceaa}
-
 /* 共用：只覆盖三套新主题的标题线，不影响朱砂 */
 
-:root[data-skin="clay"] .panel h3::before{background:var(--gold)}
 :root[data-skin="slate"] .panel h3::before{display:none}
 @media (max-width:560px){
-  :root[data-skin="paper"] .hero h1,
-  :root[data-skin="slate"] .hero h1,
-  :root[data-skin="clay"] .hero h1{font-size:26px}
-  :root[data-skin="paper"] .page-head h2,
-  :root[data-skin="slate"] .page-head h2,
-  :root[data-skin="clay"] .page-head h2{font-size:24px}
+:root[data-skin="paper"] .hero h1,
+:root[data-skin="slate"] .hero h1{font-size:26px}
+:root[data-skin="paper"] .page-head h2,
+:root[data-skin="slate"] .page-head h2{font-size:24px}
 }
 
 /* ===== skins-v5 (extracted from index.html) ===== */
 /* ============================================================
-   skins-v5：晴空白蓝 + 柔光拟态
+   skins-v5：晴空白蓝（柔光拟态已于 v87 删除，只剩 paper 的覆盖）
    只覆盖 paper / clay；slate 冷雾矩阵、mono 石墨朱砂保持不动
    ============================================================ */
 
@@ -772,183 +520,8 @@
    2. 柔光 · 拟态（clay）
    同色浮雕：外凸卡片 + 内凹输入，低饱和蓝灰
    ============================================================ */
-:root[data-skin="clay"]{
-  --bg:#e9edf2;
-  --bg-glow:#f7fafd;
-  --surface:#e9edf2;
-  --surface-2:#eef2f7;
-  --surface-3:#dfe5ec;
-  --text:#2a3444;
-  --muted:#5c6b7c;
-  --line:#d8e0e9;
-  --line-strong:#c3ceda;
-  --accent:#5b7fa6;
-  --accent-2:#7b9cbd;
-  --accent-strong:#3f5f83;
-  --accent-soft:#dfe9f3;
-  --on-accent:#f8fbff;
-  --good:#4f8a6f;
-  --warn:#b47a3c;
-  --bad:#b24a50;
-  --gold:#7d9cbb;
-  --gold-soft:#e6edf5;
-  --shadow:8px 8px 20px rgba(163,177,194,.42),-8px -8px 20px rgba(255,255,255,.88);
-  --shadow-lg:14px 14px 32px rgba(163,177,194,.35),-12px -12px 28px rgba(255,255,255,.9);
-  --font-serif:"Noto Serif SC","Songti SC","STSong",Georgia,serif;
-  --side-bg:#eef2f7;--side-bg-2:#e2e8ef;--side-text:#2a3444;--side-nav:#5f6f80;
-  --hero-bg:#edf2f8;--hero-bg-2:#e3eaf1;--hero-bg-3:#dbe3ec;
-  --hero-text:#2a3444;--hero-muted:#657585;--hero-date:#5b7fa6;--hero-ring:#5b7fa6;
-  --card-top:#e9edf2;--gold-ink:#5b7fa6;
-}
-:root[data-skin="clay"][data-theme="dark"]{
-  --bg:#1b212b;
-  --bg-glow:#252c38;
-  --surface:#1b212b;
-  --surface-2:#202732;
-  --surface-3:#252d39;
-  --text:#e8edf4;
-  --muted:#9aa7b8;
-  --line:#2b3340;
-  --line-strong:#3b4656;
-  --accent:#8fb1d1;
-  --accent-2:#a9c6e2;
-  --accent-strong:#c1d8ec;
-  --accent-soft:#253646;
-  --on-accent:#111821;
-  --good:#7fbf9a;
-  --warn:#d5a06a;
-  --bad:#e08a8a;
-  --gold:#9ab6d0;
-  --gold-soft:#2a3442;
-  --shadow:8px 8px 20px rgba(0,0,0,.48),-6px -6px 16px rgba(255,255,255,.035);
-  --shadow-lg:14px 14px 32px rgba(0,0,0,.55),-10px -10px 24px rgba(255,255,255,.04);
-  --side-bg:#202732;--side-bg-2:#181e27;--side-text:#e8edf4;--side-nav:#9aa7b8;
-  --hero-bg:#202833;--hero-bg-2:#1b222c;--hero-bg-3:#171d26;
-  --hero-text:#eef4fb;--hero-muted:#a9b7c7;--hero-date:#9fc1e0;--hero-ring:#8fb1d1;
-  --card-top:#1b212b;--gold-ink:#a9c6e2;
-}
-:root[data-skin="clay"] body{
-  background:
-    radial-gradient(900px 600px at 88% -8%,rgba(255,255,255,.65),rgba(255,255,255,0) 62%),
-    linear-gradient(145deg,#eef3f8 0%,#e5ebf1 55%,#e1e8ef 100%);
-}
-:root[data-skin="clay"][data-theme="dark"] body{
-  background:linear-gradient(145deg,#1e2530 0%,#1a202a 58%,#171d26 100%);
-}
-:root[data-skin="clay"] .sidebar{
-  background:linear-gradient(145deg,#eef3f8 0%,#e3e9f0 100%);
-  border-right:1px solid rgba(255,255,255,.7);
-  box-shadow:8px 0 24px -22px rgba(80,95,115,.55);
-}
-:root[data-skin="clay"] .brand{border-bottom-color:rgba(120,140,160,.16)}
-:root[data-skin="clay"] .logo{
-  background:linear-gradient(145deg,#eef3f8,#dce4ed);border-color:rgba(255,255,255,.8);
-  color:#3f5f83;border-radius:12px;
-  box-shadow:5px 5px 12px rgba(163,177,194,.5),-5px -5px 12px rgba(255,255,255,.9);
-}
-:root[data-skin="clay"] .brand-text b{color:#2a3444;font-family:var(--font-serif);font-weight:600;font-size:17px}
-:root[data-skin="clay"] .brand-text small{color:#718193}
-:root[data-skin="clay"] .nav-item{color:#5f6f80;border-radius:10px}
-:root[data-skin="clay"] .nav-item:hover{background:rgba(255,255,255,.45);color:#2a3444}
-:root[data-skin="clay"] .nav-item.active{
-  background:#e9edf2;color:#3f5f83;
-  box-shadow:inset 3px 3px 7px rgba(163,177,194,.48),inset -3px -3px 7px rgba(255,255,255,.9);
-}
-:root[data-skin="clay"] .side-foot{color:#718193;border-top-color:rgba(120,140,160,.18)}
-:root[data-skin="clay"] .side-foot span{color:#718193}
-:root[data-skin="clay"] .link-btn{color:#5f6f80}
-:root[data-skin="clay"] .link-btn:hover{color:#3f5f83}
-:root[data-skin="clay"] .side-foot span::before{background:#5b7fa6}
-:root[data-skin="clay"] .page-head h2{font-family:var(--font-sans);font-size:26px;font-weight:650;letter-spacing:-.025em}
-:root[data-skin="clay"] .page-head p{color:var(--muted)}
-:root[data-skin="clay"] .panel{
-  position:relative;background:var(--surface);border:1px solid rgba(255,255,255,.55);
-  border-radius:22px;box-shadow:var(--shadow);
-}
-:root[data-skin="clay"] .panel::before{display:none}
-:root[data-skin="clay"] .panel h3{font-family:var(--font-sans);font-size:14px;font-weight:650;letter-spacing:.01em}
-:root[data-skin="clay"] .panel h3::before{display:none}
-:root[data-skin="clay"] .section-head{border-top-color:rgba(120,140,160,.2)}
-:root[data-skin="clay"] .section-head::after{display:none}
-:root[data-skin="clay"] .section-head h2{font-family:var(--font-sans);font-weight:650}
-:root[data-skin="clay"] .btn{border-color:rgba(255,255,255,.5);background:var(--surface);box-shadow:4px 4px 10px rgba(163,177,194,.35),-4px -4px 10px rgba(255,255,255,.85)}
-:root[data-skin="clay"] .btn.primary{background:linear-gradient(145deg,#6f93b7,#4f7096);border-color:rgba(255,255,255,.35);color:#f7fbff;box-shadow:4px 4px 12px rgba(120,140,165,.45),-4px -4px 10px rgba(255,255,255,.45)}
-:root[data-skin="clay"] .btn.primary:hover{background:linear-gradient(145deg,#5b7fa6,#3f5f83)}
-:root[data-skin="clay"] .hero{
-  border:1px solid rgba(255,255,255,.7);border-radius:28px;
-  background:linear-gradient(145deg,#edf2f8 0%,#e0e7ef 100%);
-  color:#2a3444;
-  box-shadow:14px 14px 32px rgba(163,177,194,.38),-12px -12px 28px rgba(255,255,255,.9);
-}
-:root[data-skin="clay"] .hero::before,:root[data-skin="clay"] .hero::after{display:none}
-:root[data-skin="clay"] .hero h1{font-family:var(--font-serif);font-size:31px;font-weight:600;color:#2a3444}
-:root[data-skin="clay"] .hero-date{color:#5b7fa6}
-:root[data-skin="clay"] .hero p{color:#657585}
-:root[data-skin="clay"] .hero-tag{color:#3f5f83;border-color:rgba(91,127,166,.42)}
-:root[data-skin="clay"] .hero-chips span{background:rgba(255,255,255,.45);border-color:rgba(255,255,255,.7);color:#526476}
-:root[data-skin="clay"] .hero-arrow{background:#e9edf2;border-color:rgba(255,255,255,.7);color:#5b7fa6;box-shadow:3px 3px 7px rgba(163,177,194,.35),-3px -3px 7px rgba(255,255,255,.8)}
-:root[data-skin="clay"] .hero-pct b{color:#3f5f83}
-:root[data-skin="clay"] .hero-pct small{color:#718193}
-:root[data-skin="clay"] .hero-ring .ring circle:first-child{stroke:rgba(120,140,160,.22)}
-:root[data-skin="clay"] .hero-ring .ring circle:last-child{stroke:#5b7fa6}
-:root[data-skin="clay"] .habit-card,
-:root[data-skin="clay"] .vital-card{
-  background:var(--surface);border:1px solid rgba(255,255,255,.55);
-  border-radius:20px;box-shadow:var(--shadow);
-}
-:root[data-skin="clay"] .habit-card:hover,
-:root[data-skin="clay"] .vital-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
-:root[data-skin="clay"] .habit-icon{background:var(--surface);border-color:rgba(255,255,255,.7);box-shadow:3px 3px 8px rgba(163,177,194,.38),-3px -3px 8px rgba(255,255,255,.8)}
-:root[data-skin="clay"] .stat-card{
-  background:var(--surface);border:1px solid rgba(255,255,255,.55);
-  border-radius:18px;box-shadow:var(--shadow);
-}
-:root[data-skin="clay"] .stat-card:first-child{
-  background:linear-gradient(145deg,#e8edf3,#dbe3ec);border-color:rgba(255,255,255,.55);
-  box-shadow:inset 3px 3px 8px rgba(163,177,194,.30),inset -3px -3px 8px rgba(255,255,255,.8);
-}
-:root[data-skin="clay"] .stat-card:first-child b{color:#3f5f83}
-:root[data-skin="clay"] .stat-card b{font-family:var(--font-serif);font-weight:600}
-:root[data-skin="clay"] .bar-wrap{background:var(--surface-3);box-shadow:inset 2px 2px 4px rgba(163,177,194,.35)}
-:root[data-skin="clay"] .bar-wrap i{background:linear-gradient(180deg,#7b9cbd,#5b7fa6)}
-:root[data-skin="clay"] .cal-cell{background:var(--surface);border-color:rgba(255,255,255,.55);box-shadow:3px 3px 8px rgba(163,177,194,.28),-3px -3px 8px rgba(255,255,255,.7)}
-:root[data-skin="clay"] .cal-cell.is-today{background:var(--surface);border-color:#5b7fa6;box-shadow:inset 2px 2px 5px rgba(120,140,165,.4),0 0 0 1px #5b7fa6}
-:root[data-skin="clay"] .cal-cell[data-level="4"] .cal-fill{background:linear-gradient(135deg,#5b7fa6,#7b9cbd)}
-:root[data-skin="clay"] .field input,
-:root[data-skin="clay"] .field select,
-:root[data-skin="clay"] .field textarea{
-  background:var(--surface);border-color:rgba(255,255,255,.45);
-  box-shadow:inset 3px 3px 7px rgba(163,177,194,.35),inset -3px -3px 7px rgba(255,255,255,.75);
-}
-:root[data-skin="clay"] .modal-card{background:var(--surface);border-color:rgba(255,255,255,.55);border-radius:22px;box-shadow:var(--shadow-lg)}
-:root[data-skin="clay"] .field-link{color:#5b7fa6}
-:root[data-skin="clay"][data-theme="dark"] .sidebar{background:linear-gradient(145deg,#202732,#171d26);border-right-color:rgba(255,255,255,.04);box-shadow:8px 0 24px -22px rgba(0,0,0,.8)}
-:root[data-skin="clay"][data-theme="dark"] .brand-text b{color:#e8edf4}
-:root[data-skin="clay"][data-theme="dark"] .brand-text small{color:#9aa7b8}
-:root[data-skin="clay"][data-theme="dark"] .nav-item{color:#9aa7b8}
-:root[data-skin="clay"][data-theme="dark"] .nav-item.active{background:#1b212b;color:#a9c6e2;box-shadow:inset 3px 3px 7px rgba(0,0,0,.45),inset -3px -3px 7px rgba(255,255,255,.04)}
-:root[data-skin="clay"][data-theme="dark"] .side-foot,
-:root[data-skin="clay"][data-theme="dark"] .side-foot span,
-:root[data-skin="clay"][data-theme="dark"] .link-btn{color:#9aa7b8}
-:root[data-skin="clay"][data-theme="dark"] .logo{background:linear-gradient(145deg,#252d39,#1b212b);border-color:rgba(255,255,255,.08);color:#a9c6e2;box-shadow:4px 4px 10px rgba(0,0,0,.45),-4px -4px 10px rgba(255,255,255,.05)}
-:root[data-skin="clay"][data-theme="dark"] .panel,
-:root[data-skin="clay"][data-theme="dark"] .habit-card,
-:root[data-skin="clay"][data-theme="dark"] .vital-card,
-:root[data-skin="clay"][data-theme="dark"] .stat-card,
-:root[data-skin="clay"][data-theme="dark"] .cal-cell,
-:root[data-skin="clay"][data-theme="dark"] .field input,
-:root[data-skin="clay"][data-theme="dark"] .field select,
-:root[data-skin="clay"][data-theme="dark"] .field textarea,
-:root[data-skin="clay"][data-theme="dark"] .modal-card{background:#1b212b;border-color:rgba(255,255,255,.06)}
-:root[data-skin="clay"][data-theme="dark"] .hero{background:linear-gradient(145deg,#202833,#171d26);border-color:rgba(255,255,255,.06)}
-:root[data-skin="clay"][data-theme="dark"] .hero h1{color:#eef4fb}
-:root[data-skin="clay"][data-theme="dark"] .hero p{color:#a9b7c7}
-:root[data-skin="clay"][data-theme="dark"] .stat-card:first-child{background:linear-gradient(145deg,#1d2530,#171d26);border-color:rgba(255,255,255,.05)}
-:root[data-skin="clay"][data-theme="dark"] .stat-card:first-child b{color:#a9c6e2}
 
 @media (max-width:560px){
-  :root[data-skin="paper"] .hero h1,
-  :root[data-skin="clay"] .hero h1{font-size:26px}
-  :root[data-skin="paper"] .page-head h2,
-  :root[data-skin="clay"] .page-head h2{font-size:24px}
+:root[data-skin="paper"] .hero h1{font-size:26px}
+:root[data-skin="paper"] .page-head h2{font-size:24px}
 }

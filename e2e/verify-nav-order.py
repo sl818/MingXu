@@ -95,7 +95,7 @@ with sync_playwright() as p:
         pg.evaluate(NAV_ORDER_JS)[7:9] == ['stats', 'calendar'], str(pg.evaluate(NAV_ORDER_JS)))
 
     print('\n[4] 三种排版都用同一个顺序')
-    for lay in ('side', 'wide', 'top'):
+    for lay in ('wide', 'top'):   # v87 删掉「左侧导航条」
         pg.evaluate("(l) => document.querySelector('[data-act=\"set-layout\"][data-layout=\"'+l+'\"]').click()", lay)
         pg.wait_for_timeout(600)
         got = pg.evaluate(NAV_ORDER_JS)
