@@ -83,8 +83,12 @@ board['data']['money'] = {
         {'id': 'md2', 'name': '亲友', 'type': 'friend', 'balance': 20000, 'start': 20000,
          'apr': 0, 'min': 500, 'due': 1, 'note': '', 'clearedAt': '', 'u': 1},
     ],
-    'extra': 1000, 'strategy': 'snowball', 'customOrder': [], 'snowflakes': [],
-    'startYM': '', 'log': [], 'incomes': [], 'cats': [], 'spends': [],
+    'extra': 1000, 'strategy': 'snowball', 'customOrder': [],
+    'snowflakes': [{'id': 'sf1', 'ym': '2026-12', 'amount': 5000, 'note': '年终奖', 'u': 1}],
+    'startYM': '2026-11',
+    'log': [{'id': 'lg1', 'date': '2026-10-20', 'debtId': 'md1', 'debtName': '信用卡A',
+             'amount': 1900, 'note': '这个月多还了一点', 'u': 1}],
+    'incomes': [], 'cats': [], 'spends': [],
     'notify': {'on': False, 'before': [3, 1, 0], 'time': '09:00'},
 }
 board['data']['moneyAt'] = 1
@@ -196,6 +200,11 @@ SELS_MONEY = ['.money-hero small', '.mh-big', '.mh-sub', '.money-kpi b', '.money
               '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on']
 SELS_MONEY_DEBTS = ['.mdebt-tag', '.mdebt-num b', '.mdebt-num span',
                     '.subtab button', '.subtab button.on']
+# 计划 / 记录是另外两个子页，选择器同样分开取
+SELS_MONEY_PLAN = ['.mstart b', '.mstart span', '.mfield > span', '.mcmp-name',
+                   '.mcmp-name i', '.mcmp-cell', '.mtag', '.mtr-ym', '.mtr-left',
+                   '.msnow b', '.msnow span']
+SELS_MONEY_LOG = ['.mlog-date', '.mlog-name', '.mlog-amt', '.mlog-note']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
@@ -277,6 +286,12 @@ with sync_playwright() as p:
             pg.click('[data-act="subtab"][data-page="money"][data-tab="debts"]')
             pg.wait_for_timeout(500)
             res += pg.evaluate(JS, SELS_MONEY_DEBTS)
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="plan"]')
+            pg.wait_for_timeout(700)
+            res += pg.evaluate(JS, SELS_MONEY_PLAN)
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="log"]')
+            pg.wait_for_timeout(600)
+            res += pg.evaluate(JS, SELS_MONEY_LOG)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             # v84：用药趋势和戒烟分析都藏在分段控件 / 折叠后面，取样前先点开，
@@ -316,7 +331,8 @@ with sync_playwright() as p:
 print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
       % (len(skins), len(skins) * 2,
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
-         + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS), checked))
+         + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
+         + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

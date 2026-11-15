@@ -93,9 +93,10 @@ with sync_playwright() as p:
     go(pg, 'money')
     chk('没有债时给出引导按钮', pg.locator('[data-act="money-debt-new"]').count() >= 1)
     chk('空状态有说明文案', '还没有债务' in pg.evaluate("() => document.body.textContent"))
-    chk('六个子页只放出做完的两个',
-        pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)") == ['总览', '我的债'],
-        str(pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")))
+    # 子页是「做完一版放出一版」，所以这里只断言「还没做的没放出来」
+    tabs0 = pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
+    chk('未做完的子页还没放出来（预算 / 工具）',
+        '预算' not in tabs0 and '工具' not in tabs0, str(tabs0))
 
     print('\n[3] 记一笔债 → 总览数字')
     add_debt(pg, '测试债A', 1200, 0, 100)

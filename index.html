@@ -429,6 +429,56 @@ h1,h2,h3,h4,p{margin:0}
 .mdebt-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:10px}
 .mdebt-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
 .mdebt-acts{display:flex;gap:8px}
+.mstrat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mstart{text-align:left;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--text)}
+.mstart b{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px}
+/* 描述小字用 --text：--muted 在 surface-2 上只有 4.0–4.36，过不了 4.5；
+   策略卡选中时底色更浅，问题更明显。层次靠字号，不靠灰 */
+.mstart span{display:block;font-size:10.5px;line-height:1.45;color:var(--text)}
+.mstart.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface-2))}
+@media (max-width:760px){.mstrat{grid-template-columns:1fr}}
+.mfield{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mfield>span{font-size:12px;color:var(--text)}
+.mfield input{width:110px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;
+  background:var(--surface-2);color:var(--text);font:inherit;font-size:13px}
+.mfield-sub{font-size:10.5px;color:var(--muted)}
+.msnow-list{display:flex;flex-direction:column;gap:6px}
+.msnow{display:flex;align-items:center;gap:10px;padding:8px 11px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface-2)}
+.msnow b{font-size:12.5px;font-weight:600;color:var(--text);margin-right:auto}
+.msnow span{font-size:11px;color:var(--muted)}
+.msnow-move{display:flex;gap:2px}
+.mcmp{display:flex;flex-direction:column}
+.mcmp-row{display:grid;grid-template-columns:minmax(96px,1.2fr) repeat(3,minmax(0,1fr));gap:8px;
+  align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text)}
+.mcmp-row:last-child{border-bottom:0}
+.mcmp-row.head{font-size:10px;color:var(--muted);border-bottom-color:var(--line)}
+.mcmp-row.on{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.mcmp-name{font-weight:600}
+.mcmp-name i{display:block;font-style:normal;font-size:9.5px;font-weight:400;color:var(--muted);margin-top:2px}
+.mcmp-cell{font-variant-numeric:tabular-nums;font-size:11.5px}
+@media (max-width:760px){
+  .mcmp-row{grid-template-columns:minmax(80px,1fr) repeat(3,minmax(0,1fr));gap:6px;font-size:11px}
+  .mcmp-cell{font-size:10.5px}
+}
+.mtable{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.mtr{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:start;
+  padding:8px 2px;border-bottom:1px solid var(--line)}
+.mtr:last-child{border-bottom:0}
+.mtr-ym{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mtr-det{display:flex;flex-wrap:wrap;gap:4px 8px;min-width:0}
+.mtag{font-size:11px;color:var(--text);white-space:nowrap}
+.mtag b{font-weight:500;margin-right:3px}
+.mtr-left{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mlog-list{display:flex;flex-direction:column;gap:2px}
+.mlog{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;gap:10px;align-items:center;
+  padding:9px 2px;border-bottom:1px solid var(--line)}
+.mlog-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mlog-name{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mlog-amt{font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.mlog-note{font-size:10.5px;color:var(--muted);padding:0 2px 6px 54px;margin-top:-4px}
+
 
 /* 配置页单栏往下排。**不要复用 .settings-wrap** —— 它在大屏是 columns:2 瀑布流，
    配置页每块都要横着读（通知列表、推送配置、安装说明），分两栏会把阅读顺序打乱。
@@ -10913,6 +10963,11 @@ body.modal-open{overflow:hidden}
     if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return '—';
     return Number(String(ym).slice(0, 4)) + ' 年 ' + Number(String(ym).slice(5, 7)) + ' 月';
   }
+  /* 表格 / 对比表里用短格式：手机上「2028 年 5 月」会被挤成两行 */
+  function ymShort(ym) {
+    if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return '—';
+    return String(ym).replace('-', '.');
+  }
 
   /* 按 id 并集，**同一 id 取 u 更大的那份**。
      债、流水这类是可编辑实体，跟 packs 不一样——远端那份可能是旧的，
@@ -11029,7 +11084,7 @@ body.modal-open{overflow:hidden}
      ② 每笔各还最低还款（不超过余额）
      ③ 剩下的钱（加速钱 + 当月一次性多还）按策略顺序全砸第一笔，清掉后滚到下一笔
      最多算 360 个月。 */
-  function moneySimulate(strat) {
+  function moneySimulate(strat, detail) {
     const live = moneyLive();
     const total = live.reduce(function (a, d) { return a + (Number(d.balance) || 0); }, 0);
     const res = {
@@ -11055,6 +11110,10 @@ body.modal-open{overflow:hidden}
     let series = [Math.round(total * 100) / 100];
     let totalInt = 0;
     let m = 0;
+    /* detail=true 时额外记按月明细，供「逐月还款表」用。
+       默认不算——总览每次渲染都要跑一遍，多算这份纯浪费。 */
+    const rows = detail ? [] : null;
+    res.rows = rows;
     while (m < MONEY_MAX_MONTHS) {
       const ym = ymAdd(start, m);
       /* ① 计息 */
@@ -11065,12 +11124,14 @@ body.modal-open{overflow:hidden}
         totalInt = Math.round((totalInt + it) * 100) / 100;
       }
       /* ② 各还最低，累计本月已经花掉多少 */
+      const paid = {};
       let spent = 0;
       for (let i = 0; i < cur.length; i++) {
         if (cur[i] <= 0.005) continue;
         const pay = Math.min(min[i], cur[i]);
         cur[i] = Math.round((cur[i] - pay) * 100) / 100;
         spent = Math.round((spent + pay) * 100) / 100;
+        paid[order[i].id] = Math.round(((paid[order[i].id] || 0) + pay) * 100) / 100;
         if (cur[i] <= 0.005 && !res.clearAt[order[i].id]) res.clearAt[order[i].id] = ym;
       }
       /* ③ 预算里剩下的（含清账腾出来的份额 + 一次性多还）按顺序砸 */
@@ -11084,12 +11145,26 @@ body.modal-open{overflow:hidden}
         const pay = Math.min(pool, cur[i]);
         cur[i] = Math.round((cur[i] - pay) * 100) / 100;
         pool = Math.round((pool - pay) * 100) / 100;
+        paid[order[i].id] = Math.round(((paid[order[i].id] || 0) + pay) * 100) / 100;
         if (cur[i] <= 0.005 && !res.clearAt[order[i].id]) res.clearAt[order[i].id] = ym;
       }
       let left = 0;
       for (let i = 0; i < cur.length; i++) if (cur[i] > 0.005) left += cur[i];
       left = Math.round(left * 100) / 100;
       series.push(left);
+      if (rows) {
+        rows.push({
+          ym: ym,
+          items: order.map(function (d, i) {
+            return {
+              id: d.id, name: d.name,
+              pay: paid[d.id] || 0,
+              after: cur[i] > 0.005 ? cur[i] : 0
+            };
+          }).filter(function (x) { return x.pay > 0.005; }),
+          left: left
+        });
+      }
       m++;
       if (left <= 0.005) {
         res.done = true; res.months = m; res.payoff = ym; res.left = 0;
@@ -11126,8 +11201,8 @@ body.modal-open{overflow:hidden}
     { key: 'overview', label: '总览' },
     { key: 'debts', label: '我的债' },
     { key: 'budget', label: '预算', v: 90 },
-    { key: 'plan', label: '计划', v: 89 },
-    { key: 'log', label: '记录', v: 89 },
+    { key: 'plan', label: '计划' },
+    { key: 'log', label: '记录' },
     { key: 'tools', label: '工具', v: 91 }
   ];
 
@@ -11243,10 +11318,256 @@ body.modal-open{overflow:hidden}
         : '');
   }
 
+  /* ---------- 计划 ---------- */
+  /* 逐月表默认只显示两年；360 个月全铺出来没人看得完 */
+  let moneyPlanAll = false;
+
+  function moneyPlanView() {
+    const live = moneyLive();
+    if (!live.length) {
+      return '<div class="panel"><div class="empty-box">还没有债务，先去「我的债」记几笔。</div></div>';
+    }
+    const extra = Math.max(0, Number(money().extra) || 0);
+    const sim = moneySimulate(money().strategy);
+    const strat = '<div class="panel"><h3>还款策略</h3>' +
+      '<div class="mstrat">' + MONEY_STRATEGIES.map(function (t) {
+        const on = money().strategy === t.key;
+        return '<button type="button" class="mstart' + (on ? ' on' : '') +
+          '" data-act="money-strategy" data-key="' + t.key + '">' +
+          '<b>' + t.label + '</b><span>' + t.desc + '</span></button>';
+      }).join('') + '</div>' +
+      (money().strategy === 'custom' ? moneyCustomOrderHtml() : '') +
+      '<p class="hint">换策略只会改变「先还哪笔」，不会改变每月总额。</p></div>';
+
+    /* 别叫 money：函数作用域里再声明同名 const，前面调用 money() 会直接 TDZ 报错 */
+    const extraPanel = '<div class="panel"><h3>每月额度</h3>' +
+      '<div class="mfield">' +
+        '<span>加速钱</span>' +
+        '<input type="number" id="money-extra" min="0" step="50" value="' + extra + '">' +
+        '<span class="mfield-sub">元 / 月</span>' +
+        '<button type="button" class="btn sm" data-act="money-extra-save">保存</button>' +
+      '</div>' +
+      '<p class="hint">最低还款之外每月还能多还的钱。填 0 就只按最低还款走。' +
+        '现在是每月 <b>¥' + sim.monthly.toFixed(0) + '</b>（最低 ' + sim.monthlyMin.toFixed(0) +
+        ' + 加速 ' + extra + '）。</p></div>';
+
+    const snow = '<div class="panel"><h3>一次性多还 <span class="muted-sm">（年终奖、退税这类）</span></h3>' +
+      '<div class="msnow-list">' + (moneyList('snowflakes').slice().sort(function (a, b) {
+        return String(a.ym).localeCompare(String(b.ym));
+      }).map(function (x) {
+        return '<div class="msnow"><b>' + ymLabel(x.ym) + '</b>' +
+          '<span>¥' + (Number(x.amount) || 0).toFixed(0) + (x.note ? ' · ' + esc(x.note) : '') + '</span>' +
+          '<button type="button" class="icon-btn" data-act="money-snow-del" data-id="' + esc(x.id) + '" title="删除">✕</button>' +
+        '</div>';
+      }).join('') || '<div class="muted-sm">还没有。加一笔，看看能提前几个月还完。</div>') + '</div>' +
+      '<div class="btn-row" style="margin-top:12px">' +
+        '<button type="button" class="btn sm" data-act="money-snow-new">加一笔多还</button></div></div>';
+
+    return extraPanel + strat + moneyCompareHtml() + moneyTableHtml() + snow;
+  }
+
+  /* 自定义顺序：只有选了「自定义」才显示，↑↓ 调 */
+  function moneyCustomOrderHtml() {
+    const list = moneyOrder(moneyLive(), 'custom');
+    const rows = list.map(function (d, i) {
+      const btn = function (dir, off) {
+        return '<button type="button" class="icon-btn"' + (off ? ' disabled' : '') +
+          ' data-act="money-order-move" data-id="' + esc(d.id) + '" data-dir="' + dir + '">' +
+          (dir < 0 ? '↑' : '↓') + '</button>';
+      };
+      return '<div class="msnow"><b>' + (i + 1) + '. ' + esc(d.name) + '</b>' +
+        '<span>¥' + (Number(d.balance) || 0).toFixed(0) + '</span>' +
+        '<span class="msnow-move">' + btn(-1, i === 0) + btn(1, i === list.length - 1) + '</span></div>';
+    }).join('');
+    return '<div class="msnow-list" style="margin-top:10px">' + rows + '</div>';
+  }
+
+  /* 三种办法并排对比：还清日 / 总利息 / 第一笔什么时候清掉 */
+  function moneyCompareHtml() {
+    const list = MONEY_STRATEGIES.map(function (t) {
+      const sim = moneySimulate(t.key);
+      const first = moneyLive().slice().sort(function (a, b) {
+        return String(sim.clearAt[a.id] || '9999-99').localeCompare(String(sim.clearAt[b.id] || '9999-99'));
+      })[0];
+      return {
+        key: t.key, label: t.label, done: sim.done, months: sim.months,
+        payoff: sim.payoff, int: sim.totalInt,
+        firstAt: first ? (sim.clearAt[first.id] || '') : ''
+      };
+    });
+    const ok = list.filter(function (x) { return x.done; });
+    const bestInt = ok.length ? Math.min.apply(null, ok.map(function (x) { return x.int; })) : null;
+    const firsts = list.filter(function (x) { return x.firstAt; }).map(function (x) { return x.firstAt; }).sort();
+    const firstBest = firsts.length ? firsts[0] : '';
+    const row = function (x) {
+      const tags = [];
+      if (x.done && x.int === bestInt && ok.length > 1) tags.push('最省利息');
+      if (x.firstAt && x.firstAt === firstBest && list.length > 1) tags.push('最快清掉第一笔');
+      if (money().strategy === x.key) tags.push('当前');
+      return '<div class="mcmp-row' + (money().strategy === x.key ? ' on' : '') + '">' +
+        '<span class="mcmp-name">' + x.label + (tags.length
+          ? '<i>' + tags.join(' · ') + '</i>' : '') + '</span>' +
+        '<span class="mcmp-cell">' + (x.done ? ymShort(x.payoff) : '30 年内还不完') + '</span>' +
+        '<span class="mcmp-cell">¥' + x.int.toFixed(0) + '</span>' +
+        '<span class="mcmp-cell">' + (x.firstAt ? ymShort(x.firstAt) : '—') + '</span>' +
+      '</div>';
+    };
+    return '<div class="panel"><h3>三种办法对比</h3>' +
+      '<div class="mcmp">' +
+        '<div class="mcmp-row head"><span class="mcmp-name">办法</span>' +
+          '<span class="mcmp-cell">还清日</span><span class="mcmp-cell">总利息</span>' +
+          '<span class="mcmp-cell">第一笔清掉</span></div>' +
+        list.map(row).join('') +
+      '</div>' +
+      '<p class="hint">日期是「年.月」。同样的钱，雪崩法总利息最少；雪球法最早清掉一笔，看着有劲。' +
+      '「自定义」按你自己排的顺序走。</p></div>';
+  }
+
+  /* 逐月还款表 */
+  function moneyTableHtml() {
+    const sim = moneySimulate(money().strategy, true);
+    const rows = sim.rows || [];
+    if (!rows.length) return '';
+    const show = moneyPlanAll ? rows : rows.slice(0, 24);
+    const body = show.map(function (r) {
+      const det = r.items.map(function (x) {
+        return '<span class="mtag">' + esc(x.name) + ' ¥' + x.pay.toFixed(0) + '</span>';
+      }).join('');
+      return '<div class="mtr">' +
+        '<span class="mtr-ym">' + r.ym.slice(2).replace('-', '/') + '</span>' +
+        '<span class="mtr-det">' + det + '</span>' +
+        '<span class="mtr-left">剩 ¥' + r.left.toFixed(0) + '</span>' +
+      '</div>';
+    }).join('');
+    const more = rows.length > 24
+      ? '<div class="btn-row" style="margin-top:12px"><button type="button" class="btn sm" data-act="money-plan-more">' +
+        (moneyPlanAll ? '只看前 24 个月' : '展开全部 ' + rows.length + ' 个月') + '</button></div>'
+      : '';
+    return '<div class="panel"><h3>逐月还款表 <span class="muted-sm">（共 ' + rows.length + ' 个月）</span></h3>' +
+      '<div class="mtable">' + body + '</div>' + more + '</div>';
+  }
+
+  /* ---------- 记录 ---------- */
+  function moneyLogView() {
+    const logs = moneyList('log').slice().sort(function (a, b) {
+      return String(b.date).localeCompare(String(a.date)) || (Number(b.u) || 0) - (Number(a.u) || 0);
+    });
+    if (!logs.length) {
+      return '<div class="panel"><div class="empty-box">还没有还款记录。<br>' +
+        '每还一笔就记一下，欠款会自动减少。<br><br>' +
+        '<button type="button" class="btn primary" data-act="money-log-new">记一笔还款</button></div></div>';
+    }
+    const sum = logs.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0);
+    const rows = logs.map(function (x) {
+      return '<div class="mlog">' +
+        '<span class="mlog-date">' + esc(String(x.date).slice(5)) + '</span>' +
+        '<span class="mlog-name">' + esc(x.debtName || '已删除的债') + '</span>' +
+        '<span class="mlog-amt">¥' + (Number(x.amount) || 0).toFixed(0) + '</span>' +
+        '<button type="button" class="btn sm" data-act="money-log-undo" data-id="' + esc(x.id) + '">撤销</button>' +
+      '</div>' + (x.note ? '<div class="mlog-note">' + esc(x.note) + '</div>' : '');
+    }).join('');
+    return '<div class="panel"><h3>还款记录 <span class="muted-sm">（' + logs.length + ' 笔 · 合计 ¥' +
+      sum.toFixed(0) + '）</span></h3>' +
+      '<div class="mlog-list">' + rows + '</div>' +
+      '<div class="btn-row" style="margin-top:12px">' +
+        '<button type="button" class="btn sm" data-act="money-log-new">记一笔还款</button></div></div>';
+  }
+
+  function moneySnowModal() {
+    openModal('<form class="modal-card" id="money-snow-form">' +
+      '<h3>加一笔一次性多还</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>哪个月还</span><input name="ym" type="month" value="' +
+          ymAdd(ymNow(), 1) + '"></label>' +
+        '<label class="field"><span>金额（元）</span>' +
+          '<input name="amount" type="number" min="0" step="100" placeholder="5000"></label>' +
+        '<label class="field wide"><span>备注（可选）</span>' +
+          '<input name="note" maxlength="60" placeholder="年终奖"></label>' +
+      '</div>' +
+      '<p class="hint">这笔钱在那个月会全部砸向当时排在最前面的债，不改变每月额度。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">保存</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneySnow(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const ym = get('ym');
+    const amount = moneyNum(get('amount'));
+    if (!/^\d{4}-\d{2}$/.test(ym)) { toast('选一个月份'); return; }
+    if (!(amount > 0)) { toast('金额要大于 0'); return; }
+    const m = normalizeMoney(money());
+    m.snowflakes.push({ id: uid(), ym: ym, amount: amount, note: get('note').slice(0, 60), u: Date.now() });
+    state.money = m;
+    state.moneyAt = Date.now();
+    save(); render(); closeModal();
+    toast('已加：' + ymLabel(ym) + ' 多还 ¥' + amount.toFixed(0));
+  }
+
+  function moneyLogModal() {
+    const live = moneyLive();
+    if (!live.length) { toast('先记一笔债'); return; }
+    openModal('<form class="modal-card" id="money-log-form">' +
+      '<h3>记一笔还款</h3>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>还哪笔</span><select name="debtId">' +
+          live.map(function (d) {
+            return '<option value="' + esc(d.id) + '">' + esc(d.name) + '（剩 ¥' +
+              (Number(d.balance) || 0).toFixed(0) + '）</option>';
+          }).join('') + '</select></label>' +
+        '<label class="field"><span>金额（元）</span>' +
+          '<input name="amount" type="number" min="0" step="0.01" placeholder="1900"></label>' +
+        '<label class="field wide"><span>日期</span>' +
+          '<input name="date" type="date" value="' + todayStr() + '"></label>' +
+        '<label class="field wide"><span>备注（可选）</span>' +
+          '<input name="note" maxlength="60"></label>' +
+      '</div>' +
+      '<p class="hint">记完这笔债的余额会直接减掉。记错了可以在「记录」里撤销。</p>' +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+        '<button type="submit" class="btn primary">记下</button></div>' +
+    '</form>');
+  }
+
+  function saveMoneyLog(form) {
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const date = get('date');
+    const debtId = get('debtId');
+    const amount = moneyNum(get('amount'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('选个日期'); return; }
+    const m = normalizeMoney(money());
+    const d = m.debts.filter(function (x) { return x.id === debtId; })[0];
+    if (!d) { toast('选一笔债'); return; }
+    if (!(amount > 0)) { toast('金额要大于 0'); return; }
+    const before = Number(d.balance) || 0;
+    const real = Math.min(amount, before);
+    d.balance = Math.round((before - real) * 100) / 100;
+    d.u = Date.now();
+    m.log.push({
+      id: uid(), date: date, debtId: d.id, debtName: d.name,
+      amount: real, note: get('note').slice(0, 60), u: Date.now()
+    });
+    state.money = m;
+    state.moneyAt = Date.now();
+    save(); render(); closeModal();
+    toast(real < amount
+      ? '金额超过余额，已按 ¥' + real.toFixed(0) + ' 记'
+      : '已记还款 ¥' + real.toFixed(0));
+  }
+
   function viewMoney() {
     const ready = MONEY_TABS.filter(function (t) { return !t.v; });
     const cur = subTabOf('money', ready);
-    const body = cur === 'debts' ? moneyDebtsView() : moneyOverviewView();
+    const body = cur === 'debts' ? moneyDebtsView()
+      : (cur === 'plan' ? moneyPlanView()
+        : (cur === 'log' ? moneyLogView() : moneyOverviewView()));
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
         '<div class="head-actions">' +
           '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
@@ -15897,6 +16218,70 @@ body.modal-open{overflow:hidden}
       render();
     },
     'money-debt-new': () => moneyDebtModal(null),
+    'money-strategy': el => {
+      const k = el.dataset.key;
+      const m = normalizeMoney(money());
+      if (!MONEY_STRATEGIES.some(function (t) { return t.key === k; })) return;
+      m.strategy = k;
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('还款策略：' + moneyStrategyLabel(k));
+    },
+    'money-extra-save': () => {
+      const el = $('#money-extra');
+      if (!el) return;
+      const m = normalizeMoney(money());
+      m.extra = moneyNum(el.value);
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('加速钱：每月 ¥' + m.extra.toFixed(0));
+    },
+    'money-order-move': el => {
+      const id = el.dataset.id || '';
+      const dir = Number(el.dataset.dir) || 0;
+      const list = moneyOrder(moneyLive(), 'custom').map(function (d) { return d.id; });
+      const i = list.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      const t = list[i]; list[i] = list[j]; list[j] = t;
+      const m = normalizeMoney(money());
+      m.customOrder = list;
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+    },
+    'money-snow-new': () => moneySnowModal(),
+    'money-snow-del': el => {
+      const m = normalizeMoney(money());
+      m.snowflakes = m.snowflakes.filter(function (x) { return x.id !== el.dataset.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('已删除');
+    },
+    'money-plan-more': () => {
+      moneyPlanAll = !moneyPlanAll;
+      render();
+    },
+    'money-log-new': () => moneyLogModal(),
+    'money-log-undo': el => {
+      const m = normalizeMoney(money());
+      const lg = m.log.filter(function (x) { return x.id === el.dataset.id; })[0];
+      if (!lg) return;
+      if (!confirm('撤销这笔 ¥' + (Number(lg.amount) || 0).toFixed(0) + ' 的还款记录？欠款会加回去。')) return;
+      const d = m.debts.filter(function (x) { return x.id === lg.debtId; })[0];
+      if (d) {
+        d.balance = Math.round(((Number(d.balance) || 0) + (Number(lg.amount) || 0)) * 100) / 100;
+        d.u = Date.now();
+      }
+      m.log = m.log.filter(function (x) { return x.id !== lg.id; });
+      state.money = m;
+      state.moneyAt = Date.now();
+      save(); render();
+      toast('已撤销');
+    },
     'money-debt-edit': el => {
       const d = moneyList('debts').filter(function (x) { return x.id === el.dataset.id; })[0];
       if (d) moneyDebtModal(d);
@@ -15999,6 +16384,12 @@ body.modal-open{overflow:hidden}
     } else if (form.id === 'money-form') {
       e.preventDefault();
       saveMoneyDebt(form);
+    } else if (form.id === 'money-snow-form') {
+      e.preventDefault();
+      saveMoneySnow(form);
+    } else if (form.id === 'money-log-form') {
+      e.preventDefault();
+      saveMoneyLog(form);
     } else if (form.id === 'pack-form') {
       e.preventDefault();
       savePackForm(form);
