@@ -197,6 +197,62 @@
     radial-gradient(620px 520px at -6% 104%,var(--glow-b),transparent 62%),
     linear-gradient(180deg,var(--bg-top) 0%,var(--bg) 52%,var(--bg-bottom) 100%);
 }
+
+/* ===== 宽屏两侧留白（v95） =====
+   1920 屏下版心 1680，两侧各 120px 一片纯白，页面看着发空。
+   叠三层，把「版心」和「留白」分成两层：
+   ① body::after   —— 两侧留白压一层极淡的雾蓝，靠屏幕外缘最深、到版心淡出；
+   ② body::before  —— 留白区铺竖向细纹（22px 一根），上下渐隐；
+   ③ .main::before/::after —— 版心左右各一条 1px 竖线当分界。
+   --rail 是留白宽度，必须跟 index.html 的 .main max-width 同步：
+   1360–1519 版心 1240、≥1700 版心 1680；1520–1699 版心=视口、没有留白，
+   那时 --rail 会算成 0，用 max(0px,…) 兜住（background-size 不接受负值，会整条失效）。
+   **只作用于 top 排版**：三区布局左边有 232px 侧栏，100vw 算出来的边界会错位。 */
+@media (min-width:1360px){
+  :root[data-skin="mist"][data-layout="top"]{
+    --rail:max(0px, calc((100vw - 1240px) / 2));
+    --rail-tint:color-mix(in srgb,var(--accent) 9%,transparent);
+    --rail-line:color-mix(in srgb,var(--accent) 20%,transparent);
+  }
+  :root[data-skin="mist"][data-layout="top"] body::after{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(90deg,
+      var(--rail-tint) 0,transparent var(--rail),
+      transparent calc(100% - var(--rail)),var(--rail-tint) 100%);
+  }
+  :root[data-skin="mist"][data-layout="top"] body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-repeat:no-repeat;
+    background-position:left top,right top;
+    background-size:var(--rail) 100%,var(--rail) 100%;
+    background-image:
+      repeating-linear-gradient(90deg,var(--rail-line) 0 1px,transparent 1px 22px),
+      repeating-linear-gradient(90deg,var(--rail-line) 0 1px,transparent 1px 22px);
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%);
+    mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%);
+  }
+  :root[data-skin="mist"][data-layout="top"] .main{position:relative}
+  :root[data-skin="mist"][data-layout="top"] .main::before,
+  :root[data-skin="mist"][data-layout="top"] .main::after{
+    content:'';position:absolute;top:6px;bottom:56px;width:1px;pointer-events:none;
+    background:linear-gradient(180deg,transparent,var(--line-strong) 10%,
+      var(--line-strong) 90%,transparent);
+    opacity:.75;
+  }
+  :root[data-skin="mist"][data-layout="top"] .main::before{left:0}
+  :root[data-skin="mist"][data-layout="top"] .main::after{right:0}
+}
+@media (min-width:1700px){
+  :root[data-skin="mist"][data-layout="top"]{
+    --rail:calc((100vw - 1680px) / 2);
+  }
+}
+/* 打印时版心要干净：竖纹和竖线都不印 */
+@media print{
+  :root[data-skin="mist"] body::before,
+  :root[data-skin="mist"] .main::before,
+  :root[data-skin="mist"] .main::after{display:none!important}
+}
 [data-skin="mist"] ::selection{ background:var(--gold-soft); color:var(--text); }
 [data-skin="mist"] *{ scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent; }
 [data-skin="mist"] :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }

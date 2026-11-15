@@ -3,7 +3,7 @@
 > 这份文件原来是"网站结构说明"，内容已并入更详细的分册。
 > 现在只留两件事：**文档地图** 和 **主题相关的准确信息**。
 
-最后更新：v94（2026-11-15）
+最后更新：v95（2026-11-15）
 
 ---
 
@@ -77,6 +77,10 @@ CSS 通过属性选择器覆盖变量：
 | `mist` | 雾蓝 · 云水 | `themes/skin-mist.css` |
 | `neu` | 拟态 · 素白 | `themes/skin-neu.css` |
 | `retro` | 复古 · 街机 | `themes/skin-retro.css` |
+
+> `mist` 在 v95 加了宽屏版心装饰：留白区雾底 + 竖向细纹 + 版心左右 1px 分界线，
+> 全部由 `themes/skin-mist.css` 里的 `--rail` 和两个 body 伪元素实现，
+> **只作用于 `[data-layout="top"]` 且视口 ≥1360px**；改 `.main` 的 max-width（1240 / 1680）要同步那里。
 
 > v87 删除 `mono` / `clay` / `forest` / `cyber` 四套皮肤（含 CSS 文件与 SW 清单）。
 > `paper` / `slate` 的变量在 `index.html` 内联，其余三套在 `themes/skin-*.css`。

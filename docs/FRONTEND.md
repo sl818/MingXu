@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v94（2026-11-15）
+最后更新：v95（2026-11-15）
 
 ---
 
@@ -587,6 +587,10 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `moneyToolsView()` `moneyAprOf(cash,pay,n)` `moneyRateWords(apr)` `moneyRiskRows()`
 `moneyFmt(n)`（金额显示：整数不补零、有角分补两位；**全页金额都走它，别再写 toFixed(0)**）
 `moneyLogView()` `moneySnowModal()` `saveMoneySnow(form)` `moneyLogModal()` `saveMoneyLog(form)`
+清债列表行的可读性约定（v95）：`.mrow-name`（还款顺序里的债务名）、`.minc-name` / `.mcat-name` / `.mspend-cat`
+（收入 / 分类 / 流水里的名称）一律 `font-weight:600`，和金额同重但靠左对齐 + 单行省略区分；
+「这个月怎么分」的 `.mbud-bar` 四段用语义变量分色（`--accent` / `--good` / `--bad` / `--gold`），
+**不要退回 accent 的深浅 mix**——62% 和 30% 的差别在实机上看不出来。
 `moneyDebtModal(d)` `saveMoneyDebt(form)` `subTabOf(pageKey,tabs)` `subTabsHtml(pageKey,tabs,cur)`
 `quitPacksPanel(h)`
 `quitTrendPanel(h)` `quitTrendSvg(days,avg,range)`（抽烟趋势折线图，周/月/季切换）
