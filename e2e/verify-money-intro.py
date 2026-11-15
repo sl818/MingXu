@@ -100,6 +100,8 @@ with sync_playwright() as p:
     chk('讲了月供固定', '一开始就固定' in body, '')
     chk('讲了每日可花公式', '本月剩余天数' in body, '')
     chk('讲了不参与考核', '全都看不见它' in body, '')
+    # v94 起清债专属备份已合并进全站备份，介绍里不该再提
+    chk('不再提「清债备份」', '清债备份' not in body, '')
 
     print('\n[4] 来源块')
     src = pg.evaluate("""() => {

@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v93（2026-11-15）
+最后更新：v94（2026-11-15）
 
 ---
 
@@ -585,7 +585,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `moneyIntroModal()`（清债介绍：九节 + 来源外链）
 `dayDebts(ds)`（还款日，月/周视图共用）
 `moneyToolsView()` `moneyAprOf(cash,pay,n)` `moneyRateWords(apr)` `moneyRiskRows()`
-`handleMoneyImport(e)`（`#money-import-file`，只替换 `state.money`）
+`moneyFmt(n)`（金额显示：整数不补零、有角分补两位；**全页金额都走它，别再写 toFixed(0)**）
 `moneyLogView()` `moneySnowModal()` `saveMoneySnow(form)` `moneyLogModal()` `saveMoneyLog(form)`
 `moneyDebtModal(d)` `saveMoneyDebt(form)` `subTabOf(pageKey,tabs)` `subTabsHtml(pageKey,tabs,cur)`
 `quitPacksPanel(h)`

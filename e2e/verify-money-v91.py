@@ -137,54 +137,34 @@ with sync_playwright() as p:
         '%d' % pg.locator('.mrisk-dot.warn').count())
     chk('免责声明在', '不构成任何借贷或投资建议' in panels(pg), panels(pg)[-60:])
 
-    print('\n[6] 导出清债 JSON')
-    with pg.expect_download() as dl_info:
-        pg.click('[data-act="money-export"]')
-    dl = dl_info.value
-    path = dl.path()
-    body = json.load(open(path, encoding='utf-8'))
-    chk('文件名是「清债备份-日期」', dl.suggested_filename.startswith('清债备份-'),
-        dl.suggested_filename)
-    chk('带 app 标记', body.get('app') == 'wanfeng-todo-money', str(body.get('app')))
-    chk('含债务数据', len(body.get('money', {}).get('debts', [])) == 2,
-        str(body.get('money', {}).get('debts')))
-    chk('不含习惯/待办（只导清债）',
-        'habits' not in body and 'tasks' not in body, str(list(body.keys())))
+    print('\n[6] 清债专属备份已合并进全站备份')
+    chk('工具页没有「清债备份」面板',
+        '清债备份' not in pg.evaluate("() => document.querySelector('#main').textContent"), '')
+    chk('没有 money-export 按钮', pg.locator('[data-act="money-export"]').count() == 0,
+        '%d' % pg.locator('[data-act="money-export"]').count())
+    chk('没有 money-import 按钮', pg.locator('[data-act="money-import"]').count() == 0,
+        '%d' % pg.locator('[data-act="money-import"]').count())
+    chk('没有 money-import-file 输入框',
+        pg.locator('#money-import-file').count() == 0,
+        '%d' % pg.locator('#money-import-file').count())
 
-    print('\n[7] 导入清债 JSON')
-    payload = {
-        'app': 'wanfeng-todo-money', 'v': 1,
-        'money': {
-            'debts': [{'id': 'imp1', 'name': '导入测试债', 'type': 'card',
-                       'balance': 8888, 'start': 9999, 'apr': 6, 'min': 300,
-                       'due': 9, 'note': '', 'clearedAt': '', 'u': 1}],
-            'extra': 333, 'strategy': 'avalanche',
-            'customOrder': [], 'snowflakes': [], 'startYM': '',
-            'log': [], 'incomes': [], 'cats': [], 'spends': [],
-            'notify': {'on': False, 'before': [3, 1, 0], 'time': '09:00'},
-        }
-    }
-    pg.set_input_files('#money-import-file', {
-        'name': 'money.json',
-        'mimeType': 'application/json',
-        'buffer': json.dumps(payload).encode('utf-8'),
-    })
-    pg.wait_for_timeout(1200)
-    tab(pg, 'debts')
-    names = pg.evaluate("() => [...document.querySelectorAll('.mdebt-top b')].map(x=>x.textContent)")
-    chk('债务被替换成导入的那笔', names == ['导入测试债'], str(names))
-    chk('确认框问过一次', any('替换当前全部清债数据' in m for m in dialogs), str(dialogs[-1:]))
-
-    print('\n[8] 坏文件不动数据')
-    pg.set_input_files('#money-import-file', {
-        'name': 'bad.json', 'mimeType': 'application/json',
-        'buffer': b'{"hello": 1}',
-    })
+    print('\n[7] 全站备份带着清债数据')
+    pg.evaluate("() => document.querySelector('[data-nav=\"config\"]').click()")
     pg.wait_for_timeout(900)
-    chk('提示文件里没有清债数据', any('文件里没有清债数据' in m for m in dialogs), str(dialogs[-1:]))
-    tab(pg, 'debts')
-    names2 = pg.evaluate("() => [...document.querySelectorAll('.mdebt-top b')].map(x=>x.textContent)")
-    chk('数据没被清掉', names2 == ['导入测试债'], str(names2))
+    with pg.expect_download() as dl_info:
+        pg.click('[data-act="export-json"]')
+    dl = dl_info.value
+    body = json.load(open(dl.path(), encoding='utf-8'))
+    chk('文件名是「晚风Todo备份-日期」', dl.suggested_filename.startswith('晚风Todo备份-'),
+        dl.suggested_filename)
+    chk('整份 state 里有 habits', isinstance(body.get('habits'), list), str(type(body.get('habits'))))
+    chk('整份 state 里有 money',
+        isinstance(body.get('money'), dict), str(type(body.get('money'))))
+    chk('债务跟着备份走了', len(body.get('money', {}).get('debts', [])) >= 1,
+        str(len(body.get('money', {}).get('debts', []))))
+    chk('收入 / 分类 / 流水也都在',
+        all(k in body.get('money', {}) for k in ('incomes', 'cats', 'spends', 'log')),
+        str(list(body.get('money', {}).keys()))[:80])
 
     print('\n[9] 文案')
     pg.evaluate("() => document.querySelector('[data-nav=\"config\"]').click()")

@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v93（2026-11-15）
+最后更新：v94（2026-11-15）
 
 ---
 
@@ -430,9 +430,9 @@ moneyAt: 1763000000000
 所以 `rateOver` / `dayStats` / `taskStats` / `habitDayAcc` 全都看不见它。
 （用户说过「以后可能要做」，到时候得另开一套口径，别往 `dayStats` 里塞。）
 
-**清债专属备份（v91）**：工具页可单独导出 `{app:'wanfeng-todo-money', v:1, exportedAt, money:{…}}`，
-导入时只替换 `state.money`，不碰习惯/待办/健康数据。导入还认「裸 money 对象」，
-方便从别的工具转过来。整站备份仍是设置页的全量 JSON。
+**备份（v94 起只有一份）**：清债数据就在 `state.money` 里，**设置页导出的整站 JSON 已经完整包含它**，
+`repairBackup()` 里也有 `money: normalizeMoney(data.money)`。所以不再单独提供「清债备份」——
+两套导出只会让人以为要分别备份两次。旧版导出的 `清债备份-*.json` 已无法导入（缺 `habits`/`tasks`）。
 
 **预算口径（v90）**：`incomes` / `cats` 都是**每月额度**，不是本月实际；
 `cats.kind` 只有 `daily`（按天摊）和 `fixed`（房租水电，不按天摊）两种。
