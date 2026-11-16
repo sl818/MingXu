@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""v98：云系三主题（云晕 / 浮纸 / 聚光）
+"""v99：云系两主题（浮纸 / 聚光）+ 已删主题的回落
 
-锁四件事：
-  1. 三套都能从首屏白名单生效（刷新后 data-skin 不被打回 paper）
+v99 删掉「雾蓝 · 云水」mist 与「云晕 · 柔光」cloud-haze。
+锁五件事：
+  1. 留下的两套都能从首屏白名单生效
   2. 基座选择器 `[data-skin^="cloud-"]` 真的生效（--bg / 干净渐变 / .app 层）
-  3. 三套差异各自成立：光斑 / 留白空着 / 四周晕影；**都没有 v95 的竖向细纹**
-  4. 设置页 8 张主题卡、点击切换 + 刷新记忆、深色与窄屏表现
+  3. 两套差异成立：留白空着 + 卡片浮起 / 四周晕影；**都没有 v95 的竖向细纹**
+  4. 设置页 6 张主题卡、点击切换 + 记住偏好、深色与窄屏表现
+  5. 旧键 mist / cloud-haze 一律回落 paper，皮肤 CSS 不再被引用
 
 用法：python e2e/verify-cloud-skins.py
 """
@@ -35,7 +37,6 @@ def chk(name, ok, detail=''):
 
 
 SKINS = {
-    'cloud-haze':  {'bg': '#e9eef5', 'before': 'radial-gradient', 'after': 'linear-gradient'},
     'cloud-float': {'bg': '#dfe6ee', 'before': '',                'after': ''},
     'cloud-focus': {'bg': '#e3eaf2', 'before': 'radial-gradient', 'after': 'linear-gradient'},
 }
@@ -108,7 +109,7 @@ with sync_playwright() as p:
         DECOR[key] = (d['before'], d['after'], d['bg'], d['bodyBg'])
         ctx.close()
 
-    chk('三套背景装饰两两不同', len(set(DECOR.values())) == 3, str(sorted(DECOR.keys())))
+    chk('两套背景装饰互不相同', len(set(DECOR.values())) == 2, str(sorted(DECOR.keys())))
 
     # 设置页：8 张卡 + 点击切换 + 刷新记忆
     ctx = br.new_context(viewport={'width': 1600, 'height': 950})
@@ -116,7 +117,7 @@ with sync_playwright() as p:
     open_page(pg, 'paper')
     goto_settings(pg)
     d = pg.evaluate(PROBE)
-    chk('设置页共 8 张主题卡', len(d['cards']) == 8, str(d['cards']))
+    chk('设置页共 6 张主题卡', len(d['cards']) == 6, str(d['cards']))
     for key in SKINS:
         chk('设置页有 %s' % key, key in d['cards'], str(d['cards']))
     pg.click('[data-act="set-skin"][data-skin="cloud-focus"]')
@@ -127,14 +128,17 @@ with sync_playwright() as p:
         str(pg.evaluate("() => localStorage.getItem('lifeboard.skin')")))
     ctx.close()
 
-    # 深色模式：光斑 / 晕影要换成暗部配色
-    for key in ('cloud-haze', 'cloud-focus'):
+    # 深色模式：聚光换成暗部晕影；浮纸仍「留白空着」
+    for key in ('cloud-float', 'cloud-focus'):
         ctx = br.new_context(viewport={'width': 1600, 'height': 950})
         pg = ctx.new_page()
         open_page(pg, key, theme='dark')
         d = pg.evaluate(PROBE)
         chk('%s 深色模式生效' % key, d['theme'] == 'dark', str(d['theme']))
-        chk('%s 深色背景装饰不为空' % key, d['before'] != 'none', d['before'][:80])
+        if key == 'cloud-focus':
+            chk('聚光深色背景装饰不为空', d['before'] != 'none', d['before'][:80])
+        else:
+            chk('浮纸深色仍不加背景装饰', d['before'] == 'none', d['before'][:80])
         ctx.close()
 
     # 窄屏：背景装饰不出现，避免手机被光斑/晕影干扰
@@ -147,9 +151,23 @@ with sync_playwright() as p:
             d['before'][:60] + ' / ' + d['after'][:60])
         ctx.close()
 
+    # v99：删掉的两个旧键必须回落 paper，且页面不再引用 skin-mist.css
+    for old in ('mist', 'cloud-haze'):
+        ctx = br.new_context(viewport={'width': 1440, 'height': 900})
+        pg = ctx.new_page()
+        open_page(pg, old)
+        goto_settings(pg)
+        d = pg.evaluate(PROBE)
+        chk('旧键 %s 回落 paper' % old, d['skin'] == 'paper', str(d['skin']))
+        chk('旧键 %s 不在主题卡里' % old, old not in d['cards'], str(d['cards']))
+        chk('不再引用 skin-mist.css',
+            not pg.evaluate("() => [...document.querySelectorAll('link[rel=stylesheet]')]"
+                            ".some(l => l.href.indexOf('skin-mist') >= 0)"), '')
+        ctx.close()
+
     br.close()
 
-print('\nv98 云系三主题验证：%d/%d 通过' % (PASS, PASS + FAIL))
+print('\nv99 云系两主题验证：%d/%d 通过' % (PASS, PASS + FAIL))
 if FAIL:
     print('失败项：' + ', '.join(FAILS))
     sys.exit(1)

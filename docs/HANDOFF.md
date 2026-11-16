@@ -2,13 +2,13 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v98（2026-11-15）
+最后更新：v99（2026-11-16）
 
 ---
 
 ## 一句话状态
 
-已上线稳定运行。十二个页面 + 两布局 + 八套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
+已上线稳定运行。十二个页面 + 两布局 + 六套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
 全部验证通过。技术债集中在「单文件 13,600 行」和「备份未异地」两处，不影响使用。
 
 ---
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://todo.csl88.top/` |
-| 代码版本 | v98（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v98'`） |
+| 代码版本 | v99（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v99'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo.csl88.top` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -119,6 +119,7 @@ curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
 | v96 | 11-15 | v95 的强化：①名称加粗从 600 提到 **700**（600 在微软雅黑 / 苹方上常被渲染成常规体，等于没加粗），字号 `mrow-name` 13→13.5、预算行 12.5→13；②**分账条改用固定图表色** `--chart-1..4`（蓝/绿/红/黄，两两色相 ≥41°）——v95 挂在 `--accent/--good/--bad/--gold` 上，paper 皮肤里 accent 是鼠尾草绿、跟 good 撞色，四段又糊成一片，教训是**多段对比图形不能依赖主题语义色**。`verify-money-v95` 从 34 项改到 **36 项**，加了「两两色相 ≥35°」的硬断言。回滚点 tag `money-v96` |
 | v97 | 11-15 | **雾蓝云水浅色层重设计**（用户：一片泛白、主次不分）。病根是 `--bg(#f4f7fa)` 与 `--surface(#fff)` 明度几乎相同、`--line` 描边和 `--shadow` 又太轻，云（卡片）融化在雾里。改法：把「天」压成有灰度的雾蓝 `--bg #e7edf4`、云用纯白加更实的投影 `--shadow`、描边加深到 `--line #d4dfe9`、文字加深到 `--text #1d2a36`、主色加深 `--accent #3f648a` —— 主次靠明度梯度，不靠字号。侧栏 `--side-bg` 一并压到画布与卡片之间。对比度审计 1640 取样 0 不达标。回滚点 tag `mist-v97` |
 | v98 | 11-15 | **三版「宽屏两侧留白」各做成一套独立主题**：云晕 · 柔光（`cloud-haze` 两侧柔焦光斑）、浮纸 · 抬升（`cloud-float` 留白空着、卡片投影抬起）、聚光 · 晕影（`cloud-focus` 四周 vignette）。三者共用新文件 `themes/skin-cloud.css`（由 `skin-mist.css` 派生）：选择器统一换成 `[data-skin^="cloud-"]`（特异性不变），**删掉 v95 的 22px 竖向细纹与版心 1px 分界线**，底色只留干净的雾面渐变；差异集中在文件末尾变体段，只改背景 / 阴影 token，文字与语义色沿用基座。注册四处：`SKINS` / 首屏白名单 / `<link>` / SW `ASSETS`，`CACHE` 递增到 `lifeboard-shell-v98`；三个对比度审计的皮肤清单同步到 8 套。回滚点 tag `cloud-skins-v98` |
+| v99 | 11-16 | 按用户要求**删两套主题**：雾蓝 · 云水（`mist`）与云晕 · 柔光（`cloud-haze`）。删掉 `themes/skin-mist.css` 文件、`index.html` 的 `<link>`、`SKINS` 两项、首屏白名单两键、SW `ASSETS` 一条；`skin-cloud.css` 里云晕的令牌与四条背景装饰规则一并清空，文件头注明「v99 起不再有上游，独立维护」。旧用户 `lifeboard.skin` 存这两个键会回落 `paper`。三个对比度审计的皮肤清单 8→6；`verify-cloud-skins` 改锁两套 + 旧键回落，`verify-money-v95` 删掉整套 mist 竖纹专项（[5][6] 两节）。`CACHE` 递增 `lifeboard-shell-v99`。回滚点 tag `trim-cloud-v99` |
 
 ### 两次值得记住的事故
 

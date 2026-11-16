@@ -47,7 +47,7 @@ JS = """
 # 命令模式下 .se-hint / .se-group 不显示，所以要分两次取样
 SELS_CMD = ['.se-cmd .se-title', '.se-cmd .se-meta']
 SELS_IDLE = ['.se-hint', '.se-group']
-skins = ['paper', 'slate', 'mist', 'neu', 'retro', 'cloud-haze', 'cloud-float', 'cloud-focus']
+skins = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
 
 bad, skipped, missing, checked = [], [], [], 0
 with sync_playwright() as p:

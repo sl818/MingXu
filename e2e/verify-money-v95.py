@@ -4,7 +4,6 @@
   · 还款顺序里的债务名加粗（原来和金额同重、同色，一眼分不清哪个是名字）
   · 预算页收入/分类名称加粗
   · 「这个月怎么分」四段从 accent 深浅改成语义分色（蓝/绿/红/金）
-  · 雾蓝云水主题宽屏两侧留白加层次（雾底 + 竖纹 + 版心分界线）
 """
 import os, sys, json
 
@@ -193,47 +192,7 @@ with sync_playwright() as p:
     pg.evaluate("() => { document.documentElement.dataset.theme='light'; }")
     pg.wait_for_timeout(400)
 
-    print('\n[5] 雾蓝云水：宽屏两侧留白分层')
-    pg2 = ctx.new_page()
-    login(pg2, skin='mist', w=1920, h=1080)
-    chk('皮肤切到 mist', pg2.evaluate("() => document.documentElement.dataset.skin") == 'mist', '')
-    go_money(pg2)
-    rail = pg2.evaluate("() => getComputedStyle(document.body,'::before').backgroundSize")
-    chk('留白宽度算出来了（1920 → 每侧 120px）', rail.startswith('120px 100%'), rail)
-    before = pg2.evaluate("""() => { const c=getComputedStyle(document.body,'::before');
-        return {sz: c.backgroundSize, mask: c.maskImage || c.webkitMaskImage,
-                pos: c.position, pe: c.pointerEvents}; }""")
-    chk('竖纹层铺在左右各 120px', before['sz'].startswith('120px 100%'), str(before['sz']))
-    chk('竖纹上下渐隐（有 mask）', 'gradient' in before['mask'], str(before['mask'])[:60])
-    chk('不挡点击', before['pe'] == 'none', before['pe'])
-    after = pg2.evaluate("""() => { const c=getComputedStyle(document.body,'::after');
-        return {bg: c.backgroundImage, pe: c.pointerEvents}; }""")
-    chk('雾底层是左右两侧的渐变', 'gradient' in after['bg'], str(after['bg'])[:60])
-    chk('雾底层也不挡点击', after['pe'] == 'none', after['pe'])
-    line = pg2.evaluate("""() => { const c=getComputedStyle(document.querySelector('#main'),'::before');
-        return {w: c.width, bg: c.backgroundImage.slice(0,20)}; }""")
-    chk('版心左侧有 1px 分界线', line['w'] == '1px', str(line))
-
-    print('\n[6] 窄屏不留痕')
-    pg3 = ctx.new_page()
-    login(pg3, skin='mist', w=1180, h=900)
-    go_money(pg3)
-    sz3 = pg3.evaluate("() => getComputedStyle(document.body,'::before').backgroundSize")
-    chk('1180 屏不铺留白纹理（媒体查询挡住）', sz3 in ('auto', 'auto auto'), sz3)
-    chk('窄屏没有横向溢出',
-        pg3.evaluate("() => document.documentElement.scrollWidth - "
-                     "document.documentElement.clientWidth") == 0, '')
-    # 1520–1699 这段版心=视口，--rail 会算成 0，靠 max(0px,…) 兜住
-    pg4 = ctx.new_page()
-    login(pg4, skin='mist', w=1600, h=900)
-    go_money(pg4)
-    rail4 = pg4.evaluate("() => getComputedStyle(document.body,'::before').backgroundSize")
-    chk('1600 屏每侧 180px（版心 1240）', rail4.startswith('180px 100%'), rail4)
-    chk('1600 屏也无横向溢出',
-        pg4.evaluate("() => document.documentElement.scrollWidth - "
-                     "document.documentElement.clientWidth") == 0, '')
-
-    print('\n[7] 其他皮肤不受影响')
+    print('\n[5] 其他皮肤不受影响')
     pg5 = ctx.new_page()
     login(pg5, skin='retro', w=1920, h=1080)
     go_money(pg5)
@@ -244,7 +203,7 @@ with sync_playwright() as p:
                         "getComputedStyle(e).backgroundColor.toLowerCase())")
     chk('retro 下分账条同样是四色', len(set(bar5)) == 4, str(bar5))
 
-    print('\n[8] 无 JS 报错')
+    print('\n[6] 无 JS 报错')
     chk('没有 pageerror', not errs, str(errs[:2]))
     br.close()
 

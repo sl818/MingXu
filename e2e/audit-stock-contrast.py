@@ -64,7 +64,7 @@ SELS_MONEY_INTRO = ['.algo-lead', '.algo-h', '.algo-p', '.algo-formula',
 SELS_SUMMARY = ['.sum-head span', '.sum-big', '.sum-lead', '.sum-table th',
                 '.sum-table td', '.sum-foot']
 # v87 删除 mono / clay / forest / cyber，只跑剩下的 5 套
-skins = ['paper', 'slate', 'mist', 'neu', 'retro', 'cloud-haze', 'cloud-float', 'cloud-focus']
+skins = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
 
 bad, skipped, missing, checked = [], 0, [], 0
 skip_detail = {}

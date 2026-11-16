@@ -1,17 +1,17 @@
 /* ============================================================
-   晚风Todo · 云系三主题共用基座（v98）
+   晚风Todo · 云系两主题共用基座（v99）
    ------------------------------------------------------------
-   承载三个主题键：cloud-haze（云晕）/ cloud-float（浮纸）/ cloud-focus（聚光）。
-   三者来自 design/mist-rail-3versions.html 的三版「宽屏两侧留白」方案，
-   用户要求三版都做成独立可选主题。
+   承载两个主题键：cloud-float（浮纸）/ cloud-focus（聚光）。
+   来自 design/mist-rail-3versions.html 的三版「宽屏两侧留白」方案；
+   v98 三版都做成了主题，v99 按用户要求删掉「云晕 · 柔光」，
+   同时删掉原「雾蓝 · 云水」及其 skin-mist.css。
 
-   本文件由 themes/skin-mist.css 派生：组件层（令牌 / 面板 / 卡片 / 按钮 / 日历 …）
-   全量沿用，只把 mist 专属选择器换成前缀匹配 cloud- 的写法（特异性不变），
-   并重写「画布」段：
-     · 去掉 v95 的 22px 竖向细纹与版心 1px 分界线（用户嫌竖线太多）
-     · 底色改为一条干净的上浅下深雾面渐变
-     · 光斑 / 浮起 / 晕影由文件末尾的「云系三变体」各自叠加
-   注意：改 mist 的组件规则时，本文件要同步；两边的变量契约必须一致。
+   组件层（令牌 / 面板 / 卡片 / 按钮 / 日历 …）用
+   `[data-skin^="cloud-"]` 前缀选择器承载（特异性不降，别用 :is() 包），
+   画布底色是一条干净的雾面渐变，不带重复纹理；
+   浮起 / 明暗由文件末尾的「云系两变体」各自叠加。
+   v98 由 skin-mist.css 派生而来，但那个文件现已删除：
+   **本文件从 v99 起是云系唯一的样式来源，独立维护，不再有可同步的上游。**
    改任何颜色 token 后必须重跑 e2e/audit-contrast-v33.py 并报告跳过数。
    ============================================================ */
 
@@ -529,25 +529,19 @@
 :root[data-skin^="cloud-"][data-theme="dark"] .tag-chip{ color:var(--accent-2); }
 
 /* ============================================================
-   v98 · 云系三变体：云晕 / 浮纸 / 聚光
+   v99 · 云系两变体：浮纸 / 聚光
    ------------------------------------------------------------
    共同点：宽屏两侧留白都不再出现重复纹理。
-   A 云晕 cloud-haze  —— 两侧大尺寸柔焦光斑（雾蓝 + 一点暖金），一条线都没有。
    B 浮纸 cloud-float  —— 留白什么都不放，层次全交给版心卡片更实的抬升投影。
    C 聚光 cloud-focus  —— 四周向内淡入的晕影，中间亮、边缘略暗，眼睛自然落到内容上。
-   三者共用上面的组件层，这里只改「背景 token + 背景装饰层」；
+   （A 云晕已于 v99 删除，相关规则一并清掉。）
+   两者共用上面的组件层，这里只改「背景 token + 背景装饰层」；
    文字色 / 语义色 / accent 一律沿用基座，避免对比度回退。
    ============================================================ */
 
 /* ---- 令牌微调：只动背景与阴影 ----
-   v98 二次调强：第一版三套在 1920 截图里几乎看不出差别（光斑/晕影都太淡），
-   这里把「浮纸」的桌面压深一档并加重投影，另外两套把背景装饰的浓度提上来。 */
-:root[data-skin="cloud-haze"]{
-  --bg:#e9eef5; --bg-top:#f4f8fb; --bg-bottom:#e2eaf3;
-}
-:root[data-skin="cloud-haze"][data-theme="dark"]{
-  --bg:#111821; --bg-top:#18222c; --bg-bottom:#0d1319;
-}
+   v98 二次调强：第一版在 1920 截图里几乎看不出差别（装饰太淡），
+   把「浮纸」的桌面压深一档并加重投影，聚光的晕影浓度也提上来。 */
 :root[data-skin="cloud-float"]{
   --bg:#dfe6ee; --bg-top:#e9eff5; --bg-bottom:#cdd8e4;
   --shadow:0 3px 10px rgba(24,38,52,.10),0 24px 48px -20px rgba(24,38,52,.32);
@@ -567,28 +561,6 @@
 
 /* ---- 背景装饰层：只在宽屏出现，手机/窄屏保持干净底色 ---- */
 @media (min-width:1100px){
-  /* A 云晕：左右各两团大尺寸柔焦光斑（雾蓝 + 一点暖金），一条线都没有 */
-  :root[data-skin="cloud-haze"] body::before{
-    background:
-      radial-gradient(760px 620px at 2% 30%,rgba(63,100,138,.30),transparent 68%),
-      radial-gradient(620px 520px at 14% 88%,rgba(90,140,180,.18),transparent 72%),
-      radial-gradient(780px 640px at 98% 62%,rgba(63,100,138,.27),transparent 68%),
-      radial-gradient(560px 480px at 88% 10%,rgba(176,142,86,.14),transparent 70%);
-  }
-  :root[data-skin="cloud-haze"] body::after{
-    background:linear-gradient(90deg,rgba(63,100,138,.10),transparent 16%,transparent 84%,rgba(63,100,138,.10));
-  }
-  :root[data-skin="cloud-haze"][data-theme="dark"] body::before{
-    background:
-      radial-gradient(760px 620px at 2% 30%,rgba(96,146,190,.17),transparent 68%),
-      radial-gradient(620px 520px at 14% 88%,rgba(96,146,190,.10),transparent 72%),
-      radial-gradient(780px 640px at 98% 62%,rgba(96,146,190,.16),transparent 68%),
-      radial-gradient(560px 480px at 88% 10%,rgba(216,187,136,.09),transparent 70%);
-  }
-  :root[data-skin="cloud-haze"][data-theme="dark"] body::after{
-    background:linear-gradient(90deg,rgba(96,146,190,.10),transparent 16%,transparent 84%,rgba(96,146,190,.10));
-  }
-
   /* B 浮纸：留白区空着，什么都不加 */
   :root[data-skin="cloud-float"] body::before,
   :root[data-skin="cloud-float"] body::after{background:none}

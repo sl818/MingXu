@@ -1,13 +1,12 @@
 /* 晚风Todo PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v98';
+const CACHE = 'lifeboard-shell-v99';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './themes/themes.css',
   './themes/custom.css',
-  './themes/skin-mist.css',
   './themes/skin-cloud.css',
   './themes/skin-neu.css',
   './themes/skin-retro.css',

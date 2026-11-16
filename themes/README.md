@@ -26,10 +26,8 @@ tools/
 ```text
 paper   暖绒 · 鼠尾草   (index.html 内联 + custom.css 覆盖)
 slate   冷雾 · 矩阵     (index.html 内联)
-mist    雾蓝 · 云水     (skin-mist.css)
 neu     拟态 · 素白     (skin-neu.css)
 retro   复古 · 街机     (skin-retro.css)
-cloud-haze   云晕 · 柔光    (skin-cloud.css，云系共用)
 cloud-float  浮纸 · 抬升    (同上)
 cloud-focus  聚光 · 晕影    (同上)
 ```
@@ -39,11 +37,13 @@ cyber（赛博 · 霓虹）四套皮肤**，连同 `skin-forest.css` / `skin-cyb
 `service-worker.js` 的预缓存清单一起移除。旧用户保存在 `lifeboard.skin` 里的这四个键
 会自动回落到 `paper`。
 
-云系三套（cloud-haze / cloud-float / cloud-focus）**共用一个文件** `skin-cloud.css`：
-基座由 `skin-mist.css` 派生，选择器统一用 `[data-skin^="cloud-"]`，三者只在文件末尾的变体段
-区分两侧留白处理（柔焦光斑 / 卡片浮起 / 四周晕影），都不带重复纹理。改基座组件规则要同时考虑三套。
+**v99 又删了 `mist`（雾蓝 · 云水）和 `cloud-haze`（云晕 · 柔光）**：`skin-mist.css` 文件、`<link>`、SW 预缓存、白名单两键一起移除，旧用户存的这两个键同样回落 `paper`。
 
-剩下三套（mist / neu / retro）
+云系两套（cloud-float / cloud-focus）**共用一个文件** `skin-cloud.css`：
+选择器统一用 `[data-skin^="cloud-"]`，二者只在文件末尾的变体段
+区分两侧留白处理（卡片浮起 / 四周晕影），都不带重复纹理。该文件 v98 由 `skin-mist.css` 派生，v99 起**没有上游、独立维护**。改基座组件规则要同时考虑两套。
+
+另外两套（neu / retro）
 都是自包含的独立文件 `themes/skin-*.css`，加载在 `custom.css` 之后，已注册进 `index.html` 的 SKINS 数组与首屏白名单。
 柔和疗愈系列用 `node design/gen-skins.mjs` 生成，风格化主题用 `node design/gen-styles.mjs` 生成，
 `node design/verify-skins.mjs` 统一校验。
