@@ -170,7 +170,9 @@ SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind
               # 戒除多次模式的按钮（v79）：未破 / 已破两种状态 + 撤销
               '.quit-add:not(.broken)', '.quit-add:not(.broken) span',
               '.quit-add.broken', '.quit-add.broken span',
-              '.quit-undo', '.quit-count span']
+              '.quit-undo', '.quit-count span',
+              # v100 证据层与文字状态
+              '.habit-state', '.hp-num b', '.hp-cap']
 # .adh-delta 与 .adh-note 是互斥的两个分支（有上月数据 / 没有），
 # 同一时刻只会出现一个，所以只取有数据时的那种。--muted 那套已被 .ics-hint 等覆盖。
 SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',

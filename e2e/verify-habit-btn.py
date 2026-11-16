@@ -35,8 +35,10 @@ def cards(pg):
     return pg.evaluate("""() => [...document.querySelectorAll('.habit-grid .habit-card')].map(el => {
         const btn = el.querySelector('.habit-done');
         const cnt = el.querySelector('.habit-count');
+        const st = el.querySelector('.habit-state');
         return {
             name: (el.querySelector('.habit-title b') || {}).textContent || '',
+            state: st ? (st.textContent || '').trim() : '',
             btn: btn ? (btn.textContent || '').replace(/\\s+/g, '') : '',
             on: btn ? btn.classList.contains('on') : false,
             val: btn ? btn.dataset.val : '',
@@ -93,13 +95,14 @@ with sync_playwright() as p:
     chk('未打卡文案是「今天完成」', bool(plan) and plan['btn'] == '✓今天完成', plan['btn'] if plan else '')
     chk('未打卡按钮不带 on 态', bool(plan) and not plan['on'], str(plan))
     chk('未打卡的 data-val 是 1', bool(plan) and plan['val'] == '1', plan['val'] if plan else '')
-    chk('未打卡次数显示 0 / 1', bool(plan) and plan['count'].startswith('0'), plan['count'] if plan else '')
+    chk('单次卡不再显示 0 / 1 次', bool(plan) and plan['count'] == '', plan['count'] if plan else '')
+    chk('右上角状态写「待打卡」', bool(plan) and plan['state'] == '待打卡', plan['state'] if plan else '')
 
     print('[2] 点一下完成')
     pg.click('.habit-card:has(.habit-title b:text-is("事项复盘")) .habit-done')
     pg.wait_for_timeout(700)
     plan = card_by(pg, '事项复盘')
-    chk('变成 1 / 1', bool(plan) and plan['count'].startswith('1'), plan['count'] if plan else '')
+    chk('状态变成「已完成」', bool(plan) and plan['state'] == '已完成', plan['state'] if plan else '')
     chk('按钮进入 on 态', bool(plan) and plan['on'], str(plan))
     chk('文案变成「已完成」', bool(plan) and '已完成' in plan['btn'], plan['btn'] if plan else '')
     chk('卡片进入已完成', bool(plan) and plan['isDone'], str(plan))
@@ -114,7 +117,7 @@ with sync_playwright() as p:
     pg.click('.habit-card:has(.habit-title b:text-is("事项复盘")) .habit-done')
     pg.wait_for_timeout(700)
     plan = card_by(pg, '事项复盘')
-    chk('回到 0 / 1', bool(plan) and plan['count'].startswith('0'), plan['count'] if plan else '')
+    chk('状态回到「待打卡」', bool(plan) and plan['state'] == '待打卡', plan['state'] if plan else '')
     chk('按钮退出 on 态', bool(plan) and not plan['on'], str(plan))
     chk('文案回到「今天完成」', bool(plan) and plan['btn'] == '✓今天完成', plan['btn'] if plan else '')
     chk('卡片退出已完成', bool(plan) and not plan['isDone'], str(plan))
@@ -133,8 +136,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(700)
     old = card_by(pg, '事项复盘')
     chk('昨天那天的卡也有按钮', bool(old) and old['btn'] != '', str(old))
-    chk('昨天那天的数据是 1 / 1（mock 里昨天打过）',
-        bool(old) and old['count'].startswith('1'), old['count'] if old else '')
+    chk('昨天状态是「已完成」（mock 里昨天打过）',
+        bool(old) and old['state'] == '已完成', old['state'] if old else '')
     chk('昨天那天的按钮是「已完成」态', bool(old) and old['on'], str(old))
     chk('历史日期按钮不禁用',
         pg.evaluate("""() => {
@@ -145,8 +148,8 @@ with sync_playwright() as p:
         }"""))
     pg.click('.habit-card:has(.habit-title b:text-is("事项复盘")) .habit-done')
     pg.wait_for_timeout(700)
-    chk('历史日期也能改（1 -> 0）',
-        bool(card_by(pg, '事项复盘')) and card_by(pg, '事项复盘')['count'].startswith('0'),
+    chk('历史日期也能改（已完成 -> 待打卡）',
+        bool(card_by(pg, '事项复盘')) and card_by(pg, '事项复盘')['state'] == '待打卡',
         str(card_by(pg, '事项复盘')))
 
     print('[6] 按钮尺寸与文案不溢出')

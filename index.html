@@ -266,6 +266,25 @@ h1,h2,h3,h4,p{margin:0}
 .mini-btn.ghost{background:transparent}
 .habit-bar{position:absolute;background:var(--surface-2)}
 .habit-bar i{display:block;height:100%;background:var(--hc);transition:width .3s ease}
+/* v100 证据层：连续天数（主数字）+ 最近 7 天点阵。
+   点阵不存字段，全部从 checks / cravings 现算：
+   亮 = 达标；半亮 = 多目标的部分完成；红 = 戒断失守；虚线 = 那天没记录。 */
+.habit-proof{display:flex;align-items:baseline;gap:7px;margin:10px 0 2px;min-height:22px}
+.hp-num{display:inline-flex;align-items:baseline;gap:2px;color:var(--text);font-variant-numeric:tabular-nums}
+.hp-num b{font-size:24px;font-weight:700;line-height:1;letter-spacing:-.03em}
+.hp-num i{font-style:normal;font-size:11px;font-weight:400;color:var(--muted)}
+.hp-cap{font-size:10.5px;color:var(--muted)}
+.habit-week{margin-left:auto;display:flex;align-items:center;gap:3px}
+.hd-dot{display:block;width:10px;height:10px;border-radius:3px;background:var(--surface-2);flex:none}
+.hd-dot.empty{border:1px dashed color-mix(in srgb,var(--muted) 42%,transparent);background:transparent}
+.hd-dot.part{background:linear-gradient(to top,var(--hc) calc(var(--r,0) * 100%),color-mix(in srgb,var(--muted) 30%,var(--surface-2)) calc(var(--r,0) * 100%))}
+.hd-dot.on{background:var(--hc)}
+.hd-dot.broken{background:color-mix(in srgb,var(--bad) 58%,var(--surface))}
+.hd-dot.today{box-shadow:0 0 0 1px var(--surface),0 0 0 2px color-mix(in srgb,var(--hc) 45%,transparent)}
+.habit-state{flex:none;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);white-space:nowrap}
+.habit-state.on{background:color-mix(in srgb,var(--hc) 13%,var(--surface));border-color:color-mix(in srgb,var(--hc) 30%,var(--line))}
+.habit-state.bad{background:color-mix(in srgb,var(--bad) 9%,var(--surface));border-color:color-mix(in srgb,var(--bad) 28%,var(--line))}
+.habit-title b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .task-list{display:flex;flex-direction:column;gap:8px}
 .task-row{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;transition:border-color .15s}
@@ -6773,7 +6792,68 @@ body.modal-open{overflow:hidden}
     while (n < 3650 && ok(fmt(d))) { n++; d = addDays(d, -1); }
     return n;
   }
-  /* 未归档的任务：看板、今日、右栏、日历一律只看这一批 */
+
+  function shiftDay(d, n) { return fmt(addDays(new Date(d + 'T00:00:00'), n)); }
+  /* 某一天的连续天数（不是固定的「今天」）：切到历史日期时也要说真话。
+     当天还没达标就从昨天起算，和 habitStreak 的口径一致。 */
+  function streakOn(h, d) {
+    if (!h || h.med) return 0;
+    if (isQuitLike(h)) {
+      let last = '';
+      cravingsOf(h.id).forEach(function (e) {
+        if (e.k === 's') {
+          const day = tsDay(e.t);
+          if (day <= d && day > last) last = day;
+        }
+      });
+      const base = last || quitStartDay(h);
+      const diff = Math.round((parseD(d) - parseD(base)) / 86400000);
+      return Math.max(0, last ? diff : diff + 1);
+    }
+    const target = Math.max(1, Number(h.target) || 1);
+    const ok = ds => countOf(ds, h.id) >= target;
+    let n = 0, cur = d;
+    if (!ok(cur)) cur = shiftDay(cur, -1);
+    while (n < 3650 && ok(cur)) { n++; cur = shiftDay(cur, -1); }
+    return n;
+  }
+  /* 最近 7 天点阵：把「坚持」从形容词变成可数的格子。 */
+  function habitWeek(h, d) {
+    const target = Math.max(1, Number(h.target) || 1);
+    const q = isQuitLike(h);
+    const out = [];
+    for (let i = 6; i >= 0; i--) {
+      const ds = shiftDay(d, -i);
+      let cls = 'hd-dot', ratio = 0, tip = ds.slice(5) + ' · ';
+      if (q) {
+        const evs = dayCravings(h.id, ds);
+        const slip = evs.some(function (e) { return e.k === 's'; });
+        if (!evs.length) { cls += ' empty'; tip += '没记录'; }
+        else if (slip) { cls += ' broken'; tip += '失守'; }
+        else { cls += ' on'; ratio = 1; tip += '守住'; }
+      } else {
+        const c = countOf(ds, h.id);
+        if (c <= 0) { cls += ' empty'; tip += '没记录'; }
+        else if (c >= target) { cls += ' on'; ratio = 1; tip += '完成 ' + c + '/' + target; }
+        else { cls += ' part'; ratio = clamp(c / target, 0, 1); tip += '完成 ' + c + '/' + target; }
+      }
+      if (ds === d) cls += ' today';
+      out.push('<i class="' + cls + '" style="--r:' + ratio.toFixed(2) + '" title="' + tip + '"></i>');
+    }
+    return out.join('');
+  }
+  /* 一张卡同一时刻只有一个「今天怎样」，右上角用文字说，不用猜图标。 */
+  function habitStateText(h, d) {
+    if (h.med) return met(h, d) ? '已完成' : '待打卡';
+    if (isQuitLike(h)) {
+      const slip = dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
+      return slip ? '今天失守' : '今天守住';
+    }
+    const c = countOf(d, h.id), target = Math.max(1, Number(h.target) || 1);
+    if (c >= target) return '已完成';
+    if (target > 1 && c > 0) return '进行中';
+    return '待打卡';
+  }  /* 未归档的任务：看板、今日、右栏、日历一律只看这一批 */
   function liveTasks() {
     return state.tasks.filter(t => !t.archivedAt);
   }
@@ -7476,10 +7556,11 @@ body.modal-open{overflow:hidden}
   /* ============================================================
      今日视图
      ============================================================ */
-  function habitCard(h, d) {
+  function habitCard(h, d, compact) {
     const c = countOf(d, h.id);
     const done = met(h, d);
-    const streak = habitStreak(h);
+    /* compact = 常驻区窄卡（vitalCard 里的戒除卡）继续用旧骨架，"小习惯"重构不波及它 */
+    const streak = streakOn(h, d);
     const target = Math.max(1, Number(h.target) || 1);
     const pct = isQuitLike(h) ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
 
@@ -7565,9 +7646,7 @@ body.modal-open{overflow:hidden}
         ' data-act="habit-set" data-id="' + h.id + '" data-val="' + (done ? 0 : 1) + '"' +
         ' title="' + (done ? '点一下撤销今天的打卡' : '点一下记为今天已完成') + '">' +
         '<i class="hd-mark">✓</i><span>' + (done ? '已完成 · 点一下撤销' : '今天完成') + '</span>' +
-        '</button>' +
-        /* 次数照旧显示，跟格子版保持同一口径：0 / 1 次 */
-        '<div class="habit-count">' + c + '<span> / ' + target + ' ' + esc(h.unit || '次') + '</span></div>';
+        '</button>';
     } else if (target <= 6) {
       let pips = '';
       for (let i = 1; i <= target; i++) {
@@ -7586,29 +7665,58 @@ body.modal-open{overflow:hidden}
         '</div>';
     }
 
-    const sub = isQ
-      ? (isSmokeH
+    /* v100：连续天数不再挤在标题小字里（它是全卡最该被看到的信息），
+       标题下只留「目标 N 次」这种真正必要的约束；单次目标连目标值也不写。
+       compact（常驻窄卡）保持旧文案，避免动到常驻区。 */
+    const sub = compact
+      ? (isQ
+          ? (isSmokeH
+              ? ('连续 ' + streak + ' 天' + w.keep + (streak === 0 ? ' · 今天已记一次' : ''))
+              : (broken
+                  ? '连续从今天重新数'
+                  : ('连续 ' + streak + ' 天' + w.keep)))
+          : (h.target > 0 ? '目标 ' + target + ' ' + esc(h.unit || '次') + (streak ? ' · 连续 ' + streak + ' 天' : '') : ''))
+      : (isSmokeH
           ? ('连续 ' + streak + ' 天' + w.keep + (streak === 0 ? ' · 今天已记一次' : ''))
-          : (broken
-              ? '连续从今天重新数'
-              : ('连续 ' + streak + ' 天' + w.keep)))
-      : (h.target > 0 ? '目标 ' + target + ' ' + esc(h.unit || '次') + (streak ? ' · 连续 ' + streak + ' 天' : '') : '');
+          : (!isQ && target > 1 ? '目标 ' + target + ' ' + esc(h.unit || '次') : ''));
+    /* 证据层：连续多少天 + 最近七天的格子。用药靠排期不看 checks，戒烟卡自带
+       hero/meta，两者都不叠这一层。 */
+    const proof = (compact || isSmokeH || h.med) ? '' :
+      '<div class="habit-proof">' +
+        (streak > 0 ? '<span class="hp-num"><b>' + streak + '</b><i>天</i></span>' : '') +
+        '<span class="hp-cap">' +
+          (streak > 0 ? (isQ ? '连续守住' : '连续达标')
+                      : (isQ && broken ? '从今天重新数' : '今天开始')) +
+        '</span>' +
+        '<span class="habit-week">' + habitWeek(h, d) + '</span>' +
+      '</div>';
 
     return '<article class="habit-card ' + (done ? 'is-done' : '') + '" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
       '<div class="habit-head">' +
         '<span class="habit-icon">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + esc(sub) + '</small></div>' +
-        /* 右上角跟保持卡一样：只是状态灯，不可点。打卡在中间那条横条上。 */
-        ((isQ && !isSmokeH)
-          ? '<span class="habit-check quit-dot' + (broken ? ' broken' : '') + '">' +
-              (broken ? '!' : '') + '</span>'
-          : '<span class="habit-check">✓</span>') +
+        /* v100：右上角从「看不懂的圆圈」换成文字状态；戒烟卡状态由 hero/meta 表达，
+           这里不再叠一个。compact（常驻窄卡）保留原来的状态灯。 */
+        (compact
+          ? ((isQ && !isSmokeH)
+              ? '<span class="habit-check quit-dot' + (broken ? ' broken' : '') + '">' +
+                  (broken ? '!' : '') + '</span>'
+              : '<span class="habit-check">✓</span>')
+          : (isSmokeH
+              ? ''
+              : '<span class="habit-state' + (done ? ' on' : '') + (isQ && broken ? ' bad' : '') + '">' +
+                  habitStateText(h, d) + '</span>')) +
       '</div>' +
       control +
+      proof +
       /* 备注只显示用户自己填的，没填就整块不渲染（虚线也不出现）。
          不要给默认文案——那是替用户说话，还占掉他写自己规则的位置。 */
       (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '') +
-      '<div class="habit-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+      /* 小习惯卡不再画底部进度条：按钮说今天、点阵说历史、多目标还有 n/m 计数，
+         三条信息已经够了。compact（常驻窄卡）与戒烟卡保持原样。 */
+      (compact || isSmokeH
+        ? '<div class="habit-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>'
+        : '') +
       '</article>';
   }
 
@@ -8203,7 +8311,7 @@ body.modal-open{overflow:hidden}
     /* 只有真戒烟有烟盒宽卡；戒糖/戒酒这类走普通卡片，不能出现烟的元素 */
     /* 戒烟走烟盒宽卡；普通戒除跟养成共用一张窄卡（只是点一下的含义相反） */
     if (isSmoke(h)) return quitCard(h, d);
-    if (h.type === 'quit') return habitCard(h, d);
+    if (h.type === 'quit') return habitCard(h, d, true);
     const c = countOf(d, h.id);
     const target = Math.max(1, Number(h.target) || 1);
     const done = c >= target;

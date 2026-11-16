@@ -80,7 +80,7 @@ def card(pg, name):
             pipOn: pip ? pip.classList.contains('on') : false,
             hasUndo: !!undo,
             count: cnt ? (cnt.textContent || '').replace(/\\s+/g, '') : '',
-            dot: !!el.querySelector('.habit-check.quit-dot.broken')
+            state: (el.querySelector('.habit-state') || {}).textContent || ''
         };
     }""", name)
 
@@ -147,7 +147,7 @@ def main():
         chk('第 1 次 → 1 次未达标', c and c['count'].startswith('1'), c['count'] if c else '')
         chk('按钮变「又破一次」', c and '又破一次' in c['addText'], c['addText'] if c else '')
         chk('按钮进 broken 态', c and c['addBroken'], str(c))
-        chk('右上角状态灯变「!」', c and c['dot'], str(c))
+        chk('右上角状态变成「今天失守」', bool(c) and c['state'] == '今天失守', str(c))
         chk('出现撤销按钮', c and c['hasUndo'], str(c))
 
         # 关键：同一秒内再点第二、第三次，不能被 1 秒去重挡掉
