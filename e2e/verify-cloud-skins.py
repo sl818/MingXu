@@ -70,8 +70,8 @@ def open_page(pg, skin, theme='light', w=1600):
     if pg.locator('[data-act="cloud-login"]').count():
         pg.locator('[data-act="cloud-login"]').first.click()
         pg.wait_for_timeout(600)
-        pg.fill('input[name="email"]', 'test@sl00.top')
-        pg.fill('input[name="password"]', 'test@sl00.top')
+        pg.fill('input[name="email"]', 'test@example.com')
+        pg.fill('input[name="password"]', 'test@example.com')
         pg.click('form.modal-card button[type="submit"]')
         pg.wait_for_timeout(2600)
 

@@ -4,7 +4,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
-USER = {'id': 1, 'email': 'test@sl00.top', 'display_name': '测试', 'is_admin': False}
+USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admin': False}
 sessions = {}
 D = '2026-10-24'
 
@@ -101,7 +101,7 @@ with sync_playwright() as p:
     pg.clock.install(time=datetime(2026,10,24,10,0,0))
     pg.goto(f'http://127.0.0.1:{port}/index.html', wait_until='networkidle'); pg.wait_for_timeout(600)
     pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top'); pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com'); pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(3000)
 
     # ---------- 1. 两列布局 ----------
@@ -209,7 +209,7 @@ with sync_playwright() as p:
     mp.clock.install(time=datetime(2026,10,24,10,0,0))
     mp.goto(f'http://127.0.0.1:{port}/index.html', wait_until='networkidle'); mp.wait_for_timeout(600)
     mp.click('[data-act="cloud-login"]'); mp.wait_for_timeout(400)
-    mp.fill('input[name="email"]', 'test@sl00.top'); mp.fill('input[name="password"]', 'test@sl00.top')
+    mp.fill('input[name="email"]', 'test@example.com'); mp.fill('input[name="password"]', 'test@example.com')
     mp.click('form.modal-card button[type="submit"]'); mp.wait_for_timeout(2800)
     m = mp.evaluate("""() => {
       const g = document.querySelector('.vital-grid');

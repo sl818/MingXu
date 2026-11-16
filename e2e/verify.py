@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""核实：登录 test@sl00.top，检查之前写入的测试数据是否还在云端。"""
+"""核实：登录 test@example.com，检查之前写入的测试数据是否还在云端。"""
 from playwright.sync_api import sync_playwright
 
-URL = "https://todo.csl88.top"
-EMAIL = "test@sl00.top"
-PWD = "test@sl00.top"
+URL = "https://your-domain.example"
+EMAIL = "test@example.com"
+PWD = "test@example.com"
 
 with sync_playwright() as p:
     b = p.chromium.launch(channel="chrome", headless=True)

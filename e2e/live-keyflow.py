@@ -4,9 +4,9 @@
 import json
 from playwright.sync_api import sync_playwright
 
-BASE = 'https://todo.csl88.top'
-EMAIL = 'test@sl00.top'
-PWD = 'test@sl00.top'
+BASE = 'https://your-domain.example'
+EMAIL = 'test@example.com'
+PWD = 'test@example.com'
 MARK = '【自检临时】'
 
 steps, errors = [], []

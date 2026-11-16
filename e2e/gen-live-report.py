@@ -115,7 +115,7 @@ td.dt{{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap;max
 <div class="wrap">
   <h1>晚风Todo · 线上自检报告<span class="tag">全部通过</span></h1>
   <div class="meta">
-    线上环境 <code>https://todo.csl88.top</code> · 账号 <code>test@sl00.top</code> ·
+    线上环境 <code>https://your-domain.example</code> · 账号 <code>test@example.com</code> ·
     时间 {now} · 真实浏览器驱动（Chrome + Playwright）
   </div>
 

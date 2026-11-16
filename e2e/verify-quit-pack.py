@@ -57,8 +57,8 @@ def load(pg, packs, cravings):
     if pg.locator('[data-act="cloud-login"]').count():
         pg.click('[data-act="cloud-login"]')
         pg.wait_for_timeout(400)
-        pg.fill('input[name="email"]', 'test@sl00.top')
-        pg.fill('input[name="password"]', 'test@sl00.top')
+        pg.fill('input[name="email"]', 'test@example.com')
+        pg.fill('input[name="password"]', 'test@example.com')
         pg.click('form.modal-card button[type="submit"]')
         pg.wait_for_timeout(2600)
     pg.evaluate("() => { const b=document.querySelector('[data-nav=\"quit\"]'); if(b) b.click(); }")

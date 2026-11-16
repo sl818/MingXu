@@ -52,8 +52,8 @@ def login(pg):
     pg.locator('[data-act="cloud-login"]').first.click()
     pg.wait_for_timeout(600)
     pg.wait_for_selector('input[name="email"]', timeout=10000)
-    pg.fill('input[name="email"]', 'test@sl00.top')
-    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com')
+    pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]')
     for _ in range(40):
         pg.wait_for_timeout(250)

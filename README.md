@@ -1,7 +1,26 @@
-# 晚风Todo · 习惯与任务
+# 晚风 Todo
 
-一个部署在自己服务器上的个人生活面板：**习惯打卡 + 用药记录 + 待办清单 + 体重 / 随笔 / 日历 / 统计**。
-多设备共用一份数据，能装成手机 App（PWA），到点通过企业微信把提醒推到手机。
+> 一个可自托管的个人生活仪表盘：**习惯打卡、用药记录、待办看板、体重、随笔、日历回顾、统计复盘**，
+> 外加一个独立的「清债」模块。多设备共用一份云端数据，能装成手机 App（PWA），
+> 到点通过企业微信把提醒推到手机。
+
+前端是**一个 `index.html`**——零构建、零依赖、零 CDN；后端是**无框架的 PHP + MySQL**。
+没有 npm、没有打包步骤：改完保存刷新就能看到效果，部署时把文件传上去就行。
+
+![桌面端今日页](docs/images/today-desktop.png)
+
+<p align="center">
+  <img src="docs/images/today-mobile.png" width="300" alt="手机端今日页">
+</p>
+
+**特性一览**
+
+- 11 个页面：今日 / 用药 / 待办 / 清债 / 习惯 / 体重 / 随笔 / 日历 / 统计 / 配置 / 设置
+- 6 套主题 × 明暗、3 种布局、手机底部导航、键盘命令面板（`Ctrl/⌘ + K`）
+- 云端多账号：邀请码注册、单设备登录、`base_rev` 乐观锁合并、历史版本回滚
+- 企业微信机器人推送（待办 / 用药 / 通知 / 倒数日 / 还款日）+ ICS 日历订阅
+- 全站 JSON 导出 / 导入，数据始终在你自己的库里
+- 无框架、无构建、无 CDN，单文件前端约 1.4 万行
 
 > 除了本文件，其余文档都在 [`docs/`](docs/README.md) 目录。
 
@@ -26,10 +45,10 @@
 
 ## 页面
 
-九个页面。桌面侧栏全部可见，顺序是：
+十一个页面。桌面侧栏全部可见，顺序是：
 
 ```
-今日 · 用药 · 待办 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 设置
+今日 · 用药 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 配置 · 设置
 ```
 
 手机底部只有 4 个高频道 + 中间悬浮「＋」：
@@ -38,7 +57,7 @@
 [今日] [用药] [＋] [待办] [更多]
 ```
 
-「更多」点开是贴底抽屉，列着习惯、随笔、体重、日历、统计，任何页面两步可达。
+「更多」点开是贴底抽屉，列着清债、习惯、随笔、体重、日历、统计、配置，任何页面两步可达。
 
 ---
 
@@ -543,3 +562,61 @@ node _check_script.mjs
 - 晚上睡前花 10 秒补记，比追求完美更重要。
 - 每月导出一次备份，换设备前再导出一次。
 - 配好手机推送后，先把「今日推送计划」看一眼——确认它算得对，比等到点猜要省事。
+
+---
+
+## 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 前端 | 原生 HTML / CSS / JS，单文件 `index.html`（约 1.4 万行），无框架、无构建、无 CDN |
+| 后端 | PHP 8 + PDO，无框架；`api.php` 单入口 + `api/*.php` |
+| 数据库 | MySQL 5.7+ / 8（SQLite 只用于本机测试） |
+| 同步 | 全量 JSON 快照 + `base_rev` 乐观锁 + `mergeStates` 合并 |
+| 离线 | Service Worker 预缓存外壳，`api.php` 永远走网络 |
+| 通知 | 企业微信机器人 Webhook + 每分钟 cron |
+| 主题 | `themes/*.css` 只覆盖 CSS 变量与少量组件，切换不改 DOM 结构 |
+
+## 目录结构
+
+```text
+index.html            前端全部（HTML + CSS + JS）
+service-worker.js     PWA 外壳缓存，改前端必须递增 CACHE 版本
+api.php               API 单入口（login / save / load / export …）
+api/                  bootstrap / ics / push / schedule / backup
+install/              安装向导（建表、建管理员、生成邀请码）
+db/schema.sql         表结构；db/migrations/ 是增量迁移
+themes/               6 套皮肤的 CSS
+tools/                运维脚本（推送 tick、备份恢复、诊断）
+e2e/                  Playwright / PHP 回归与对比度审计
+docs/                 架构、前后端、数据模型、部署、主题规范
+```
+
+## 参与贡献
+
+- 前端几乎都在 `index.html` 里，改之前先读 [`docs/FRONTEND.md`](docs/FRONTEND.md)。
+- 皮肤只在 `themes/*.css` 写变量，规范见 [`docs/THEME-SPEC.md`](docs/THEME-SPEC.md)；
+  新增主题键要在 `SKINS`、首屏白名单、`<link>`、SW `ASSETS` 四处注册。
+- 后端文件一律 `require_once`；新增顶层数据字段必须同步
+  `normalizeState` / `mergeStates` / `repairBackup` 三处（漏第三处会直接删用户数据）。
+- 改完至少跑：
+
+  ```bash
+  node _check_script.mjs          # JS 语法 + 事件 action 自检
+  php e2e/test-ics.php            # 日程生成
+  python e2e/regression-v3.py     # 综合回归（需要 Playwright）
+  python e2e/audit-contrast-v33.py  # 对比度审计，会报跳过数
+  ```
+
+- **行尾不要统一**：`index.html`、`api.php`、`api/*.php` 是 CRLF，`docs/`、`e2e/`、
+  `themes/*.css` 是 LF。统一了会产生整文件级假 diff。
+- 提交前确认 `api/config.php`、`install.lock`、`backups/` 没被 `git add`（已在 `.gitignore`）。
+
+## 致谢
+
+界面与交互的设计过程参考了 Loop、Streaks、Habitify、Habitica、Anchor Loop、Storey
+等习惯类产品的公开资料；开发过程使用了 DeepSeek 辅助。
+
+## License
+
+[MIT](LICENSE) © 2026 Wanfeng Todo contributors

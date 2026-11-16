@@ -17,10 +17,10 @@
 
 | 项 | 值 |
 |---|---|
-| 地址 | `https://todo.csl88.top/` |
+| 地址 | `https://your-domain.example/` |
 | 代码版本 | v100（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v100'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
-| 站点目录 | `/www/wwwroot/todo.csl88.top` |
+| 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
 | 定时任务 | 宝塔 Shell 脚本，**每分钟**一次：`/www/server/php/82/bin/php .../tools/push_tick.php`（**不带 `--dry`**） |
 | 手机推送 | 已配企业微信机器人，实测可达 |
@@ -30,9 +30,9 @@
 **验证线上版本的正确方法**：不看部署记录，直接比 md5。
 
 ```bash
-curl -sS "https://todo.csl88.top/index.html?_=$(date +%s)" -o /tmp/online.html
+curl -sS "https://your-domain.example/index.html?_=$(date +%s)" -o /tmp/online.html
 md5sum /tmp/online.html ./index.html
-curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
+curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 ```
 
 ---

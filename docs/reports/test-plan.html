@@ -243,7 +243,7 @@ h1{font-family:var(--serif);font-size:clamp(30px,4.2vw,46px);font-weight:600;lin
       <h1>晚风Todo<br>测试流程</h1>
       <p class="lede">从上线冒烟到账号、健康、待办、体重、历史版本、手机 PWA 和安全的完整回归清单。带 ★ 的是 10 分钟快速冒烟项。</p>
       <div class="hero-meta">
-        <span class="chip"><b>站点</b> todo.csl88.top</span>
+        <span class="chip"><b>站点</b> your-domain.example</span>
         <span class="chip"><b>版本</b> 2026-10-23</span>
         <span class="chip"><b>方式</b> 浏览器手动测试</span>
         <span class="chip"><b>建议</b> 测试账号 + 数据库备份</span>
@@ -335,7 +335,7 @@ const PLAN = [
   {
     id: 'smoke', no: '01', title: '上线冒烟', desc: '5 分钟确认站点门禁、登录和基本加载没有断。',
     cases: [
-      { id: 'smoke-landing', fast: true, text: '无痕窗口打开 https://todo.csl88.top/', expect: '显示介绍页，不直接进入看板。' },
+      { id: 'smoke-landing', fast: true, text: '无痕窗口打开 https://your-domain.example/', expect: '显示介绍页，不直接进入看板。' },
       { id: 'smoke-gate', text: '不登录直接访问站点', expect: '只能看介绍页，看不到今日数据。' },
       { id: 'smoke-status', text: '打开 /api.php?action=status', expect: '返回 {"ok":true,"installed":true}。' },
       { id: 'smoke-login', fast: true, text: '登录管理员账号', expect: '进入今日页，顶部品牌为晚风Todo。' },
@@ -351,7 +351,7 @@ const PLAN = [
       { id: 'account-normal', text: '测试账号进入设置', expect: '没有用户管理入口，不能查看其他用户。' },
       { id: 'account-admin', text: '管理员进入用户管理', expect: '能看到用户列表、重置密码、停用/启用、注册开关和邀请码；列表不含用户数据。' },
       { id: 'account-logout', text: '测试账号退出登录', expect: '回到介绍页；再访问 api.php?action=load 返回 401。' },
-      { id: 'account-forgot', text: '点登录框的「找回密码」', expect: '弹窗显示联系邮箱 sl@sl00.top。' },
+      { id: 'account-forgot', text: '点登录框的「找回密码」', expect: '弹窗显示联系邮箱 sl@example.com。' },
       { id: 'account-wrong', text: '输入一次错误密码', expect: '提示错误，不进入系统；不要连续试错触发限流。' }
     ]
   },
@@ -636,7 +636,7 @@ function exportReport() {
   const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
   let md = '# 晚风Todo 测试报告\n\n';
   md += '- 日期：' + now.toLocaleString('zh-CN', { hour12: false }) + '\n';
-  md += '- 站点：https://todo.csl88.top/\n';
+  md += '- 站点：https://your-domain.example/\n';
   md += '- 结果：通过 ' + c.pass + ' / ' + c.total + '，失败 ' + c.fail + '，未测 ' + c.todo + '，通过率 ' + (c.total ? Math.round(c.pass / c.total * 100) : 0) + '%\n\n';
   PLAN.forEach(section => {
     md += '## ' + section.no + ' · ' + section.title + '\n\n';

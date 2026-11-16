@@ -49,8 +49,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(500)
     pg.click('[data-act="cloud-login"]')
     pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top')
-    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com')
+    pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
 
@@ -165,8 +165,8 @@ with sync_playwright() as p:
     mp.wait_for_timeout(500)
     mp.click('[data-act="cloud-login"]')
     mp.wait_for_timeout(400)
-    mp.fill('input[name="email"]', 'test@sl00.top')
-    mp.fill('input[name="password"]', 'test@sl00.top')
+    mp.fill('input[name="email"]', 'test@example.com')
+    mp.fill('input[name="password"]', 'test@example.com')
     mp.click('form.modal-card button[type="submit"]')
     mp.wait_for_timeout(3000)
 
@@ -204,8 +204,8 @@ with sync_playwright() as p:
     dp.wait_for_timeout(500)
     dp.click('[data-act="cloud-login"]')
     dp.wait_for_timeout(400)
-    dp.fill('input[name="email"]', 'test@sl00.top')
-    dp.fill('input[name="password"]', 'test@sl00.top')
+    dp.fill('input[name="email"]', 'test@example.com')
+    dp.fill('input[name="password"]', 'test@example.com')
     dp.click('form.modal-card button[type="submit"]')
     dp.wait_for_timeout(2800)
     desk = dp.evaluate("""() => {

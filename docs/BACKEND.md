@@ -343,7 +343,7 @@ php tools/push_fix.php     # 检测 + 清理重复 + 补建索引，全幂等
 
 ```bash
 # 宝塔 → 计划任务 → Shell 脚本 → 每 1 分钟
-/www/server/php/82/bin/php /www/wwwroot/todo.csl88.top/tools/push_tick.php
+/www/server/php/82/bin/php /www/wwwroot/todo/tools/push_tick.php
 ```
 
 **绝对不能带 `--dry`。** `--dry` 是预演模式：只打印、不真发、不写库。
@@ -393,9 +393,9 @@ php tools/push_diag.php --at 08:40
 ### 8.2 线上版本核查（不看部署记录，直接比 md5）
 
 ```bash
-curl -sS "https://todo.csl88.top/index.html?_=$(date +%s)" -o online.html
+curl -sS "https://your-domain.example/index.html?_=$(date +%s)" -o online.html
 md5sum online.html /path/to/local/index.html
-curl -sS "https://todo.csl88.top/service-worker.js" | grep CACHE
+curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 ```
 
 ### 8.3 Nginx 必须有的配置

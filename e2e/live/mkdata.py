@@ -5,7 +5,7 @@
 import json, os, sys, time
 from playwright.sync_api import sync_playwright
 
-BASE = os.environ.get('LIVE_BASE', 'https://todo.csl88.top/')
+BASE = os.environ.get('LIVE_BASE', 'https://your-domain.example/')
 # 账号密码不入库：运行前设置 LIVE_EMAIL / LIVE_PWD 两个环境变量
 EMAIL = os.environ.get('LIVE_EMAIL', '')
 PWD = os.environ.get('LIVE_PWD', '')

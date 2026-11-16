@@ -4,7 +4,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
-USER = {'id': 1, 'email': 'test@sl00.top', 'display_name': '测试', 'is_admin': False}
+USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admin': False}
 sessions = {}
 D = '2026-10-24'
 
@@ -138,7 +138,7 @@ with sync_playwright() as p:
         pg.add_init_script(f"try{{localStorage.setItem('lifeboard.layout','{layout}');localStorage.setItem('lifeboard.skin','paper');localStorage.setItem('lifeboard.theme.mode','light');}}catch(e){{}}")
         pg.goto(f'http://127.0.0.1:{port}/index.html', wait_until='networkidle'); pg.wait_for_timeout(700)
         pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(500)
-        pg.fill('input[name="email"]', 'test@sl00.top'); pg.fill('input[name="password"]', 'test@sl00.top')
+        pg.fill('input[name="email"]', 'test@example.com'); pg.fill('input[name="password"]', 'test@example.com')
         pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(3000)
 
         m = pg.evaluate(MEASURE)

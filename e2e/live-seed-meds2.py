@@ -2,9 +2,9 @@
 import sys, json, re
 from playwright.sync_api import sync_playwright
 
-BASE = 'https://todo.csl88.top/'
-EMAIL = 'test@sl00.top'
-PWD = 'test@sl00.top'
+BASE = 'https://your-domain.example/'
+EMAIL = 'test@example.com'
+PWD = 'test@example.com'
 
 MEDS = [
     dict(course='long', name='左甲状腺素钠片', purpose='西药', form='片', strength='50μg',

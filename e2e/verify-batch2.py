@@ -5,7 +5,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
-USER = {'id': 1, 'email': 'test@sl00.top', 'display_name': '测试', 'is_admin': False}
+USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admin': False}
 sessions = {}
 TODAY = '2026-10-25'
 ONLY = sys.argv[1] if len(sys.argv) > 1 else None
@@ -155,8 +155,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(500)
     pg.click('[data-act="cloud-login"]')
     pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top')
-    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com')
+    pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
 
@@ -469,8 +469,8 @@ with sync_playwright() as p:
         pg2.wait_for_timeout(500)
         pg2.click('[data-act="cloud-login"]')
         pg2.wait_for_timeout(300)
-        pg2.fill('input[name="email"]', 'test@sl00.top')
-        pg2.fill('input[name="password"]', 'test@sl00.top')
+        pg2.fill('input[name="email"]', 'test@example.com')
+        pg2.fill('input[name="password"]', 'test@example.com')
         pg2.click('form.modal-card button[type="submit"]')
         pg2.wait_for_timeout(2200)
         fab = pg2.evaluate("""() => {

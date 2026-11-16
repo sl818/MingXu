@@ -144,8 +144,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(600)
     pg.click('[data-act="cloud-login"]')
     pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top')
-    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com')
+    pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
     # 日历订阅面板在「配置」页（v71 起从设置页搬过去），不是「设置」页

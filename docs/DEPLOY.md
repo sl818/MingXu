@@ -205,7 +205,7 @@ rm -rf install
 登录弹窗右下角有「找回密码」；点击后提示：
 
 ```
-找回密码：sl@sl00.top
+找回密码：sl@example.com
 ```
 
 用户用注册邮箱联系这个地址；管理员在「用户管理」里为他重置密码（至少 8 位）。重置后该用户所有已登录设备都会退出。
@@ -490,7 +490,7 @@ gunzip < /www/backup/lifeboard-2026-10-22.sql.gz | mysql -u lifeboard -p lifeboa
 | 登录后还是看到看板、看不到介绍页 | 已登录时直接进看板是正常的；要回到介绍页点「退出登录」。如果未登录也直接进看板，说明 `index.html` 还是旧版，重新上传 |
 | PWA 无法安装 | 必须 HTTPS；确认 `/manifest.json`、`/service-worker.js` 返回 200；Nginx 给 manifest 配 `application/manifest+json`；手机用浏览器菜单「添加到主屏幕」 |
 | 主题没有按时间切换 | 设置 → 主题 → 选「自动」；规则是 7:00–19:00 浅色，其余深色；页面每分钟检查一次 |
-| 点「找回密码」没反应 | 登录弹窗右下角；点击后应显示 `找回密码：sl@sl00.top`；旧缓存会缺这个按钮，Ctrl+F5 |
+| 点「找回密码」没反应 | 登录弹窗右下角；点击后应显示 `找回密码：sl@example.com`；旧缓存会缺这个按钮，Ctrl+F5 |
 | 访问域名没跳安装 | `api.php?action=status` 是否返回 `installed:false`；`install/` 是否上传；浏览器控制台是否有 JS 错误 |
 | 安装页 403 | `install.lock` 已存在；要重装先删 `install.lock` + `api/config.php` + 清空数据库 |
 | 安装页空白 / 500 | 看宝塔网站错误日志；PHP 版本、`pdo_mysql`、文件权限 |
@@ -588,8 +588,8 @@ cp -p index.html service-worker.js .bak/$STAMP/
 # 本地
 sha256sum index.html service-worker.js
 # 线上
-curl -s https://todo.csl88.top/index.html | sha256sum
-curl -s https://todo.csl88.top/service-worker.js | sha256sum
+curl -s https://your-domain.example/index.html | sha256sum
+curl -s https://your-domain.example/service-worker.js | sha256sum
 ```
 
 两边哈希一致 = 文件已生效。`service-worker.js` 里的 `CACHE` 常量必须比上一版大，

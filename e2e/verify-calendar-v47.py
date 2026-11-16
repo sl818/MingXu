@@ -103,7 +103,7 @@ with sync_playwright() as p:
     pg.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
     pg.wait_for_timeout(600)
     pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top'); pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com'); pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(2800)
 
     print('\n[1] 月视图：格子里的待办')
@@ -256,7 +256,7 @@ with sync_playwright() as p:
     pg2.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
     pg2.wait_for_timeout(600)
     pg2.click('[data-act="cloud-login"]'); pg2.wait_for_timeout(400)
-    pg2.fill('input[name="email"]', 'test@sl00.top'); pg2.fill('input[name="password"]', 'test@sl00.top')
+    pg2.fill('input[name="email"]', 'test@example.com'); pg2.fill('input[name="password"]', 'test@example.com')
     pg2.click('form.modal-card button[type="submit"]'); pg2.wait_for_timeout(2800)
 
     print('\n[6] 手机：月视图只显示数量')

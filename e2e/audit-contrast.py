@@ -2,7 +2,7 @@
 import json
 from playwright.sync_api import sync_playwright
 
-BASE = 'https://todo.csl88.top'
+BASE = 'https://your-domain.example'
 
 AUDIT = """() => {
   const parse = c => {
@@ -80,8 +80,8 @@ with sync_playwright() as p:
         """)
         pg.goto(BASE, wait_until='networkidle'); pg.wait_for_timeout(900)
         pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(500)
-        pg.fill('input[name="email"]', 'test@sl00.top')
-        pg.fill('input[name="password"]', 'test@sl00.top')
+        pg.fill('input[name="email"]', 'test@example.com')
+        pg.fill('input[name="password"]', 'test@example.com')
         pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(3800)
 
         key = f'{skin}/{theme}'

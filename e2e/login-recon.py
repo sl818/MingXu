@@ -3,7 +3,7 @@
 from playwright.sync_api import sync_playwright
 import json
 
-URL = "https://todo.csl88.top"
+URL = "https://your-domain.example"
 errors = {"pageerror": [], "console_error": [], "failed": [], "http4xx5xx": []}
 
 

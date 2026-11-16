@@ -51,8 +51,8 @@ def main():
         if pg.locator('[data-act="cloud-login"]').count():
             pg.click('[data-act="cloud-login"]')
             pg.wait_for_timeout(400)
-            pg.fill('input[name="email"]', 'test@sl00.top')
-            pg.fill('input[name="password"]', 'test@sl00.top')
+            pg.fill('input[name="email"]', 'test@example.com')
+            pg.fill('input[name="password"]', 'test@example.com')
             pg.click('form.modal-card button[type="submit"]')
             pg.wait_for_timeout(2600)
 
@@ -122,8 +122,8 @@ def main():
         if pg2.locator('[data-act="cloud-login"]').count():
             pg2.click('[data-act="cloud-login"]')
             pg2.wait_for_timeout(400)
-            pg2.fill('input[name="email"]', 'test@sl00.top')
-            pg2.fill('input[name="password"]', 'test@sl00.top')
+            pg2.fill('input[name="email"]', 'test@example.com')
+            pg2.fill('input[name="password"]', 'test@example.com')
             pg2.click('form.modal-card button[type="submit"]')
             pg2.wait_for_timeout(2600)
         to_stats(pg2)

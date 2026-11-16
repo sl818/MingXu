@@ -35,7 +35,7 @@ def _post(self):
         n = int(self.headers.get('Content-Length', 0))
         if n:
             self.rfile.read(n)
-        MOCK['url'] = ('https://todo.csl88.top/api.php?ics=%064x.ics' % MOCK['reset'])
+        MOCK['url'] = ('https://your-domain.example/api.php?ics=%064x.ics' % MOCK['reset'])
         self._j({'ok': True, 'url': MOCK['url']})
         return
     _orig_post(self)
@@ -74,8 +74,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(600)
     pg.click('[data-act="cloud-login"]')
     pg.wait_for_timeout(400)
-    pg.fill('input[name="email"]', 'test@sl00.top')
-    pg.fill('input[name="password"]', 'test@sl00.top')
+    pg.fill('input[name="email"]', 'test@example.com')
+    pg.fill('input[name="password"]', 'test@example.com')
     pg.click('form.modal-card button[type="submit"]')
     pg.wait_for_timeout(2600)
 
@@ -165,8 +165,8 @@ with sync_playwright() as p:
     mpg.wait_for_timeout(500)
     mpg.click('[data-act="cloud-login"]')
     mpg.wait_for_timeout(400)
-    mpg.fill('input[name="email"]', 'test@sl00.top')
-    mpg.fill('input[name="password"]', 'test@sl00.top')
+    mpg.fill('input[name="email"]', 'test@example.com')
+    mpg.fill('input[name="password"]', 'test@example.com')
     mpg.click('form.modal-card button[type="submit"]')
     mpg.wait_for_timeout(2600)
     mpg.evaluate("() => { const a=document.querySelector('[data-act=\"more-open\"]'); if(a) a.click(); }")

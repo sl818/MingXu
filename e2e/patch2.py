@@ -3,9 +3,9 @@
 import json, datetime
 from playwright.sync_api import sync_playwright
 
-URL = "https://todo.csl88.top"
-EMAIL = "test@sl00.top"
-PWD = "test@sl00.top"
+URL = "https://your-domain.example"
+EMAIL = "test@example.com"
+PWD = "test@example.com"
 
 report = {"steps": [], "errors": {"pageerror": [], "console_error": [], "failed": [], "http4xx5xx": []}}
 

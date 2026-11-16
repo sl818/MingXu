@@ -4,7 +4,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
-USER = {'id': 1, 'email': 'test@sl00.top', 'display_name': '测试', 'is_admin': False}
+USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admin': False}
 sessions = {}
 PORT = 38546
 D = '2026-10-24'

@@ -6,7 +6,7 @@
 import json, os, sys
 from playwright.sync_api import sync_playwright
 
-BASE = os.environ.get('LIVE_BASE', 'https://todo.csl88.top/')
+BASE = os.environ.get('LIVE_BASE', 'https://your-domain.example/')
 EMAIL = os.environ.get('LIVE_EMAIL', '')
 PWD = os.environ.get('LIVE_PWD', '')
 if not EMAIL or not PWD:

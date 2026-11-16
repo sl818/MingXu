@@ -9,7 +9,7 @@
 ```bash
 export LIVE_EMAIL='你的测试账号'
 export LIVE_PWD='对应密码'
-export LIVE_BASE='https://todo.csl88.top/'   # 可选，默认就是它
+export LIVE_BASE='https://your-domain.example/'   # 可选，默认就是它
 ```
 
 ## 四个脚本
