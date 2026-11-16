@@ -608,8 +608,8 @@ docs/                 架构、前后端、数据模型、部署、主题规范
   python e2e/audit-contrast-v33.py  # 对比度审计，会报跳过数
   ```
 
-- **行尾不要统一**：`index.html`、`api.php`、`api/*.php` 是 CRLF，`docs/`、`e2e/`、
-  `themes/*.css` 是 LF。统一了会产生整文件级假 diff。
+- **行尾**：仓库里以 LF 存储，Windows 检出时会自动变 CRLF（`core.autocrlf`）。
+  改文件时不要手动统一行尾，否则本地 diff 会变成整文件级改动。
 - 提交前确认 `api/config.php`、`install.lock`、`backups/` 没被 `git add`（已在 `.gitignore`）。
 
 ## 致谢
