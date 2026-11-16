@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v101（2026-11-16）
+最后更新：v102（2026-11-16）
 
 ---
 
@@ -357,11 +357,20 @@ document.addEventListener('click', e => {
   数据全部现算（`checks` / `cravings`），**不存任何字段**；`streakOn(h,d)` 按当前选中日期算
   （切历史日期不撒谎），`habitWeek(h,d)` 出格子。单次卡不再显示 `0 / 1 次`，
   也不再画 `.habit-bar`；多目标的 n/m 计数与 pips 保留。
-- **截止型习惯（v101）**：`h.deadline` 是 `'HH:MM'`，**只对 `build` 且 `target<=1` 生效**
+- **打卡回馈（v102）**：`habitPulse(id, 'on'|'slip')` 在 `render()` **之后**用
+  `element.animate()` 放大「刚点的那颗控件 + `.hd-dot.today`」，同时 `navigator.vibrate`。
+  必须排在重绘之后——CSS 动画会随每次 render 重放，翻页都在闪。
+  撤销与 `prefers-reduced-motion` 下只震动不放动效。定位靠卡片根的 `data-hid`。
+- **最长纪录（v102）**：`habitBest(h, d)` 取历史最长连续，只在 `best > streak` 时以
+  `.hp-cap` 小字追加「· 最长 N 天」；两者相等不显示，否则一句话两个数字容易看混。
+- **截止型习惯（v101）：`h.deadline` 是 `'HH:MM'`，**只对 `build` 且 `target<=1` 生效**
   （多次目标谈截止没意义，戒除/戒烟不需要）。打卡时刻不存字段：`checkTimeOf(h,d)` 从
   `state.events` 取当天最后一条 `delta>0` 的 `at`；`deadlineDiff(h,d)` 返回相对截止的分钟数
   （>0 超时），跨零点按「前一晚 → 次日凌晨」归一。卡片标题下写「01:00 前」，状态位打卡后
   直接写完成时刻、超时加 `.bad`。**不改 `met`**：超时照样算完成，只在卡片标记。
+- **多目标卡布局（v102）**：圆点与「n / m」同一行 `.habit-pips-row`，
+  `min-height:36px` 与 `.habit-done` 对齐。**圆点不能删**——它是一次点选的控件
+  （点第 3 格就记 3 次），换成步进器会把「8 杯水」变成点 8 下。
 - **`habitCard(h, d, compact)`**：`compact=true` 是常驻区窄卡（`vitalCard` 里的戒除卡），
   继续用旧骨架（圆圈状态灯 + 标题小字 streak + 进度条），v100 不波及常驻习惯。
   戒除的打卡控件分两档（`slipMode`，缺省 `once`）：

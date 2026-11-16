@@ -1039,6 +1039,15 @@ body{
 }
 .stepper button:hover{background:var(--hc);border-color:var(--hc);color:#fffdf6}
 .stepper .habit-count{font-size:24px}
+/* v102：多目标卡把「圆点」和「n / m」并成一行。
+   两者本来都在说同一件事，上下两行白占一块高度；圆点是一次点选的控件
+   （点第 3 个就记 3 次），所以不能删，只能把它和计数摆到一起。
+   注意：本段必须写在 `.habit-card .pips` 之后，否则 margin 会被那一条盖掉。 */
+.habit-pips-row{display:flex;align-items:center;gap:12px;margin:12px 0 10px;min-height:36px}
+/* min-height 与 .habit-done 的 36px 对齐：否则多目标卡会比同排的单次卡矮一截 */
+.habit-pips-row .pips{flex:1;min-width:0;margin:0}
+.habit-pips-row .habit-count{flex:none;font-size:17px;line-height:1}
+.habit-pips-row .habit-count span{font-size:10.5px}
 .quit-ctrl{margin:14px 0 10px;gap:8px}
 .state-pill{font-size:10.5px;padding:4px 10px;letter-spacing:.02em;font-weight:600}
 .state-pill.ok{background:var(--accent-soft);color:var(--accent)}
@@ -6877,6 +6886,75 @@ body.modal-open{overflow:hidden}
     return diff;
   }
 
+  /* 最长纪录：和 streakOn 同一套口径，只是取「历史最大值」而不是「当前值」。
+     不存字段——每次从 checks / cravings 现算，导出导入和多端合并都不用管。
+     扫描区间由最早一条记录决定，没有记录时只算今天，不会白转几千轮。 */
+  function habitBest(h, d) {
+    if (!h || h.med) return 0;
+    if (isQuitLike(h)) {
+      const slips = [];
+      cravingsOf(h.id).forEach(function (e) {
+        if (e.k === 's') {
+          const day = tsDay(e.t);
+          if (day <= d) slips.push(day);
+        }
+      });
+      if (!slips.length) return streakOn(h, d);
+      slips.sort();
+      let best = 0, prev = quitStartDay(h);
+      slips.forEach(function (day) {
+        best = Math.max(best, Math.round((parseD(day) - parseD(prev)) / 86400000));
+        prev = day;
+      });
+      return Math.max(best, Math.round((parseD(d) - parseD(prev)) / 86400000));
+    }
+    const target = Math.max(1, Number(h.target) || 1);
+    const ok = ds => countOf(ds, h.id) >= target;
+    let earliest = d;
+    Object.keys(state.checks || {}).forEach(function (k) { if (k < earliest) earliest = k; });
+    const span = Math.max(1, Math.round((parseD(d) - parseD(earliest)) / 86400000) + 1);
+    let best = 0, run = 0, cur = d;
+    for (let i = 0; i < span; i++) {
+      if (ok(cur)) { run++; if (run > best) best = run; } else run = 0;
+      cur = shiftDay(cur, -1);
+    }
+    return best;
+  }
+  /* v102：打卡的即时回馈。render() 会重建整张卡，所以动效必须排在重绘之后，
+     用 WAAPI 打在重建出来的节点上（CSS 动画会随重绘重放，反而变成噪音）。
+     系统开了「减少动效」就只震动、不放大。 */
+  function canAnimate() {
+    try { return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return true; }
+  }
+  function buzz(ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* 系统拒绝就静默 */ }
+  }
+  function habitPulse(id, kind) {
+    if (kind !== 'on' && kind !== 'slip') return;
+    buzz(kind === 'slip' ? [12, 36, 12] : 12);
+    if (!canAnimate()) return;
+    requestAnimationFrame(function () {
+      const card = document.querySelector('.habit-card[data-hid="' + id + '"]');
+      if (!card) return;
+      /* 只放大「刚点的那颗」和「今天那一格」：撤销不给动效，
+         否则点了撤销也像一次奖励。 */
+      const pairs = [];
+      const ctrl = card.querySelector('.habit-done, .quit-add, .habit-pips-row .pip.on, .pips .pip.on');
+      if (ctrl) pairs.push([ctrl, 1.06]);
+      const dot = card.querySelector('.hd-dot.today');
+      if (dot) pairs.push([dot, 1.5]);
+      pairs.forEach(function (t) {
+        try {
+          t[0].animate(
+            [{ transform: 'scale(1)' }, { transform: 'scale(' + t[1] + ')' }, { transform: 'scale(1)' }],
+            { duration: 260, easing: 'cubic-bezier(.2,.8,.3,1)' }
+          );
+        } catch (e) { /* 老浏览器没有 animate 就跳过 */ }
+      });
+    });
+  }
+
   /* 一张卡同一时刻只有一个「今天怎样」，右上角用文字说，不用猜图标。 */
   function habitStateText(h, d) {
     if (h.med) return met(h, d) ? '已完成' : '待打卡';
@@ -7697,8 +7775,9 @@ body.modal-open{overflow:hidden}
         pips += '<button class="pip ' + (on ? 'on' : '') + '" data-act="habit-set" data-id="' + h.id +
           '" data-val="' + val + '" title="第 ' + i + ' ' + esc(h.unit || '次') + '"></button>';
       }
-      control = '<div class="pips">' + pips + '</div>' +
-        '<div class="habit-count">' + c + '<span> / ' + target + ' ' + esc(h.unit || '次') + '</span></div>';
+      /* v102：一行同时给「点到第几格」和「几 / 几」，不再上下两行 */
+      control = '<div class="habit-pips-row"><div class="pips">' + pips + '</div>' +
+        '<div class="habit-count">' + c + '<span> / ' + target + ' ' + esc(h.unit || '次') + '</span></div></div>';
     } else {
       control = '<div class="stepper">' +
         '<button data-act="habit-dec" data-id="' + h.id + '"' + (c <= 0 ? ' disabled' : '') + '>−</button>' +
@@ -7725,17 +7804,21 @@ body.modal-open{overflow:hidden}
               : (isDeadlineHabit(h) ? esc(h.deadline) + ' 前' : '')));
     /* 证据层：连续多少天 + 最近七天的格子。用药靠排期不看 checks，戒烟卡自带
        hero/meta，两者都不叠这一层。 */
+    /* 最长纪录只在「比当前长」时出现，否则一句话里两个数字容易看混 */
+    const best = (compact || isSmokeH || h.med) ? 0 : habitBest(h, d);
     const proof = (compact || isSmokeH || h.med) ? '' :
       '<div class="habit-proof">' +
         (streak > 0 ? '<span class="hp-num"><b>' + streak + '</b><i>天</i></span>' : '') +
         '<span class="hp-cap">' +
           (streak > 0 ? (isQ ? '连续守住' : '连续达标')
                       : (isQ && broken ? '从今天重新数' : '今天开始')) +
+          (best > streak ? ' · 最长 ' + best + ' 天' : '') +
         '</span>' +
         '<span class="habit-week">' + habitWeek(h, d) + '</span>' +
       '</div>';
 
-    return '<article class="habit-card ' + (done ? 'is-done' : '') + '" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
+    return '<article class="habit-card ' + (done ? 'is-done' : '') + '" data-hid="' + esc(h.id) + '"' +
+      ' style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
       '<div class="habit-head">' +
         '<span class="habit-icon">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + esc(sub) + '</small></div>' +
@@ -16486,6 +16569,7 @@ body.modal-open{overflow:hidden}
         return;
       }
       addCraving(h.id, 's');
+      habitPulse(h.id, 'slip');
     },
     /* 多次破戒：点一次加一条，撤销只退最后一条（不清整天）。
        拆成两个 action 而不是在 quit-mark 里 if 分支——
@@ -16494,6 +16578,7 @@ body.modal-open{overflow:hidden}
       const h = currentHabit(el.dataset.id);
       if (!h || !isMultiSlip(h)) return;
       addCraving(h.id, 's');
+      habitPulse(h.id, 'slip');
     },
     'quit-dec': el => {
       const h = currentHabit(el.dataset.id);
@@ -16549,6 +16634,7 @@ body.modal-open{overflow:hidden}
       if (isQuitLike(h)) toast('已记录一次，明天重新开始');
       else if (c + 1 === Math.max(1, Number(h.target) || 1)) toast('完成：' + h.name + ' 🎉');
       render();
+      habitPulse(h.id, 'on');
     },
     'habit-dec': el => {
       const id = el.dataset.id;
@@ -16623,10 +16709,12 @@ body.modal-open{overflow:hidden}
     'habit-set': el => {
       const id = el.dataset.id;
       const v = Number(el.dataset.val) || 0;
-      const delta = v - countOf(selectedDate, id);
+      const prev = countOf(selectedDate, id);
+      const delta = v - prev;
       if (delta) logHabit(id, delta);
       setCount(selectedDate, id, v);
       render();
+      if (delta > 0) habitPulse(id, 'on');
     },
     'task-toggle': el => {
       const t = state.tasks.find(x => x.id === el.dataset.id);
