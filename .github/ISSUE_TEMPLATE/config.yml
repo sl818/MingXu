@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 部署与常见问题
+    url: https://github.com/sl818/wanfeng-todo/blob/main/docs/DEPLOY.md
+    about: 安装向导、数据库、企业微信推送、日历订阅的坑，先看这里
+  - name: 项目结构
+    url: https://github.com/sl818/wanfeng-todo/blob/main/docs/ARCHITECTURE.md
+    about: 想改代码，先看架构说明和各分册

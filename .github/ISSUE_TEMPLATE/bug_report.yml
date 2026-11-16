@@ -1,0 +1,69 @@
+name: Bug 反馈
+description: 页面报错、数据不对、点了没反应
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请先搜一下现有 issue。
+        如果是**安全问题**（越权、注入、凭据泄露），不要公开开 issue，按 [SECURITY.md](../blob/main/SECURITY.md) 里的方式私下报告。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 现象是什么，你期望它怎样
+      placeholder: 例如：点「今天完成」后卡片没有变成已完成，控制台报 Cannot read properties of undefined
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开今日页
+        2. 点某张卡的「今天完成」
+        3. 卡片没有变化
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 设置页底部能看到，或看 service-worker.js 里的 CACHE 值
+      placeholder: lifeboard-shell-v100
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: 环境
+      options:
+        - 桌面 Chrome / Edge
+        - 桌面 Safari / Firefox
+        - 手机浏览器
+        - 手机已安装 PWA
+        - 自己改过代码
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: 控制台报错
+      description: F12 → Console，把红色报错贴进来；没有就写「无」
+      render: shell
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 已搜索过现有 issue，没有重复
+          required: true
+        - label: 已看过 README 的「常见问题」
+          required: true

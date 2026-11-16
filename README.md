@@ -1,5 +1,8 @@
 # 晚风 Todo
 
+[![check](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml/badge.svg)](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 > 一个可自托管的个人生活仪表盘：**习惯打卡、用药记录、待办看板、体重、随笔、日历回顾、统计复盘**，
 > 外加一个独立的「清债」模块。多设备共用一份云端数据，能装成手机 App（PWA），
 > 到点通过企业微信把提醒推到手机。
@@ -611,6 +614,7 @@ docs/                 架构、前后端、数据模型、部署、主题规范
 - **行尾**：仓库里以 LF 存储，Windows 检出时会自动变 CRLF（`core.autocrlf`）。
   改文件时不要手动统一行尾，否则本地 diff 会变成整文件级改动。
 - 提交前确认 `api/config.php`、`install.lock`、`backups/` 没被 `git add`（已在 `.gitignore`）。
+- 更完整的约定见 [CONTRIBUTING.md](CONTRIBUTING.md)；安全问题按 [SECURITY.md](SECURITY.md) 私下报告。
 
 ## 致谢
 

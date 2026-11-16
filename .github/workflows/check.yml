@@ -1,0 +1,33 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # index.html 里的 <script> 语法 + 事件 action 是否都有 handler
+      - name: JS 语法与事件自检
+        run: node _check_script.mjs
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_sqlite, mbstring, curl
+          coverage: none
+
+      # 只查语法，不连数据库；api/config.php 不入库，跳过
+      - name: PHP 语法检查
+        run: |
+          set -e
+          find . -name '*.php' -not -path './api/config.php' -print0 \
+            | xargs -0 -n1 php -l > /dev/null

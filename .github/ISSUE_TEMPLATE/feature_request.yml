@@ -1,0 +1,52 @@
+name: 功能建议
+description: 想要一个新功能，或觉得现有交互不合理
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        这个项目是单人维护的个人工具，会把「它自己用得上」放在第一位。
+        提之前先说清要解决什么问题，比直接给方案更容易被采纳。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+      description: 现在哪里别扭、缺什么，最好有具体场景
+      placeholder: 例如：出差时一天要喝 8 杯水，但卡片只有 pips，看不出这周哪几天差多少
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你设想的做法
+      description: 可以只写方向，不用给完整设计
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及哪一块
+      options:
+        - 今日 / 习惯打卡
+        - 用药
+        - 待办 / 看板
+        - 清债
+        - 体重 / 随笔
+        - 日历 / 统计
+        - 设置 / 主题 / 布局
+        - 推送 / 日历订阅
+        - 部署 / 后端
+        - 其他
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: 是否愿意自己实现
+      options:
+        - label: 愿意提 PR（改之前先看 CONTRIBUTING.md）
