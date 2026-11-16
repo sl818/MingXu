@@ -6958,9 +6958,10 @@ body.modal-open{overflow:hidden}
   /* 一张卡同一时刻只有一个「今天怎样」，右上角用文字说，不用猜图标。 */
   function habitStateText(h, d) {
     if (h.med) return met(h, d) ? '已完成' : '待打卡';
+    /* v103：状态位与按钮用同一组词，不再一个「守住」一个「守住了」 */
     if (isQuitLike(h)) {
       const slip = dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
-      return slip ? '今天失守' : '今天守住';
+      return slip ? '今天失守了' : '今天守住了';
     }
     /* 截止型：状态位直接写「几点完成的」，比「已完成」信息量大 */
     if (isDeadlineHabit(h)) {
@@ -7730,9 +7731,12 @@ body.modal-open{overflow:hidden}
             '</div>'
           : '');
     } else if (isQ) {
-      /* 戒除跟保持长得完全一样：中间一条可点的横条 + 一行数字。
+      /* 戒除跟保持长得完全一样：中间一条可点的横条。
          区别只在填充方向——保持「点了才满」，戒除「守住才满，点一下取消」。
-         数字是「今天几次未达标」，0 就是守住了。 */
+         v103：**不再数失败次数**。单次模式整行删掉（横条空心就是失守，
+         一周点阵和「连续守住」已经说清历史）；多次模式保留数字，
+         因为一天记几次正是这个习惯本身，但改成事实口径「今天 N 次」，
+         不再是「N 次未达标」那种评判。 */
       if (isMultiSlip(h)) {
         /* 多次模式（v79）：主按钮永远可点、点一次加一条，撤销单独放在数字右边。
            **不能沿用 toggle** —— 再点一下就删掉整天记录的话，第二次根本记不进去。
@@ -7741,20 +7745,23 @@ body.modal-open{overflow:hidden}
             ' data-act="quit-add" data-id="' + h.id + '"' +
             (isToday ? '' : ' disabled title="只能记今天，不能补记历史"') + '>' +
             '<i>' + (broken ? '!' : '✓') + '</i>' +
-            '<span>' + (broken ? '又破一次' : '今天守住了') + '</span>' +
+            '<span>' + (broken ? '又失守一次' : '今天守住了') + '</span>' +
           '</button>' +
-          '<div class="habit-count quit-count">' + slips + '<span> 次未达标</span>' +
-            (broken && isToday
-              ? '<button type="button" class="quit-undo" data-act="quit-dec" data-id="' + h.id + '">撤销</button>'
-              : '') +
-          '</div>';
+          /* 没失守时「今天 0 次」是废话（按钮已经写「今天守住了」），整行不渲染；
+             一旦有记录才出现数字和撤销，卡片高度也只在真出事那天变高。 */
+          (broken
+            ? '<div class="habit-count quit-count"><span>今天 </span>' + slips + '<span> 次</span>' +
+                (isToday
+                  ? '<button type="button" class="quit-undo" data-act="quit-dec" data-id="' + h.id + '">撤销</button>'
+                  : '') +
+              '</div>'
+            : '');
       } else {
         control = '<div class="pips"><button type="button" class="pip' + (broken ? '' : ' on') + '"' +
             ' data-act="quit-mark" data-id="' + h.id + '"' +
             (isToday ? '' : ' disabled') +
             ' aria-label="' + (broken ? '撤销今天的记录' : '标记今天没守住') + '"' +
-            ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>' +
-          '<div class="habit-count">' + slips + '<span> 次未达标</span></div>';
+            ' title="' + (broken ? '点一下撤销今天的记录' : '今天没守住？点一下') + '"></button></div>';
       }
     } else if (target <= 1) {
       /* 目标 1 次：一个通栏按钮，点了就完成，再点就撤销。
@@ -15134,9 +15141,9 @@ body.modal-open{overflow:hidden}
           '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
         '</div>' +
         '<p class="hint" data-quit-hint="quit" data-slip="once" hidden>「戒除」默认算守住，什么都不用点；<b>守不住的时候点中间那条横条</b>，' +
-          '记一次未达标，连续天数从那天重新数。点错了再点一次即可撤销。</p>' +
+          '记一次失守，连续天数从那天重新数。点错了再点一次即可撤销。</p>' +
         '<p class="hint" data-quit-hint="quit" data-slip="multi" hidden>同样默认算守住；<b>守不住的时候点中间那颗按钮</b>记一次，' +
-          '一天可以记好几次（比如奶茶喝了两杯）。点错了用旁边的「撤销」退掉最后一次，不会把整天清空。</p>' +
+          '一天可以记好几次失守（比如奶茶喝了两杯）。点错了用旁边的「撤销」退掉最后一次，不会把整天清空。</p>' +
         '<p class="hint" data-quit-hint="smoke" hidden>「戒烟」是站点自带的常驻卡：想抽时点「点一根」，忍住了点「忍一次」，两个都记。' +
           '想把连续天数从今天重新算，把开始日期改成今天即可，历史记录不会丢。</p>' +
         (isPinned(h) ? '<p class="hint">常驻习惯不能删除，可以在这里修改名称、目标和颜色。</p>' : '') +

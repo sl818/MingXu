@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v102（2026-11-16）
+最后更新：v103（2026-11-16）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v102（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v102'`） |
+| 代码版本 | v103（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v103'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -123,6 +123,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v100 | 11-16 | **小习惯卡（不含常驻）按「连续性的证据」重构**，依据飞书复盘文档，四项都不动数据结构：①单次卡删掉按钮下方重复的 `0 / 1 次`；②连续天数从标题小字提成卡片主数字（`.hp-num b` 24px），`streakOn(h,d)` 按选中日期算、切历史日期不撒谎；③新增七日点阵 `.hd-dot`（亮 / 半亮 / 红 / 虚线四种态，多目标按比例填充），数据全从 `checks` / `cravings` 现算、不存字段；④右上角圆圈换成 `.habit-state` 文字。小习惯卡不再画 `.habit-bar`；`habitCard(h,d,compact)` 的 compact 分支保住常驻区窄卡原样，戒烟卡与用药卡不动。同步 `verify-habit-btn`（31 项）与 `verify-quit-multi`（32 项）的断言，对比度审计取样 +3 元素。回滚点 tag `habit-evidence-v100` |
 | v101 | 11-16 | **截止型习惯（早睡）**：习惯新增可选字段 `deadline`（`HH:MM`），只对「保持 × 单次目标」生效。打卡时刻**不另存**——`checkTimeOf` 从现有 `state.events` 取当天最后一条 `delta>0` 的 `at`；`deadlineDiff` 算相对截止的分钟数，跨零点按「前一晚 → 次日凌晨」归一（否则 01:00 截止、23:30 打卡会被算成超时 22 小时）。卡片标题下显示「01:00 前」，右上角状态位打卡后直接写完成时刻（"23:10"），晚于截止时刻标红并在 `title` 写「晚 40 分」；历史补记不显示时刻。**不改 `met` / 考核口径**——超时仍算完成，只在卡片上标记。表单加「截止时刻（可选，仅单次目标）」，目标 >1 或非保持类型保存时自动清空；`normalizeState` / `repairBackup` 同步清洗。新增 `verify-habit-deadline` 16 项。回滚点 tag `habit-deadline-v101` |
 | v102 | 11-16 | **小习惯卡收尾三件**（飞书文档 P1 剩下的两项 + 多目标瘦身），依旧不动数据结构：①打卡回馈——`habitPulse(id, kind)` 用 WAAPI 把 scale 动效打在**重绘之后**的节点上（CSS 动画会随 render 重放，反而变噪音），并 `navigator.vibrate(12)`；撤销不给动效，`prefers-reduced-motion` 下只震动。卡片根节点新增 `data-hid` 供定位。②最长纪录——`habitBest(h,d)` 与 `streakOn` 同口径取历史最大值，只在**比当前连续长**时以 10.5px 小字追加「· 最长 N 天」，不存字段。③多目标瘦身——圆点与「n / m」并成一行 `.habit-pips-row`（`min-height:36px` 对齐 `.habit-done`，否则多目标卡会比同排单次卡矮一截）；**圆点保留**，它是一次点选的控件，删了会把 8 杯水变成点 8 次。新增 `verify-habit-feedback` 16 项。回滚点 tag `habit-feedback-v102` |
+| v103 | 11-16 | **戒断卡改为「数干净天数」的口径 + 文案统一**（文档 P0 的后半）：①**单次戒除卡删掉「0 次未达标」整行**——横条空心即失守，七日点阵与「连续守住」已表达历史，再写失败次数是负向重复。②**多次戒除卡只在 `broken` 时渲染「今天 N 次 + 撤销」**，没失守时整行不出现（卡片高度只在真出事那天变高），措辞从「N 次未达标」改成事实口径「今天 N 次」。③**文案统一**：状态位与按钮共用「今天守住了 / 今天失守了」，多次按钮「又破一次」→「又失守一次」，编辑弹窗提示同步改成「记一次失守」。`met()` 与考核口径**一行未动**。同步 `verify-quit-multi`（33 项，含单次卡无计数行、撤到 0 整行消失）。回滚点 tag `quit-clean-days-v103` |
 
 ### 两次值得记住的事故
 

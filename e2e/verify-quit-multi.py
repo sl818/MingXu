@@ -117,18 +117,18 @@ def main():
         chk('画的是 .pip 横条', c and c['hasPip'], str(c))
         chk('没有 .quit-add 按钮', c and not c['hasAdd'], str(c))
         chk('初始是「守住」态（pip 有 on）', c and c['pipOn'], str(c))
-        chk('次数显示 0 次未达标', c and c['count'].startswith('0'), c['count'] if c else '')
+        chk('v103 单次不再数失败次数', c and c['count'] == '', c['count'] if c else '')
 
         pg.click('.habit-card:has(.habit-title b:text-is("不熬夜")) .pips .pip')
         pg.wait_for_timeout(700)
         c = card(pg, '不熬夜')
-        chk('点一下 → 1 次未达标', c and c['count'].startswith('1'), c['count'] if c else '')
-        chk('横条变空心', c and not c['pipOn'], str(c))
+        chk('点一下 → 横条变空心就是失守', c and not c['pipOn'], str(c))
+        chk('状态位写「今天失守了」', c and c['state'] == '今天失守了', c['state'] if c else '')
         pg.click('.habit-card:has(.habit-title b:text-is("不熬夜")) .pips .pip')
         pg.wait_for_timeout(700)
         c = card(pg, '不熬夜')
-        chk('再点一下 → 撤销回 0（老 toggle 行为）', c and c['count'].startswith('0'),
-            c['count'] if c else '')
+        chk('再点一下 → 横条回实心（老 toggle 行为）', c and c['pipOn'], str(c))
+        chk('状态位回到「今天守住了」', c and c['state'] == '今天守住了', c['state'] if c else '')
 
         print('[2] 显式 once 也走 toggle')
         c = card(pg, '不喝奶茶')
@@ -144,10 +144,10 @@ def main():
         pg.click('.habit-card:has(.habit-title b:text-is("不喝可乐")) .quit-add')
         pg.wait_for_timeout(700)
         c = card(pg, '不喝可乐')
-        chk('第 1 次 → 1 次未达标', c and c['count'].startswith('1'), c['count'] if c else '')
-        chk('按钮变「又破一次」', c and '又破一次' in c['addText'], c['addText'] if c else '')
+        chk('第 1 次 → 「今天 1 次」（事实口径，撤销按钮也在这一行）', c and '今天1次' in c['count'], c['count'] if c else '')
+        chk('按钮变「又失守一次」', c and '又失守一次' in c['addText'], c['addText'] if c else '')
         chk('按钮进 broken 态', c and c['addBroken'], str(c))
-        chk('右上角状态变成「今天失守」', bool(c) and c['state'] == '今天失守', str(c))
+        chk('右上角状态变成「今天失守了」', bool(c) and c['state'] == '今天失守了', str(c))
         chk('出现撤销按钮', c and c['hasUndo'], str(c))
 
         # 关键：同一秒内再点第二、第三次，不能被 1 秒去重挡掉
@@ -156,13 +156,13 @@ def main():
         pg.click('.habit-card:has(.habit-title b:text-is("不喝可乐")) .quit-add')
         pg.wait_for_timeout(700)
         c = card(pg, '不喝可乐')
-        chk('同一秒连点两次也记上 → 3 次', c and c['count'].startswith('3'), c['count'] if c else '')
+        chk('同一秒连点两次也记上 → 今天 3 次', c and '今天3次' in c['count'], c['count'] if c else '')
 
         print('[4] 撤销只退最后一条')
         pg.click('.habit-card:has(.habit-title b:text-is("不喝可乐")) .quit-undo')
         pg.wait_for_timeout(700)
         c = card(pg, '不喝可乐')
-        chk('撤销 1 次 → 还剩 2 次', c and c['count'].startswith('2'), c['count'] if c else '')
+        chk('撤销 1 次 → 还剩 2 次', c and '今天2次' in c['count'], c['count'] if c else '')
         chk('仍是 broken 态', c and c['addBroken'], str(c))
 
         pg.click('.habit-card:has(.habit-title b:text-is("不喝可乐")) .quit-undo')
@@ -172,7 +172,7 @@ def main():
         c = card(pg, '不喝可乐')
         chk('撤到 0 → 回到「今天守住了」', c and '今天守住了' in c['addText'], c['addText'] if c else '')
         chk('撤销按钮消失', c and not c['hasUndo'], str(c))
-        chk('次数回到 0', c and c['count'].startswith('0'), c['count'] if c else '')
+        chk('次数行整行消失（0 次不写出来）', c and c['count'] == '', c['count'] if c else '')
 
         print('[5] 数据确实写进了服务端')
         pg.wait_for_timeout(1200)
