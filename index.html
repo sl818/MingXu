@@ -473,6 +473,17 @@ h1,h2,h3,h4,p{margin:0}
 .mdebt-sum span{display:block;font-size:10.5px;line-height:1.4;color:var(--text);margin-bottom:5px}
 .mdebt-sum b{display:block;font-size:16px;font-weight:700;color:var(--text);
   font-variant-numeric:tabular-nums}
+/* 分类预算对话框底部的举例（需求五 d）。底是 --surface-2，字必须用 --text：
+   --muted 压在这种底上不到 4.5:1。 */
+.mcat-tip{margin-top:10px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--surface-2);font-size:11px;line-height:1.75;color:var(--text)}
+.mcat-tip p{margin:0}
+.mcat-tip b{font-weight:700}
+/* 预算页右上角是四个按钮，360–390px 下默认 padding 会挤成两行 */
+@media (max-width:560px){
+  .head-actions{gap:6px}
+  .head-actions .btn{padding:7px 9px}
+}
 @media (max-width:560px){.mdebt-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .mstrat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .mstart{text-align:left;border:1px solid var(--line);background:var(--surface-2);
@@ -12367,8 +12378,8 @@ body.modal-open{overflow:hidden}
           '<small>收入 ¥' + moneyFmt(sp.income) + ' − 固定 ¥' + moneyFmt(sp.fixed) +
             ' − 日常 ¥' + moneyFmt(sp.daily) + ' − 月供 ¥' + moneyFmt(sp.debt) + '</small>' +
         '</div>'
-      ) : '<div class="empty-box">先填一下每月收入，才能算「钱怎么分」。<br><br>' +
-          '<button type="button" class="btn primary" data-act="money-income-new">添加收入</button></div>') +
+      ) : '<div class="empty-box">先填一下每月收入，才能算「钱怎么分」。' +
+          '点右上角「添加收入」。</div>') +
       '</div>';
 
     const daily = '<div class="panel"><h3>今天还能花 ' +
@@ -12382,8 +12393,7 @@ body.modal-open{overflow:hidden}
           '<span>本月还剩 <b>' + dl.rest + '</b> 天</span>' +
           '<span>结余 <b>¥' + moneyFmt(dl.left) + '</b></span></div>'
       ) : '<div class="empty-box">还没有日常类预算。加一个「吃饭」「交通」这样的分类，' +
-          '才会算每日可花。<br><br>' +
-          '<button type="button" class="btn" data-act="money-cat-new">加分类预算</button></div>') +
+          '才会算每日可花。点右上角「添加分类预算」。</div>') +
       '</div>';
 
     const incs = moneyList('incomes');
@@ -12396,11 +12406,9 @@ body.modal-open{overflow:hidden}
             esc(x.id) + '">删除</button>' +
         '</div>';
       }).join('') + '</div>' : '<div class="empty-box">还没有填收入。</div>') +
-      '<div class="btn-row" style="margin-top:12px">' +
-        '<button type="button" class="btn sm" data-act="money-income-new">添加收入</button>' +
-        (incs.length ? '<span class="spacer"></span><span class="muted-sm">合计 ¥' +
-          moneyFmt(sp.income) + '</span>' : '') +
-      '</div></div>';
+      (incs.length ? '<div class="btn-row" style="margin-top:12px"><span class="spacer"></span>' +
+        '<span class="muted-sm">合计 ¥' + moneyFmt(sp.income) + '</span></div>' : '') +
+      '</div>';
 
     const cats = moneyCats();
     const catPanel = '<div class="panel"><h3>开支预算 ' +
@@ -12413,13 +12421,12 @@ body.modal-open{overflow:hidden}
           '<button type="button" class="btn sm" data-act="money-cat-del" data-id="' +
             esc(c.id) + '">删除</button>' +
         '</div>';
-      }).join('') + '</div>' : '<div class="empty-box">还没有分类预算。<br>' +
-        '固定＝房租水电这类雷打不动的；日常＝吃饭交通这类按天摊的。</div>') +
-      '<div class="btn-row" style="margin-top:12px">' +
-        '<button type="button" class="btn sm" data-act="money-cat-new">加分类预算</button>' +
-        (cats.length ? '<span class="spacer"></span><span class="muted-sm">固定 ¥' +
-          moneyFmt(sp.fixed) + ' · 日常 ¥' + moneyFmt(sp.daily) + '</span>' : '') +
-      '</div></div>';
+      }).join('') + '</div>' : '<div class="empty-box">还没有分类预算。' +
+        '固定＝房租水电这类雷打不动的；日常＝吃饭交通这类按天摊的。点右上角「添加分类预算」。</div>') +
+      (cats.length ? '<div class="btn-row" style="margin-top:12px"><span class="spacer"></span>' +
+        '<span class="muted-sm">固定 ¥' + moneyFmt(sp.fixed) + ' · 日常 ¥' +
+        moneyFmt(sp.daily) + '</span></div>' : '') +
+      '</div>';
 
     /* 流水按查看月份取；默认本月。只渲染当月，历史翻月看——
        spends 会一直长，全铺出来手机要滑很久。 */
@@ -12436,7 +12443,6 @@ body.modal-open{overflow:hidden}
         '<b>' + ymShort(ym) + '</b>' +
         '<button type="button" class="btn sm" data-act="money-spend-ym" data-dir="1">下月</button>' +
         '<span class="spacer"></span>' +
-        '<button type="button" class="btn sm primary" data-act="money-spend-new">记一笔开销</button>' +
       '</div>' +
       (rows.length ? '<div class="mlist">' + rows.map(function (x) {
         return '<div class="mspend">' +
@@ -12446,7 +12452,8 @@ body.modal-open{overflow:hidden}
           '<button type="button" class="btn sm" data-act="money-spend-del" data-id="' +
             esc(x.id) + '">删除</button>' +
         '</div>';
-      }).join('') + '</div>' : '<div class="empty-box">这个月还没有记开销。</div>') +
+      }).join('') + '</div>' : '<div class="empty-box">这个月还没有记开销。' +
+        '点右上角「记一笔开销」。</div>') +
       (rows.length ? '<div class="msum"><span>共 <b>' + rows.length + '</b> 笔</span>' +
         '<span>合计 <b>¥' + moneyFmt(spentSum) + '</b></span></div>' : '') +
       '</div>';
@@ -12501,6 +12508,10 @@ body.modal-open{overflow:hidden}
           '<input name="budget" type="number" min="0" step="0.01" placeholder="1500"></label>' +
       '</div>' +
       '<p class="hint">只有「日常」类会参与每日可花的计算。</p>' +
+      '<div class="mcat-tip">' +
+        '<p><b>固定</b>：房租、房贷、车贷、水电费、话费和网费以及保险等</p>' +
+        '<p><b>日常</b>：吃饭、交通、烟酒、网购、各平台的会员订阅等，日用杂项费用</p>' +
+      '</div>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
         '<button type="submit" class="btn primary">保存</button></div>' +
@@ -12999,11 +13010,17 @@ body.modal-open{overflow:hidden}
         : (cur === 'log' ? moneyLogView()
           : (cur === 'budget' ? moneyBudgetView()
             : (cur === 'tools' ? moneyToolsView() : moneyOverviewView()))));
+    /* 需求五 c：预算页把三个板块里的动作全部收到右上角，于是那一页是四个按钮；
+       其他子页保持「介绍 + 记一笔债」—— 债务页要留住加债的入口。 */
+    const acts = cur === 'budget'
+      ? '<button class="btn" data-act="money-intro">清债介绍</button>' +
+        '<button class="btn" data-act="money-income-new">添加收入</button>' +
+        '<button class="btn" data-act="money-cat-new">添加分类预算</button>' +
+        '<button class="btn primary" data-act="money-spend-new">记一笔开销</button>'
+      : '<button class="btn" data-act="money-intro">清债介绍</button>' +
+        '<button class="btn primary" data-act="money-debt-new">记一笔债</button>';
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
-        '<div class="head-actions">' +
-          '<button class="btn" data-act="money-intro">清债介绍</button>' +
-          '<button class="btn primary" data-act="money-debt-new">记一笔债</button>' +
-        '</div>' +
+        '<div class="head-actions">' + acts + '</div>' +
       '</div>' +
       '<div class="subbar">' + subTabsHtml('money', ready, cur) + '</div>' +
       body;

@@ -61,6 +61,7 @@ SELS_STOCK = ['.stock-name', '.stock-now', '.stock-flag', '.stock-hint']
 SELS_MONEY_INTRO = ['.algo-lead', '.algo-h', '.algo-p', '.algo-formula',
                     '.algo-src > b', '.algo-src p', '.algo-src a',
                     '.algo-card code', '.algo-foot']
+SELS_CAT_TIP = ['.mcat-tip', '.mcat-tip p', '.mcat-tip b']
 SELS_SUMMARY = ['.sum-head span', '.sum-big', '.sum-lead', '.sum-table th',
                 '.sum-table td', '.sum-foot']
 # v87 删除 mono / clay / forest / cyber，只跑剩下的 5 套
@@ -108,6 +109,17 @@ with sync_playwright() as p:
             pg.click('[data-act="money-intro"]')
             pg.wait_for_timeout(600)
             res += pg.evaluate(JS, SELS_MONEY_INTRO)
+            pg.click('[data-act="close-modal"]')
+            pg.wait_for_timeout(300)
+
+            # 分类预算对话框底部的举例（v112）
+            pg.click('[data-act="subtab"][data-page="money"][data-tab="budget"]')
+            pg.wait_for_timeout(600)
+            pg.click('[data-act="money-cat-new"]')
+            pg.wait_for_timeout(500)
+            res += pg.evaluate(JS, SELS_CAT_TIP)
+            pg.click('[data-act="close-modal"]')
+            pg.wait_for_timeout(300)
 
             for r in res:
                 checked += 1
@@ -127,7 +139,7 @@ with sync_playwright() as p:
 
 print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样）'
       % (len(skins), len(skins) * 2,
-         len(SELS_STOCK) + len(SELS_SUMMARY) + len(SELS_MONEY_INTRO), checked))
+         len(SELS_STOCK) + len(SELS_SUMMARY) + len(SELS_MONEY_INTRO) + len(SELS_CAT_TIP), checked))
 print('跳过（渐变/透明背景）：%d  %s' % (skipped, skip_detail))
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))
