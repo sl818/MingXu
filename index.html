@@ -3855,6 +3855,15 @@ body.modal-open{overflow:hidden}
 .qsum small{display:block;font-size:10px;color:var(--muted)}
 .qsum b{display:block;font-size:20px;font-weight:650;color:var(--text);margin:3px 0 1px}
 .qsum span{font-size:10.5px;color:var(--muted);line-height:1.4}
+/* 近 4 周走向：4 根细柱。数字要读，柱子只要看出「在往下」就够了 */
+.qs-spark{display:flex;align-items:flex-end;gap:3px;height:15px;margin-top:5px}
+.qs-spark i{flex:1;min-width:0;border-radius:2px 2px 0 0;background:var(--line-strong)}
+.qs-spark i.last{background:var(--accent)}
+/* 环比差异：不用 --warn / --good —— 它们在 10.5px 小字上只有 3.5:1，
+   方向交给 ↑↓ 和「多 / 少」两个字，颜色保持正文色。 */
+/* 小字里的 <b> 必须还原成行内：.qsum b 是给主数字用的 20px 块级，
+   不覆盖的话「从 7.0 降到 3.0 支/天」会被拆成两行大字。 */
+.qsum span b{display:inline;font-size:inherit;font-weight:650;color:var(--text)}
 @media (max-width:760px){.qsum-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.qsum b{font-size:17px}}
 /* 数据汇总的 24 小时时段条（戒烟页速览；统计页那 24 根柱是另一套，别合并） */
 .qsum-hours{margin-top:12px;padding:12px 14px;border:1px solid var(--line);
@@ -3897,8 +3906,27 @@ body.modal-open{overflow:hidden}
   .sblock-head{flex-wrap:wrap;gap:4px}
 }
 
-/* 买烟记录列表 */
+/* 买烟记录列表（v107：可折叠，收起只看最近 5 条） */
+/* 折叠条：整条可点，右端箭头随状态旋转。这里不用 .btn —— 它是 inline-flex，
+   撑不满会露出背景断口。 */
+.qpack-fold{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;margin-top:12px;padding:9px 13px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface-2);color:var(--muted);
+  font:inherit;font-size:11.5px;text-align:left;cursor:pointer;transition:border-color .15s,color .15s}
+.qpack-fold:hover{border-color:var(--line-strong);color:var(--text)}
+.qpack-fold i{font-style:normal;font-size:11px;color:var(--muted);transition:transform .18s ease}
+.qpack-fold.open i{transform:rotate(180deg)}
+.qpack-more{width:100%;margin-top:8px;padding:8px;border:1px dashed var(--line-strong);
+  border-radius:10px;background:transparent;font:inherit;font-size:11px;cursor:pointer;
+  /* 直接铺在 .panel 上，深色皮肤的 --muted 在这里只有 2.7:1，
+     和正文混一档才够 5:1（浅色下同样成立） */
+  color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+.qpack-more:hover{color:var(--text);border-color:var(--accent)}
 .qpack-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+/* 编辑/删除的图标在 13px 下细得看不出形状，这两行只放大到 15px；
+   删除按钮补 .danger，hover 才有红底提示。 */
+.qpack .icon-btn{font-size:15px;color:var(--muted)}
+.qpack .icon-btn:hover{color:var(--text)}
 .qpack{display:flex;align-items:center;gap:10px;padding:11px 13px;
   border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .qpack.cur{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
@@ -4748,6 +4776,10 @@ body.modal-open{overflow:hidden}
   let quitCalMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 抽烟趋势折线图的时间范围：7=周 / 30=月 / 90=季，纯视图状态 */
   let quitTrendRange = 7;
+  /* 买烟记录折叠态（v107）。不进 state：它是纯视图开关，
+     换设备不需要同步，也不该占用云端快照的字段。 */
+  let quitPackOpen = false;
+  let quitPackShown = 20;
   /* 日历的两种视图。calWeek 是周视图的锚点（任意一天，渲染时归到那周的周一）。
      这两个都是纯视图状态，不进 state——切视图不该触发云同步。 */
   let calMode = 'month';
@@ -10936,6 +10968,47 @@ body.modal-open{overflow:hidden}
      ① 「本月消费」按买烟日期算（月头买一条整笔算在月头，看的是支出不是消耗）；
      ② 「平均每天」的分母是戒烟天数（上限 30），不是固定 30 天——刚开始记的前
         半个月会被当成 0 支，均值被压低，「折合几小时一根」跟着一起错。 */
+  /* ---- 汇总派生值（v107）---------------------------------------------
+     全部从 cravings 现算，不新增任何字段：
+       quitStartAvg  起始 7 天的日均支数（不足 7 天按实际天数）
+       quitNowAvg    近 N 天日均（默认 7）
+       quitWeekAvgs  近 4 周的各自日均（最后一个是本周，可能不满 7 天）
+     quitStartDay 之前的日子不计入——那是「开始记」之前，没数据不等于没抽。
+     ---------------------------------------------------------------- */
+  function quitDailySmoke(h, ds) {
+    return dayCravings(h.id, ds).filter(function (e) { return e.k === 's'; }).length;
+  }
+  function quitStartAvg(h) {
+    const start = parseD(quitStartDay(h));
+    const today = parseD(todayStr());
+    const n = Math.min(7, Math.round((today - start) / 86400000) + 1);
+    if (!(n > 0)) return 0;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += quitDailySmoke(h, fmt(addDays(start, i)));
+    return sum / n;
+  }
+  function quitNowAvg(h, days) {
+    const d = days || 7;
+    let sum = 0;
+    for (let i = 0; i < d; i++) sum += quitDailySmoke(h, fmt(addDays(new Date(), -i)));
+    return sum / d;
+  }
+  function quitWeekAvgs(h) {
+    const start = quitStartDay(h);
+    const out = [];
+    for (let w = 3; w >= 0; w--) {
+      let sum = 0, n = 0;
+      for (let i = 0; i < 7; i++) {
+        const ds = fmt(addDays(new Date(), -(w * 7 + i)));
+        if (ds < start || ds > todayStr()) continue;
+        sum += quitDailySmoke(h, ds);
+        n++;
+      }
+      out.push(n ? sum / n : 0);
+    }
+    return out;
+  }
+
   function quitSumCardsHtml(h, withHours) {
     const packs = Array.isArray(state.packs) ? state.packs : [];
     const now = new Date();
@@ -11018,6 +11091,50 @@ body.modal-open{overflow:hidden}
       ? '最长 ' + best + ' 天'
       : (streak > 0 ? '就是最长纪录' : (best ? '最长 ' + best + ' 天' : '还没开始'));
 
+    /* ---- v107 新增的四格：减量进度 / 无烟天数 / 本周守住 / 近 4 周走向 ---- */
+    /* 减量进度：起始 7 天日均 → 近 7 天日均。起始就是 0 支的没什么可降，
+       直接说「一开始就没抽」，不要硬算一个 0% 出来。 */
+    const qStartAvg = quitStartAvg(h);
+    const qNowAvg = quitNowAvg(h, 7);
+    const qCut = qStartAvg > 0.3
+      ? Math.round((qStartAvg - qNowAvg) / qStartAvg * 100)
+      : null;
+
+    /* 无烟天数：从戒烟起点到今天，一支没记的天数。
+       戒除型不点就是没抽，所以「没记录」在这里按守住算。 */
+    const qStart = parseD(quitStartDay(h));
+    const qDays = Math.max(1, Math.round((parseD(t0) - qStart) / 86400000) + 1);
+    let qDry = 0;
+    for (let i = 0; i < qDays; i++) {
+      if (!quitDailySmoke(h, fmt(addDays(new Date(), -i)))) qDry++;
+    }
+
+    /* 本周守住：本周已过且有记录覆盖的天数里，0 支的天数。 */
+    let qWeekDry = 0, qWeekDays = 0;
+    for (let i = 0; i < 7; i++) {
+      const dt = addDays(new Date(), -i);
+      const ds = fmt(dt);
+      if (ds < quitStartDay(h) || ds > t0) continue;
+      qWeekDays++;
+      if (!quitDailySmoke(h, ds)) qWeekDry++;
+    }
+
+    /* 近 4 周走向：4 根柱，末根是本周。最高的一根定高度基准。 */
+    const qWeeks = quitWeekAvgs(h);
+    const qWMax = Math.max(0.5, Math.max.apply(null, qWeeks));
+    const qSpark = qWeeks.map(function (v, i) {
+      const hp = Math.max(6, Math.round(v / qWMax * 100));
+      return '<i class="' + (i === 3 ? 'last' : '') + '" style="height:' + hp + '%"' +
+        ' title="第 ' + (i + 1) + ' 周 · 日均 ' + v.toFixed(1) + ' 支"></i>';
+    }).join('');
+    const qWTrend = (function () {
+      const a = qWeeks[0], b = qWeeks[3];
+      if (!a && !b) return '这四周都没记抽烟';
+      if (b < a - 0.2) return '从 <b>' + a.toFixed(1) + '</b> 降到 <b>' + b.toFixed(1) + '</b> 支/天';
+      if (b > a + 0.2) return '从 <b>' + a.toFixed(1) + '</b> 升到 <b>' + b.toFixed(1) + '</b> 支/天';
+      return '四周稳定在 <b>' + b.toFixed(1) + '</b> 支/天';
+    })();
+
     const card = function (label, big, sub) {
       return '<div class="qsum"><small>' + label + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
     };
@@ -11028,11 +11145,26 @@ body.modal-open{overflow:hidden}
         card('平均每天', avg.toFixed(1) + ' 支',
           '近 ' + spanDays + ' 天' + (avg > 0 ? ' · 折合每 ' + (24 / avg).toFixed(1) + ' 小时一根' : '')) +
         card('连续无烟', streak + ' 天', streakSub) +
-        card('忍住了', resistAll + ' 次',
-          tries ? '想抽 ' + tries + ' 次 · 忍住率 ' + resistRate + '%' : '还没有记录') +
+        /* 抵御率当主数字：它回答「每次想抽我多大把握忍住」，
+           比「忍住了 N 次」这个累计值更能反映当下的自控力。 */
+        card('抵御率', tries ? resistRate + '%' : '—',
+          tries ? '想抽 ' + tries + ' 次 · 忍住 ' + resistAll + ' 次' : '还没有记录') +
         card('每支成本', unit ? '¥' + unit.unit.toFixed(2) : '—',
           unit ? unitSub : '买烟时填价格就能算') +
         card('上次抽', lastText, lastSub) +
+        /* ---- v107 新增 ---- */
+        card('减量进度',
+          qCut === null ? '—' : (qCut > 0 ? '↓ ' + qCut + '%' : (qCut < 0 ? '↑ ' + (-qCut) + '%' : '持平')),
+          qCut === null
+            ? '开始时就没有抽烟记录'
+            : '起始 7 天 ' + qStartAvg.toFixed(1) + ' → 近 7 天 ' + qNowAvg.toFixed(1) + ' 支/天') +
+        card('无烟天数', qDry + ' / ' + qDays + ' 天',
+          '占 ' + Math.round(qDry / qDays * 100) + '% · 从 ' + quitStartDay(h).slice(5) + ' 起算') +
+        card('本周守住', qWeekDry + ' / ' + qWeekDays + ' 天',
+          qWeekDays ? '本周已过 ' + qWeekDays + ' 天，没记抽烟 ' + qWeekDry + ' 天' : '本周还没开始') +
+        '<div class="qsum"><small>近 4 周</small>' +
+          '<div class="qs-spark">' + qSpark + '</div>' +
+          '<span>' + qWTrend + '</span></div>' +
       '</div>' +
       (withHours === false ? '' : quitHoursStrip(h));
   }
@@ -11097,13 +11229,20 @@ body.modal-open{overflow:hidden}
     '</div>');
   }
 
-  /* 买烟记录列表：最新在上。每行带状态，抽完的显示「这包从拆到抽完用了多久」 */
+  /* 买烟记录列表：最新在上。每行带状态，抽完的显示「这包从拆到抽完用了多久」。
+     v107 起折叠：收起只看最近 5 条，展开每次多 20 条。
+     条数是「包」为单位——一包一行，不是一支一行。 */
+  const PACK_FOLD = 5, PACK_PAGE = 20;
   function quitPacksPanel(h) {
     const spans = packSpans(h);
     const cur = currentSpan(h);
     const curId = cur && !cur.done ? String(cur.pack.id) : '';
     const now = Math.round(Date.now() / 1000);
-    const rows = spans.slice().reverse().map(function (sp) {
+    const all = spans.slice().reverse();
+    const total = all.length;
+    const shown = total <= PACK_FOLD ? total
+      : (quitPackOpen ? Math.min(total, Math.max(PACK_FOLD, quitPackShown)) : PACK_FOLD);
+    const rows = all.slice(0, shown).map(function (sp) {
       const p = sp.pack;
       const isCur = String(p.id) === curId;
       const stocking = !sp.done && sp.openAt > now;
@@ -11130,11 +11269,26 @@ body.modal-open{overflow:hidden}
             ' · ' + meta + '</small>' +
         '</div>' +
         '<button class="icon-btn" data-act="pack-edit" data-id="' + p.id + '" title="编辑">✎</button>' +
-        '<button class="icon-btn" data-act="pack-del" data-id="' + p.id + '" title="删除">🗑</button>' +
+        '<button class="icon-btn danger" data-act="pack-del" data-id="' + p.id + '" title="删除">🗑</button>' +
       '</div>';
     }).join('');
+    const rest = total - shown;
+    /* 折叠条：总数在左，动作在右。收起时写「只看最近 5 条」，
+       展开时写「已显示 X / N」——都是事实陈述，不用「展开/收起」这种动词当主文案。 */
+    const fold = total <= PACK_FOLD ? '' :
+      '<button type="button" class="qpack-fold' + (quitPackOpen ? ' open' : '') + '"' +
+        ' data-act="pack-fold" aria-expanded="' + (quitPackOpen ? 'true' : 'false') + '">' +
+        '<span>共 ' + total + ' 条 · ' + (quitPackOpen ? '已显示 ' + shown + ' 条' : '只看最近 ' + PACK_FOLD + ' 条') + '</span>' +
+        '<i>⌄</i>' +
+      '</button>';
+    const more = (quitPackOpen && rest > 0)
+      ? '<button type="button" class="qpack-more" data-act="pack-more">再显示 ' +
+          Math.min(PACK_PAGE, rest) + ' 条（还剩 ' + rest + ' 条）</button>'
+      : '';
     return '<div class="panel"><h3>买烟记录 <button class="btn primary sm" data-act="pack-new">记一笔</button></h3>' +
-      '<div class="qpack-list">' + (rows || '<div class="empty-box">还没有买烟记录，点右上角「记一笔」。</div>') + '</div></div>';
+      fold +
+      '<div class="qpack-list">' + (rows || '<div class="empty-box">还没有买烟记录，点右上角「记一笔」。</div>') + '</div>' +
+      more + '</div>';
   }
   function packModal(pack) {
     const isNew = !pack;
@@ -16633,6 +16787,17 @@ body.modal-open{overflow:hidden}
             '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
           '</div>' +
         '</div>');
+    },
+    /* 买烟记录折叠（v107）：纯视图开关，不动数据 */
+    'pack-fold': () => {
+      quitPackOpen = !quitPackOpen;
+      /* 收起时把分页计数复位，下次展开又是从 20 条开始 */
+      if (!quitPackOpen) quitPackShown = PACK_PAGE;
+      render();
+    },
+    'pack-more': () => {
+      quitPackShown += PACK_PAGE;
+      render();
     },
     'pack-new': el => packModal(null),
     'pack-edit': el => {

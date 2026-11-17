@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v106（2026-11-17）
+最后更新：v107（2026-11-17）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v106（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v106'`） |
+| 代码版本 | v107（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v107'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -127,6 +127,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v104 | 11-17 | **未登录页深色重构**（需求一）：整页改成深色专业版，色板以 `--lp-*` 局部变量写在 `.landing` 作用域内，**不碰全局主题**，登录后仍是用户选的皮肤；类名统一 `lp-` 前缀。内容补齐 12 个页面卡片、统计段（真实截图 + 三条口径说明）、四条通知通道（企微群 / ICS / PWA / 浏览器通知）、三步上手与隐私说明；登录注册收进右上角按钮，页面不再有登录卡片。**踩坑**：`:root[data-layout="wide"] .sidebar` 同样是 (0,3,0) 且加载更晚，`.app.landing .sidebar` 会被反压回来 → 改用 `body[data-view="landing"] .app.landing .sidebar`（(0,3,1)）；`.search-fab` 同样要隐藏。新增 `images/landing/` 两张真实截图（演示数据，1212×700 / 1212×600），打包时**必须一起上传**。对比度自查：`--lp-faint` 从 #6b7a8b 提到 #7c8b9c（原来 11.5px 小字只有 4.41:1）。回滚点 tag `landing-dark-v104` |
 | v105 | 11-17 | **修未登录页宽屏偏左**：`:root[data-layout="top"] #main{max-width:1680px}` 带 id，（1,2,0）压过所有类选择器，而 v104 同时把 margin 归零 → 内容被限在 1680 且靠左，1920 屏下右侧空一大块。改成带 id 的 `body[data-view="landing"] #main.main`（1,2,1）才能压住；同时清掉 `.app` 的 48px 内边距（原来和 `.landing` 的内边距叠成双份）。顶栏分隔线改为 `width:100vw` 的伪元素，通到屏幕两端。实测 1920 / 2560 / 1440 左右留白相等。回滚点 tag `landing-center-v105` |
 | v106 | 11-17 | **未登录页配色改回浅色暖调**（用户反馈深色不搭）：v104 那版把色板写死在深色里，这次全部换成主题令牌 —— `--lp-*` 只是别名，值取自 `--bg` / `--surface` / `--text` / `--muted` / `--accent` / `--gold-soft`，换皮肤和切深色都自动跟随。三个关键点：①底色用 `color-mix(--bg 65%, --gold-soft)` 混出米色（paper 的 `--bg` 本身是冷白偏绿 `#f2f5f1`，只靠右上角金色光斑压不住整页）；②次要文字不能直接用 `--muted`（浅底上 3.9:1 不达标），改与 `--text` 混 78% / 85%；③主按钮前景改用 `var(--on-accent)` —— 深色皮肤下 accent 是浅绿，写死 `#fff` 只有 1.9:1。标题改回衬线体 `var(--font-serif)`，字号上限 56px。截图加 `filter:sepia(.05)` 抹平冷白界面与暖底之间的色温割裂；底部淡出改 `mask-image`（不依赖背景色）。实测深浅两套下 9 个元素对比度 4.54–7.94，全部达标。回滚点 tag `landing-warm-v106` |
+| v107 | 11-17 | **戒烟页两处改动**（需求二）：①买烟记录折叠——超过 5 条才出现 `.qpack-fold`，收起只看最近 5 条，展开每次 +20 条（`.qpack-more`，按钮写「再显示 N 条（还剩 M 条）」）；状态存在模块级 `quitPackOpen` / `quitPackShown`，**不进 state**，收起时复位。②数据汇总 8 → 12 格：新增减量进度（起始 7 天日均 → 近 7 天日均）、无烟天数、本周守住、近 4 周（`.qs-spark` 四根柱 + 首尾对比），并把「忍住了」改成「抵御率」当主数字。全部由 `quitStartAvg` / `quitNowAvg` / `quitWeekAvgs` 现算，**零新增字段**，统计页复用同一套卡片所以同步变成 12 格。踩坑：`.qsum b` 是 20px 块级，小字里的 `<b>` 必须还原 `display:inline`，否则「从 7.0 降到 3.0」被拆成两行大字；`.qpack-more` 深色下裸 `--muted` 只有 2.7:1，改与 `--text` 混 82%。新增 `verify-quit-page` 32 项；审计取样 +2（2028 次）。回滚点 tag `quit-fold-v107` |
 
 ### 两次值得记住的事故
 

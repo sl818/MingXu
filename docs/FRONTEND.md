@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v106（2026-11-17）
+最后更新：v107（2026-11-17）
 
 ---
 
@@ -495,6 +495,11 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
   今日页窄卡仍是纵向堆叠（`quit-body` 默认 `flex-direction:column`）
 - 没有买烟记录时格子里放「记一笔买烟」按钮（`pack-open`，直接开 `packModal`，
   不再 push 一条空白记录）
+- **买烟记录折叠（v107）**：超过 5 条才渲染 `.qpack-fold`，收起只看最近 5 条，
+  展开每次 +20 条（`.qpack-more`，按钮写「再显示 N 条（还剩 M 条）」）。
+  状态是模块级 `quitPackOpen` / `quitPackShown`，**不进 state**——纯视图开关，
+  换设备不该同步。收起时把 `quitPackShown` 复位，下次展开还是从 20 条起。
+  条数以「包」为单位，一包一行。
 - **一包烟的区间全是派生（v68）**：`packSpans(h)` 把「点一根」事件按包切成左闭右开区间，
   `openAt(k) = max(这包的 at, closeAt(k-1) + 1)`。`max()` 那一下就是「自动绑定下一包」，
   不用字段、不用用户点「开新包」。算法和三个派生量见 DATA-MODEL 5.5。
@@ -634,13 +639,28 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 进了 state 就要改 `normalizeState` / `mergeStates` / `repairBackup` 三处，且两端切换格不同会互相覆盖。
 分区小标题用 `.sblock-head`（**不是 h3**），`.sblock` 带一条上分隔线。
 - `monthReviewBody()` / `medTrendBody(range,rangeDays)` / `quitPanelBody(range)` 只返回内容，不带 `.panel` 外壳
-- `quitSumCardsHtml(h,withHours)` 返回 8 张卡；`quitSumPanel(h)` 才是戒烟页用的整块外壳
+- `quitSumCardsHtml(h,withHours)` 返回 12 张卡；`quitSumPanel(h)` 才是戒烟页用的整块外壳
 - `taskStatsPanel()` 整块只在待办页底部；统计页把它压成总览末尾的一行——`taskStats(taskRange)` 取数，`.tk-grid`（三格固定三列）+ `.tk-bar` 细进度条，右上 `data-act="more-go" data-view="board"` 跳过去看五格明细
 - 考核算法弹窗（v81 `algoModal`）**还没跟着 v84 的分区改口径**，待完善
-数据汇总（`quitSumPanel`）8 张卡 + 一根 24 小时时段条：今天 / 本周买烟 / 本月消费 / 平均每天 /
-连续无烟 / 忍住了 / 每支成本 / 上次抽。两处口径写在小字上——本月消费按`买烟日期`算（看支出不看消耗），
-平均每天的分母是`戒烟天数`（上限 30）而不是固定 30 天。时段条只数「抽了」，
-统计页那 24 根柱是同一份 `craveHours` 数据的另一套渲染，两者不要合并。
+数据汇总（`quitSumPanel`）**12 张卡** + 一根 24 小时时段条：今天 / 本周买烟 / 本月消费 /
+平均每天 / 连续无烟 / 抵御率 / 每支成本 / 上次抽 / 减量进度 / 无烟天数 / 本周守住 / 近 4 周。
+口径都写在小字上——本月消费按`买烟日期`算（看支出不看消耗），平均每天的分母是`戒烟天数`
+（上限 30）而不是固定 30 天。时段条只数「抽了」，统计页那 24 根柱是同一份 `craveHours`
+数据的另一套渲染，两者不要合并。
+
+**v107 新增的四格**（`quitStartAvg` / `quitNowAvg` / `quitWeekAvgs`，全部现算、零新增字段）：
+
+- **减量进度**：起始 7 天日均 → 近 7 天日均，给出降幅。起始日均 < 0.3 时显示 `—`，
+  不硬算一个 0%（一开始就没抽的人没有「降」可言）。
+- **无烟天数**：从 `quitStartDay` 到今天，一支没记的天数 / 总天数。戒除型不点就是没抽，
+  所以「没记录」在这里按守住算——和月历里灰 `·` 表达的是同一件事。
+- **本周守住**：本周已过天数里 0 支的天数。
+- **近 4 周**：`.qs-spark` 四根柱（末根 `.last` 用 accent），末根是本周、可能不满 7 天。
+  小字给首尾对比，柱高按最大值归一、最低 6px，保证「降到 0」也看得见。
+- **「忍住了」改「抵御率」**：主数字换成百分比，小字给「想抽 N 次 · 忍住 M 次」。
+  累计次数是过去式，抵御率回答的是「现在有多大把握」。
+- `.qsum span b` **必须还原成 `display:inline;font-size:inherit`**：`.qsum b` 是给主数字的
+  20px 块级，不覆盖会把「从 7.0 降到 3.0」拆成两行大字。
 统计页复用同一套卡片：`quitSumCardsHtml(qh, false)`（`withHours=false` 跳过时段条，避免和戒烟分析的 24 根柱重复），分析内容 `quitPanelBody(range)` 默认折叠。
 没有戒烟习惯时两块都不渲染。
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`

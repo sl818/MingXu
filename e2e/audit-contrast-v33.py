@@ -53,6 +53,10 @@ board['data']['packs'] = [
     {'id': 'pk2', 'at': _t8 + 3600, 'name': '普皖', 'price': 15, 'size': 20},
     {'id': 'pk3', 'at': _t8 + 7200, 'name': '利群', 'price': 18, 'size': 20},
 ]
+# v107 pack fold: needs >5 packs to render .qpack-fold
+for _k in range(3):
+    board['data']['packs'].append(
+        {'id': 'pk0%d' % _k, 'at': _t8 - 86400 * (3 + _k * 3), 'name': 'pk', 'price': 15, 'size': 20})
 _cr = [
     {'id': 'cq1', 't': _t8, 'k': 'r', 'h': 'h_drink', 'g': 'meal', 's': 0},
     {'id': 'cq2', 't': _t8 + 1800, 'k': 'r', 'h': 'h_drink', 'g': 'bored', 's': 0},
@@ -229,7 +233,11 @@ SELS_MONEY_TOOLS = ['.mrate-cell small', '.mrate-cell b', '.mtbl-row', '.mtbl-ro
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
-                  '.pack-cf button', '.btn.danger-red', '.qc-day span', '.qc-day b']
+                  '.pack-cf button', '.btn.danger-red', '.qc-day span', '.qc-day b',
+                  # v107: fold bar + bold inside the sub-line
+                  # (.qpack-more needs unfold + >20 rows, audit never clicks it;
+                  #  its contrast is asserted in verify-quit-page.py)
+                  '.qpack-fold span', '.qsum span b']
 # 习惯页：管理行的今日状态灯（v66）
 SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
 # 配置页：自定义通知（v71）。提示框是 --warn 浅底，最容易踩线
