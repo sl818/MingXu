@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v103（2026-11-16）
+最后更新：v104（2026-11-17）
 
 ---
 
@@ -745,6 +745,26 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `esc(s)` `isPlainObject(v)` `download(fn,content,mime)` `csvCell(v)` `toast(msg)`
 
 ---
+
+## 7.5 未登录页（v104 深色重构）
+
+未登录时 `render()` 走 `mode === 'landing'` 分支：清空侧栏与移动 tabbar，把 `landingHtml()` 塞进 `#main`。
+整页是一个**独立的深色页面**，和登录后的主题系统完全隔离。
+
+- **色板作用域**：所有颜色写成 `.landing` 内的局部 CSS 变量（`--lp-text` / `--lp-muted` / `--lp-faint` /
+  `--lp-accent` / `--lp-line` …），**不碰全局 `--bg` / `--surface`**。登录后仍是用户自己选的皮肤。
+- **类名统一 `lp-` 前缀**：`.lp-nav` / `.lp-hero` / `.lp-pages` / `.lp-notify` / `.lp-shot` …
+  不要复用站内 `.card` / `.btn` / `.panel`，否则会被主题的 `:root[data-skin]` 规则压掉。
+- **必须盖掉站内布局**：`:root[data-layout="wide"] .sidebar` 也是 (0,3,0) 且加载更晚，
+  只写 `.app.landing .sidebar` 会被它按顺序反压回来。所以用
+  `body[data-view="landing"] .app.landing .sidebar{display:none}`（(0,3,1)）。
+  站内搜索悬浮按钮 `.search-fab` 同理要隐藏。
+- **截图是真实截图**，放在 `images/landing/`：`today.jpg`（1212×700）、`stats.jpg`（1212×600），
+  用演示数据截取（不含任何真实记录）。**不要改成懒加载**：懒加载在长截图/慢网下会先留一块空白。
+  截图由 `#main` 的 boundingBox 裁出来，所以只有主内容区、没有侧栏。
+- **登录/注册是弹窗**：页面顶部右上角两个 `data-act="cloud-login"` / `cloud-register"` 按钮，
+  页面中间不再有登录卡片。
+- **`landing-note` 这段隐私说明被 e2e 锁着文案**（`verify-details1.py` 断言首尾字符串），改文案要同步改测试。
 
 ## 8. 主题系统
 

@@ -2516,109 +2516,170 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
 .app.landing{grid-template-columns:1fr}
 .app.landing .sidebar{display:none}
 .app.landing .main{max-width:none;width:100%;margin:0;padding:0}
+/* ============================================================
+   v104 · 未登录页（深色专业版）
+   ------------------------------------------------------------
+   只作用于未登录状态（body[data-view="landing"]）。色板写死在
+   .landing 作用域里，**不动全局主题** —— 登录后仍是用户自己选的皮肤。
+   类名统一 lp- 前缀，避免和站内 .card / .btn / .panel 的规则打架。
+   旧的一整套 .landing-* 规则已随本版移除（那一版是浅色暖调）。
+   ============================================================ */
+/* 未登录态必须盖掉站内布局：`:root[data-layout="wide"] .sidebar` 同样是 (0,3,0)，
+   而且加载在本段之后——只写 `.app.landing .sidebar` 会被它按顺序反压回来。
+   这里带上 body[data-view="landing"]，把特异性抬到 (0,3,1)。 */
+body[data-view="landing"]{background:#0a0e13}
+body[data-view="landing"] .app.landing .sidebar{display:none}
+body[data-view="landing"] .app.landing .main{max-width:none;width:100%;margin:0;padding:0}
+/* 站内搜索的悬浮按钮和侧栏一样，未登录时不该出现 */
+body[data-view="landing"] .search-fab{display:none}
 .landing{
+  --lp-panel:#111823;--lp-panel-2:#161f2b;
+  --lp-text:#e9eef6;--lp-muted:#93a2b5;/* faint 原来 #6b7a8b 在深底上只有 4.4:1，11.5px 小字不达标，提到 5.5 */
+  --lp-faint:#7c8b9c;
+  --lp-line:rgba(255,255,255,.08);--lp-line-2:rgba(255,255,255,.17);
+  --lp-accent:#4ea892;--lp-accent-2:#3a8574;
   min-height:100vh;
-  background:radial-gradient(900px 500px at 85% -10%,var(--gold-soft) 0%,rgba(0,0,0,0) 60%),var(--bg);
-  color:var(--text);
-  padding:40px clamp(20px,5vw,72px) 48px;
+  background:
+    radial-gradient(1200px 640px at 84% -12%,rgba(78,168,146,.10),transparent 60%),
+    radial-gradient(900px 520px at 2% 0%,rgba(72,116,178,.07),transparent 58%),
+    #0a0e13;
+  color:var(--lp-text);
+  padding:0 clamp(18px,4vw,48px);
+  font-size:14px;line-height:1.6;
 }
-.landing-inner{max-width:1120px;margin:0 auto}
-.landing-top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:clamp(40px,7vw,84px)}
-.landing-brand{display:flex;align-items:center;gap:12px;font-weight:650;font-size:16px;letter-spacing:.01em}
-.landing-mark{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:21px;box-shadow:0 10px 22px -14px rgba(31,107,87,.9)}
-.landing-brand small{display:block;font-size:9px;letter-spacing:.16em;color:var(--muted);font-weight:600;margin-top:2px}
-.landing-mini{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--surface)}
-.landing-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:clamp(28px,5vw,64px);align-items:center;margin-bottom:clamp(48px,8vw,96px)}
-.landing-kicker{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700;margin-bottom:14px}
-.landing h1{font-family:var(--font-serif);font-weight:500;font-size:clamp(38px,5.4vw,64px);line-height:1.14;letter-spacing:-.03em;margin:0 0 20px;color:var(--text)}
-.landing h1 em{font-style:normal;color:var(--accent)}
-.landing-lede{font-size:clamp(14px,1.5vw,16px);line-height:1.9;color:var(--muted);max-width:520px;margin:0 0 28px}
-.landing-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.landing-actions .btn{padding:12px 24px;border-radius:12px;font-size:14px}
-.landing-note{font-size:11.5px;color:var(--muted);margin-top:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.landing-note::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold);flex:none}
-.landing-error{margin-top:16px;font-size:12px;color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--bad) 28%,var(--line));border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
-.landing-visual{position:relative;min-height:360px;border-radius:26px;padding:22px;background:linear-gradient(160deg,var(--hero-bg) 0%,var(--hero-bg-2) 60%,var(--hero-bg-3) 100%);box-shadow:0 40px 80px -46px rgba(10,35,26,.85);overflow:hidden;color:#f8f3e7}
-.landing-visual::before{content:"";position:absolute;width:300px;height:300px;border-radius:50%;right:-100px;top:-100px;background:radial-gradient(circle,rgba(216,178,95,.22),transparent 65%)}
-.landing-visual::after{content:"";position:absolute;left:24px;right:24px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(216,178,95,.6),transparent)}
-.landing-preview{position:relative;z-index:1;display:flex;flex-direction:column;gap:12px;height:100%}
-.landing-preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10.5px;letter-spacing:.1em;color:#c9b68b}
-.landing-preview-ring{width:74px;height:74px;border-radius:50%;border:1px solid rgba(216,178,95,.45);display:grid;place-items:center;font-family:var(--font-serif);font-size:24px;color:#f6efdf;position:relative;flex:none}
-.landing-preview-ring::before{content:"";position:absolute;inset:5px;border-radius:50%;border:1px solid rgba(246,240,227,.14)}
-.landing-mini-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
-.landing-mini-card{background:rgba(246,240,227,.055);border:1px solid rgba(246,240,227,.11);border-radius:14px;padding:12px 13px;min-height:86px}
-.landing-mini-card b{display:block;font-size:12px;font-weight:600;color:#f6efdf;margin-bottom:4px}
-.landing-mini-card span{font-size:10.5px;line-height:1.6;color:#a9c2b4}
-.landing-mini-card .mini-line{height:4px;border-radius:99px;background:rgba(246,240,227,.12);margin-top:10px;overflow:hidden}
-.landing-mini-card .mini-line i{display:block;height:100%;background:#d8b25f;border-radius:99px}
-.landing-preview-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;color:#a9c2b4;margin-top:auto}
-.landing-features{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:clamp(48px,8vw,88px)}
-.landing-feature{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 18px;box-shadow:var(--shadow)}
-.landing-feature .ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--accent-soft);font-size:18px;margin-bottom:14px}
-.landing-feature b{display:block;font-size:13.5px;margin-bottom:6px}
-.landing-feature p{font-size:11.5px;line-height:1.75;color:var(--muted);margin:0}
-.landing-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:clamp(40px,6vw,72px)}
-.landing-step{border-top:1px solid var(--line-strong);padding-top:16px}
-.landing-step small{font-family:var(--font-serif);font-size:13px;color:var(--gold);letter-spacing:.08em}
-.landing-step b{display:block;font-size:13.5px;margin:7px 0 5px}
-.landing-step p{font-size:11.5px;line-height:1.75;color:var(--muted);margin:0}
-.landing-section{margin-bottom:clamp(48px,8vw,88px)}
-.landing-section-head{max-width:700px;margin-bottom:22px}
-.landing-section-head .eyebrow{font-size:10.5px;letter-spacing:.16em;color:var(--gold);font-weight:700;margin-bottom:10px}
-.landing-section-head h2{font-family:var(--font-serif);font-size:clamp(24px,3.2vw,36px);line-height:1.3;font-weight:500;margin:0 0 10px;color:var(--text);letter-spacing:-.02em}
-.landing-section-head p{font-size:13px;line-height:1.9;color:var(--muted);margin:0;max-width:640px}
-.landing-more-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.landing-more-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 18px;box-shadow:var(--shadow)}
-.landing-more-card .ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--accent-soft);font-size:18px;margin-bottom:13px}
-.landing-more-card b{display:block;font-size:13.5px;margin-bottom:7px}
-.landing-more-card p{font-size:11.5px;line-height:1.8;color:var(--muted);margin:0}
-.landing-more-card ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:5px}
-.landing-more-card li{font-size:10.5px;line-height:1.6;color:var(--muted);padding-left:13px;position:relative}
-.landing-more-card li::before{content:"";position:absolute;left:0;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--gold)}
-.landing-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.landing-stat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 16px;box-shadow:var(--shadow)}
-.landing-stat small{display:block;font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-.landing-stat b{display:block;font-family:var(--font-serif);font-size:32px;line-height:1.1;color:var(--accent);margin:9px 0 4px;font-weight:500}
-.landing-stat span{font-size:10.5px;color:var(--muted);line-height:1.6}
-.landing-stat-note{font-size:10.5px;color:var(--muted);line-height:1.8;margin:12px 0 0}
-.landing-cta{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;background:linear-gradient(135deg,var(--hero-bg) 0%,var(--hero-bg-2) 100%);color:#f8f3e7;border-radius:24px;padding:clamp(24px,4vw,38px);margin-bottom:clamp(34px,5vw,54px);box-shadow:0 30px 60px -42px rgba(10,35,26,.9)}
-.landing-cta h2{font-family:var(--font-serif);font-size:clamp(22px,3vw,32px);line-height:1.3;font-weight:500;margin:0 0 8px;color:#f8f3e7;letter-spacing:-.02em}
-.landing-cta p{font-size:12px;line-height:1.8;color:#b8cbbf;margin:0;max-width:540px}
-.landing-cta .landing-actions{margin-top:0;flex:none}
-.landing-cta .btn.ghost{color:#f6efdf;border-color:rgba(246,240,227,.28);background:transparent}
-.landing-cta .btn.ghost:hover{background:rgba(246,240,227,.08)}
-.landing-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;font-size:10.5px;color:var(--muted)}
-.landing-footer a{color:var(--accent)}
-.site-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)}
-.site-footer a{color:var(--accent);text-decoration:none}
-.site-footer a:hover{text-decoration:underline}
-.landing-closed{font-size:12px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:10px;padding:10px 14px}
-.login-forgot{display:flex;justify-content:flex-end;margin:0 0 8px}
-.login-forgot .link{font-size:12px}
-[data-theme="dark"] .landing{background:radial-gradient(900px 500px at 85% -10%,#1a2a22 0%,rgba(0,0,0,0) 60%),var(--bg)}
-@media(max-width:960px){
-  .landing{padding:28px 18px 36px}
-  .landing-hero{grid-template-columns:1fr;gap:30px}
-  .landing-visual{min-height:300px;max-width:560px}
-  .landing-features{grid-template-columns:1fr 1fr}
-  .landing-more-grid{grid-template-columns:1fr}
-  .landing-stat-grid{grid-template-columns:1fr 1fr}
-  .landing-cta{flex-direction:column;align-items:flex-start}
-  .landing-steps{grid-template-columns:1fr;gap:16px}
+.lp-wrap{max-width:1080px;margin:0 auto}
+
+/* ---- 顶栏 ---- */
+.lp-nav{display:flex;align-items:center;gap:22px;height:72px;border-bottom:1px solid var(--lp-line)}
+.lp-brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px}
+.lp-mark{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px;
+  background:var(--lp-panel-2);border:1px solid var(--lp-line-2)}
+.lp-brand small{display:block;font-size:10px;font-weight:400;color:var(--lp-faint);letter-spacing:.04em}
+.lp-links{display:flex;gap:22px;margin-left:auto;font-size:13px}
+.lp-links a{color:var(--lp-muted);text-decoration:none}
+.lp-links a:hover{color:var(--lp-text)}
+.lp-nav-act{display:flex;align-items:center;gap:8px}
+
+/* ---- 按钮 ---- */
+.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 16px;
+  border-radius:8px;border:1px solid var(--lp-line-2);background:transparent;color:var(--lp-text);
+  font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;
+  transition:background .15s,border-color .15s,color .15s}
+.lp-btn:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.3)}
+.lp-btn.primary{background:var(--lp-accent);border-color:var(--lp-accent);color:#04140f}
+.lp-btn.primary:hover{background:var(--lp-accent-2);border-color:var(--lp-accent-2);color:#04140f}
+.lp-btn.lg{height:44px;padding:0 22px;font-size:14px}
+
+/* ---- 首屏 ---- */
+/* 文案在上、整幅截图在下：截图原始宽约 1212px，缩到 1080 容器里约 0.89 倍，
+   文字仍然清楚；分成左右两栏则要缩到 0.4 倍，细节全糊。 */
+.lp-hero{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(26px,3.6vw,40px);
+  padding:clamp(44px,6vw,84px) 0 clamp(36px,5vw,64px)}
+.lp-hero-copy{max-width:760px}
+.lp-eyebrow{display:block;font-size:10.5px;letter-spacing:.18em;color:var(--lp-accent);
+  font-weight:600;margin-bottom:16px}
+.landing h1{font-size:clamp(29px,3.5vw,42px);line-height:1.24;letter-spacing:-.02em;
+  font-weight:600;margin:0 0 18px;color:var(--lp-text)}
+.landing h1 span{color:var(--lp-accent)}
+.lp-lede{font-size:14.5px;line-height:1.9;color:var(--lp-muted);margin:0 0 28px;max-width:600px}
+.lp-cta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lp-facts{display:flex;gap:28px;list-style:none;margin:32px 0 0;padding:20px 0 0;
+  border-top:1px solid var(--lp-line)}
+.lp-facts li{display:flex;flex-direction:column;gap:2px}
+.lp-facts b{font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.lp-facts span{font-size:11.5px;color:var(--lp-faint)}
+.lp-closed{font-size:12px;color:var(--lp-faint)}
+.landing-note{display:flex;align-items:flex-start;gap:8px;margin:24px 0 0;
+  font-size:11.5px;line-height:1.75;color:var(--lp-faint);max-width:520px}
+.landing-note::before{content:"";width:5px;height:5px;border-radius:50%;
+  background:var(--lp-accent);flex:none;margin-top:7px}
+.lp-err{margin-top:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;
+  color:#f19a94;background:rgba(226,75,74,.09);border:1px solid rgba(226,75,74,.3);
+  border-radius:8px;padding:10px 14px}
+
+/* ---- 截图框 ---- */
+.lp-shot{position:relative;margin:0;border-radius:12px;overflow:hidden;
+  border:1px solid var(--lp-line-2);background:var(--lp-panel);
+  box-shadow:0 44px 80px -54px rgba(0,0,0,1)}
+.lp-shot img{display:block;width:100%;height:auto}
+/* 截图是被裁过的，下沿留一道渐隐，读起来是「内容还在下面」而不是「断了」 */
+.lp-shot::after{content:"";position:absolute;left:0;right:0;bottom:0;height:84px;
+  background:linear-gradient(180deg,rgba(10,14,19,0),rgba(10,14,19,.88));pointer-events:none}
+.lp-shot-top{display:flex;align-items:center;gap:12px;height:34px;padding:0 14px;
+  background:var(--lp-panel-2);border-bottom:1px solid var(--lp-line);
+  font-size:11px;color:var(--lp-faint);letter-spacing:.04em}
+.lp-dots{display:flex;gap:5px}
+.lp-dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16)}
+
+/* ---- 区块 ---- */
+.lp-sec{padding:clamp(52px,6.5vw,92px) 0;border-top:1px solid var(--lp-line)}
+.lp-sec-head{max-width:620px;margin-bottom:clamp(26px,4vw,42px)}
+.lp-sec h2{font-size:clamp(21px,2.3vw,27px);line-height:1.38;letter-spacing:-.015em;
+  font-weight:600;margin:0 0 12px}
+.lp-sec-head p,.lp-split-copy p{font-size:13.5px;line-height:1.85;color:var(--lp-muted);margin:0}
+
+/* ---- 十二个页面 ---- */
+.lp-pages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.lp-page{border:1px solid var(--lp-line);border-radius:10px;padding:16px 15px;
+  background:var(--lp-panel);transition:border-color .15s,background .15s}
+.lp-page:hover{border-color:var(--lp-line-2);background:var(--lp-panel-2)}
+.lp-page-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lp-page-ico{font-size:15px;line-height:1}
+.lp-page b{font-size:13px;font-weight:600}
+.lp-page-tag{margin-left:auto;font-size:9.5px;letter-spacing:.06em;color:var(--lp-faint);
+  border:1px solid var(--lp-line);border-radius:4px;padding:1px 5px;white-space:nowrap}
+.lp-page p{font-size:11.5px;line-height:1.7;color:var(--lp-muted);margin:0}
+
+/* ---- 左文右图 ---- */
+.lp-split{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(26px,3.4vw,38px)}
+.lp-split-copy{max-width:760px}
+.lp-list{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.lp-list li{position:relative;padding-left:16px;font-size:12.5px;line-height:1.8;color:var(--lp-muted)}
+.lp-list li::before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;
+  border-radius:50%;background:var(--lp-accent)}
+.lp-list b{color:var(--lp-text);font-weight:600}
+
+/* ---- 通知四卡 ---- */
+.lp-notify{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.lp-note-card{border:1px solid var(--lp-line);border-radius:10px;padding:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0))}
+.lp-note-card .ico{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;
+  font-size:15px;background:rgba(78,168,146,.12);border:1px solid rgba(78,168,146,.22);margin-bottom:12px}
+.lp-note-card b{display:block;font-size:13.5px;margin-bottom:6px}
+.lp-note-card p{margin:0;font-size:12px;line-height:1.75;color:var(--lp-muted)}
+.lp-note-card em{display:block;margin-top:10px;font-style:normal;font-size:11px;color:var(--lp-faint)}
+
+/* ---- 三步 ---- */
+.lp-how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.lp-step small{display:block;font-size:11px;letter-spacing:.14em;color:var(--lp-accent);margin-bottom:8px}
+.lp-step b{display:block;font-size:13.5px;margin-bottom:6px}
+.lp-step p{margin:0;font-size:12px;line-height:1.75;color:var(--lp-muted)}
+
+/* ---- 收尾 ---- */
+.lp-end{display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap;
+  padding:clamp(44px,5.5vw,68px) 0;border-top:1px solid var(--lp-line)}
+.lp-end h2{font-size:clamp(19px,2.1vw,25px);font-weight:600;letter-spacing:-.015em;margin:0 0 8px}
+.lp-end p{margin:0;font-size:13px;color:var(--lp-muted)}
+.lp-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:22px 0 40px;border-top:1px solid var(--lp-line);font-size:11.5px;color:var(--lp-faint)}
+.lp-foot a{color:var(--lp-muted);text-decoration:none}
+.lp-foot a:hover{color:var(--lp-text)}
+
+@media(max-width:980px){
+  .lp-pages{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lp-links{display:none}
 }
-@media(max-width:560px){
-  .landing{padding:22px 14px 30px}
-  .landing-top{margin-bottom:34px}
-  .landing-mini{display:none}
-  .landing h1{font-size:36px}
-  .landing-actions{width:100%}
-  .landing-actions .btn{flex:1}
-  .landing-features{grid-template-columns:1fr;gap:10px}
-  .landing-stat-grid{grid-template-columns:1fr 1fr;gap:10px}
-  .landing-cta .landing-actions{width:100%}
-  .landing-visual{min-height:270px;padding:17px}
-  .landing-mini-cards{grid-template-columns:1fr 1fr}
-  .landing-footer{display:block;line-height:2}
+@media(max-width:600px){
+  .lp-nav{height:62px;gap:12px}
+  .lp-nav-act .lp-btn{height:32px;padding:0 12px;font-size:12.5px}
+  .lp-brand small{display:none}
+  .lp-eyebrow{font-size:10px;letter-spacing:.14em}
+  .lp-facts{gap:18px}
+  .lp-facts b{font-size:19px}
+  .lp-notify{grid-template-columns:1fr}
+  .lp-how{grid-template-columns:1fr;gap:14px}
+  .lp-end{flex-direction:column;align-items:flex-start}
+  .lp-foot{flex-direction:column;gap:6px}
 }
 </style>
 <style id="new-pages">
@@ -14338,114 +14399,144 @@ body.modal-open{overflow:hidden}
     '</footer>';
   }
 
-  function landingFeature(icon, title, text) {
-    return '<div class="landing-feature"><div class="ico">' + icon + '</div><b>' + title + '</b><p>' + text + '</p></div>';
-  }
+  /* v104：未登录页改成深色专业版。三个卖点：十二个页面、统计、四条通知通道。
+     色板写死在 CSS 的 .landing 作用域里，这里只负责内容；
+     旧的 landingFeature / landingStep / landingMoreCard / landingStat 一并删掉。 */
+  const LP_PAGES = [
+    ['今日', '🌤', '记录', '当天要做的都收在一屏：常驻卡、待办与提醒'],
+    ['用药', '💊', '记录', '短期、长期、按需三类，库存与下一次服药时间'],
+    ['戒烟', '🚭', '记录', '点一根与忍一次都记，算抵御率与省下的钱'],
+    ['待办', '📋', '记录', '四列看板，拖动推进；重复任务完成后自动生成下一次'],
+    ['清债', '📉', '记录', '债务台账、预算、还款计划、利率换算与风险体检'],
+    ['习惯', '✅', '记录', '养成与戒除两类，连续天数、七日点阵、截止时刻'],
+    ['体重', '⚖️', '记录', '体重与体脂、BMI 区间、长期趋势折线'],
+    ['随笔', '📝', '记录', '随手写下来，带心情与标签'],
+    ['日历', '🗓', '回顾', '一个月里哪天达标，用色块一眼看出来'],
+    ['统计', '📊', '回顾', '完成率、连续达标、用药依从、月度小结'],
+    ['通知配置', '🔔', '支撑', '几点提醒什么，逐条开关，不用改代码'],
+    ['设置', '⚙️', '支撑', '主题、布局、数据导出与导入、历史版本']
+  ];
+  const LP_NOTIFY = [
+    ['💬', '企业微信群机器人', '到点把待办、用药、倒数日、还款日推到群里，手机自带通知就能收到。', '定时检查，不依赖第三方推送服务'],
+    ['📅', '日历订阅（ICS）', '把日程订阅进手机系统日历，和其他安排放在同一张表里。', '只读订阅地址，换手机重新加一次即可'],
+    ['📱', '装到手机桌面', '加到主屏全屏打开，不用每次输网址；外壳可离线。', 'PWA，iOS 与安卓都支持'],
+    ['🔔', '浏览器通知', '桌面端到点弹系统通知，不用一直开着标签页。', '首次需要授权一次']
+  ];
 
-  function landingStep(num, title, text) {
-    return '<div class="landing-step"><small>' + num + '</small><b>' + title + '</b><p>' + text + '</p></div>';
-  }
-
-  function landingMoreCard(icon, title, text, items) {
-    return '<div class="landing-more-card">' +
-      '<div class="ico">' + icon + '</div>' +
-      '<b>' + title + '</b>' +
-      '<p>' + text + '</p>' +
-      (items && items.length ? '<ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' : '') +
+  function lpPageCard(p) {
+    return '<div class="lp-page">' +
+      '<div class="lp-page-top"><span class="lp-page-ico">' + p[1] + '</span><b>' + p[0] + '</b>' +
+        '<span class="lp-page-tag">' + p[2] + '</span></div>' +
+      '<p>' + p[3] + '</p>' +
     '</div>';
   }
 
-  function landingStat(label, value, note) {
-    return '<div class="landing-stat"><small>' + label + '</small><b>' + value + '</b><span>' + note + '</span></div>';
+  function lpNoteCard(n) {
+    return '<div class="lp-note-card"><div class="ico">' + n[0] + '</div>' +
+      '<b>' + n[1] + '</b><p>' + n[2] + '</p><em>' + n[3] + '</em></div>';
   }
 
   function landingHtml() {
-    const register = cloud.registrationOpen
-      ? '<button class="btn" data-act="cloud-register">注册（需要邀请码）</button>'
-      : '<span class="landing-closed">注册已关闭，请联系管理员</span>';
-    const error = cloud.error
-      ? '<div class="landing-error"><span>' + esc(cloud.error) + '</span><button class="btn sm" data-act="cloud-retry">重试连接</button></div>'
+    const regTop = cloud.registrationOpen
+      ? '<button class="lp-btn" data-act="cloud-register">注册（需邀请码）</button>'
       : '';
-    return '<div class="landing"><div class="landing-inner">' +
-      '<div class="landing-top">' +
-        '<div class="landing-brand"><span class="landing-mark">🌿</span><span>晚风Todo<small>HEALTH · FOCUS · MOMENTUM</small></span></div>' +
-        '<span class="landing-mini">健康 · 专注 · 节奏</span>' +
-      '</div>' +
-      '<section class="landing-hero">' +
-        '<div>' +
-          '<div class="landing-kicker">HEALTH FIRST · THEN FOCUS</div>' +
-          '<h1>先照顾好身体，<br><em>再把今天过明白。</em></h1>' +
-          '<p class="landing-lede">把用药、喝水、478 呼吸和运动放在一天的底盘上；再用待办、习惯、体重和统计，把健康与效率一起看清。</p>' +
-          '<div class="landing-actions">' +
-            '<button class="btn primary" data-act="cloud-login">登录</button>' +
-            register +
+    const regBig = cloud.registrationOpen
+      ? '<button class="lp-btn lg" data-act="cloud-register">用邀请码注册</button>'
+      : '<span class="lp-closed">注册已关闭，请联系管理员</span>';
+    const error = cloud.error
+      ? '<div class="lp-err"><span>' + esc(cloud.error) + '</span>' +
+          '<button class="lp-btn" data-act="cloud-retry">重试连接</button></div>'
+      : '';
+    return '<div class="landing"><div class="lp-wrap">' +
+      '<header class="lp-nav">' +
+        '<div class="lp-brand"><span class="lp-mark">🌿</span>' +
+          '<span>晚风Todo<small>个人生活工作台</small></span></div>' +
+        '<nav class="lp-links">' +
+          '<a href="#lp-pages">功能</a><a href="#lp-stats">统计</a><a href="#lp-notify">通知</a>' +
+        '</nav>' +
+        '<div class="lp-nav-act">' +
+          '<button class="lp-btn" data-act="cloud-login">登录</button>' + regTop +
+        '</div>' +
+      '</header>' +
+      '<section class="lp-hero">' +
+        '<div class="lp-hero-copy">' +
+          '<span class="lp-eyebrow">SELF-HOSTED · 12 PAGES · ONE DATASET</span>' +
+          '<h1>记录、追踪、复盘，<br><span>都在一个地方。</span></h1>' +
+          '<p class="lp-lede">用药、戒烟、习惯、待办、清债、体重、随笔、日历、统计 —— 十二个页面共用一份数据。' +
+            '跑在你自己的服务器上，随时可以整站导出。</p>' +
+          '<div class="lp-cta">' +
+            '<button class="lp-btn primary lg" data-act="cloud-login">登录</button>' + regBig +
           '</div>' +
-          '<p class="landing-note">数据只存在你自己的云端空间，换设备登录同一账号即可继续使用；不对外公开、不用于任何其他用途。</p>' +
-          error +
+          '<ul class="lp-facts">' +
+            '<li><b>12</b><span>个页面</span></li>' +
+            '<li><b>6</b><span>套主题 × 明暗</span></li>' +
+            '<li><b>100%</b><span>数据自持</span></li>' +
+          '</ul>' +
+          '<p class="landing-note">数据只存在你自己的云端空间，换设备登录同一账号即可继续；不对外公开，也不用于任何其他用途。</p>' + error +
         '</div>' +
-        '<div class="landing-visual">' +
-          '<div class="landing-preview">' +
-            '<div class="landing-preview-head"><span>今日 · 健康底盘</span><span>连续 12 天</span></div>' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:18px">' +
-              '<div><div style="font-family:var(--font-serif);font-size:38px;line-height:1;color:#f6efdf">4<span style="font-family:var(--font-sans);font-size:14px;color:#a9c2b4"> / 4 项</span></div><div style="font-size:11px;color:#a9c2b4;margin-top:8px">今天底盘已完成</div></div>' +
-              '<div class="landing-preview-ring">100%</div>' +
-            '</div>' +
-            '<div class="landing-mini-cards">' +
-              '<div class="landing-mini-card"><b>💊 用药</b><span>早 08:00 ✓ · 晚 20:00</span><div class="mini-line"><i style="width:50%"></i></div></div>' +
-              '<div class="landing-mini-card"><b>💧 喝水</b><span>6 / 8 杯</span><div class="mini-line"><i style="width:75%"></i></div></div>' +
-              '<div class="landing-mini-card"><b>🌬️ 478 呼吸</b><span>1 次 · 4-7-8</span><div class="mini-line"><i style="width:100%"></i></div></div>' +
-              '<div class="landing-mini-card"><b>🏃 运动</b><span>30 分钟</span><div class="mini-line"><i style="width:100%"></i></div></div>' +
-            '</div>' +
-            '<div class="landing-preview-foot"><span>本周 · 6 天有记录</span><span>平均 86%</span></div>' +
-          '</div>' +
+        '<figure class="lp-shot">' +
+          '<div class="lp-shot-top"><span class="lp-dots"><i></i><i></i><i></i></span>' +
+            '<span>今日 · 总览</span></div>' +
+          '<img src="images/landing/today.jpg" width="1212" height="700" ' +
+            'alt="今日页：连续达标天数、用药与喝水打卡、待办清单">' +
+        '</figure>' +
+      '</section>' +
+      '<section class="lp-sec" id="lp-pages">' +
+        '<div class="lp-sec-head"><span class="lp-eyebrow">WHAT IS INSIDE</span>' +
+          '<h2>十二个页面，不是十二个各自为政的工具</h2>' +
+          '<p>同一条记录，日历会用、统计会算、通知会推。没有导入导出，也没有手工对账。</p></div>' +
+        '<div class="lp-pages">' + LP_PAGES.map(lpPageCard).join('') + '</div>' +
+      '</section>' +
+      '<section class="lp-sec lp-split" id="lp-stats">' +
+        '<div class="lp-split-copy">' +
+          '<span class="lp-eyebrow">SEE THE PATTERN</span>' +
+          '<h2>完成度不靠感觉</h2>' +
+          '<p>连续达标、近 30 天完成率、月度回顾、体重变化、用药依从 —— 全部从记录里直接算出，' +
+            '不需要你手工填。</p>' +
+          '<ul class="lp-list">' +
+            '<li><b>口径统一</b>：完成率 ≥ 75% 记一天，日历、统计、连续天数用的是同一套算法。</li>' +
+            '<li><b>没打开的日子不算</b>：只统计有记录的日子，不用靠补记录维持数字。</li>' +
+            '<li><b>月度小结可导出</b>：一键生成当月回顾，随时留档。</li>' +
+          '</ul>' +
+        '</div>' +
+        '<figure class="lp-shot">' +
+          '<div class="lp-shot-top"><span class="lp-dots"><i></i><i></i><i></i></span>' +
+            '<span>统计 · 近 30 天</span></div>' +
+          '<img src="images/landing/stats.jpg" width="1212" height="600" ' +
+            'alt="统计页：连续达标、完成率、月度回顾与用药依从">' +
+        '</figure>' +
+      '</section>' +
+      '<section class="lp-sec" id="lp-notify">' +
+        '<div class="lp-sec-head"><span class="lp-eyebrow">REACH YOU ANYWHERE</span>' +
+          '<h2>不用打开网页，也能被叫住</h2>' +
+          '<p>四条独立通道，随便用哪条都行；都能在「通知配置」里逐条开关。</p></div>' +
+        '<div class="lp-notify">' + LP_NOTIFY.map(lpNoteCard).join('') + '</div>' +
+      '</section>' +
+      '<section class="lp-sec">' +
+        '<div class="lp-sec-head"><span class="lp-eyebrow">GET STARTED</span>' +
+          '<h2>三步就能用起来</h2></div>' +
+        '<div class="lp-how">' +
+          '<div class="lp-step"><small>01</small><b>登录</b>' +
+            '<p>用管理员给的邀请码注册，登录后数据开始同步。</p></div>' +
+          '<div class="lp-step"><small>02</small><b>搭起底盘</b>' +
+            '<p>设好用时间和喝水目标，把想养成的习惯加进来。</p></div>' +
+          '<div class="lp-step"><small>03</small><b>记录与复盘</b>' +
+            '<p>每天点几下；日历看形状，统计看趋势。</p></div>' +
         '</div>' +
       '</section>' +
-      '<section class="landing-features">' +
-        landingFeature('💊', '用药计划', '短期用药、长期 / 周期用药分开记；剂型、剂量、08:00 / 20:00 服药时间、库存和下一次服药一眼看到。') +
-        landingFeature('💧', '喝水目标', '默认一天 8 杯，点一下加一杯；还差几杯、上次喝水时间和连续达标都清楚。') +
-        landingFeature('🌬️', '478 呼吸', '吸气 4 秒、屏息 7 秒、呼气 8 秒；球体引导放松，作为日常心血管健康管理的一部分。') +
-        landingFeature('🏃', '自定义运动', '运动名称、目标次数、颜色都能改；完成一次记一次，连续天数自动累计。') +
-      '</section>' +
-      '<section class="landing-section">' +
-        '<div class="landing-section-head">' +
-          '<div class="eyebrow">MORE THAN A CHECKLIST</div>' +
-          '<h2>身体之外，也把自己的节奏放进来。</h2>' +
-          '<p>四张常驻卡是底盘，不是全部。你可以继续加自己的习惯、安排待办，也把体重变化留下来。</p>' +
-        '</div>' +
-        '<div class="landing-more-grid">' +
-          landingMoreCard('✅', '自定义习惯', '除了四张常驻卡，还可以添加戒烟、早睡、阅读、拉伸……', ['养成型：每天完成 N 次', '戒除型：保持 0 次并累计连续天数']) +
-          landingMoreCard('📋', '待办与重复任务', '单次任务，或每天固定时间重复；完成后自动生成下一次。', ['例如每天 20:00 扔垃圾', '看板四列，拖动卡片推进']) +
-          landingMoreCard('⚖️', '体重与 BMI', '记录日期、年龄、身高、体重，自动计算 BMI；日历和统计里看长期趋势。', ['成人 BMI 参考 18.5–23.9', '日历和统计同步显示']) +
-        '</div>' +
-        '<p class="landing-stat-note">还可以写随笔，随手留下今天的片段。</p>' +
-      '</section>' +
-      '<section class="landing-section">' +
-        '<div class="landing-section-head">' +
-          '<div class="eyebrow">SEE THE PATTERN</div>' +
-          '<h2>完成度，不靠感觉。</h2>' +
-          '<p>连续达标、近 7 天和本月完成率、14 天趋势、习惯点阵、用药依从、体重趋势和打卡时间，都收在同一个统计页里。</p>' +
-        '</div>' +
-        '<div class="landing-stat-grid">' +
-          landingStat('连续达标', '12 天', '示例 · 完成率 ≥ 75% 记一天') +
-          landingStat('近 7 天', '86%', '示例 · 6 天有记录') +
-          landingStat('本月', '78%', '示例 · 趋势向上') +
-          landingStat('用药依从', '92%', '示例 · 近 14 天') +
-        '</div>' +
-        '<p class="landing-stat-note">统计只计算有记录的日子；没打开应用的日子不会拉低完成率。</p>' +
-      '</section>' +
-      '<section class="landing-steps">' +
-        landingStep('01', '登录或注册', '使用管理员提供的邀请码注册；登录后数据开始同步。') +
-        landingStep('02', '搭好健康底盘', '设置用药时间、喝水目标、运动项目；478 呼吸随时可用。') +
-        landingStep('03', '记录并回看', '每天点几下；日历看颜色，统计看完成率和连续天数。') +
-      '</section>' +
-      '<section class="landing-cta">' +
-        '<div><h2>先照顾好身体，再把事情做完。</h2><p>从今天的四件小事开始，剩下的交给记录和趋势。</p></div>' +
-        '<div class="landing-actions">' +
-          '<button class="btn primary" data-act="cloud-login">登录</button>' +
-          register +
+      '<section class="lp-end">' +
+        '<div><h2>先把自己的节奏立起来。</h2>' +
+          '<p>数据存在你自己的服务器上，随时可以导出带走。</p></div>' +
+        '<div class="lp-cta">' +
+          '<button class="lp-btn primary lg" data-act="cloud-login">登录</button>' + regTop +
         '</div>' +
       '</section>' +
-      '<div class="landing-footer"><span>© ' + new Date().getFullYear() + ' 晚风Todo · 作者：<a href="https://www.csl88.top/" target="_blank" rel="noopener">晚风</a> &amp; <a href="https://www.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a></span><span>忘记密码？<a href="mailto:sl@sl00.top">sl@sl00.top</a></span></div>' +
+      '<footer class="lp-foot">' +
+        '<span>© ' + new Date().getFullYear() + ' 晚风Todo · 作者：' +
+          '<a href="https://www.csl88.top/" target="_blank" rel="noopener">晚风</a> &amp; ' +
+          '<a href="https://www.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a></span>' +
+        '<span>忘记密码？<a href="mailto:sl@sl00.top">sl@sl00.top</a></span>' +
+      '</footer>' +
     '</div></div>';
   }
 
