@@ -641,6 +641,49 @@ h1,h2,h3,h4,p{margin:0}
 }
 /* 左栏要 min-width:0：grid 子项默认 min-width:auto，长文案（习惯名 + 备注）
    会把 1fr 撑破，右栏跟着被挤出去 */
+
+/* ---- 习惯页「本月概览」（v109）------------------------------------
+   上排三个全站数字，下排三个「点名」项。小字统一用
+   color-mix(--muted 82%, --text)：10~10.5px 用裸 --muted 在浅底上只有
+   3.9~4.2:1，过不了 AA。 */
+.hsum{margin-bottom:16px}
+.hsum-range{font-size:11px;font-variant-numeric:tabular-nums;
+  color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+.hsum-kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.hs-k{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.hs-k small{display:block;font-size:10px;color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+.hs-k b{display:block;font-size:22px;font-weight:650;line-height:1.2;color:var(--text);margin:4px 0 2px;
+  font-variant-numeric:tabular-nums}
+.hs-k b i{font-style:normal;font-size:12px;font-weight:500;color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+.hs-k span{font-size:10.5px;line-height:1.45;color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+/* 手机三列各 ~78px，「达标天数 ÷ 应打卡天数」放不下一行；
+   宽屏用长句、窄屏换短句，不靠截断。 */
+.hs-k .hs-short{display:none}
+.hsum-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hs-l{border-top:1px solid var(--line);padding-top:10px;min-width:0}
+.hs-l small{display:block;font-size:10px;color:color-mix(in srgb,var(--muted) 82%,var(--text));margin-bottom:5px}
+/* 名字可能很长，截断而不是换行——三列等宽，换行会让三块高度不齐 */
+.hs-l b{display:block;font-size:13px;font-weight:600;color:var(--text);line-height:1.45;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hs-l span{display:block;font-size:10.5px;line-height:1.45;
+  color:color-mix(in srgb,var(--muted) 82%,var(--text));margin-top:2px}
+.hs-none{color:color-mix(in srgb,var(--muted) 70%,var(--text))}
+/* 手机：三个数字仍排一行（各 ~105px 放得下 18px 的数字），
+   竖排会让概览独占一屏，「我的习惯」要滑很远才看得到。点名项改竖排。 */
+@media (max-width:860px){
+  .hsum-kpi{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  /* 360px 下每格只有 ~78px：padding 收到 8px、小字 9.5px 才勉强放得下
+     「应打卡 101 天」这种短语，不然「天」会单独掉到第二行 */
+  .hs-k{padding:9px 8px}
+  .hs-k b{font-size:18px}
+  .hs-k b i{font-size:10px}
+  .hs-k span{font-size:9.5px;line-height:1.4}
+  .hs-k .hs-long{display:none}
+  .hs-k .hs-short{display:block}
+  .hsum-list{grid-template-columns:1fr;gap:10px}
+  .hsum .panel-head{flex-wrap:wrap;gap:2px 10px}
+  .hsum-range{font-size:10px}
+}
 .habits-main{min-width:0}
 .habits-arch .habit-row{padding:9px 2px}
 .habits-arch .habit-row-info small{white-space:normal;line-height:1.45}
@@ -13722,12 +13765,134 @@ body.modal-open{overflow:hidden}
           '<p class="hint">只记录医生给你的方案；应用不提供剂量建议。支持长期、短期疗程和按需用药。</p>');
   }
 
+  /* ============================================================
+     习惯页「本月概览」（v109）
+     ------------------------------------------------------------
+     全部现算，不新增任何字段。两个口径写死在这里，别散到别处：
+       · 达标 = met(h,d)，和今日/日历/统计用的是同一个判定
+       · 应打卡 = 按 notifyFreq 逐日判断（daily 每天、weekly 每周那一天、
+         monthly 每月那一天），不是「本月过了多少天就除多少天」
+     用药习惯（h.med）当天没有排期就不计入应打卡——「没有用药需求就不参与」。
+     ============================================================ */
+  function habitDueOn(h, d) {
+    if (!h || isArchived(h) || h.optional) return false;
+    /* 习惯创建之前的日子不算：新建的习惯不该因为「上月全勤」被扣分 */
+    const born = String(h.createdAt || '').slice(0, 10);
+    if (born && d < born) return false;
+    if (h.med) return medScheduledCount(d) > 0;
+    const freq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
+    if (freq === 'daily') return true;
+    const dt = parseD(d);
+    /* 别写 `Number(x) || 1`：周日是 0，falsy，会被当成周一。
+       Number(undefined) 是 NaN，一样要回落到 1。 */
+    const wd = Number(h.notifyWeekday);
+    if (freq === 'weekly') return dt.getDay() === (isFinite(wd) ? clamp(Math.round(wd), 0, 6) : 1);
+    const mdN = Number(h.notifyMonthday);
+    const md = isFinite(mdN) ? clamp(Math.round(mdN), 1, 31) : 1;
+    const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+    return dt.getDate() === Math.min(md, lastDay);
+  }
+
+  /* 某个习惯在 [1 号, upto 号] 区间里的达标与应打卡天数 */
+  function habitMonthRow(h, y, m, upto) {
+    let hit = 0, due = 0;
+    for (let i = 1; i <= upto; i++) {
+      const d = fmt(new Date(y, m, i));
+      if (!habitDueOn(h, d)) continue;
+      due++;
+      if (met(h, d)) hit++;
+    }
+    return { id: h.id, name: String(h.name || '未命名'), med: !!h.med,
+             hit: hit, due: due, rate: due ? hit / due : 0 };
+  }
+
+  /* 整块汇总。没有需要打卡的习惯时返回空串，页面不留一块空板。 */
+  function habitMonthOverview() {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const upto = now.getDate();
+    const list = (state.habits || [])
+      .filter(h => h && !isArchived(h) && !h.optional)
+      .map(h => habitMonthRow(h, y, m, upto))
+      .filter(r => r.due > 0);
+    if (!list.length) return '';
+
+    /* 排名按达标率，但**只让本月应打卡 ≥5 次的参与**：
+       比天数的话，「每周一次」的习惯永远垫底（最多 4 天）；
+       比率的活，「做满 4 次 = 100%」又会压过「23 天 92%」。
+       把低频的排除掉，剩下的频率相近，率才有可比性。 */
+    const MIN_DUE = 5;
+    const ranked = list.filter(r => r.due >= MIN_DUE).sort(function (a, b) {
+      return (b.rate - a.rate) || (b.hit - a.hit) || a.name.localeCompare(b.name);
+    });
+    const top = ranked.length ? ranked[0] : null;
+    const never = list.filter(r => r.hit === 0);
+    /* 最低只在「至少达标过一天」里挑：0 天的那批已经归到「从未完成」，
+       否则同一个人会同时出现在两栏里。全都 0 天时 low 为空。 */
+    const scored = ranked.filter(r => r.hit > 0);
+    const low = scored.length ? scored[scored.length - 1] : null;
+
+    let hitSum = 0, dueSum = 0;
+    list.forEach(function (r) { hitSum += r.hit; dueSum += r.due; });
+    const rateAll = dueSum ? Math.round(hitSum / dueSum * 100) : 0;
+
+    /* 上月同期：只取到「上月的今天号」，不然月初就跟整月比，永远显示下降 */
+    const pmY = m === 0 ? y - 1 : y;
+    const pmM = m === 0 ? 11 : m - 1;
+    const pmLast = new Date(pmY, pmM + 1, 0).getDate();
+    const pmUpto = Math.min(upto, pmLast);
+    let pmHit = 0;
+    (state.habits || []).filter(h => h && !isArchived(h) && !h.optional)
+      .forEach(function (h) { pmHit += habitMonthRow(h, pmY, pmM, pmUpto).hit; });
+    const delta = hitSum - pmHit;
+    const deltaText = delta === 0 ? '持平' : (delta > 0 ? '↑ ' + delta + ' 天' : '↓ ' + (-delta) + ' 天');
+    const deltaSub = '上月同期 ' + pmHit + ' 天';
+
+    const fmtRow = function (r, sub) {
+      return '<b>' + esc(r.name) + '</b><span>' + sub + '</span>';
+    };
+    const pct = function (r) { return Math.round(r.rate * 100) + '%'; };
+    const neverText = never.length
+      ? esc(never.slice(0, 2).map(r => r.name).join('、')) + (never.length > 2 ? ' 等 ' + never.length + ' 个' : '')
+      : '';
+
+    return '<section class="panel hsum">' +
+      '<div class="panel-head"><h3>本月概览</h3>' +
+        '<span class="hsum-range">' + (m + 1) + '月1日 – ' + (m + 1) + '月' + upto + '日 · ' +
+          list.length + ' 项' + (list.some(r => r.med) ? '（含用药）' : '') + '</span></div>' +
+      '<div class="hsum-kpi">' +
+        '<div class="hs-k"><small>达标总天数</small><b>' + hitSum + ' <i>天</i></b>' +
+          '<span class="hs-long">应打卡 ' + dueSum + ' 天</span>' +
+          '<span class="hs-short">应打卡 ' + dueSum + '</span></div>' +
+        '<div class="hs-k"><small>平均达标率</small><b>' + rateAll + ' <i>%</i></b>' +
+          '<span class="hs-long">达标天数 ÷ 应打卡天数</span>' +
+          '<span class="hs-short">达标 ÷ 应打卡</span></div>' +
+        '<div class="hs-k"><small>比上月同期</small><b>' + deltaText + '</b>' +
+          '<span class="hs-long">' + deltaSub + '</span>' +
+          '<span class="hs-short">上月 ' + pmHit + ' 天</span></div>' +
+      '</div>' +
+      '<div class="hsum-list">' +
+        '<div class="hs-l"><small>达标最高</small>' +
+          (top ? fmtRow(top, top.hit + ' 天 / ' + pct(top))
+               : '<b class="hs-none">—</b><span>本月还没有应打卡满 ' + MIN_DUE + ' 次的习惯</span>') + '</div>' +
+        '<div class="hs-l"><small>达标最低</small>' +
+          (low ? fmtRow(low, low.hit + ' 天 / ' + pct(low))
+               : '<b class="hs-none">—</b><span>本月还没有习惯达标</span>') + '</div>' +
+        '<div class="hs-l"><small>从未完成</small>' +
+          (never.length
+            ? '<b>' + neverText + '</b><span>本月 0 天达标</span>'
+            : '<b class="hs-none">没有</b><span>每个习惯本月都至少达标 1 天</span>') + '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
   function viewHabits() {
     const rows = habitManageRows();
     const archivedRows = archivedHabitRows();
     return '' +
       '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯与常驻卡。用药在「用药」页单独管理。</p></div>' +
         '<button class="btn primary" data-act="habit-new">＋ 添加习惯</button></div>' +
+      habitMonthOverview() +
       /* 有归档才分两栏：平时归档为空时左栏占满，不留一块常年空着的板 */
       '<div class="habits-wrap' + (archivedRows ? ' has-arch' : '') + '">' +
       '<div class="panel habits-main"><div class="panel-head"><h3>我的习惯</h3>' + habitSortHtml() + '</div>' +

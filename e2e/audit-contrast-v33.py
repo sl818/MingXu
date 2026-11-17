@@ -239,7 +239,10 @@ SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   #  its contrast is asserted in verify-quit-page.py)
                   '.qpack-fold span', '.qsum span b']
 # 习惯页：管理行的今日状态灯（v66）
-SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small']
+SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-row-info b', '.habit-row-info small',
+                     # v109 本月概览
+                     '.hsum-range', '.hs-k small', '.hs-k b', '.hs-k .hs-long',
+                     '.hs-l small', '.hs-l b', '.hs-l span']
 # 配置页：自定义通知（v71）。提示框是 --warn 浅底，最容易踩线
 # .pc-* 是推送预览里的条目，mock 的 push_preview 返回空数组，这四项永远取不到；
 # 留着会让「元素缺失」一直不为 0，把真正的回归信号淹掉。

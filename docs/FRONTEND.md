@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v108（2026-11-17）
+最后更新：v109（2026-11-17）
 
 ---
 
@@ -332,6 +332,29 @@ document.addEventListener('click', e => {
 
 `countOf(d,id)` `setCount(d,id,v)` `logHabit(id,delta)` `met(h,d)` `activeHabits(d)`
 `dayStats(d)` `rateOver(days)` `dayQualified(d)` `overallStreak()` `habitStreak(h)`
+`habitDueOn(h,d)` `habitMonthRow(h,y,m,upto)` `habitMonthOverview()`（习惯页本月概览，v109）
+
+**习惯页「本月概览」（v109）**：
+
+- 位置：`viewHabits()` 在 `page-head` 之后、`habits-wrap` 之前插入 `habitMonthOverview()`；
+  没有可统计的习惯时返回空串，不留空板。
+- **达标** = `met(h,d)`，和今日 / 日历 / 统计同一个判定，不另立口径。
+- **应打卡** = `habitDueOn(h,d)` 按 `notifyFreq` 逐日判断：`daily` 每天、
+  `weekly` 每周 `notifyWeekday` 那一天、`monthly` 每月 `notifyMonthday` 那一天。
+  **不能写成「本月过了 N 天就除 N」**——每周一次的习惯会被算成 4% 达标率。
+  `createdAt` 之前的日子不算，新建的习惯不该为上月全勤背锅。
+- **周日的 `notifyWeekday` 是 0**，`Number(x) || 1` 会把它当成周一（0 是 falsy）。
+  必须用 `isFinite()` 判断。日历「建议时间」那块（`suggestTime` 分支）有同样的历史写法，
+  改到这里时没动它，因为不在本需求范围。
+- **用药（`h.med`）当天没有排期（`medScheduledCount(d) === 0`）就不计入应打卡**，
+  「没有用药需求就不参与」。有排期时参与排名，标题旁会标「（含用药）」——
+  管理列表里 med 卡不显示，不标的话数字对不上会被当成 bug。
+- **排名**：只让「本月应打卡 ≥5 次」的习惯参与，按达标率降序、同率看天数。
+  低频习惯（每周一次最多 4 次）不进排名：比天数它永远垫底，比比率它又能拿 100%。
+- **两栏不重复**：「从未完成」= 本月 0 天；「达标最低」只在「至少达标过一天」里挑。
+- **环比**用「上月同期」（上月 1 号到上月的今天号），月中就跟整月比会永远显示下降。
+- 手机（≤860px）三个数字卡仍排三行一列的三列，副文案切短版（`.hs-short`），
+  否则 360px 下「应打卡 101 天」会把「天」挤到第二行。
 
 **戒烟（`type === 'quit'`）走事件流，不走 `checks`**，函数是一套独立的：
 
