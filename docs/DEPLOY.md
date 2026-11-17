@@ -1,5 +1,7 @@
 # 部署到阿里云轻量服务器（宝塔 + PHP + MySQL）
 
+最后更新：v103（2026-11-17）
+
 把项目上传到宝塔站点，访问域名后按向导安装：填数据库、创建管理员、生成邀请码。之后用户凭邀请码注册，管理员只管理账号和密码，不能查看或导出其他用户的数据。
 
 > 示例路径：站点根目录 `/www/wwwroot/todo`，PHP 8.2，数据库名 `lifeboard`。
@@ -605,10 +607,10 @@ cp -p .bak/20261026-014000/index.html .bak/20261026-014000/service-worker.js ./
 回滚后 `CACHE` 常量会退回旧值，**必须再手动 +1**，否则已经缓存新版的客户端不会回退：
 
 ```bash
-sed -i "s/lifeboard-shell-v[0-9]*/lifeboard-shell-v99/" service-worker.js
+sed -i "s/lifeboard-shell-v[0-9]*/lifeboard-shell-v103/" service-worker.js
 ```
 
-（`v99` 只要是没出现过的更大值即可。数字只能往前走，往回退会导致缓存卡住。）
+（`v103` 只要是没出现过的更大值即可。数字只能往前走，往回退会导致缓存卡住。）
 
 ### 5. 用 git 找回任意历史版本
 

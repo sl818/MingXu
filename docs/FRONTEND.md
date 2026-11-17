@@ -1,6 +1,6 @@
 # 前端结构 · index.html
 
-> 单文件，11,729 行 / 578 KB。这份文档是它的**内部地图**。
+> 单文件，17,772 行 / 约 880 KB。这份文档是它的**内部地图**。
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
@@ -147,7 +147,7 @@ render()
 
 ---
 
-## 5. 十一个视图
+## 5. 十二个视图
 
 `VIEWS` 常量把 key 映射到函数。`data-nav` 的值就是这里的 key。
 
@@ -155,7 +155,9 @@ render()
 |---|---|---|---|
 | `today` | `viewToday()` | 今日 | `.hero` `.vital-grid` `.board` `.rail` |
 | `meds` | `viewMeds()` | 用药 | `.med-board` `.med-group` `.med-row` `.med-stats` |
+| `quit` | `viewQuit()` | 戒烟（**独立事件流，不走 `checks`**） | `.quit-page` `.quit-top` `.quit-hero` |
 | `board` | `viewBoard()` | 待办（看板） | `.board-shell` `.board-col-wrap` `.board-rail` `.task` |
+| `money` | `viewMoney()` | 清债 | `.money-kpi` `.money-curve` |
 | `habits` | `viewHabits()` | 习惯管理 | `.habits-wrap` `.habit-row` `.habit-today` `.habit-sort` |
 | `weight` | `viewWeight()` | 体重 | `.weight-row` `.chart` |
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
@@ -228,7 +230,7 @@ render()
 **导航相关常量**（都在主脚本顶部附近）：
 
 ```js
-NAV         // PC 侧栏：[今日, 用药, 戒烟, 待办, 习惯, 体重, 随笔, 日历, 统计, 配置, 设置]
+NAV         // PC 侧栏（12 项）：今日 · 用药 · 戒烟 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 配置 · 设置
 MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more)]
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
@@ -389,7 +391,7 @@ document.addEventListener('click', e => {
   只会常年白占一半宽度。滴答清单的「完成全部」、Loop / Streaks 的 toggle 都是单一主动作 + 二次撤销。
   目标 ≥2 仍是格子、>6 仍是 stepper，都没动。
   `.habit-done` **背景自己定义、不继承 `.pip` 的皮肤渐变**：渐变上白字的对比度算不出来
-  （`bgOf` 遇到渐变整组跳过），这颗按钮上有真文字必须能真测。所以九套皮肤下它的观感
+  （`bgOf` 遇到渐变整组跳过），这颗按钮上有真文字必须能真测。所以六套皮肤下它的观感
   来自 `--surface-2` / `--hc`，不是皮肤那套 `.pip` 覆盖。
 - 右上角（v100）小习惯卡改成 `.habit-state` 文字（「已完成 / 待打卡 / 今天守住了 / 今天失守了」），
   不再用没有图例的圆圈；`compact` 常驻窄卡仍用 `.quit-dot` 状态灯。

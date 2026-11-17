@@ -23,7 +23,7 @@
 
 | 层 | 用什么 | 说明 |
 |---|---|---|
-| 前端 | 原生 JS（ES2018，无编译） | 全部在 `index.html` 一个文件里，约 11,700 行 |
+| 前端 | 原生 JS（ES2018，无编译） | 全部在 `index.html` 一个文件里，约 17,800 行 |
 | 样式 | 原生 CSS + CSS 变量 | 6 个 `<style>` 块，增量叠加式演进 |
 | 图标 | 内联 SVG，无图标库 | `ICONS` 常量 + `icon(name)` 函数 |
 | 后端 | 裸 PHP 8.2，无框架、无 Composer | `api.php` 单入口 + `api/` 下的功能模块 |
@@ -31,7 +31,7 @@
 | 时区 | 固定 `Asia/Shanghai` | 不依赖 `php.ini`，代码里显式构造 DateTimeZone |
 | 离线 | Service Worker | 只缓存外壳，接口永不缓存 |
 | 推送 | 企业微信「群机器人」webhook | 不用 APNs / FCM（国行安卓没有 GMS） |
-| 测试 | Python + Playwright（真 Chrome）+ PHP 单测脚本 | `e2e/` 目录，95 个文件 |
+| 测试 | Python + Playwright（真 Chrome）+ PHP 单测脚本 | `e2e/` 目录，125 个文件 |
 
 **关键推论**：因为没有构建步骤，`index.html` 就是最终产物。
 改完直接传服务器就生效——这是它简单的地方，也是它臃肿的原因。
@@ -201,7 +201,7 @@ io.open(p, 'w', encoding='utf-8', newline='').write(s.replace('\n', nl))
 
 ## 7. 阅读路线（30 分钟上手）
 
-**别一上来啃 11,700 行。** 按这个顺序：
+**别一上来啃 17,800 行。** 按这个顺序：
 
 1. **本文第 3 节的图**（5 分钟）—— 知道数据从哪来到哪去
 2. **`DATA-MODEL.md` 第 1 节**（5 分钟）—— 知道 `state` 长什么样

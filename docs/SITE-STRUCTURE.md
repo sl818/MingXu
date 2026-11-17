@@ -19,6 +19,7 @@
 | 功能怎么用（给用户看） | [README.md](../README.md) |
 | 版本流水、当前线上状态、技术债 | [HANDOFF.md](HANDOFF.md) |
 | 写新皮肤 | [THEME-SPEC.md](THEME-SPEC.md) / [AI-THEME-GUIDE.md](AI-THEME-GUIDE.md) |
+| 单文件要不要拆、怎么拆、每阶段验收 | [REFACTOR-PLAN.md](REFACTOR-PLAN.md) |
 
 ---
 
@@ -91,8 +92,8 @@ CSS 通过属性选择器覆盖变量：
 > v87 删除 `mono` / `clay` / `forest` / `cyber` 四套皮肤（含 CSS 文件与 SW 清单）。
 > `paper` / `slate` 的变量在 `index.html` 内联，其余主题在 `themes/skin-*.css`。
 
-> `THEME-SPEC.md` 和 `AI-THEME-GUIDE.md` 里如果列的还是"四套主题"（晴空 · 白蓝等旧名），
-> 那是 v32 之前的版本，**以 `SKINS` 常量和上表为准**。变量契约本身没变，仍然有效。
+> v103 起三份文档（本表、`THEME-SPEC.md`、`AI-THEME-GUIDE.md`）的主题清单已同步为 6 套，
+> **以 `SKINS` 常量和上表为准**。变量契约自 v32 起没变过，旧皮肤仍然有效。
 
 ### 3.2 变量契约
 

@@ -1,5 +1,7 @@
 # 晚风Todo · 给 AI 的主题编写指南
 
+最后更新：v103（2026-11-17）· 当前 6 套主题
+
 > 这个文件可以直接发给 AI。  
 > AI 只负责写 `themes/custom.css`，不要碰核心代码。
 
@@ -220,7 +222,7 @@ AI 只输出 `themes/custom.css` 的完整内容：
 2. 不写 HTML、JS、API、布局、display/grid/flex/宽高/内外边距。
 3. 必须同时提供浅色和深色（[data-theme="dark"]）。
 4. 不要 @import 外部字体或图片。
-5. 只覆盖现有 paper / slate / mist / neu / retro 之一。
+5. 只覆盖现有 paper / slate / neu / retro / cloud-float / cloud-focus 之一。
 6. 只输出完整的 themes/custom.css 内容，不要 <style> 标签。
 
 主题键：paper

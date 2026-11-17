@@ -32,7 +32,7 @@ python e2e/audit-contrast-v33.py    # 对比度审计，改任何颜色后必跑
 
 ## 代码约定
 
-- **前端不拆文件**：HTML / CSS / JS 都在 `index.html` 里，这是刻意的（见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)），不要为了「整洁」拆成多个 JS。
+- **前端目前不拆文件**：HTML / CSS / JS 都在 `index.html` 里，这是刻意的（见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)），不要为了「整洁」直接拆成多个 JS。真要动结构，先读 [docs/REFACTOR-PLAN.md](docs/REFACTOR-PLAN.md)——那是评估过的分阶段方案，含每阶段的验收清单。
 - **可点控件用 `data-act`**：新增 action 必须同时在 `ACTIONS` 里实现，否则 `node _check_script.mjs` 会报 missing handler。
 - **主题只写变量**：皮肤放 `themes/*.css`，规范见 [docs/THEME-SPEC.md](docs/THEME-SPEC.md)；新增主题键要四处注册（`SKINS` / 首屏白名单 / `<link>` / SW `ASSETS`）。
 - **后端一律 `require_once`**：`require` 被包含两次会导致重复声明，所有接口 500。

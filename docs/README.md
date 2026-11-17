@@ -2,6 +2,8 @@
 
 这个目录放所有说明文档；项目根目录只留 [README.md](../README.md)（入口）和代码。
 
+**当前版本 v103（2026-11-17）**：`index.html` 17,772 行单文件前端 · 12 个页面 · 182 个 action · 6 套主题 × 明暗 · 23 个后端接口。
+
 ---
 
 ## 技术文档（改代码前读）
@@ -9,10 +11,11 @@
 | 文档                                     | 回答什么问题                                      | 什么时候读           |
 | -------------------------------------- | ------------------------------------------- | --------------- |
 | [ARCHITECTURE.md](ARCHITECTURE.md)     | 整体怎么跑、文件职责、**四条不能破的规矩**                     | 第一次接触项目         |
-| [FRONTEND.md](FRONTEND.md)             | `index.html` 内部结构、10 个视图、106 个交互怎么分发、主题、移动端 | 改前端             |
+| [FRONTEND.md](FRONTEND.md)             | `index.html` 内部结构、12 个页面 / 15 个 view 函数、182 个 action 怎么分发、主题、移动端 | 改前端             |
 | [BACKEND.md](BACKEND.md)               | 23 个接口的鉴权、**三套提醒的过滤条件对照**、推送、备份、部署运维        | 改后端             |
 | [DATA-MODEL.md](DATA-MODEL.md)         | `state` 全部字段、迁移链、多端合并规则                     | 加字段 / 改合并 / 查数据 |
 | [SITE-STRUCTURE.md](SITE-STRUCTURE.md) | 文档索引 + 主题系统的准确信息                            | 写皮肤             |
+| [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **单文件要不要拆、怎么拆**、实测规模、每阶段验收              | 想动结构时          |
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
 | [THEME-SPEC.md](THEME-SPEC.md)         | 主题变量、组件类名、允许 / 禁止清单                         | 写皮肤             |
@@ -21,7 +24,7 @@
 **建议阅读顺序**：ARCHITECTURE 第 3 节（数据流图）→ DATA-MODEL 第 1 节（`state` 长什么样）  
 → FRONTEND 第 6 节（点一个按钮发生什么）→ 只读你关心的那个视图。
 
-**别一上来啃 11,700 行**。找代码用 grep：
+**别一上来啃 17,772 行**。找代码用 grep：
 
 ```bash
 grep -n "function viewMeds" index.html          # 定位视图

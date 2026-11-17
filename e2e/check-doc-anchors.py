@@ -7,6 +7,9 @@
   4. CSS 类名 .xxx → index.html 或 themes/*.css 里要出现
 
 只报"文档提到但代码里没有"的，这是真正会误导下一个人的。
+
+例外：写在「已删除 / 废弃 / 移除」这类说明行里的符号是历史记录，不是撒谎，直接跳过。
+否则每删一个功能，那段「vNN 删掉了 xxx」的说明都会变成假报错。
 """
 import io
 import os
@@ -19,6 +22,7 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/DATA-MODEL.md', 'docs/README.md', 'docs/HANDOFF.md',
         'docs/SITE-STRUCTURE.md', 'docs/DEPLOY.md',
         'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
+        'docs/REFACTOR-PLAN.md',
         'README.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
@@ -76,6 +80,15 @@ def main():
     api_actions = set(re.findall(r"case '([a-z_]+)':", root_php))
 
     problems = []
+    del_by_doc = {}
+
+    def deletion_spans(text):
+        """收集出现在「已删除 / 废弃 / 移除」说明行里的反引号符号，后面按行豁免。"""
+        out = set()
+        for line in text.split('\n'):
+            if re.search(r'删|移除|废弃|去掉', line):
+                out.update(x.strip() for x in re.findall(r'`([^`\n]+)`', line))
+        return out
 
     for doc in DOCS:
         path = os.path.join(ROOT, doc)
@@ -83,6 +96,7 @@ def main():
             problems.append((doc, '整个文件缺失', ''))
             continue
         text = load(path)
+        del_by_doc[doc] = deletion_spans(text)
         code_spans = re.findall(r'`([^`\n]+)`', text)
 
         # 1. 函数名（只认干净标识符，跳过伪代码和内置方法）
@@ -166,6 +180,9 @@ def main():
     seen = set()
     out = []
     for doc, kind, detail in problems:
+        spans = del_by_doc.get(doc, set())
+        if any(x and (x in detail or detail in x) for x in spans):
+            continue
         k = (doc, kind, detail)
         if k in seen:
             continue
