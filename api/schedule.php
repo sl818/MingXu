@@ -524,7 +524,11 @@ function lb_schedule_debts(array $state, string $date): array
         if ($id === '' || $name === '' || $bal <= 0.005) {
             continue;
         }
-        $due = max(1, min(31, (int)($d['due'] ?? 1)));
+        /* v110：0 / 空 = 没有具体还款日，既不提醒也不排日历 */
+        $due = (int)($d['due'] ?? 0);
+        if ($due < 1 || $due > 31) {
+            continue;
+        }
 
         /* 本月还款日：超出当月天数时按月末 */
         $eff = min($due, (int)date('t', $ts));

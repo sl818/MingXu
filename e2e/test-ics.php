@@ -259,6 +259,12 @@ chk('没有 notify 字段时不进订阅', strpos($none['text'], 'UID:debt-d1@')
 $paid = lb_ics_build($debtState(['balance' => 0]), $now);
 chk('已还清的不进订阅', strpos($paid['text'], 'UID:debt-d1@') === false);
 
+/* v110：还款日 0 / 空 = 没有具体还款日（亲友借款那种），不进订阅 */
+$nod0 = lb_ics_build($debtState(['due' => 0]), $now);
+chk('还款日填 0 不进订阅', strpos($nod0['text'], 'UID:debt-d1@') === false, (string)$nod0['count']);
+$nodn = lb_ics_build($debtState(['due' => null]), $now);
+chk('还款日为空不进订阅', strpos($nodn['text'], 'UID:debt-d1@') === false);
+
 $nine = lb_ics_build($debtState([], ['time' => '21:30']), $now);
 chk('用提醒时刻 21:30', strpos($nine['text'], 'T213000') !== false,
     substr($nine['text'], (int)strpos($nine['text'], 'DTSTART'), 60));

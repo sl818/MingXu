@@ -83,7 +83,7 @@ board['data']['money'] = {
     'v': 1,
     'debts': [
         {'id': 'md1', 'name': '信用卡A', 'type': 'card', 'balance': 38000, 'start': 45000,
-         'apr': 18, 'min': 1900, 'due': 5, 'note': '', 'clearedAt': '', 'u': 1},
+         'apr': 18, 'min': 1900, 'due': 5, 'note': '招行，账单日 20 号', 'clearedAt': '', 'u': 1},
         # due=25 对齐审计时钟的「今天」，否则日历里取不到 .cal-debt / .wk-ad-debt
         {'id': 'md2', 'name': '亲友', 'type': 'friend', 'balance': 20000, 'start': 20000,
          'apr': 0, 'min': 500, 'due': 25, 'note': '', 'clearedAt': '', 'u': 1},
@@ -216,6 +216,7 @@ SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b',
 SELS_MONEY = ['.money-hero small', '.mh-big', '.mh-sub', '.money-kpi b', '.money-kpi span',
               '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on']
 SELS_MONEY_DEBTS = ['.mdebt-tag', '.mdebt-num b', '.mdebt-num span',
+                    '.mdebt-note span', '.mdebt-note i',
                     '.subtab button', '.subtab button.on']
 # 计划 / 记录是另外两个子页，选择器同样分开取
 SELS_MONEY_PLAN = ['.mstart b', '.mstart span', '.mfield > span', '.mcmp-name',

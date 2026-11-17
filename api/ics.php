@@ -432,7 +432,12 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             if ($bal <= 0.005) {
                 continue;   // 已还清的债不该还挂在日历上
             }
-            $due = max(1, min(31, (int)($d['due'] ?? 1)));
+            /* v110：0 / 空 = 没有具体还款日。这类债不生成日历条目 ——
+               跟前端 dayDebts()、lb_schedule_debts() 同一口径。 */
+            $due = (int)($d['due'] ?? 0);
+            if ($due < 1 || $due > 31) {
+                continue;
+            }
             /* **从本月 1 号起算**，不能从「今天」起算 ——
                今天是 25 号、还款日 31 号时，从今天起算会一步推到下个月，
                把本月还剩的那次还款整个跳过（前端 buildICS 是从 1 号起的，

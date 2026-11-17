@@ -457,6 +457,10 @@ h1,h2,h3,h4,p{margin:0}
 .mdebt-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:10px}
 .mdebt-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
 .mdebt-acts{display:flex;gap:8px}
+.mdebt-note{display:flex;gap:6px;align-items:baseline;margin:-2px 0 7px;
+  font-size:11.5px;line-height:1.55;color:var(--text);word-break:break-word}
+.mdebt-note i{flex:none;font-style:normal;font-size:10px;color:var(--text);
+  border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:1.5}
 .mstrat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .mstart{text-align:left;border:1px solid var(--line);background:var(--surface-2);
   border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--text)}
@@ -11686,7 +11690,9 @@ body.modal-open{overflow:hidden}
     const dom = d.getDate();
     const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     return moneyLive().filter(function (x) {
-      const due = Math.min(31, Math.max(1, Math.round(Number(x.due) || 1)));
+      const due = Math.round(Number(x.due));
+      /* 0 / 空 = 没有具体还款日：不上日历 */
+      if (!isFinite(due) || due < 1 || due > 31) return false;
       return Math.min(due, last) === dom;
     });
   }
@@ -11757,7 +11763,12 @@ body.modal-open{overflow:hidden}
         start: moneyNum(d.start) || bal,
         apr: Math.min(200, Math.max(0, Number(d.apr) || 0)),
         min: Math.min(999999, Math.max(0, Number(d.min) || 0)),
-        due: Math.min(31, Math.max(1, Math.round(Number(d.due) || 1))),
+        /* v110：0 = 没有具体还款日（不填或填 0）。以前缺省成 1 号，
+           会把亲友借款这种「没约定哪天还」的债硬塞进每月 1 号的提醒与日历。 */
+        due: (function (v) {
+          const n = Math.round(Number(v));
+          return isFinite(n) && n >= 1 && n <= 31 ? n : 0;
+        })(d.due),
         note: String(d.note || '').slice(0, 60),
         u: Math.max(0, Math.round(Number(d.u) || 0))
       };
@@ -11956,7 +11967,7 @@ body.modal-open{overflow:hidden}
      点进去一片空白比看不到更让人恼火，做完一版放出一版。 */
   const MONEY_TABS = [
     { key: 'overview', label: '总览' },
-    { key: 'debts', label: '我的债' },
+    { key: 'debts', label: '债务' },
     { key: 'budget', label: '预算' },
     { key: 'plan', label: '计划' },
     { key: 'log', label: '记录' },
@@ -12059,9 +12070,11 @@ body.modal-open{overflow:hidden}
       return '<div class="mdebt' + (closed ? ' closed' : '') + '">' +
         '<div class="mdebt-top"><b>' + esc(d.name || '未命名') + '</b>' +
           '<span class="mdebt-tag">' + moneyTypeLabel(d.type) + '</span></div>' +
+        /* 备注以前只在弹窗里看得到，列表里填了也看不见（v110） */
+        (d.note ? '<div class="mdebt-note"><i>备注</i><span>' + esc(d.note) + '</span></div>' : '') +
         '<div class="mdebt-num"><b>¥' + moneyFmt(d.balance) + '</b>' +
           '<span>年化 ' + (Number(d.apr) || 0) + '% · 月还 ¥' + moneyFmt(d.min) +
-          ' · 每月 ' + d.due + ' 日</span></div>' +
+          (Number(d.due) > 0 ? ' · 每月 ' + d.due + ' 日' : '') + '</span></div>' +
         (closed ? '' : '<div class="mdebt-bar"><i style="width:' + pct + '%"></i></div>') +
         '<div class="mdebt-acts">' +
           '<button type="button" class="btn sm" data-act="money-debt-edit" data-id="' + esc(d.id) + '">编辑</button>' +
@@ -12088,7 +12101,7 @@ body.modal-open{overflow:hidden}
   function moneyPlanView() {
     const live = moneyLive();
     if (!live.length) {
-      return '<div class="panel"><div class="empty-box">还没有债务，先去「我的债」记几笔。</div></div>';
+      return '<div class="panel"><div class="empty-box">还没有债务，先去「债务」记几笔。</div></div>';
     }
     const extra = Math.max(0, Number(money().extra) || 0);
     const sim = moneySimulate(money().strategy);
@@ -12824,7 +12837,8 @@ body.modal-open{overflow:hidden}
         '<table class="sum-table algo-table">' +
           '<tr><th>子页</th><th>内容</th></tr>' +
           tr('<b>总览</b>', '还清日大字、总体进度、剩余欠款曲线、按清账顺序排的债') +
-          tr('<b>我的债</b>', '记债：名称 / 类型 / 余额 / 年化 / 最低月还 / 还款日。可改可删，' +
+          tr('<b>债务</b>', '记债：名称（欠谁的）/ 类型 / 余额 / 年化 / 最低月还 / 还款日。' +
+            '还款日可以留空，留空就不进日历也不提醒。可改可删，' +
              '余额改成 0 就自动进「已还清」') +
           tr('<b>预算</b>', '收入明细、分类预算（固定 / 日常）、今天还能花、开销流水（可翻月）') +
           tr('<b>计划</b>', '加速钱、三种策略切换、三办法对比、逐月还款表、一次性多还') +
@@ -12885,6 +12899,8 @@ body.modal-open{overflow:hidden}
           '例：还款日 15 号、提前 3 天 → 12 号早上 9 点推一条企微。</p>' +
         '<p class="algo-p">还款日按「每月几号」重复，<b>小月按月末</b>：' +
           '31 号在 2 月就是 28/29 号。页面日历、企微提醒、日历订阅三处用同一口径。</p>' +
+        '<p class="algo-p">亲友借款这种没约好日子的，还款日<b>留空或填 0</b>：' +
+          '不进日历、不推提醒，只算欠款和还清计划。</p>' +
 
         '<h4 class="algo-h">八、不参与考核</h4>' +
         '<p class="algo-p">清债的数据全部放在独立的 <code>state.money</code> 里，' +
@@ -12892,7 +12908,7 @@ body.modal-open{overflow:hidden}
           '<b>全都看不见它</b>——欠债不该让「今天做得怎么样」变难看。</p>' +
 
         '<h4 class="algo-h">九、建议这么用</h4>' +
-        '<p class="algo-p"><b>1.</b> 先去「我的债」把每笔填清楚。余额填<b>现在还剩多少</b>，' +
+        '<p class="algo-p"><b>1.</b> 先去「债务」把每笔填清楚。余额填<b>现在还剩多少</b>，' +
           '不是当初借多少；初始额自动等于余额。</p>' +
         '<p class="algo-p"><b>2.</b> 看「总览」的还清日。先接受那个日期，别急着调数字——' +
           '它反映的是现状，不是判决。</p>' +
@@ -12946,11 +12962,11 @@ body.modal-open{overflow:hidden}
 
   function moneyDebtModal(d) {
     const isNew = !d;
-    const v = d || { name: '', type: 'card', balance: '', apr: 18, min: '', due: 5, note: '' };
+    const v = d || { name: '', type: 'card', balance: '', apr: 18, min: '', due: '', note: '' };
     openModal('<form class="modal-card" id="money-form" data-id="' + esc(v.id || '') + '">' +
       '<h3>' + (isNew ? '记一笔债' : '编辑债务') + '</h3>' +
       '<div class="form-grid">' +
-        '<label class="field"><span>名称</span>' +
+        '<label class="field"><span>名称（欠谁的）</span>' +
           '<input name="name" maxlength="24" value="' + esc(v.name || '') + '" placeholder="例如：信用卡A"></label>' +
         '<label class="field"><span>类型</span><select name="type">' +
           MONEY_TYPES.map(function (t) {
@@ -12958,12 +12974,13 @@ body.modal-open{overflow:hidden}
           }).join('') + '</select></label>' +
         '<label class="field"><span>剩余欠款（元）</span>' +
           '<input name="balance" type="number" min="0" step="0.01" value="' + (Number(v.balance) || '') + '" placeholder="38000"></label>' +
-        '<label class="field"><span>年化利率（%）</span>' +
+        '<label class="field"><span>年化利率（%），没有利息填 0</span>' +
           '<input name="apr" type="number" min="0" max="200" step="0.01" value="' + (Number(v.apr) || 0) + '"></label>' +
         '<label class="field"><span>最低月还款（元）</span>' +
           '<input name="min" type="number" min="0" step="0.01" value="' + (Number(v.min) || '') + '" placeholder="1900"></label>' +
-        '<label class="field"><span>每月还款日</span>' +
-          '<input name="due" type="number" min="1" max="31" step="1" value="' + (Number(v.due) || 1) + '"></label>' +
+        '<label class="field"><span>每月还款日（填 0 或不填则没有具体还款日期）</span>' +
+          '<input name="due" type="number" min="0" max="31" step="1" value="' +
+            (Number(v.due) > 0 ? Math.round(Number(v.due)) : '') + '" placeholder="例如 5"></label>' +
         '<label class="field wide"><span>备注（可选）</span>' +
           '<input name="note" maxlength="60" value="' + esc(v.note || '') + '"></label>' +
       '</div>' +
@@ -12990,7 +13007,11 @@ body.modal-open{overflow:hidden}
       balance: balance,
       apr: Math.min(200, Math.max(0, Number(get('apr')) || 0)),
       min: Math.max(0, Number(get('min')) || 0),
-      due: Math.min(31, Math.max(1, Math.round(Number(get('due')) || 1))),
+      /* 0 / 空 = 没有具体还款日 */
+      due: (function (v) {
+        const n = Math.round(Number(v));
+        return isFinite(n) && n >= 1 && n <= 31 ? n : 0;
+      })(get('due')),
       note: get('note').slice(0, 60),
       u: Date.now()
     };
@@ -16795,7 +16816,10 @@ body.modal-open{overflow:hidden}
         ? String(mnt.time).split(':').map(Number) : [9, 0];
       (Array.isArray(state.money.debts) ? state.money.debts : []).forEach(d => {
         if (!d || !(Number(d.balance) > 0.005)) return;
-        const due = Math.min(31, Math.max(1, Math.round(Number(d.due) || 1)));
+        const due = Math.round(Number(d.due));
+        /* 0 / 空 = 没有具体还款日，不生成日历条目。
+           跟 dayDebts()、api/ics.php 同一口径。 */
+        if (!isFinite(due) || due < 1 || due > 31) return;
         /* 从本月开始找第一个「今天之后」的还款日 */
         let start = new Date(now.getFullYear(), now.getMonth(), 1, nh, nm);
         start = new Date(start.getFullYear(), start.getMonth(),

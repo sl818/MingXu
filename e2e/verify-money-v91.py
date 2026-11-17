@@ -87,7 +87,7 @@ with sync_playwright() as p:
 
     print('\n[1] 六个子页都放出来了')
     tabs = pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
-    chk('六个子页', tabs == ['总览', '我的债', '预算', '计划', '记录', '工具'], str(tabs))
+    chk('六个子页', tabs == ['总览', '债务', '预算', '计划', '记录', '工具'], str(tabs))
     tab(pg, 'tools')
 
     print('\n[2] 利率换算')

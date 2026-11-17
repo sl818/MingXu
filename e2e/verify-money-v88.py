@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""清债 v88：数据层、子页面、总览、我的债、以及「不进考核」的隔离。
+"""清债 v88：数据层、子页面、总览、债务、以及「不进考核」的隔离。
 
 用两笔 0% 利息的债做确定性断言：
   A 1200 / 最低 100        → 单独时 12 个月还清
@@ -97,7 +97,7 @@ with sync_playwright() as p:
     tabs0 = pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
     # 六版全做完后，子页一个不落
     chk('六个子页都在',
-        tabs0 == ['总览', '我的债', '预算', '计划', '记录', '工具'], str(tabs0))
+        tabs0 == ['总览', '债务', '预算', '计划', '记录', '工具'], str(tabs0))
 
     print('\n[3] 记一笔债 → 总览数字')
     add_debt(pg, '测试债A', 1200, 0, 100)
@@ -117,7 +117,7 @@ with sync_playwright() as p:
     order = pg.evaluate("() => [...document.querySelectorAll('.mrow-name')].map(e => e.textContent)")
     chk('雪球先列小额那笔', order[:2] == ['测试债B', '测试债A'], str(order))
 
-    print('\n[5] 我的债 子页')
+    print('\n[5] 债务 子页')
     pg.click('[data-act="subtab"][data-page="money"][data-tab="debts"]')
     pg.wait_for_timeout(600)
     chk('两张债务卡', pg.locator('.mdebt').count() == 2, str(pg.locator('.mdebt').count()))

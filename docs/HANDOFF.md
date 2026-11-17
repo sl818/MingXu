@@ -2,14 +2,14 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v109（2026-11-17）
+最后更新：v110（2026-11-17）
 
 ---
 
 ## 一句话状态
 
 已上线稳定运行。十二个页面 + 两布局 + 六套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
-全部验证通过。技术债集中在「单文件 17,772 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
+全部验证通过。技术债集中在「单文件 18,347 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v109（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v109'`） |
+| 代码版本 | v110（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v110'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -130,6 +130,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v107 | 11-17 | **戒烟页两处改动**（需求二）：①买烟记录折叠——超过 5 条才出现 `.qpack-fold`，收起只看最近 5 条，展开每次 +20 条（`.qpack-more`，按钮写「再显示 N 条（还剩 M 条）」）；状态存在模块级 `quitPackOpen` / `quitPackShown`，**不进 state**，收起时复位。②数据汇总 8 → 12 格：新增减量进度（起始 7 天日均 → 近 7 天日均）、无烟天数、本周守住、近 4 周（`.qs-spark` 四根柱 + 首尾对比），并把「忍住了」改成「抵御率」当主数字。全部由 `quitStartAvg` / `quitNowAvg` / `quitWeekAvgs` 现算，**零新增字段**，统计页复用同一套卡片所以同步变成 12 格。踩坑：`.qsum b` 是 20px 块级，小字里的 `<b>` 必须还原 `display:inline`，否则「从 7.0 降到 3.0」被拆成两行大字；`.qpack-more` 深色下裸 `--muted` 只有 2.7:1，改与 `--text` 混 82%。新增 `verify-quit-page` 32 项；审计取样 +2（2028 次）。回滚点 tag `quit-fold-v107` |
 | v108 | 11-17 | **待办页两处改动**（需求三）：①归档投放槽从右栏的 300px 小方块改成看板下方**通栏**（76px 高、与 `.board-shell` 等宽），虚线 + 灰底（`color-mix(--text 7%, --bg)`，`--surface-2` 在 paper 下几乎与页面同亮度）、`.is-over` 时实线 2px + 光晕 + 文案切「松手归档」，手机 ≤760px 改纵向 88px。②归档弹窗每行加「查看」（在「恢复」左边），`taskArchViewModal` 打开只读 `.task-view`：标题 + 备注全文（`pre-wrap`）+ 字段列表，空备注写「没有备注」，无输入框。顺带修 `cnDate`：ISO 串（`createdAt` / `archivedAt`）传给 `parseD` 会得到 `NaN月NaN日`。`verify-archive` 33→52 项（位置断言改成通栏几何、手机与侧栏布局改为「仍显示」）；`audit-archive` 皮肤清单从 9 套（含已删的 mono/clay/mist/forest/cyber）同步到 6 套。回滚点 tag `board-arch-v108` |
 | v109 | 11-17 | **习惯页新增「本月概览」**（需求四）：三张 KPI（达标总天数 / 平均达标率 / 比上月同期）+ 三个点名项（达标最高 / 最低 / 从未完成）。口径全部现算：达标 = `met(h,d)`；应打卡由 `habitDueOn(h,d)` 按 `notifyFreq` 逐日判断（daily 每天 / weekly 指定周几 / monthly 指定几号），**不是「过了几天就除几」**，`createdAt` 之前的日子不计。排名只让「本月应打卡 ≥5 次」的习惯参与、按达标率排（比天数低频永远垫底，比比率又能拿 100%）；「从未完成」= 本月 0 天，「最低」只在至少达标过一天里挑，两栏不重复；环比用「上月同期」。用药当天无排期则不计入应打卡，有排期时参与并在标题旁标「（含用药）」。**修掉一个老坑**：`Number(h.notifyWeekday) || 1` 会把周日（0）当成周一。手机 ≤860px 三列 + 副文案短版（`.hs-short`）。新增 `verify-habit-month` 33 项；对比度审计取样 +7（2112 次）。回滚点 tag `habit-month-v109` |
+| v110 | 11-17 | **清债 · 债务页第一轮**（需求五）：①子页「我的债」改名**债务**（`MONEY_TABS`、计划页空态、清债介绍弹窗三处文案同步）。②`debts[].due` 允许 **0 = 没有具体还款日**：新债表单的还款日默认留空，文案写「填 0 或不填则没有具体还款日期」；这类债照常算欠款、进度和还清计划，但**不上日历、不推提醒、不进订阅**。四处口径同步改：`dayDebts()` / `buildICS()` / `api/ics.php` / `lb_schedule_debts()` 都先判 1–31 再算 —— **别再写 `Number(d.due) || 1`**，那个表达式会把 0 变成 1（周日 0 那个老坑的同款）。③表单文案：名称（欠谁的）、年化利率（%），没有利息填 0。④债务卡显示备注（`.mdebt-note`，带「备注」小标签）——原来只在弹窗里看得到。测试：`e2e/test-ics.php` 62→64、`e2e/test-schedule.php` 128→130（还款日 0 / 空各一条），对比度审计 2136 取样 0 不达标。回滚点 tag `debt-due-v110` |
 
 ### 两次值得记住的事故
 

@@ -78,7 +78,7 @@ with sync_playwright() as p:
 
     print('\n[1] 子页都放出来了')
     chk('六子页', pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")
-        == ['总览', '我的债', '预算', '计划', '记录', '工具'],
+        == ['总览', '债务', '预算', '计划', '记录', '工具'],
         str(pg.evaluate("() => [...document.querySelectorAll('.subtab button')].map(b=>b.textContent)")))
 
     add_debt(pg, '测试债A', 1200, 0, 100)
