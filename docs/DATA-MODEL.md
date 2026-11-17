@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v113（2026-11-17）
+最后更新：v114（2026-11-17）
 
 ---
 
@@ -509,10 +509,13 @@ countdowns: [{ id: 'cd1', title: '考研初试', date: '2026-11-20',
 ### 6.1 `weights[]`
 
 ```js
-{ id, date: 'YYYY-MM-DD', age, height, weight, bmi, createdAt }
+{ id, date: 'YYYY-MM-DD', age, height, weight, bmi, fat, createdAt }
 ```
 
 **`age` 和 `height` 必须都有**（`normalizeWeightRecord` 会因此丢弃整条）。
+
+`fat` 是体脂率百分比（v114 起，可选）：**`0` = 这次没量**，范围 1–70，超出或非数字一律归 0。
+它只是记录，不参与 BMI，也不派生任何东西；体脂**不给参考范围**——不同体脂秤的算法差异很大。
 
 ### 6.2 `bodyProfile`
 

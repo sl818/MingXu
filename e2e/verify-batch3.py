@@ -266,7 +266,11 @@ with sync_playwright() as p:
             const line = document.querySelector('.ww-goal');
             if (!svg || !line) return null;
             const y = Number(line.getAttribute('y1'));
-            return { y: y, ok: y >= 16 && y <= 174 };
+            /* 绘图区上下边界从 viewBox 推：v114 把 H 从 200 改到 340，
+               写死 174 的断言就变成假失败 */
+            const vb = (svg.getAttribute('viewBox') || '').split(/\s+/);
+            const H = Number(vb[3]) || 200;
+            return { y: y, H: H, ok: y >= 16 && y <= H - 26 };
         }""")
         rec('目标线在绘图区内', bool(inb and inb['ok']), json.dumps(inb))
 

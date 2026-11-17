@@ -106,6 +106,18 @@ board['data']['money'] = {
 }
 board['data']['moneyAt'] = 1
 
+# 体重（v114 起纳入审计）：没有记录整页只有空态，体重相关选择器会全部「元素缺失」。
+# 日期要在审计时钟（2026-10-25）之前，否则 normalizeWeightRecord 会把未来记录丢掉。
+board['data']['bodyProfile'] = {'age': 31, 'height': 176, 'goalWeight': 70}
+board['data']['weights'] = [
+    {'id': 'wt1', 'date': '2026-10-12', 'age': 31, 'height': 176, 'weight': 72.4,
+     'fat': 21.5, 'createdAt': '2026-10-12T08:00:00.000Z'},
+    {'id': 'wt2', 'date': '2026-10-18', 'age': 31, 'height': 176, 'weight': 71.2,
+     'fat': 20.1, 'createdAt': '2026-10-18T08:00:00.000Z'},
+    {'id': 'wt3', 'date': '2026-10-24', 'age': 31, 'height': 176, 'weight': 70.6,
+     'fat': 19.4, 'createdAt': '2026-10-24T08:00:00.000Z'},
+]
+
 # 戒除多次模式（v79）：一个已破（.quit-add.broken + .quit-undo）、一个未破
 _qm = int(datetime(2026, 10, 25, 9, 0).timestamp())
 _qbase = {'type': 'quit', 'target': 1, 'unit': '次', 'note': '',
@@ -234,6 +246,12 @@ SELS_MONEY_BUDGET = ['.mbud-li span', '.mbud-li b', '.mbud-net span', '.mbud-net
                      '.minc-name', '.minc-amt', '.mcat-name', '.mcat-bud',
                      '.mspend-date', '.mspend-cat', '.mspend-amt', '.mym b']
 # 工具子页（v91）：换算四格、对照表、真实年化、风险体检
+SELS_WEIGHT = ['.weight-big', '.weight-big i', '.weight-date', '.weight-bmi b',
+               '.weight-bmi span', '.weight-bmi small', '.weight-metrics small',
+               '.weight-metrics b', '.wsum-row small', '.wsum-row b', '.bmi-pill',
+               '.wfat-main b', '.wfat-main i', '.wfat-main span', '.wfat-grid small',
+               '.wfat-grid b', '.weight-value', '.weight-row small', '.cal-hint',
+               '.range-switch button', '.weight-fat .hint']
 SELS_MONEY_TOOLS = ['.mrate-cell small', '.mrate-cell b', '.mtbl-row', '.mtbl-row.head',
                     '.mapr b', '.mapr span', '.mrisk-body b', '.mrisk-body span']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
@@ -336,6 +354,9 @@ with sync_playwright() as p:
             pg.click('[data-act="subtab"][data-page="money"][data-tab="tools"]')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_MONEY_TOOLS)
+            nav(pg, 'weight')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_WEIGHT)
             nav(pg, 'stats')
             pg.wait_for_timeout(800)
             # v84：用药趋势和戒烟分析都藏在分段控件 / 折叠后面，取样前先点开，
@@ -377,7 +398,7 @@ print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样�
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
          + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG)
-         + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS), checked))
+         + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS) + len(SELS_WEIGHT), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

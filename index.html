@@ -2959,14 +2959,31 @@ body.modal-open{overflow:hidden}
 .weight-value i{font-size:10px;font-style:normal;color:var(--muted)}
 .weight-row small{font-size:10.5px;color:var(--muted)}
 .weight-row-actions{display:flex;gap:6px}
-.bmi-pill{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface-2)}
-.bmi-pill.ok{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
-.bmi-pill.low{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 35%,var(--line))}
-.bmi-pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
-.bmi-pill.high{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.bmi-pill{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:color-mix(in srgb,var(--muted) 78%,var(--text));background:var(--surface-2)}
+.bmi-pill.ok{color:color-mix(in srgb,var(--accent) 84%,var(--text));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.bmi-pill.low{color:color-mix(in srgb,var(--gold) 84%,var(--text));border-color:color-mix(in srgb,var(--gold) 35%,var(--line))}
+.bmi-pill.warn{color:color-mix(in srgb,var(--warn) 84%,var(--text));border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.bmi-pill.high{color:color-mix(in srgb,var(--bad) 84%,var(--text));border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
 .weight-stat-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
 /* 体重折线图 + 统计 */
-.weight-charts{display:grid;grid-template-columns:minmax(0,1fr) 262px;gap:18px;margin-bottom:18px;align-items:start}
+.weight-charts{display:grid;grid-template-columns:minmax(0,1fr) 262px;gap:18px;margin-bottom:18px}
+/* 右栏是「统计 + 体脂」两卡，左右两栏拉齐（v114）：统计卡矮的时候下面那块空白就是需求里的红框 */
+.weight-side{display:flex;flex-direction:column;gap:18px;min-width:0}
+/* 体脂卡吃掉右栏剩下的高度，说明文字沉底，空白就不至于全堆在卡片下半截 */
+.weight-fat{display:flex;flex-direction:column}
+.weight-fat .hint{margin-top:auto;padding-top:10px}
+.wfat-main{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.wfat-main b{font-size:30px;line-height:1.1;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums}
+.wfat-main b i{font-size:13px;font-style:normal;margin-left:1px}
+.wfat-main span{font-size:11.5px;color:var(--text)}
+.wfat-spark{display:block;width:100%;height:58px;margin:0 0 10px}
+.wfat-area{fill:color-mix(in srgb,var(--chart-3) 16%,transparent);stroke:none}
+.wfat-line{fill:none;stroke:var(--chart-3);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.wfat-dot{fill:var(--chart-3)}
+.wfat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.wfat-grid small{display:block;font-size:10px;color:var(--text);margin-bottom:3px}
+.wfat-grid b{font-size:13px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
 @media (max-width:1080px){.weight-charts{grid-template-columns:1fr}}
 .ww-svg{display:block;width:100%;height:auto;margin:4px 0 0}
 .ww-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
@@ -4432,6 +4449,9 @@ body.modal-open{overflow:hidden}
     const weight = Math.round(clamp(rawWeight, 1, 500) * 10) / 10;
     const height = Math.round(clamp(rawHeight, 50, 250) * 10) / 10;
     const age = Math.round(clamp(rawAge, 1, 120));
+    /* 体脂率（v114）：可选，0 = 没填。只拦离谱值，不做医学判断 */
+    const rawFat = Number(w.fat);
+    const fat = (isFinite(rawFat) && rawFat >= 1 && rawFat <= 70) ? Math.round(rawFat * 10) / 10 : 0;
     return {
       id: String(w.id || ('w_' + uid())),
       date: date,
@@ -4439,6 +4459,7 @@ body.modal-open{overflow:hidden}
       height: height,
       weight: weight,
       bmi: calcBmi(weight, height),
+      fat: fat,
       createdAt: w.createdAt || new Date().toISOString()
     };
   }
@@ -13450,7 +13471,8 @@ body.modal-open{overflow:hidden}
     if (!list || !list.length) {
       return '<div class="ww-empty">这个区间还没有体重记录<br>记一笔之后，这里会画出曲线</div>';
     }
-    const W = 600, H = 200, L = 38, R = 14, T = 16, B = 26;
+    /* v114：H 从 200 提到 340 —— 右栏多了体脂卡之后，200 高的图会把卡片拉开一块空白 */
+    const W = 600, H = 340, L = 38, R = 14, T = 16, B = 26;
     const pw = W - L - R, ph = H - T - B;
     const pts = list.map(w => ({ date: w.date, v: Number(w.weight), bmi: w.bmi })).filter(p => isFinite(p.v));
     if (!pts.length) return '<div class="ww-empty">这个区间还没有体重记录</div>';
@@ -13478,7 +13500,8 @@ body.modal-open{overflow:hidden}
     const xx = i => pts.length === 1 ? L + pw / 2 : L + (i / (pts.length - 1)) * pw;
 
     let g = '';
-    [0, 0.5, 1].forEach(t => {
+    /* 图从 200 加高到 340 之后三条线太稀，改四等分 */
+    [0, 1 / 3, 2 / 3, 1].forEach(t => {
       const v = hi - span * t;
       const y = T + ph * t;
       g += '<line class="ww-grid" x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) + '"/>';
@@ -13558,6 +13581,65 @@ body.modal-open{overflow:hidden}
       row('平均', avg, ' kg') +
       row('记录', list.length, ' 次') +
       row('当前 BMI', last.bmi + ' ' + info.label, '');
+  }
+
+  /* 体脂（v114）：只做记录和趋势，**不给参考范围** —— 不同体脂秤的算法差异很大，
+     给一个「正常 15–20%」只会误导。0 / 缺省 = 没填。 */
+  function weightFatPanel(list) {
+    const pts = (list || []).filter(w => Number(w.fat) > 0);
+    if (!pts.length) {
+      return '<section class="panel weight-fat">' +
+        '<div class="panel-head"><h3>体脂率</h3></div>' +
+        '<div class="ww-empty">还没有体脂数据。<br>记录体重时顺手填一下，这里就会出现趋势。</div>' +
+        '<p class="hint">只记录趋势，不给参考范围。</p>' +
+      '</section>';
+    }
+    const last = pts[pts.length - 1];
+    const prev = pts.length > 1 ? pts[pts.length - 2] : null;
+    const first = pts[0];
+    const delta = (a, b) => {
+      if (b === null) return '首次记录';
+      const v = Math.round((Number(a) - Number(b)) * 10) / 10;
+      if (v === 0) return '持平';
+      return (v > 0 ? '↑ ' : '↓ ') + Math.abs(v).toFixed(1) + '%';
+    };
+    let lo = Number(first.fat), hi = Number(first.fat);
+    pts.forEach(p => {
+      const v = Number(p.fat);
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    });
+    return '<section class="panel weight-fat">' +
+      '<div class="panel-head"><h3>体脂率</h3><span class="muted-sm">' + pts.length + ' 次有记录</span></div>' +
+      '<div class="wfat-main"><b>' + esc(last.fat) + '<i>%</i></b>' +
+        '<span>较上次 ' + delta(last.fat, prev ? prev.fat : null) + '</span></div>' +
+      weightFatSpark(pts) +
+      '<div class="wfat-grid">' +
+        '<div><small>区间变化</small><b>' + (pts.length > 1 ? delta(last.fat, first.fat) : '—') + '</b></div>' +
+        '<div><small>最低 / 最高</small><b>' + lo + ' / ' + hi + '%</b></div>' +
+      '</div>' +
+      '<p class="hint">只记录趋势，不给参考范围——不同体脂秤的算法差别很大。</p>' +
+    '</section>';
+  }
+
+  function weightFatSpark(pts) {
+    const W = 240, H = 58, P = 5;
+    const vs = pts.map(p => Number(p.fat));
+    let lo = Math.min.apply(null, vs), hi = Math.max.apply(null, vs);
+    if (hi - lo < 0.8) { lo -= 0.4; hi += 0.4; }
+    const n = vs.length;
+    const xx = i => n === 1 ? W / 2 : P + i / (n - 1) * (W - 2 * P);
+    const yy = v => P + (1 - (v - lo) / (hi - lo)) * (H - 2 * P);
+    const line = vs.map((v, i) => (i ? 'L' : 'M') + xx(i).toFixed(1) + ' ' + yy(v).toFixed(1)).join(' ');
+    const area = line + ' L' + xx(n - 1).toFixed(1) + ' ' + (H - P) +
+      ' L' + xx(0).toFixed(1) + ' ' + (H - P) + ' Z';
+    return '<svg class="wfat-spark" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="体脂率趋势">' +
+      '<path class="wfat-area" d="' + area + '"/>' +
+      '<path class="wfat-line" d="' + line + '"/>' +
+      pts.map((p, i) => '<circle class="wfat-dot" cx="' + xx(i).toFixed(1) + '" cy="' +
+        yy(Number(p.fat)).toFixed(1) + '" r="2.2"><title>' + p.date + ' · ' + Number(p.fat) +
+        '%</title></circle>').join('') +
+    '</svg>';
   }
 
   function weightStatsPanel(days) {
@@ -14030,7 +14112,8 @@ body.modal-open{overflow:hidden}
         '<span class="weight-day">' + esc(w.date.slice(5).replace('-', '/')) + '</span>' +
         '<b class="weight-value">' + esc(w.weight) + ' <i>kg</i></b>' +
         '<span class="bmi-pill ' + wi.tone + '">BMI ' + esc(w.bmi) + ' · ' + esc(wi.label) + '</span>' +
-        '<small>' + esc(w.age) + ' 岁 · ' + esc(w.height) + ' cm</small>' +
+        '<small>' + esc(w.age) + ' 岁 · ' + esc(w.height) + ' cm' +
+          (Number(w.fat) > 0 ? ' · 体脂 ' + esc(w.fat) + '%' : '') + '</small>' +
         '<span class="weight-row-actions">' +
           '<button type="button" class="mini-btn" data-act="weight-edit" data-id="' + w.id + '">编辑</button>' +
           '<button type="button" class="mini-btn ghost" data-act="weight-del" data-id="' + w.id + '">删除</button>' +
@@ -14071,10 +14154,13 @@ body.modal-open{overflow:hidden}
           weightLineChart(chartList, profile) +
           '<p class="cal-hint">' + weightBandText(profile) + '</p>' +
         '</section>' +
-        '<section class="panel">' +
-          '<div class="panel-head"><h3>统计</h3><span class="muted-sm">' + (weightRange ? '近 ' + weightRange + ' 天' : '全部记录') + '</span></div>' +
-          weightSummaryHtml(chartList) +
-        '</section>' +
+        '<div class="weight-side">' +
+          '<section class="panel">' +
+            '<div class="panel-head"><h3>统计</h3><span class="muted-sm">' + (weightRange ? '近 ' + weightRange + ' 天' : '全部记录') + '</span></div>' +
+            weightSummaryHtml(chartList) +
+          '</section>' +
+          weightFatPanel(chartList) +
+        '</div>' +
       '</div>' +
       (latest ? '<div class="panel"><h3>记录明细</h3><div class="weight-list">' + rows + '</div></div>' : '');
   }
@@ -16001,9 +16087,10 @@ body.modal-open{overflow:hidden}
         '<div class="form-grid">' +
           '<label class="field"><span>日期</span><input type="date" name="date" required max="' + todayStr() + '" value="' + esc(base.date || todayStr()) + '"></label>' +
           '<label class="field"><span>体重（kg）</span><input type="number" name="weight" required min="1" max="500" step="0.1" value="' + esc(base.weight || '') + '" placeholder="例如：68.5"></label>' +
+          '<label class="field wide"><span>体脂率（%，可选）</span><input type="number" name="fat" min="1" max="70" step="0.1" value="' + (Number(base.fat) > 0 ? esc(base.fat) : '') + '" placeholder="有体脂秤就填，没有留空"></label>' +
         '</div>' +
         '<div class="bmi-preview ' + info.tone + '" id="weight-bmi-preview">' + (bmi ? esc(bmi) + ' · ' + esc(info.label) : '—') + '</div>' +
-        '<p class="weight-tip">建议早上如厕后空腹称重，数据更准确</p>' +
+        '<p class="weight-tip">建议早上如厕后空腹称重，数据更准确；体脂率没有就不填，不影响 BMI。</p>' +
         '<p class="hint" id="weight-bmi-note">' + (nowProfile.age < 18 ? '未成年人 BMI 仅参考；成人参考范围 18.5–23.9。' : '成人 BMI 参考：18.5–23.9 正常；未成年人仅参考。') + '</p>' +
         '<div class="form-error"></div>' +
         '<div class="modal-actions">' +
@@ -16047,11 +16134,14 @@ body.modal-open{overflow:hidden}
     const error = form.querySelector('.form-error');
     const date = get('date');
     const weight = Number(get('weight'));
+    const fatRaw = get('fat');
+    const fat = Number(fatRaw);
     const profile = normalizeBodyProfile(state.bodyProfile);
     const fail = msg => { if (error) error.textContent = msg; };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayStr()) return fail('请选择今天或之前的日期。');
     if (!profile.age || !profile.height) return fail('请先补充身体档案（年龄和身高）。');
     if (!isFinite(weight) || weight < 1 || weight > 500) return fail('体重请填 1–500 kg。');
+    if (fatRaw !== '' && (!isFinite(fat) || fat < 1 || fat > 70)) return fail('体脂率请填 1–70%，没有就留空。');
     const bmi = calcBmi(weight, profile.height);
     const id = form.dataset.id || '';
     const list = Array.isArray(state.weights) ? state.weights : (state.weights = []);
@@ -16070,6 +16160,8 @@ body.modal-open{overflow:hidden}
     rec.height = profile.height;
     rec.weight = Math.round(weight * 10) / 10;
     rec.bmi = bmi;
+    /* 留空 = 0，表示这次没有量体脂；不要写 null，normalize 里也要能兜住 */
+    rec.fat = (fatRaw !== '' && isFinite(fat) && fat >= 1 && fat <= 70) ? Math.round(fat * 10) / 10 : 0;
     save();
     closeModal();
     render();

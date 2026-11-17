@@ -169,7 +169,7 @@ with sync_playwright() as p:
     ctx, pg, errs = open_page(br)
     c = pg.evaluate(CHART)
     rec('[空态] 无 SVG，显示引导', not c['hasSvg'] and '还没有体重记录' in c['empty'], c['empty'][:20])
-    rec('[空态] 图表区与统计区都有占位', c['emptyCount'] == 2, '%d 个 ww-empty' % c['emptyCount'])
+    rec('[空态] 图表 / 统计 / 体脂三块都有占位', c['emptyCount'] == 3, '%d 个 ww-empty' % c['emptyCount'])
     pg.screenshot(path='design/shots/weight-chart-empty.png')
     ctx.close()
 

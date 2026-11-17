@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v113（2026-11-17）
+最后更新：v114（2026-11-17）
 
 ---
 
@@ -718,7 +718,11 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 戒烟月历可翻月：action `quit-month-shift` / `quit-month-today`，锚点是模块级 `quitCalMonth`
 （纯视图状态，不进 state）。翻月只改月历标题和格子，不影响下方汇总和买烟记录。
 「上一包对比」只在戒烟页宽卡显示（`quitCard` 第三个参数 `compare=true` 才渲染），今日页窄卡不塞。
-`weightLineChart(list,profile)` `weightSummaryHtml(list)`
+`weightLineChart(list,profile)` `weightSummaryHtml(list)` `weightFatPanel(list)` `weightFatSpark(pts)`
+体重页右栏（v114）`.weight-side` 里是「统计」+「体脂率」两张卡：grid 默认 stretch，
+体脂卡 `flex:1` 吃掉剩余高度、`.hint` 用 `margin-top:auto` 沉底，右栏下方才不会留一块空白。
+折线图 viewBox 是 **600×340**（v114 从 200 加高）——改高度会让 `verify-batch3` 里
+「目标线在绘图区内」那类断言失效，所以测试改成从 viewBox 推上下边界，别再写死 174。
 `waterWeekHtml(h)` `waterDistHtml(h,d)` `moveRingHtml(h,d)` `breathWavePath(cycles)`
 `ring(ratio,size,stroke,color,track)` `icon(name)` `esc(s)`
 
