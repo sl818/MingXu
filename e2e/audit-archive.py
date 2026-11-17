@@ -8,7 +8,9 @@ USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admi
 sessions = {}
 D = '2026-10-24'
 PORT = 38565
-SKINS = ['paper', 'slate', 'mono', 'clay', 'mist', 'forest', 'neu', 'cyber', 'retro']
+# v99 删了 mist / cloud-haze，v87 删了 mono / clay / forest / cyber；
+# 这里必须跟着 SKINS 走，否则跑的是不存在的键（皮肤回落 paper，等于只测了 paper）
+SKINS = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
 
 MOVE_DAYS = []
 HABITS = [

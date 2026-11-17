@@ -1316,27 +1316,64 @@ body{
 .bup-i.is-over .bmd{color:color-mix(in srgb,var(--bad) 86%,var(--text))}
 
 /* 归档投放槽：平时低对比度，拖卡片时才浮现 */
+/* v108：归档槽改成看板下方整条通栏（76px 高，约半张卡片）。
+   原来贴在右栏底部，只有 300px 宽，拖拽时是个很小的靶子。 */
 .arch-zone{
-  display:block;width:100%;text-align:center;cursor:default;
-  border:1.5px dashed var(--line-strong);border-radius:14px;
-  background:transparent;padding:13px 12px;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;min-height:76px;margin-top:14px;box-sizing:border-box;
+  padding:14px 18px;cursor:pointer;
+  border:1.5px dashed color-mix(in srgb,var(--line-strong) 62%,var(--muted));border-radius:14px;
+  /* 底色不能带透明度：72% 透明时整条几乎和页面同色，只剩一圈虚线圈，
+     看不出这是一条可以往里丢东西的带子。
+     --surface-2 在 paper 下和页面底色几乎同亮度，所以掺 7% 正文色再压一档；
+     深色下正文是浅色，混出来自动变亮，方向同样对。 */
+  background:color-mix(in srgb,var(--text) 7%,var(--bg));
   color:color-mix(in srgb,var(--muted) 74%,var(--text));font-size:10.5px;line-height:1.55;
-  transition:border-color .18s ease,background .18s ease,color .18s ease,transform .18s ease;
+  transition:border-color .18s ease,background .18s ease,color .18s ease;
 }
-.arch-zone .az-ico{display:block;font-size:15px;line-height:1;margin-bottom:5px;color:inherit}
-.arch-zone b{display:block;font-size:11.5px;font-weight:600;color:color-mix(in srgb,var(--muted) 60%,var(--text));margin-bottom:2px}
+.arch-zone .az-ico{font-size:18px;line-height:1;color:inherit;flex:none}
+.arch-zone .az-txt{text-align:left}
+.arch-zone b{display:block;font-size:13px;font-weight:600;
+  color:color-mix(in srgb,var(--muted) 58%,var(--text));margin-bottom:3px}
+.arch-zone small{display:block;font-size:11px;color:color-mix(in srgb,var(--muted) 82%,var(--text))}
+/* 「松手归档」平时不占位：两条文案叠着写会让整条在拖拽时跳一下 */
+.arch-zone .az-hot{display:none}
+.arch-zone:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line-strong))}
 body.is-dragging .arch-zone{
   border-color:color-mix(in srgb,var(--accent) 52%,var(--line-strong));
-  background:color-mix(in srgb,var(--accent-soft) 65%,transparent);
+  background:color-mix(in srgb,var(--accent-soft) 80%,var(--surface));
 }
-body.is-dragging .arch-zone b{color:var(--accent-strong)}
-body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
+body.is-dragging .arch-zone b,body.is-dragging .arch-zone .az-ico{color:var(--accent-strong)}
 .arch-zone.is-over{
-  border-style:solid;border-color:var(--accent-strong);
-  background:var(--accent-soft);transform:scale(1.015);
+  border-style:solid;border-width:2px;border-color:var(--accent-strong);
+  background:var(--accent-soft);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent);
 }
-.arch-zone.is-over b,.arch-zone.is-over .az-ico{color:var(--accent-strong)}
+.arch-zone.is-over .az-idle{display:none}
+.arch-zone.is-over .az-hot{display:block}
+.arch-zone.is-over b,.arch-zone.is-over .az-ico,
+.arch-zone.is-over small{color:var(--accent-strong)}
 
+@media (max-width:760px){
+  .arch-zone{flex-direction:column;gap:6px;min-height:88px;padding:12px}
+  .arch-zone .az-txt{text-align:center}
+}
+/* 归档任务的只读详情（v108） */
+.task-view{max-width:560px}
+.tv-title{font-size:15.5px;font-weight:650;line-height:1.5;color:var(--text);margin:0 0 12px}
+.tv-note{font-size:12.5px;line-height:1.85;color:var(--text);white-space:pre-wrap;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px;max-height:34vh;overflow:auto;margin-bottom:14px}
+/* 空的备注别用 --muted：11~12px 在 surface-2 上只有 4.2:1 */
+.tv-note.empty{color:color-mix(in srgb,var(--muted) 78%,var(--text))}
+.tv-meta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 18px;
+  margin:0;font-size:12px}
+.tv-meta dt{color:color-mix(in srgb,var(--muted) 82%,var(--text));white-space:nowrap}
+.tv-meta dd{margin:0;color:var(--text);line-height:1.6}
+@media (max-width:520px){
+  .tv-meta{grid-template-columns:1fr;gap:2px 0}
+  .tv-meta dt{margin-top:8px;font-size:11px}
+}
 /* 归档列表弹层 */
 .arch-modal{max-width:520px}
 .arch-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;margin:2px 0 4px}
@@ -9565,7 +9602,7 @@ body.modal-open{overflow:hidden}
     '</div>';
     return '' +
       '<div class="page-head">' +
-        '<div><h2>待办</h2><p>拖动卡片切换状态，拖到右侧「归档」即收进历史；双击卡片展开详情；右键可在列内新建或在卡片上编辑。</p></div>' +
+        '<div><h2>待办</h2><p>拖动卡片切换状态，拖到看板下方的「归档」区即收进历史；双击卡片展开详情；右键可在列内新建或在卡片上编辑。</p></div>' +
         '<div class="head-actions">' +
           (doneCount ? '<button class="btn ghost" data-act="clear-done">清理已完成</button>' : '') +
           '<button class="btn ghost" data-act="archive-open">归档' + (archCount ? ' ' + archCount : '') + '</button>' +
@@ -9581,13 +9618,17 @@ body.modal-open{overflow:hidden}
             : '') +
           board +
         '</div>' +
-        '<aside class="board-rail">' + boardMiniCalHtml() + boardUpcomingHtml() +
-          '<div class="arch-zone" data-arch="1">' +
-            '<span class="az-ico">↓</span>' +
-            '<b>拖到这里归档</b>' +
-            '收进历史，随时可以找回' +
-          '</div>' +
-        '</aside>' +
+        '<aside class="board-rail">' + boardMiniCalHtml() + boardUpcomingHtml() + '</aside>' +
+      '</div>' +
+      /* v108：归档槽从右栏挪到看板下方，撑满整条通栏。
+         右栏那个小方块只有 300px 宽、还得瞄准，拖拽时容易甩进下方的倒数日里。 */
+      '<div class="arch-zone" data-arch="1" role="button" tabindex="0" aria-label="拖到这里归档，点击查看已归档">' +
+        '<span class="az-ico">↓</span>' +
+        '<span class="az-txt">' +
+          '<b class="az-idle">拖到这里归档</b>' +
+          '<b class="az-hot">松手归档</b>' +
+          '<small>收进历史，随时可以找回 · 点这里查看已归档</small>' +
+        '</span>' +
       '</div>' +
       /* 看板下面跨全宽：不做成右上角的小卡，那里已经有「清理已完成 / 归档 / 新建」三颗按钮了 */
       taskStatsPanel();
@@ -14892,7 +14933,11 @@ body.modal-open{overflow:hidden}
 
   function cnDate(ds) {
     if (!ds) return '';
-    const d = parseD(ds);
+    /* parseD 只认 'YYYY-MM-DD'，把 ISO 串（createdAt / archivedAt 都是 ISO）
+       塞进去会得到 NaN月NaN日。非纯日期的一律交给 Date 解析，按本地时区算。 */
+    const raw = String(ds);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? parseD(raw) : new Date(raw);
+    if (isNaN(d.getTime())) return '';
     return (d.getMonth() + 1) + '月' + d.getDate() + '日';
   }
 
@@ -14929,6 +14974,8 @@ body.modal-open{overflow:hidden}
         '<div class="ar-main"><b title="' + esc(t.title) + '">' + esc(t.title) + '</b>' +
           '<small>' + esc(bits.join(' · ')) + '</small></div>' +
         '<div class="ar-btns">' +
+          /* 归档行里其它字段都挤在那一行小字里，只有备注看不到——「查看」补的就是这个 */
+          '<button type="button" class="ar-btn" data-act="task-arch-view" data-id="' + t.id + '">查看</button>' +
           '<button type="button" class="ar-btn" data-act="task-unarchive" data-id="' + t.id + '">恢复</button>' +
           '<button type="button" class="ar-btn del" data-act="task-archive-del" data-id="' + t.id + '">删除</button>' +
         '</div>' +
@@ -14940,11 +14987,49 @@ body.modal-open{overflow:hidden}
         '<p class="hint" style="margin:0 0 10px">归档只是把卡片从看板收进历史，任务本身和记录都还在，可以随时恢复。</p>' +
         (rows
           ? '<div class="arch-list">' + rows + '</div>'
-          : '<div class="empty-box">还没有归档的任务。把看板上的卡片拖到右栏的「拖到这里归档」，就会收进来。</div>') +
+          : '<div class="empty-box">还没有归档的任务。把看板上的卡片拖到看板下方的「拖到这里归档」，就会收进来。</div>') +
         '<div class="modal-actions">' +
           (list.length ? '<button type="button" class="btn ghost" data-act="archive-clear">清空归档</button>' : '') +
           '<span class="spacer"></span>' +
           '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
+        '</div>' +
+      '</div>');
+  }
+
+  /* 归档任务的只读详情（v108）。归档行里已经有完成时间/优先级/标签/截止，
+     唯独备注全文没地方放——这里补上，其余字段也一并列清楚，免得还要去恢复才能看。 */
+  function taskArchViewModal(id) {
+    const t = (state.tasks || []).find(function (x) { return x && x.id === id; });
+    if (!t) return;
+    const note = String(t.note || '').trim();
+    const rows = [];
+    const push = function (k, v) { if (v) rows.push([k, v]); };
+    push('优先级', t.priority || '中');
+    push('标签', t.tag || '');
+    push('截止日期', t.due ? cnDate(t.due) : '');
+    push('完成时间', t.doneAt ? cnDate(t.doneAt) : '');
+    push('创建时间', t.createdAt ? cnDate(t.createdAt) : '');
+    push('归档时间', t.archivedAt ? cnDate(t.archivedAt) : '');
+    if (t.repeat && t.repeat !== 'none') {
+      const cn = { daily: '每天', weekly: '每周', monthly: '每月' }[t.repeat] || '';
+      push('重复', cn + (t.repeatTime ? ' · ' + t.repeatTime : ''));
+    }
+    if (t.startTime) push('时间块', t.startTime + (t.duration ? ' · ' + t.duration + ' 分钟' : ''));
+    push('提醒', t.notify === false ? '已关闭' : (t.notifyTime || '09:00'));
+    openModal('' +
+      '<div class="modal-card task-view">' +
+        '<h3>任务详情 <span class="muted-sm">已归档</span></h3>' +
+        '<div class="tv-title">' + esc(t.title || '(未命名任务)') + '</div>' +
+        '<div class="tv-note' + (note ? '' : ' empty') + '">' +
+          (note ? esc(note) : '没有备注') +
+        '</div>' +
+        (rows.length
+          ? '<dl class="tv-meta">' + rows.map(function (r) {
+              return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]) + '</dd>';
+            }).join('') + '</dl>'
+          : '') +
+        '<div class="modal-actions"><span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">关闭</button>' +
         '</div>' +
       '</div>');
   }
@@ -17262,6 +17347,7 @@ body.modal-open{overflow:hidden}
     },
     'archive-open': () => archiveModal(),
     'task-archive': el => archiveTask(el.dataset.id),
+    'task-arch-view': el => taskArchViewModal(el.dataset.id),
     'task-unarchive': el => unarchiveTask(el.dataset.id),
     'task-archive-del': el => {
       const t = state.tasks.find(x => x.id === el.dataset.id);

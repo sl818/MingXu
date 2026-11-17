@@ -127,8 +127,11 @@ STATE = """() => {
     archBtn: (q('[data-act="archive-open"]') || {}).textContent || '',
     zoneShown: zone ? zone.getBoundingClientRect().height > 0 : false,
     zoneText: zone ? zone.textContent.replace(/\\s+/g, ' ').trim() : '',
-    zoneIsRailLast: !!zone && !!zone.parentElement && zone.parentElement.classList.contains('board-rail'),
-    zoneIdx: zone && zone.parentElement ? [...zone.parentElement.children].indexOf(zone) : -1,
+    zoneInRail: !!zone && !!zone.closest('.board-rail'),
+    zoneW: zone ? Math.round(zone.getBoundingClientRect().width) : 0,
+    zoneH: zone ? Math.round(zone.getBoundingClientRect().height) : 0,
+    shellW: (q('.board-shell') || {getBoundingClientRect: () => ({width: 0})}).getBoundingClientRect().width,
+    hotText: (q('.arch-zone .az-hot') || {}).textContent || '',
     counts: qa('.col').map(c => c.querySelector('.col-count').textContent),
     titles: qa('.col-body .task').map(e => e.querySelector('h4').textContent.trim()),
     doneCol: qa('.col-body[data-status="done"] .task').length,
@@ -151,6 +154,9 @@ MODAL = """() => {
     metas: qa('.arch-row .ar-main small').map(e => e.textContent.trim()),
     hasRestore: qa('.arch-row [data-act="task-unarchive"]').length === qa('.arch-row').length,
     hasDel: qa('.arch-row [data-act="task-archive-del"]').length === qa('.arch-row').length,
+    hasView: qa('.arch-row [data-act="task-arch-view"]').length === qa('.arch-row').length,
+    /* 顺序必须是 查看 → 恢复 → 删除（查看在恢复左边） */
+    btnOrder: qa('.arch-row .ar-btns').map(g => [...g.children].map(b => b.textContent.trim())),
     clearBtn: !!q('[data-act="archive-clear"]')
   };
 }"""
@@ -186,8 +192,11 @@ with sync_playwright() as p:
 
     s0 = pg.evaluate(STATE)
     rec('页头有「归档 1」按钮（含已归档的 1 条）', s0['archBtn'].strip() == '归档 1', s0['archBtn'])
-    rec('归档槽渲染在右栏', s0['zoneShown'] and s0['zoneIsRailLast'], 'idx=%d' % s0['zoneIdx'])
-    rec('归档槽排在迷你月历 + 接下来 7 天之后', s0['zoneIdx'] == 2, 'idx=%d' % s0['zoneIdx'])
+    rec('归档槽不在右栏里了', s0['zoneShown'] and not s0['zoneInRail'], 'inRail=%s' % s0['zoneInRail'])
+    rec('归档槽撑满看板宽度（通栏）', s0['zoneW'] >= s0['shellW'] - 2,
+        'zone=%d shell=%d' % (s0['zoneW'], s0['shellW']))
+    rec('归档槽高度在 72–88px', 72 <= s0['zoneH'] <= 88, 'h=%d' % s0['zoneH'])
+    rec('拖进来时文案切成「松手归档」', s0['hotText'].strip() == '松手归档', s0['hotText'])
     rec('归档槽文案', '拖到这里归档' in s0['zoneText'] and '随时可以找回' in s0['zoneText'], s0['zoneText'])
     rec('已归档任务不显示在看板', '早先归档的' not in s0['titles'], str(s0['titles']))
     rec('已归档任务不进右栏接下来 7 天', '早先归档的' not in ' '.join(s0['railItems']), str(s0['railItems'][:3]))
@@ -220,6 +229,39 @@ with sync_playwright() as p:
     rec('每条都能永久删除', m0['hasDel'], '')
     rec('有清空归档按钮', m0['clearBtn'], '')
     rec('元信息含完成日期与优先级', '完成于 10月22日' in m0['metas'][0] and '优先级 中' in m0['metas'][0], str(m0['metas']))
+    rec('每行都有「查看」', m0['hasView'], '')
+    rec('按钮顺序是 查看 / 恢复 / 删除',
+        m0['btnOrder'] and m0['btnOrder'][0] == ['查看', '恢复', '删除'], str(m0['btnOrder'][:1]))
+
+    # 查看弹窗（只读）
+    pg.click('.arch-row [data-act="task-arch-view"]')
+    pg.wait_for_timeout(500)
+    tv = pg.evaluate("""() => {
+      const m = document.querySelector('.task-view');
+      if (!m) return {open: false};
+      return {
+        open: true,
+        head: m.querySelector('h3').textContent.replace(/\\s+/g, ' ').trim(),
+        title: (m.querySelector('.tv-title') || {}).textContent || '',
+        note: (m.querySelector('.tv-note') || {}).textContent || '',
+        noteEmpty: !!(m.querySelector('.tv-note') || {}).classList?.contains('empty'),
+        meta: m.querySelector('.tv-meta') ? m.querySelector('.tv-meta').innerText.replace(/\\s+/g, ' ').trim() : '',
+        hasInput: !!m.querySelector('input,textarea'),
+        btns: [...m.querySelectorAll('button')].map(b => b.textContent.trim())
+      };
+    }""")
+    rec('点「查看」打开只读弹窗', tv.get('open'), str(tv)[:80])
+    rec('弹窗显示标题', '要归档的第一条' in tv.get('title', ''), tv.get('title', ''))
+    rec('弹窗显示备注全文', tv.get('note', '').strip() == '备注内容', tv.get('note', ''))
+    rec('只读：没有任何输入框', not tv.get('hasInput'), '')
+    rec('只读：只有「关闭」', tv.get('btns') == ['关闭'], str(tv.get('btns')))
+    rec('字段里有优先级与完成时间',
+        '优先级' in tv.get('meta', '') and '完成时间' in tv.get('meta', ''), tv.get('meta', '')[:90])
+    # 查看弹窗和归档弹窗共用同一个 modal 容器，关掉之后要重新打开归档
+    pg.click('.task-view [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
+    pg.click('[data-act="archive-open"]')
+    pg.wait_for_timeout(500)
 
     # 恢复
     pg.click('.arch-row [data-act="task-unarchive"]')
@@ -280,7 +322,8 @@ with sync_playwright() as p:
     login(pg2)
     goto(pg2, 'board')
     ms = pg2.evaluate(STATE)
-    rec('[手机 390] 右栏（含归档槽）隐藏', not ms['zoneShown'], 'h=%s' % ms['zoneShown'])
+    rec('[手机 390] 归档槽仍然显示（不再藏在右栏里）', ms['zoneShown'], 'h=%s' % ms['zoneShown'])
+    rec('[手机 390] 归档槽改纵向排列（更高）', ms['zoneH'] >= 80, 'h=%s' % ms['zoneH'])
     rec('[手机 390] 页头仍有归档入口', '归档' in ms['archBtn'], ms['archBtn'])
     rec('[手机 390] 无横向溢出', ms['ovf'] <= 0, '%dpx' % ms['ovf'])
 
@@ -299,7 +342,7 @@ with sync_playwright() as p:
     login(pg4, layout='side')
     goto(pg4, 'board')
     s4 = pg4.evaluate(STATE)
-    rec('[侧栏布局 1440] 右栏隐藏，看板满宽', not s4['zoneShown'], '')
+    rec('[侧栏布局 1440] 归档槽仍在且不靠右栏', s4['zoneShown'] and not s4['zoneInRail'], '')
     rec('[侧栏布局] 页头仍有归档入口', '归档' in s4['archBtn'], s4['archBtn'])
 
     rec('无 JS 异常', not errs, '; '.join(errs[:3]))
