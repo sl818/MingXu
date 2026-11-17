@@ -13010,12 +13010,13 @@ body.modal-open{overflow:hidden}
         : (cur === 'log' ? moneyLogView()
           : (cur === 'budget' ? moneyBudgetView()
             : (cur === 'tools' ? moneyToolsView() : moneyOverviewView()))));
-    /* 需求五 c：预算页把三个板块里的动作全部收到右上角，于是那一页是四个按钮；
-       其他子页保持「介绍 + 记一笔债」—— 债务页要留住加债的入口。 */
-    const acts = cur === 'budget'
+    /* 需求五 c（v113 调整）：预算 / 计划 / 记录 / 工具四个子页常驻同一组四个按钮，
+       三个动作统一 primary 色，只有「清债介绍」保持次级样式；
+       总览和债务两页仍是「介绍 + 记一笔债」—— 那两页要留住加债的入口。 */
+    const acts = ['budget', 'plan', 'log', 'tools'].indexOf(cur) >= 0
       ? '<button class="btn" data-act="money-intro">清债介绍</button>' +
-        '<button class="btn" data-act="money-income-new">添加收入</button>' +
-        '<button class="btn" data-act="money-cat-new">添加分类预算</button>' +
+        '<button class="btn primary" data-act="money-income-new">添加收入</button>' +
+        '<button class="btn primary" data-act="money-cat-new">添加分类预算</button>' +
         '<button class="btn primary" data-act="money-spend-new">记一笔开销</button>'
       : '<button class="btn" data-act="money-intro">清债介绍</button>' +
         '<button class="btn primary" data-act="money-debt-new">记一笔债</button>';

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""清债 v112：预算页右上角四个按钮 / 板块内按钮收走 / 分类预算对话框的举例。
+"""清债 v113：清债页头按钮（四页常驻四按钮 + 三动作同色） / 板块内按钮收走 / 分类预算对话框的举例。
 
 需求原文：「把这三个按钮全部转到右上角……在子页面中删除记一笔债按钮，
 右上角保持四个按钮，分别是清债介绍、添加收入、添加分类预算、记一笔开销」。
@@ -79,6 +79,12 @@ with sync_playwright() as p:
     acts = pg.evaluate("""() => [...document.querySelectorAll('.head-actions .btn')].map(b => b.dataset.act)""")
     chk('四个按钮的 action 对得上',
         acts == ['money-intro', 'money-income-new', 'money-cat-new', 'money-spend-new'], str(acts))
+    look = pg.evaluate("""() => [...document.querySelectorAll('.head-actions .btn')].map(function (b) {
+        const s = getComputedStyle(b);
+        return s.backgroundColor + '|' + s.color + '|' + s.borderColor;
+    })""")
+    chk('三个动作与「记一笔开销」同色', len(set(look[1:])) == 1, str(look))
+    chk('「清债介绍」仍是次级样式', look[0] != look[1], str(look))
 
     print('\n[2] 三个板块里不再有常驻按钮')
     inner = pg.evaluate("""() => {
@@ -115,13 +121,25 @@ with sync_playwright() as p:
     pg.click('#money-cat-form button[data-act="close-modal"]')
     pg.wait_for_timeout(300)
 
-    print('\n[4] 其他子页保持「介绍 + 记一笔债」')
-    for key, label in (('debts', '债务'), ('overview', '总览'), ('plan', '计划'), ('log', '记录'), ('tools', '工具')):
+    print('\n[4] 总览 / 债务保持「介绍 + 记一笔债」')
+    for key, label in (('debts', '债务'), ('overview', '总览')):
         tab(pg, key)
         b = head_btns(pg)
         chk('%s页两个按钮' % label, b == ['清债介绍', '记一笔债'], str(b))
 
-    print('\n[5] 手机 390：四个按钮都在且不被截断')
+    print('\n[5] 计划 / 记录 / 工具也常驻四个按钮（v113）')
+    four = ['清债介绍', '添加收入', '添加分类预算', '记一笔开销']
+    for key, label in (('plan', '计划'), ('log', '记录'), ('tools', '工具')):
+        tab(pg, key)
+        b = head_btns(pg)
+        chk('%s页四个按钮' % label, b == four, str(b))
+        look2 = pg.evaluate("""() => [...document.querySelectorAll('.head-actions .btn')].map(function (b) {
+            const s = getComputedStyle(b);
+            return s.backgroundColor + '|' + s.color;
+        })""")
+        chk('%s页三个动作同色' % label, len(set(look2[1:])) == 1, str(look2))
+
+    print('\n[6] 手机 390：四个按钮都在且不被截断')
     tab(pg, 'budget')
     pg.set_viewport_size({'width': 390, 'height': 900})
     pg.wait_for_timeout(600)
@@ -141,9 +159,9 @@ with sync_playwright() as p:
     chk('没有被裁掉', vis['clipped'] == 0, str(vis))
     chk('最多两行', vis['lines'] <= 2, str(vis))
 
-    print('\n[6] 没有 JS 异常')
+    print('\n[7] 没有 JS 异常')
     chk('无 pageerror', not errs, ' | '.join(errs[:3]))
 
-    print('\n===== 清债 v112：%d 通过 / %d 失败 =====' % (PASS, FAIL))
+    print('\n===== 清债 v113：%d 通过 / %d 失败 =====' % (PASS, FAIL))
     br.close()
     sys.exit(1 if FAIL else 0)

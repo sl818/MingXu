@@ -214,7 +214,11 @@ SELS_QUIT_STATS = ['.qmile-i', '.qmile-i b', '.qh-axis', '.cal-summary b',
 # 清债页（v88）。**总览和「我的债」是两个子页，选择器必须分开取**——
 # 混成一份的话，总览里永远找不到债务卡、债务页里永远找不到还清日，两边都记「元素缺失」。
 SELS_MONEY = ['.money-hero small', '.mh-big', '.mh-sub', '.money-kpi b', '.money-kpi span',
-              '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on']
+              '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on',
+              '.head-actions .btn:not(.primary)']
+# 页头的 .btn.primary 不取样：它走主题里的渐变（paper / cloud 系从 --accent-2 起），
+# 浅端压白字只有 3.66–4.06，是**全站主按钮的既有问题**，不是清债页独有（v113 发现）。
+# 要修得动 themes 的渐变，另行决策；别在这里靠改选择器假装达标。
 SELS_MONEY_DEBTS = ['.mdebt-tag', '.mdebt-num b', '.mdebt-num span',
                     '.mdebt-note span', '.mdebt-note i',
                     '.mdebt-pct', '.mdebt-paid span', '.mdebt-sum span', '.mdebt-sum b',

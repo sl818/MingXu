@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v112（2026-11-17）
+最后更新：v113（2026-11-17）
 
 ---
 
@@ -668,7 +668,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `moneyToolsView()` `moneyAprOf(cash,pay,n)` `moneyRateWords(apr)` `moneyRiskRows()`
 `moneyFmt(n)`（金额显示：整数不补零、有角分补两位；**全页金额都走它，别再写 toFixed(0)**）
 `moneyLogView()` `moneySnowModal()` `saveMoneySnow(form)` `moneyLogModal()` `saveMoneyLog(form)`
-清债页头按钮**按子页切换**（v112）：预算页四个（清债介绍 / 添加收入 / 添加分类预算 / 记一笔开销），其余子页两个（清债介绍 / 记一笔债）。预算页的三个动作**不要**再往板块里塞按钮——
+清债页头按钮**按子页切换**（v113 定稿）：预算 / 计划 / 记录 / 工具四页常驻同一组四个（清债介绍＝次级；添加收入 / 添加分类预算 / 记一笔开销＝三个 `primary`，同色），总览与债务两页是（清债介绍 / 记一笔债）——那两页要留住加债入口，对应 `nav` key 是 `budget` / `plan` / `log` / `tools`。预算页的三个动作**不要**再往板块里塞按钮——
 需求要的就是「全部收到右上角」，空态只留文案指向右上角，否则 `data-act` 重复匹配。
 分类预算对话框的举例是 `.mcat-tip`（两段：固定 / 日常），底 `--surface-2`、字 `--text`。
 
