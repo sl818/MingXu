@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v105（2026-11-17）
+最后更新：v106（2026-11-17）
 
 ---
 
@@ -746,13 +746,22 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 
 ---
 
-## 7.5 未登录页（v104 深色重构）
+## 7.5 未登录页（v106 浅色暖调）
 
 未登录时 `render()` 走 `mode === 'landing'` 分支：清空侧栏与移动 tabbar，把 `landingHtml()` 塞进 `#main`。
-整页是一个**独立的深色页面**，和登录后的主题系统完全隔离。
+整页是**独立的一页**，配色**跟随当前主题**（默认 paper = 米色暖调），不另立一套固定色板。
 
-- **色板作用域**：所有颜色写成 `.landing` 内的局部 CSS 变量（`--lp-text` / `--lp-muted` / `--lp-faint` /
-  `--lp-accent` / `--lp-line` …），**不碰全局 `--bg` / `--surface`**。登录后仍是用户自己选的皮肤。
+- **色板**：`--lp-*` 这一层只是别名，值全部取自主题令牌 ——
+  `--bg` / `--surface` / `--surface-2` / `--text` / `--muted` / `--line` / `--accent` / `--gold-soft`。
+  所以换皮肤、切深色都会自动跟着变，**不要写死十六进制**。
+- **底色是混出来的**：`color-mix(in srgb, var(--bg) 65%, var(--gold-soft))`。
+  直接用 `--bg` 会偏冷白偏绿（paper 的 `--bg` 是 `#f2f5f1`），只有右上角一团金色光斑压不住整页；
+  混 35% 暖色之后才是米色。深色模式下 `--gold-soft` 是暖深棕，同样成立。
+- **次要文字不能直接用 `--muted`**：`#727a90` 在浅底上只有 3.9:1，11.5px 小字不达标。
+  用 `color-mix(in srgb, var(--muted) 78%, var(--text))`（5.2:1）与 85%（4.8:1），
+  深色下混入的 `--text` 变浅，方向同样正确。
+- **主按钮前景用 `var(--on-accent)`**：深色皮肤下 `--accent` 是浅绿，写死 `#fff` 只有 1.9:1。
+- **截图做 5% 暖化**（`filter:sepia(.05) saturate(1.04)`）：应用界面是冷白偏蓝，直接贴在暖底上色温打架。
 - **类名统一 `lp-` 前缀**：`.lp-nav` / `.lp-hero` / `.lp-pages` / `.lp-notify` / `.lp-shot` …
   不要复用站内 `.card` / `.btn` / `.panel`，否则会被主题的 `:root[data-skin]` 规则压掉。
 - **必须盖掉站内布局**：`:root[data-layout="wide"] .sidebar` 也是 (0,3,0) 且加载更晚，
@@ -762,8 +771,10 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 - **截图是真实截图**，放在 `images/landing/`：`today.jpg`（1212×700）、`stats.jpg`（1212×600），
   用演示数据截取（不含任何真实记录）。**不要改成懒加载**：懒加载在长截图/慢网下会先留一块空白。
   截图由 `#main` 的 boundingBox 裁出来，所以只有主内容区、没有侧栏。
+  底部用 `mask-image` 淡出（不是盖一层渐变）——遮罩不需要知道背景色，换皮肤不会露馅。
 - **登录/注册是弹窗**：页面顶部右上角两个 `data-act="cloud-login"` / `cloud-register"` 按钮，
   页面中间不再有登录卡片。
+- **标题走衬线体**（`var(--font-serif)`）：这是暖调观感的一部分，换成无衬线会立刻变成"工具官网"。
 - **`landing-note` 这段隐私说明被 e2e 锁着文案**（`verify-details1.py` 断言首尾字符串），改文案要同步改测试。
 
 ## 8. 主题系统
