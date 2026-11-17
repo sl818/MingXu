@@ -2529,7 +2529,11 @@ body{background:radial-gradient(1100px 500px at 92% -10%,var(--bg-glow) 0%,rgba(
    这里带上 body[data-view="landing"]，把特异性抬到 (0,3,1)。 */
 body[data-view="landing"]{background:#0a0e13}
 body[data-view="landing"] .app.landing .sidebar{display:none}
-body[data-view="landing"] .app.landing .main{max-width:none;width:100%;margin:0;padding:0}
+/* `:root[data-layout="top"] #main{max-width:1680px}` 带 id，比任何类选择器都高；
+   光写 .main 会输给它，宽屏上 #main 被限到 1680 又把 margin 归零 → 内容整体偏左。
+   这里必须带上 #main 才能压住；.app 的 48px 内边距同理要清掉，否则和 .landing 的内边距叠成双份。 */
+body[data-view="landing"] .app.landing{padding:0;display:block}
+body[data-view="landing"] #main.main{max-width:none;width:auto;margin:0;padding:0}
 /* 站内搜索的悬浮按钮和侧栏一样，未登录时不该出现 */
 body[data-view="landing"] .search-fab{display:none}
 .landing{
@@ -2550,7 +2554,10 @@ body[data-view="landing"] .search-fab{display:none}
 .lp-wrap{max-width:1080px;margin:0 auto}
 
 /* ---- 顶栏 ---- */
-.lp-nav{display:flex;align-items:center;gap:22px;height:72px;border-bottom:1px solid var(--lp-line)}
+.lp-nav{position:relative;display:flex;align-items:center;gap:22px;height:72px}
+/* 分隔线通到屏幕两端：内容居中留出大边距时，一条只跨内容宽度的线会显得断掉 */
+.lp-nav::after{content:"";position:absolute;left:50%;transform:translateX(-50%);
+  bottom:0;width:100vw;height:1px;background:var(--lp-line)}
 .lp-brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px}
 .lp-mark{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px;
   background:var(--lp-panel-2);border:1px solid var(--lp-line-2)}
