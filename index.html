@@ -454,13 +454,26 @@ h1,h2,h3,h4,p{margin:0}
 .mdebt-num{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:8px}
 .mdebt-num b{font-size:19px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
 .mdebt-num span{font-size:10.5px;color:var(--muted)}
-.mdebt-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:10px}
+.mdebt-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;flex:1;min-width:0}
 .mdebt-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+/* v111：进度百分比挂在进度条右端（需求里红框的位置），已还/还剩各占一行两端 */
+.mdebt-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.mdebt-pct{flex:none;font-size:11.5px;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums}
+.mdebt-paid{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;
+  font-size:11px;color:var(--text);font-variant-numeric:tabular-nums}
 .mdebt-acts{display:flex;gap:8px}
 .mdebt-note{display:flex;gap:6px;align-items:baseline;margin:-2px 0 7px;
   font-size:11.5px;line-height:1.55;color:var(--text);word-break:break-word}
 .mdebt-note i{flex:none;font-style:normal;font-size:10px;color:var(--text);
   border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:1.5}
+.mdebt-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.mdebt-sum > div{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px}
+.mdebt-sum span{display:block;font-size:10.5px;line-height:1.4;color:var(--text);margin-bottom:5px}
+.mdebt-sum b{display:block;font-size:16px;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums}
+@media (max-width:560px){.mdebt-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .mstrat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .mstart{text-align:left;border:1px solid var(--line);background:var(--surface-2);
   border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--text)}
@@ -12066,7 +12079,10 @@ body.modal-open{overflow:hidden}
     const done = all.filter(function (d) { return Number(d.balance) <= 0.005; });
     const row = function (d, closed) {
       const st = Number(d.start) || Number(d.balance) || 0;
-      const pct = st ? Math.min(100, Math.round((st - (Number(d.balance) || 0)) / st * 100)) : 0;
+      const bal = Math.max(0, Number(d.balance) || 0);
+      const paid = Math.max(0, st - bal);
+      /* 已还清的直接给 100%：余额已归零，再按比例算会被浮点尾巴写成 99% */
+      const pct = closed ? 100 : (st ? Math.min(100, Math.round(paid / st * 100)) : 0);
       return '<div class="mdebt' + (closed ? ' closed' : '') + '">' +
         '<div class="mdebt-top"><b>' + esc(d.name || '未命名') + '</b>' +
           '<span class="mdebt-tag">' + moneyTypeLabel(d.type) + '</span></div>' +
@@ -12075,7 +12091,12 @@ body.modal-open{overflow:hidden}
         '<div class="mdebt-num"><b>¥' + moneyFmt(d.balance) + '</b>' +
           '<span>年化 ' + (Number(d.apr) || 0) + '% · 月还 ¥' + moneyFmt(d.min) +
           (Number(d.due) > 0 ? ' · 每月 ' + d.due + ' 日' : '') + '</span></div>' +
-        (closed ? '' : '<div class="mdebt-bar"><i style="width:' + pct + '%"></i></div>') +
+        '<div class="mdebt-bar-row">' +
+          '<div class="mdebt-bar"><i style="width:' + pct + '%"></i></div>' +
+          '<b class="mdebt-pct">' + (closed ? '已还清' : '已完成 ' + pct + '%') + '</b>' +
+        '</div>' +
+        '<div class="mdebt-paid"><span>当前已还 ¥' + moneyFmt(paid) + '</span>' +
+          (closed ? '' : '<span>还剩 ¥' + moneyFmt(bal) + '</span>') + '</div>' +
         '<div class="mdebt-acts">' +
           '<button type="button" class="btn sm" data-act="money-debt-edit" data-id="' + esc(d.id) + '">编辑</button>' +
           '<button type="button" class="btn sm danger-red" data-act="money-debt-del" data-id="' + esc(d.id) + '">删除</button>' +
@@ -12088,7 +12109,35 @@ body.modal-open{overflow:hidden}
       (done.length
         ? '<div class="panel"><h3>已还清 <span class="muted-sm">（' + done.length + ' 笔）</span></h3>' +
           '<div class="mdebt-list">' + done.map(function (d) { return row(d, true); }).join('') + '</div></div>'
-        : '');
+        : '') +
+      moneyDebtsSummaryHtml(live, done);
+  }
+
+  /* 页底汇总（v111）。口径跟总览 hero 一致：分母是**初始总额**，不另算一套；
+     平均年化按余额加权 —— 小额高息不能跟大额低息平均成一个假数。 */
+  function moneyDebtsSummaryHtml(live, done) {
+    const t = moneyTotals();
+    const pct = t.start ? Math.min(100, Math.round(t.paid / t.start * 100)) : 0;
+    const minSum = live.reduce(function (a, d) { return a + Math.max(0, Number(d.min) || 0); }, 0);
+    const balSum = live.reduce(function (a, d) { return a + Math.max(0, Number(d.balance) || 0); }, 0);
+    const aprSum = live.reduce(function (a, d) {
+      return a + Math.max(0, Number(d.apr) || 0) * Math.max(0, Number(d.balance) || 0);
+    }, 0);
+    const aprAvg = balSum > 0 ? Math.round(aprSum / balSum * 10) / 10 : 0;
+    const cell = function (label, val) {
+      return '<div><span>' + label + '</span><b>' + val + '</b></div>';
+    };
+    return '<div class="panel"><div class="mhead-row"><h3>汇总</h3>' +
+        '<span class="muted-sm">总进度 ' + pct + '%</span></div>' +
+      '<div class="mdebt-bar" style="margin-bottom:14px"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="mdebt-sum">' +
+        cell('当前总待还', '¥' + moneyFmt(t.left)) +
+        cell('当前总已还', '¥' + moneyFmt(t.paid)) +
+        cell('一共欠过', '¥' + moneyFmt(t.start)) +
+        cell('每月最低合计', '¥' + moneyFmt(minSum)) +
+        cell('平均年化', aprAvg + '%') +
+        cell('在还 / 已还清', live.length + ' / ' + done.length + ' 笔') +
+      '</div></div>';
   }
 
   /* ---------- 计划 ---------- */

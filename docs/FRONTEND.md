@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v110（2026-11-17）
+最后更新：v111（2026-11-17）
 
 ---
 
@@ -657,7 +657,8 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `algoModal()`（考核算法说明弹窗，统计页头部按钮 `algo-open`）
 `quitPanelBody(range)`（戒烟分析面板内容，没有 quit 习惯时整块不渲染）
 `viewQuit()` `quitPageHead(h)` `quitCalPanel(h)` `quitSumPanel(h)` `quitHoursStrip(h)`
-`viewMoney()` `moneyOverviewView()` `moneyDebtsView()` `moneySimulate(strat)` `moneyOrder(list,strat)`
+`viewMoney()` `moneyOverviewView()` `moneyDebtsView()` `moneyDebtsSummaryHtml(live,done)`
+`moneySimulate(strat)` `moneyOrder(list,strat)`
 `moneyPlanView()` `moneyCompareHtml()` `moneyTableHtml()` `moneyCustomOrderHtml()`
 `moneyBudgetView()` `moneyBudgetSplit()` `moneyDailyLeft()` `moneySpendMonth()`
 `moneyIncomeModal()` `saveMoneyIncome(form)` `moneyCatModal()` `saveMoneyCat(form)`
@@ -667,6 +668,10 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `moneyToolsView()` `moneyAprOf(cash,pay,n)` `moneyRateWords(apr)` `moneyRiskRows()`
 `moneyFmt(n)`（金额显示：整数不补零、有角分补两位；**全页金额都走它，别再写 toFixed(0)**）
 `moneyLogView()` `moneySnowModal()` `saveMoneySnow(form)` `moneyLogModal()` `saveMoneyLog(form)`
+债务卡结构（v110 / v111）：名称 → 备注（`.mdebt-note`，带「备注」小标签）→ 金额 + 年化/月还/还款日（没有还款日就不写这一段）→ 进度条 + 「已完成 N%」→ 「当前已还 / 还剩」→ 编辑/删除。
+**已还清的卡片**百分比写「已还清」、不渲染「还剩 ¥0」，且不再有「每月 N 日」。
+页底汇总卡（`.mdebt-sum`，六格）分母是**初始总额**，与总览 hero 同一口径；
+平均年化按**余额加权**，别改成简单平均。
 清债列表行的可读性约定（v96）：`.mrow-name`（还款顺序里的债务名）`font-weight:700 / 13.5px`，
 `.minc-name` / `.mcat-name` / `.mspend-cat`（收入 / 分类 / 流水里的名称）`700 / 13px`——
 **不要用 600**：中文系统字体（微软雅黑 / 苹方）经常把 600 渲染成常规体，等于没加粗。

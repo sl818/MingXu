@@ -217,6 +217,7 @@ SELS_MONEY = ['.money-hero small', '.mh-big', '.mh-sub', '.money-kpi b', '.money
               '.mrow-name', '.mrow-num', '.mrow-at', '.subtab button', '.subtab button.on']
 SELS_MONEY_DEBTS = ['.mdebt-tag', '.mdebt-num b', '.mdebt-num span',
                     '.mdebt-note span', '.mdebt-note i',
+                    '.mdebt-pct', '.mdebt-paid span', '.mdebt-sum span', '.mdebt-sum b',
                     '.subtab button', '.subtab button.on']
 # 计划 / 记录是另外两个子页，选择器同样分开取
 SELS_MONEY_PLAN = ['.mstart b', '.mstart span', '.mfield > span', '.mcmp-name',
