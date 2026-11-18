@@ -1,0 +1,19 @@
+# 全仓库统一 LF。
+#
+# 为什么：仓库里原本 index.html 是 CRLF、api/*.php 是 LF、e2e 里的 php 和 py 各混一半。
+# 改一处代码前要先猜这个文件用哪种换行，猜错就是「字符串不匹配」整段重写——
+# 这是改代码时最常见的返工来源（v110–v115 六轮里踩了 4–5 次）。
+# 统一之后只有一条规则：写文件用 \n。
+* text=auto eol=lf
+
+# 二进制，别让 git 做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.zip binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
