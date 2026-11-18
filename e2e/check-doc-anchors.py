@@ -22,7 +22,7 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/DATA-MODEL.md', 'docs/README.md', 'docs/HANDOFF.md',
         'docs/SITE-STRUCTURE.md', 'docs/DEPLOY.md',
         'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
-        'docs/REFACTOR-PLAN.md',
+        'docs/REFACTOR-PLAN.md', 'docs/CHANGE-MAP.md',
         'README.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
@@ -58,13 +58,19 @@ def main():
     for f in sorted(os.listdir(os.path.join(ROOT, 'tools'))):
         if f.endswith('.php'):
             tools_src += load(os.path.join(ROOT, 'tools', f))
-    all_code = index + backend_src + root_php + tools_src
+    # v116：CSS 已外移到 assets/app.css，符号不再全在 index.html 里。
+    # 不把这份算进去，所有 .class 和 CSS 关键字都会变成「不存在」的假报错。
+    app_css = ''
+    app_css_path = os.path.join(ROOT, 'assets', 'app.css')
+    if os.path.exists(app_css_path):
+        app_css = load(app_css_path)
+    all_code = index + app_css + backend_src + root_php + tools_src
 
     themes_css = ''
     for f in sorted(os.listdir(os.path.join(ROOT, 'themes'))):
         if f.endswith('.css'):
             themes_css += load(os.path.join(ROOT, 'themes', f))
-    all_css = index + themes_css
+    all_css = index + app_css + themes_css
 
     # ACTIONS 键集合
     m = re.search(r'const ACTIONS = \{(.*?)\n  \};', index, re.S)

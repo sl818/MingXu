@@ -2,14 +2,14 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v115（2026-11-18）
+最后更新：v116（2026-11-18）
 
 ---
 
 ## 一句话状态
 
 已上线稳定运行。十二个页面 + 两布局 + 六套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
-全部验证通过。技术债集中在「单文件 18,509 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
+全部验证通过。技术债集中在「主文件 14,437 行 + 外置 CSS 4,065 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v115（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v115'`） |
+| 代码版本 | v116（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v116'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -136,6 +136,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v113 | 11-17 | **清债页头按钮定稿**（需求五补充）：四按钮的常驻范围从「只有预算页」扩到**预算 / 计划 / 记录 / 工具**四页，且「添加收入」「添加分类预算」由次级样式改成 `primary`，与「记一笔开销」同色；「清债介绍」保持次级。总览与债务两页不变（介绍 + 记一笔债）——那两页要留住加债入口，用户明确说不用改。`verify-budget-actions` 20→25 项（加三页四按钮 + 三动作同色断言）。**顺带发现一个既有问题**：`.btn.primary` 在 paper / cloud 系皮肤下是 `--accent-2 → --accent` 的渐变，浅端压白字只有 3.66–4.06:1，全站主按钮都这样，不是这轮引入的。页面审计暂时只豁免「页头 .btn.primary」并在脚本里写明原因（次级按钮照测），要修得动 `themes/custom.css`、`themes/skin-cloud.css` 的渐变，另行决策。回滚点 tag `money-head-buttons-v113` |
 | v114 | 11-17 | **体重页：体脂字段 + 右栏补数据块**（需求六上半）：①`weights[]` 新增可选 `fat`（体脂率 %，`0` = 没填），范围 1–70，`normalizeWeightRecord` 兜底归 0，不碰 `bodyProfile`、不存派生量；记录弹窗加「体脂率（%，可选）」，留空不影响 BMI；明细行小字追加「· 体脂 18.5%」。②右栏「统计」下方新增**体脂卡**（最新值 + 较上次 + 迷你趋势 + 区间变化 / 最低最高），但**明确不给参考范围**——不同体脂秤算法差异很大，给「正常 15–20%」只会误导。③折线图 viewBox 高 200→340（加了体脂卡之后，200 高的图会把卡片拉出一块空白），y 轴网格线 3→4 条。④两栏 grid 默认 stretch，体脂卡 `flex:1` 吃掉右栏剩余高度、`.hint` 用 `margin-top:auto` 沉底。新增 `verify-weight-fat` 21 项。**体重页首次纳入页面审计**（mock 补 bodyProfile + 3 条记录），2448 取样——顺带查出 `.bmi-pill` 在 paper / retro 浅色下只有 4.47:1，五种色调统一混入 16% `--text` 后达标。回滚点 tag `weight-fat-v114` |
 | v115 | 11-18 | **统计页习惯板块同步本月概览**（用户补充，非需求文档）：把 `habitMonthOverview()` 原样放进统计页「习惯」面板的「**本月**」分段（月份网格上方），两页共用同一函数、KPI 与点名项逐字一致。**只在「本月」分段显示**——概览是本月口径，跟「近 N 天」「时间线」混在同一面板里会两个百分比打架，切到别的分段自动隐藏。`verify-habit-month` 33→38 项（两页 KPI / 点名项比对 + 切分段隐藏）。对比度审计 +7：概览嵌在 `.panel` 里之后底色和习惯页那组不一样，要单独取样，2532 取样 0 不达标 0 缺失。顺带把 `verify-details1` / `verify-archive` 的过时断言修掉（统计页标题在 `.shead` 而不是 `.panel-head`、任务卡在 `.tk-grid` 而不是 `.cal-summary`），回归从此可以真的全绿。回滚点 tag `stats-habit-sync-v115` |
+| v116 | 11-18 | **拆分第一步（按 REFACTOR-PLAN 第 8 节，目标是「让 AI 增删改更快」）**：①**全仓库换行统一为 LF** + 新增 `.gitattributes`（`* text=auto eol=lf`）。原来 index.html 是 CRLF、api/*.php 是 LF、e2e 里 php 与 py 各混一半，改代码前要先猜换行，猜错就是「字符串不匹配」整段重写——v110–v115 六轮里踩了 4–5 次。63 个文件转换，逐文件校验「去掉 \r 后 md5 不变」。②**CSS 外移**：6 个内联 `<style>` 块（4,060 行）原样搬到 `assets/app.css`，`<link>` 插在 `themes/*.css` 之前，index.html 从 18,509 行降到 14,437 行。验证靠 `e2e/snap-styles.py` 抓 6 皮肤 × 明暗 × 6 页面共 24,732 个元素的 30 个 computed 属性逐字段比对：改前改后只有 2 处 `.toast` / `.sync-indicator` 的 `opacity` 抖动（抓取时动画阶段不同）。③**去重**：`e2e/css_dedupe.py` 适配 app.css 后只删掉 4 条声明就耗尽了——166 组重复全是**跨层覆盖**（间隔至少 34 条规则，144 对有同名属性），机械合并会改变层叠顺序，不能做。这点写进了 app.css 顶部注释。④新增 `docs/CHANGE-MAP.md`：功能 → 函数 / 必须同步的几处 / 对应测试。⑤`e2e/check-doc-anchors.py` 与 `_check_script` 的扫描范围补上 css 来源，否则外移后全变假报错。SW 缓存加 `./assets/app.css`。回滚点 tag `split-lf-css-v116` |
 
 ### 两次值得记住的事故
 
