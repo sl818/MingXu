@@ -27,7 +27,8 @@
 
 ```text
 核心层（改它要跑回归）
-  index.html              页面 + 全部样式 + 全部前端逻辑
+  index.html              页面骨架 + 全部前端逻辑（v116 起样式外移）
+  assets/app.css          全部样式，4,065 行（v116 从 index.html 外移）
   api.php / api/*.php     接口、鉴权、日历、推送、备份
   install/  db/  tools/   安装器、建表、命令行工具
   service-worker.js       PWA 缓存策略
@@ -90,7 +91,7 @@ CSS 通过属性选择器覆盖变量：
 > 该文件 v98 由 `skin-mist.css` 派生，v99 起上游已删，**独立维护**。
 
 > v87 删除 `mono` / `clay` / `forest` / `cyber` 四套皮肤（含 CSS 文件与 SW 清单）。
-> `paper` / `slate` 的变量在 `index.html` 内联，其余主题在 `themes/skin-*.css`。
+> `paper` / `slate` 的变量在 `assets/app.css` 的 `skins` 图层里，其余主题在 `themes/*.css`。
 
 > v103 起三份文档（本表、`THEME-SPEC.md`、`AI-THEME-GUIDE.md`）的主题清单已同步为 6 套，
 > **以 `SKINS` 常量和上表为准**。变量契约自 v32 起没变过，旧皮肤仍然有效。
@@ -127,7 +128,7 @@ CSS 通过属性选择器覆盖变量：
 
 ## 5. PWA 缓存
 
-`service-worker.js` 的外壳缓存清单（`ASSETS`）包含 index.html、manifest、5 个 skin CSS、
+`service-worker.js` 的外壳缓存清单（`ASSETS`）包含 index.html、`assets/app.css`、manifest、各主题 CSS、
 themes.css、custom.css 和 3 个图标。
 
 策略：

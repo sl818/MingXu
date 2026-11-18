@@ -2,7 +2,7 @@
 
 这个目录放所有说明文档；项目根目录只留 [README.md](../README.md)（入口）和代码。
 
-**当前版本 v103（2026-11-17）**：`index.html` 17,772 行单文件前端 · 12 个页面 · 182 个 action · 6 套主题 × 明暗 · 23 个后端接口。
+**当前版本 v116（2026-11-18）**：`index.html` 14,437 行 + `assets/app.css` 4,065 行 · 12 个页面 · 185 个 action · 6 套主题 × 明暗 · 23 个后端接口。
 
 ---
 
@@ -15,7 +15,8 @@
 | [BACKEND.md](BACKEND.md)               | 23 个接口的鉴权、**三套提醒的过滤条件对照**、推送、备份、部署运维        | 改后端             |
 | [DATA-MODEL.md](DATA-MODEL.md)         | `state` 全部字段、迁移链、多端合并规则                     | 加字段 / 改合并 / 查数据 |
 | [SITE-STRUCTURE.md](SITE-STRUCTURE.md) | 文档索引 + 主题系统的准确信息                            | 写皮肤             |
-| [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **单文件要不要拆、怎么拆**、实测规模、每阶段验收              | 想动结构时          |
+| [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **拆分评估**：实测规模、三阶段、成本与限制；第 8 节是按「AI 增删改效率」的重评 | 想动结构时 |
+| [CHANGE-MAP.md](CHANGE-MAP.md)         | **改动地图**：改某个功能要动哪几处、跑哪个测试                | 每次改动前          |
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
 | [THEME-SPEC.md](THEME-SPEC.md)         | 主题变量、组件类名、允许 / 禁止清单                         | 写皮肤             |

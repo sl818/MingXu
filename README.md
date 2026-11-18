@@ -23,7 +23,7 @@
 - 云端多账号：邀请码注册、单设备登录、`base_rev` 乐观锁合并、历史版本回滚
 - 企业微信机器人推送（待办 / 用药 / 通知 / 倒数日 / 还款日）+ ICS 日历订阅
 - 全站 JSON 导出 / 导入，数据始终在你自己的库里
-- 无框架、无构建、无 CDN，单文件前端约 17,800 行（结构评估见 [docs/REFACTOR-PLAN.md](docs/REFACTOR-PLAN.md)）
+- 无框架、无构建、无 CDN，前端 `index.html` 14,437 行 + `assets/app.css` 4,065 行（结构评估见 [docs/REFACTOR-PLAN.md](docs/REFACTOR-PLAN.md)）
 
 > 除了本文件，其余文档都在 [`docs/`](docs/README.md) 目录。
 
@@ -572,7 +572,7 @@ node _check_script.mjs
 
 | 层 | 选型 |
 |---|---|
-| 前端 | 原生 HTML / CSS / JS，单文件 `index.html`（约 17,800 行），无框架、无构建、无 CDN |
+| 前端 | 原生 HTML / CSS / JS，`index.html` + `assets/app.css`（合计约 18,500 行），无框架、无构建、无 CDN |
 | 后端 | PHP 8 + PDO，无框架；`api.php` 单入口 + `api/*.php` |
 | 数据库 | MySQL 5.7+ / 8（SQLite 只用于本机测试） |
 | 同步 | 全量 JSON 快照 + `base_rev` 乐观锁 + `mergeStates` 合并 |

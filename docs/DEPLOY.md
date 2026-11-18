@@ -11,6 +11,8 @@
 ```
 /www/wwwroot/todo/
 ├── index.html              # 前端（介绍页 + 看板）
+├── assets/
+│   └── app.css             # 全部样式（v116 从 index.html 里外移出来）
 ├── api.php                 # 云同步 / 账号接口
 ├── api/
 │   ├── bootstrap.php
@@ -566,8 +568,17 @@ cd /www/wwwroot/todo
 
 ## 回滚（每次部署前必做）
 
-线上只有两个文件会随版本变化：`index.html` 和 `service-worker.js`。
-`api.php`、`api/config.php`、`db/`、`install/` 不参与日常发布，改它们属于另一类变更。
+日常发布涉及 **3 个文件**：`index.html`、`assets/app.css`、`service-worker.js`。
+**三个必须一起传**——漏了 `assets/app.css` 就是整站没样式（v116 起 CSS 不再内联）。
+
+`api.php`、`api/config.php`、`db/`、`install/` 不参与日常发布，改它们属于另一类变更；
+但只要这次改动碰了 `api/` 下的 PHP，就必须连 PHP 一起传（见发布清单）。
+
+| 这次改了什么 | 要传的文件 |
+|---|---|
+| 只改页面 / 样式 / 前端逻辑 | `index.html` + `assets/app.css` + `service-worker.js` |
+| 改了提醒 / 日历订阅 / 推送 | 上面 3 个 + `api/ics.php` / `api/schedule.php` / `api/push.php` 中动过的 |
+| 改了表结构 | 先跑 `db/migrations/` 里的 SQL，再传代码 |
 
 ### 1. 部署前：在服务器留一份现场
 
