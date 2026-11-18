@@ -457,11 +457,13 @@
 
 ## 文件结构
 
-前端主体是 [`index.html`](index.html)，约 17,772 行；后端是 `api.php` + `api/`。
+前端是 [`index.html`](index.html)（14,437 行，页面骨架 + 全部逻辑）加 [`assets/app.css`](assets/app.css)
+（4,065 行，全部样式）；后端是 `api.php` + `api/`。
 
 | 文件 | 内容 |
 |---|---|
-| [`index.html`](index.html) | 页面、全部样式、全部前端逻辑 |
+| [`index.html`](index.html) | 页面骨架、全部前端逻辑 |
+| [`assets/app.css`](assets/app.css) | 全部样式（6 个历史图层按顺序叠在同一个文件里） |
 | [`service-worker.js`](service-worker.js) | PWA 缓存策略 |
 | [`manifest.json`](manifest.json) | PWA 清单 |
 | [`themes/`](themes) | 5 套补充皮肤 + 主题模板 |
@@ -480,8 +482,9 @@
 | [`icons/`](icons) | PWA 图标 |
 | [`_check_script.mjs`](_check_script.mjs) | 内联脚本与 `data-act` 自检 |
 
-**详细的内部结构**（六个 `<style>` 块各管什么、106 个交互怎么分发、23 个接口的鉴权）
-请看 [ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+**详细的内部结构**（CSS 六层各管什么、106 个交互怎么分发、23 个接口的鉴权）
+请看 [ARCHITECTURE.md](docs/ARCHITECTURE.md)。改某个功能要动哪几处、跑哪个测试，
+查 [CHANGE-MAP.md](docs/CHANGE-MAP.md)。
 
 改完代码跑一次自检（需要 Node.js）：
 
@@ -585,13 +588,14 @@ node _check_script.mjs
 ## 目录结构
 
 ```text
-index.html            前端全部（HTML + CSS + JS）
+index.html            页面骨架 + 全部前端逻辑
+assets/app.css        全部样式（6 层叠加，越靠后越优先）
 service-worker.js     PWA 外壳缓存，改前端必须递增 CACHE 版本
 api.php               API 单入口（login / save / load / export …）
 api/                  bootstrap / ics / push / schedule / backup
 install/              安装向导（建表、建管理员、生成邀请码）
 db/schema.sql         表结构；db/migrations/ 是增量迁移
-themes/               6 套皮肤的 CSS
+themes/               补充皮肤与主题模板的 CSS
 tools/                运维脚本（推送 tick、备份恢复、诊断）
 e2e/                  Playwright / PHP 回归与对比度审计
 docs/                 架构、前后端、数据模型、部署、主题规范
@@ -599,7 +603,8 @@ docs/                 架构、前后端、数据模型、部署、主题规范
 
 ## 参与贡献
 
-- 前端几乎都在 `index.html` 里，改之前先读 [`docs/FRONTEND.md`](docs/FRONTEND.md)。
+- 前端逻辑在 `index.html`，样式在 `assets/app.css`；改之前先读 [`docs/FRONTEND.md`](docs/FRONTEND.md)，
+  改样式注意同名选择器**最后一条生效**，不要只看第一处。
 - 皮肤只在 `themes/*.css` 写变量，规范见 [`docs/THEME-SPEC.md`](docs/THEME-SPEC.md)；
   新增主题键要在 `SKINS`、首屏白名单、`<link>`、SW `ASSETS` 四处注册。
 - 后端文件一律 `require_once`；新增顶层数据字段必须同步
@@ -613,8 +618,8 @@ docs/                 架构、前后端、数据模型、部署、主题规范
   python e2e/audit-contrast-v33.py  # 对比度审计，会报跳过数
   ```
 
-- **行尾**：仓库里以 LF 存储，Windows 检出时会自动变 CRLF（`core.autocrlf`）。
-  改文件时不要手动统一行尾，否则本地 diff 会变成整文件级改动。
+- **行尾**：全仓库 **LF**，由 `.gitattributes`（`* text=auto eol=lf`）锁定。
+  写文件一律用 `\n`；掺进 `\r` 会让 diff 变成整文件级改动。
 - 提交前确认 `api/config.php`、`install.lock`、`backups/` 没被 `git add`（已在 `.gitignore`）。
 - 更完整的约定见 [CONTRIBUTING.md](CONTRIBUTING.md)；安全问题按 [SECURITY.md](SECURITY.md) 私下报告。
 
@@ -625,4 +630,4 @@ docs/                 架构、前后端、数据模型、部署、主题规范
 
 ## License
 
-[MIT](LICENSE) © 2026 Wanfeng Todo contributors
+[MIT](LICENSE) © 2026 明序 Mingxu contributors
