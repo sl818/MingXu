@@ -41,7 +41,7 @@ function lb_mask(string $url): string
 }
 
 if ($msg === '') {
-    $msg = "晚风 Todo 测试消息\n"
+    $msg = "明序 测试消息\n"
         . '时间是 ' . date('Y-m-d H:i:s') . "\n"
         . '如果你在手机上看到这条，说明推送通道已经通了。';
 }

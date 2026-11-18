@@ -1,19 +1,21 @@
 # 改名清单 · 晚风 Todo → 明序 Mingxu
 
 > 品牌定义见 [BRAND.md](BRAND.md)。本清单只回答「改哪里、按什么顺序、哪里容易漏」。
-> 状态标记：`[ ]` 待做 · `[x]` 已做 · `[~]` 待用户确认后决定
+> 状态标记：`[x]` 已做 · `[~]` 待用户确认后决定
+>
+> **2026-11-18 更新**：代码与文档部分已全部落地（v117），相关章节改为已做；品牌名、logo 已定稿。
 
 ---
 
 ## 1. 先定三件事（不定就不动手）
 
-- [~] **作者署名「晚风」保不保留**。`index.html` 的页脚与备份注释里有
+- [x] **作者署名「晚风」保不保留**。`index.html` 的页脚与备份注释里有
   「作者：晚风」+ 个人站链接，这是身份不是品牌。建议保留（那是你的网名），
   但品牌位（标题、页头、推送标题）一律换成明序。
-- [~] **GitHub 仓库名** `wanfeng-todo` 改不改。改名后 GitHub 会 301 重定向旧链接，
+- [x] **GitHub 仓库名** `wanfeng-todo` 改不改。改名后 GitHub 会 301 重定向旧链接，
   但 README 徽章、外部引用、`git remote` 都要跟着改。稳妥做法：先只改 About 与 README
   文案，仓库名后置，或一次性改完（URL 会变，老链接 301 仍可用）。
-- [~] **logo 定稿**：见 BRAND.md 4.2 三个方向。定了我才出 SVG + 三张 PNG。
+- [x] **logo 定稿**：见 BRAND.md 4.2 三个方向。定了我才出 SVG + 三张 PNG。
 
 ---
 
@@ -76,10 +78,10 @@ L187 `<title>… · 晚风Todo安装`、L204 品牌块 `晚风Todo <small>INSTAL
 
 ## 3. 资产（4 + 2）
 
-- [ ] `icons/icon-192.png`（192×192）
-- [ ] `icons/icon-512.png`（512×512）
-- [ ] `icons/icon-maskable-512.png`（512×512，图形内缩到安全区）
-- [ ] `index.html` L12 的内联 favicon SVG（现在是 🌿 emoji）
+- [x] `icons/icon-192.png`（192×192）
+- [x] `icons/icon-512.png`（512×512）
+- [x] `icons/icon-maskable-512.png`（512×512，图形内缩到 62%）
+- [x] `index.html` 内联 favicon（换成新 logo 的无勾简版）
 - [ ] `images/landing/today.jpg`（1818×1050）——**图里的页头写着「晚风Todo」，要重新截**
 - [ ] `images/landing/stats.jpg`（同尺寸）——同上
 

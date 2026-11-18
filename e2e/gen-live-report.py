@@ -60,7 +60,7 @@ HTML = f'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>晚风Todo · 线上自检报告</title>
+<title>明序 · 线上自检报告</title>
 <style>
 :root{{
   --bg:#f6f2ea;--surface:#fffdf8;--surface-2:#f3ece0;--text:#2b2a26;--muted:#6f6a5f;
@@ -113,7 +113,7 @@ td.dt{{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap;max
 </head>
 <body>
 <div class="wrap">
-  <h1>晚风Todo · 线上自检报告<span class="tag">全部通过</span></h1>
+  <h1>明序 · 线上自检报告<span class="tag">全部通过</span></h1>
   <div class="meta">
     线上环境 <code>https://your-domain.example</code> · 账号 <code>test@example.com</code> ·
     时间 {now} · 真实浏览器驱动（Chrome + Playwright）

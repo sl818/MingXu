@@ -1,5 +1,5 @@
 <?php
-/* 晚风Todo · 日历订阅（iCalendar 生成）
+/* 明序 · 日历订阅（iCalendar 生成）
  *
  * 与前端 index.html 里的 buildICS() 输出等价，但只管「给日历 App 订阅」这条路：
  * 系统日历按 URL 定期来拉，所以内容必须由服务端生成。
@@ -120,7 +120,7 @@ function lb_ics_event(string $uid, DateTimeImmutable $start, DateTimeImmutable $
         'DTSTART;TZID=' . LB_ICS_TZ . ':' . lb_ics_local($start),
         'DTEND;TZID=' . LB_ICS_TZ . ':' . lb_ics_local($end),
         'SUMMARY:' . lb_ics_escape($summary),
-        'DESCRIPTION:' . lb_ics_escape($desc !== '' ? $desc : '来自 晚风Todo'),
+        'DESCRIPTION:' . lb_ics_escape($desc !== '' ? $desc : '来自 明序'),
         'TRANSP:TRANSPARENT',
     ];
     if ($rrule !== '') {
@@ -188,7 +188,7 @@ function lb_ics_emit_empty(string $why): void
         'VERSION:2.0',
         'PRODID:-//WanfengTodo//Reminder//CN',
         'CALSCALE:GREGORIAN',
-        'X-WR-CALNAME:' . lb_ics_escape('晚风Todo（' . $why . '）'),
+        'X-WR-CALNAME:' . lb_ics_escape('明序（' . $why . '）'),
         'X-WR-TIMEZONE:' . LB_ICS_TZ,
         'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
         'X-PUBLISHED-TTL:PT6H',
@@ -220,7 +220,7 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         'CALSCALE:GREGORIAN',
         /* 不写 METHOD:PUBLISH：METHOD 是 iTIP 消息（会议邀请）用的，
            订阅源带上它，部分客户端会当成一次性邀请而不是可订阅的日历 */
-        'X-WR-CALNAME:' . lb_ics_escape('晚风Todo 提醒'),
+        'X-WR-CALNAME:' . lb_ics_escape('明序 提醒'),
         'X-WR-TIMEZONE:' . LB_ICS_TZ,
         'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
         'X-PUBLISHED-TTL:PT6H',

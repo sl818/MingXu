@@ -155,7 +155,7 @@ with sync_playwright() as p:
         pg.click('[data-act="export-json"]')
     dl = dl_info.value
     body = json.load(open(dl.path(), encoding='utf-8'))
-    chk('文件名是「晚风Todo备份-日期」', dl.suggested_filename.startswith('晚风Todo备份-'),
+    chk('文件名是「明序备份-日期」', dl.suggested_filename.startswith('明序备份-'),
         dl.suggested_filename)
     chk('整份 state 里有 habits', isinstance(body.get('habits'), list), str(type(body.get('habits'))))
     chk('整份 state 里有 money',

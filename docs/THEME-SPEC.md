@@ -1,4 +1,4 @@
-# 晚风Todo · 主题规范
+# 明序 · 主题规范
 
 最后更新：v116（2026-11-17）· 当前 6 套主题
 
@@ -239,7 +239,7 @@ transform 造成的结构位移
 把下面这段和 `THEME-SPEC.md` 一起发给 AI：
 
 ```text
-你是晚风Todo的 CSS 主题设计师。
+你是明序的 CSS 主题设计师。
 
 只允许修改 themes/custom.css。
 不要修改 index.html、themes/themes.css、api.php、service-worker.js。

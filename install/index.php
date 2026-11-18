@@ -184,7 +184,7 @@ function page(string $title, string $body, int $step = 0): void
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= h($title) ?> · 晚风Todo安装</title>
+<title><?= h($title) ?> · 明序安装</title>
 <style>
 :root{--bg:#f3eee4;--surface:#fffdf8;--line:#e3dac8;--line2:#cfc2aa;--text:#1c2621;--muted:#6f7468;--accent:#1f6b57;--accent2:#154b3e;--bad:#b0473d;--good:#2f7d5c;--gold:#b8893b}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 420px at 90% -10%,#fbf7ef,rgba(251,247,239,0) 60%),var(--bg);color:var(--text);font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:36px 16px 70px}
@@ -201,7 +201,7 @@ h1{font-size:20px;margin:0 0 6px;letter-spacing:-.01em}h2{font-size:15px;margin:
 </head>
 <body>
 <div class="wrap">
-  <div class="brand">晚风Todo <small>INSTALL</small></div>
+  <div class="brand">明序 <small>INSTALL</small></div>
   <?php if ($step > 0): ?>
   <div class="steps">
     <span class="<?= $step === 1 ? 'on' : '' ?>">1 环境检查</span>
@@ -331,7 +331,7 @@ if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST' && post_str('action') =
             $setting = $pdo->prepare('INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)');
             $setting->execute(['registration_open', '1']);
             $setting->execute(['invite_code', $invite]);
-            $setting->execute(['site_name', '晚风Todo']);
+            $setting->execute(['site_name', '明序']);
             $pdo->commit();
 
             write_config($CONFIG, $db);

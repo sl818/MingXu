@@ -442,7 +442,7 @@ with sync_playwright() as p:
 
         # 标题已恢复
         pg.wait_for_timeout(1600)
-        rec('关闭后标题恢复原标题', pg.title() == '晚风Todo · 习惯与任务', pg.title())
+        rec('关闭后标题恢复原标题', pg.title() == '明序 · 习惯与任务', pg.title())
 
         # 刷新后当天仍不再弹
         pg.reload(wait_until='networkidle')

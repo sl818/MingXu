@@ -43,9 +43,9 @@ grep -n "'med-take':" index.html                # 定位 handler
 | [线上测试报告-2026-10-26.md](reports/线上测试报告-2026-10-26.md) | v30 时代的线上测试报告                          |
 | [库存事故复盘-2026-10-27.md](reports/库存事故复盘-2026-10-27.md) | v31 库存错乱与用药记录丢失的完整复盘                   |
 | [网站改动报告.md](reports/网站改动报告.md)                       | 早期改动的汇总                                |
-| [晚风Todo-UI评审报告.md](reports/晚风Todo-UI评审报告.md)         | UI 评审结论                                |
+| [明序-UI评审报告.md](reports/明序-UI评审报告.md)         | UI 评审结论                                |
 | [整站优化清单.md](reports/整站优化清单.md)                       | 整站优化项清单（多数已执行）                         |
-| `晚风Todo UI优化方案.pdf`                                  | UI 方案设计稿                               |
+| `明序 UI优化方案.pdf`                                  | UI 方案设计稿                               |
 
 ---
 

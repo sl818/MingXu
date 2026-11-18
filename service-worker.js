@@ -1,6 +1,6 @@
-/* 晚风Todo PWA Service Worker
+/* 明序 PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v116';
+const CACHE = 'lifeboard-shell-v117';
 const ASSETS = [
   './',
   './index.html',

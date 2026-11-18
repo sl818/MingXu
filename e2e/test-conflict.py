@@ -56,7 +56,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json({"ok": True, "installed": True, "registration_open": False})
             elif action == "me":
                 u = self._user()
-                self._json({"ok": True, "user": u, "csrf": CSRF, "registration_open": False, "site_name": "晚风Todo"})
+                self._json({"ok": True, "user": u, "csrf": CSRF, "registration_open": False, "site_name": "明序"})
             elif action == "load":
                 if not self._user():
                     self._json({"ok": False, "error": "未登录"}, 401)

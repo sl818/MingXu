@@ -1,4 +1,6 @@
-# 晚风 Todo
+# 明序 · Mingxu
+
+> 明晰诸事次序 · 看清，然后有序
 
 [![check](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml/badge.svg)](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -7,7 +9,7 @@
 > 外加一个独立的「清债」模块。多设备共用一份云端数据，能装成手机 App（PWA），
 > 到点通过企业微信把提醒推到手机。
 
-前端是**一个 `index.html`**——零构建、零依赖、零 CDN；后端是**无框架的 PHP + MySQL**。
+前端是**无构建的原生 HTML / CSS / JS**——零框架、零依赖、零 CDN；后端是**无框架的 PHP + MySQL**。
 没有 npm、没有打包步骤：改完保存刷新就能看到效果，部署时把文件传上去就行。
 
 ![桌面端今日页](docs/images/today-desktop.png)

@@ -231,7 +231,7 @@ function lb_settings(bool $refresh = false): array
     $cache = [
         'registration_open' => '0',
         'invite_code' => '',
-        'site_name' => '晚风Todo',
+        'site_name' => '明序',
     ];
     $rows = lb_db()->query('SELECT k, v FROM app_settings')->fetchAll();
     foreach ($rows as $row) {

@@ -7,9 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="晚风Todo">
-<title>晚风Todo · 习惯与任务</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-title" content="明序">
+<title>明序 · 习惯与任务</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22 width=%22512%22 height=%22512%22%3E%3Crect width=%22512%22 height=%22512%22 fill=%22%231f6b57%22/%3E%3Cg fill=%22none%22 stroke=%22%23f8f3ea%22 stroke-width=%2223%22%3E%3Ccircle cx=%22256%22 cy=%22256%22 r=%22171%22/%3E%3C/g%3E%3Cg fill=%22%23f8f3ea%22%3E%3Crect x=%22143%22 y=%22181%22 width=%22200%22 height=%2219%22 rx=%229.5%22/%3E%3Crect x=%22143%22 y=%22241%22 width=%22200%22 height=%2219%22 rx=%229.5%22/%3E%3Crect x=%22143%22 y=%22301%22 width=%22200%22 height=%2219%22 rx=%229.5%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script>
@@ -60,7 +60,7 @@
           <path d="M16 4.5a11.5 11.5 0 0 0 0 23z" fill="currentColor" opacity=".92"/>
         </svg>
       </div>
-      <div class="brand-text"><b>晚风Todo</b><small>PLAN · TRACK · GROW</small></div>
+      <div class="brand-text"><b>明序</b><small>PLAN · TRACK · GROW</small></div>
       <button type="button" class="brand-search" data-act="search-open" aria-label="搜索" title="搜索（Ctrl / ⌘ + K）">🔍</button>
     </div>
     <nav class="nav" id="nav"></nav>
@@ -914,7 +914,7 @@
       inited: false,
       ready: false,
       registrationOpen: true,
-      siteName: '晚风Todo',
+      siteName: '明序',
       owner: '',
       migrateLegacy: false
     };
@@ -1894,7 +1894,7 @@
           '<div class="form-grid">' +
             '<label class="field"><span>注册</span><select name="registration_open">' + openOptions + '</select></label>' +
             '<label class="field"><span>邀请码</span><input name="invite_code" required maxlength="32" autocapitalize="characters" value="' + esc(settings.invite_code || '') + '"></label>' +
-            '<label class="field wide"><span>站点名称</span><input name="site_name" maxlength="40" value="' + esc(settings.site_name || '晚风Todo') + '"></label>' +
+            '<label class="field wide"><span>站点名称</span><input name="site_name" maxlength="40" value="' + esc(settings.site_name || '明序') + '"></label>' +
           '</div>' +
           '<p class="hint cloud-error" style="color:var(--bad)"></p>' +
           '<div class="btn-row"><button class="btn primary sm" type="submit">保存设置</button></div>' +
@@ -3812,7 +3812,7 @@
     if (!reg || typeof reg.showNotification !== 'function') return;
     items.slice(0, 3).forEach(it => {
       try {
-        const p = reg.showNotification('晚风Todo', {
+        const p = reg.showNotification('明序', {
           body: it.text,
           tag: it.key,
           icon: './icons/icon-192.png',
@@ -6840,7 +6840,7 @@
           '</p>' +
         '</div>' +
 
-        '<div class="sum-foot">晚风 Todo · 生成于 ' + esc(r.generatedAt) +
+        '<div class="sum-foot">明序 · 生成于 ' + esc(r.generatedAt) +
           ' · 本页只反映记录内容，不构成医疗建议</div>' +
 
         '<div class="btn-row no-print" style="margin-top:14px">' +
@@ -10903,7 +10903,7 @@
 
   function siteFooter() {
     return '<footer class="site-footer">' +
-      '<span>© ' + new Date().getFullYear() + ' 晚风Todo</span>' +
+      '<span>© ' + new Date().getFullYear() + ' 明序</span>' +
       '<span>作者：<a href="https://www.csl88.top/" target="_blank" rel="noopener">晚风</a> &amp; <a href="https://www.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a></span>' +
     '</footer>';
   }
@@ -10959,7 +10959,7 @@
     return '<div class="landing"><div class="lp-wrap">' +
       '<header class="lp-nav">' +
         '<div class="lp-brand"><span class="lp-mark">🌿</span>' +
-          '<span>晚风Todo<small>个人生活工作台</small></span></div>' +
+          '<span>明序<small>个人生活工作台</small></span></div>' +
         '<nav class="lp-links">' +
           '<a href="#lp-pages">功能</a><a href="#lp-stats">统计</a><a href="#lp-notify">通知</a>' +
         '</nav>' +
@@ -11041,7 +11041,7 @@
         '</div>' +
       '</section>' +
       '<footer class="lp-foot">' +
-        '<span>© ' + new Date().getFullYear() + ' 晚风Todo · 作者：' +
+        '<span>© ' + new Date().getFullYear() + ' 明序 · 作者：' +
           '<a href="https://www.csl88.top/" target="_blank" rel="noopener">晚风</a> &amp; ' +
           '<a href="https://www.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a></span>' +
         '<span>忘记密码？<a href="mailto:sl@sl00.top">sl@sl00.top</a></span>' +
@@ -12765,7 +12765,7 @@
       'DTSTART;TZID=' + ICS_TZ + ':' + icsLocal(start),
       'DTEND;TZID=' + ICS_TZ + ':' + icsLocal(end),
       'SUMMARY:' + icsEsc(summary),
-      'DESCRIPTION:' + icsEsc(desc || '来自 晚风Todo'),
+      'DESCRIPTION:' + icsEsc(desc || '来自 明序'),
       'TRANSP:TRANSPARENT'
     ];
     if (rrule) lines.push('RRULE:' + rrule);
@@ -12791,7 +12791,7 @@
       'VERSION:2.0',
       'PRODID:-//WanfengTodo//Reminder//CN',
       'CALSCALE:GREGORIAN',
-      'X-WR-CALNAME:' + icsEsc('晚风Todo 提醒'),
+      'X-WR-CALNAME:' + icsEsc('明序 提醒'),
       'X-WR-TIMEZONE:Asia/Shanghai',
       'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
       'X-PUBLISHED-TTL:PT6H'
@@ -13764,7 +13764,7 @@
     'export-json': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const stamp = todayStr().replace(/-/g, '');
-      download('晚风Todo备份-' + stamp + '.json', JSON.stringify(state, null, 2));
+      download('明序备份-' + stamp + '.json', JSON.stringify(state, null, 2));
       toast('备份已导出 · 含隐私，勿传公开链接');
     },
     'import-json': () => {
@@ -13836,7 +13836,7 @@
         toast('没有可导出的日程：先填好用药时间、任务截止日或习惯建议时间');
         return;
       }
-      download('晚风Todo提醒-' + todayStr().replace(/-/g, '') + '.ics',
+      download('明序提醒-' + todayStr().replace(/-/g, '') + '.ics',
         built.text, 'text/calendar;charset=utf-8');
       toast('已导出 ' + built.count + ' 个日程 · 用手机日历打开导入');
     },
@@ -13881,7 +13881,7 @@
       });
       const body = rows.slice(1).sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]) || a[2].localeCompare(b[2]));
       const csv = '\ufeff' + [rows[0]].concat(body).map(r => r.map(csvCell).join(',')).join('\r\n');
-      download('晚风Todo-CSV-' + todayStr().replace(/-/g, '') + '.csv', csv, 'text/csv;charset=utf-8');
+      download('明序-CSV-' + todayStr().replace(/-/g, '') + '.csv', csv, 'text/csv;charset=utf-8');
       toast('CSV 已导出');
     },
     'reset': () => {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>晚风Todo · 测试流程</title>
+<title>明序 · 测试流程</title>
 <style>
 :root{
   --bg:#f2eee3;
@@ -227,20 +227,20 @@ h1{font-family:var(--serif);font-size:clamp(30px,4.2vw,46px);font-weight:600;lin
   <aside class="side">
     <div class="brand">
       <div class="brand-mark">晚</div>
-      <div><b>晚风Todo</b><small>TEST PLAN · 2026</small></div>
+      <div><b>明序</b><small>TEST PLAN · 2026</small></div>
     </div>
     <div class="side-note">
       <b>怎么用</b><br>
       每项点一下状态按钮：未测 → 通过 → 失败。进度会自动保存在本机浏览器。测试时建议用测试账号，不要拿管理员真实数据做清空测试。
     </div>
     <nav class="toc" id="toc" aria-label="测试章节"><div class="toc-label">测试章节</div></nav>
-    <div class="side-foot">本地静态页 · 进度只存浏览器<br>晚风Todo · 2026-10-23</div>
+    <div class="side-foot">本地静态页 · 进度只存浏览器<br>明序 · 2026-10-23</div>
   </aside>
 
   <main>
     <header class="hero">
       <div class="kicker">Quality checklist</div>
-      <h1>晚风Todo<br>测试流程</h1>
+      <h1>明序<br>测试流程</h1>
       <p class="lede">从上线冒烟到账号、健康、待办、体重、历史版本、手机 PWA 和安全的完整回归清单。带 ★ 的是 10 分钟快速冒烟项。</p>
       <div class="hero-meta">
         <span class="chip"><b>站点</b> your-domain.example</span>
@@ -338,10 +338,10 @@ const PLAN = [
       { id: 'smoke-landing', fast: true, text: '无痕窗口打开 https://your-domain.example/', expect: '显示介绍页，不直接进入看板。' },
       { id: 'smoke-gate', text: '不登录直接访问站点', expect: '只能看介绍页，看不到今日数据。' },
       { id: 'smoke-status', text: '打开 /api.php?action=status', expect: '返回 {"ok":true,"installed":true}。' },
-      { id: 'smoke-login', fast: true, text: '登录管理员账号', expect: '进入今日页，顶部品牌为晚风Todo。' },
+      { id: 'smoke-login', fast: true, text: '登录管理员账号', expect: '进入今日页，顶部品牌为明序。' },
       { id: 'smoke-refresh', text: '按 F5 刷新', expect: '数据仍在，不出现示例数据覆盖。' },
       { id: 'smoke-console', text: '切换今日、待办、习惯、统计', expect: 'Console 无红色报错；Network 无 500。' },
-      { id: 'smoke-title', text: '看浏览器标签、页脚和 PWA 名称', expect: '标题「晚风Todo · 习惯与任务」，页脚版权和作者正常。' }
+      { id: 'smoke-title', text: '看浏览器标签、页脚和 PWA 名称', expect: '标题「明序 · 习惯与任务」，页脚版权和作者正常。' }
     ]
   },
   {
@@ -415,8 +415,8 @@ const PLAN = [
   {
     id: 'export', no: '07', title: '导出与 CSV', desc: 'JSON、CSV 和公式注入防护。',
     cases: [
-      { id: 'export-json', text: '设置 → 数据管理 → 导出备份 JSON', expect: '下载「晚风Todo备份-*.json」，内容完整。' },
-      { id: 'export-csv', text: '点「导出 CSV」并用 Excel 打开', expect: '下载「晚风Todo-CSV-*.csv」，中文和列正常。' },
+      { id: 'export-json', text: '设置 → 数据管理 → 导出备份 JSON', expect: '下载「明序备份-*.json」，内容完整。' },
+      { id: 'export-csv', text: '点「导出 CSV」并用 Excel 打开', expect: '下载「明序-CSV-*.csv」，中文和列正常。' },
       { id: 'export-inject', fast: true, text: '新建习惯名 =1+1，导出 CSV，用记事本查看', expect: '单元格为 \'=1+1，不是直接 =1+1；Excel 不计算公式。' },
       { id: 'export-noimport', text: '检查数据管理按钮', expect: '没有「导入 JSON」入口。' }
     ]
@@ -427,7 +427,7 @@ const PLAN = [
       { id: 'mobile-tabs', fast: true, text: '手机打开站点', expect: '底部只有 5 个 Tab：今日、待办、习惯、统计、更多。' },
       { id: 'mobile-more', text: '点「更多」', expect: '体重、随笔、日历、设置都在；进入设置时更多保持高亮。' },
       { id: 'mobile-overflow', text: '在体重、随笔、统计之间切换', expect: '没有横向滚动；图表和长文本不撑破页面。' },
-      { id: 'mobile-pwa', text: 'Chrome 安装或手机添加到主屏幕', expect: '名称为晚风Todo，图标正常。' },
+      { id: 'mobile-pwa', text: 'Chrome 安装或手机添加到主屏幕', expect: '名称为明序，图标正常。' },
       { id: 'mobile-sw', text: 'F12 → Application → Service Workers', expect: 'activated；manifest.json 和 service-worker.js 返回 200。' },
       { id: 'mobile-offline', text: '断网后刷新', expect: '停在介绍页/连接失败；不显示旧账号数据。' },
       { id: 'mobile-cache', text: '关闭 PWA 重开，或 DevTools 更新 Service Worker', expect: '加载新页面，不长期卡旧缓存。' }
@@ -445,7 +445,7 @@ const PLAN = [
   {
     id: 'regression', no: '10', title: '收尾回归', desc: '测试结束后确认品牌、备份和测试数据。',
     cases: [
-      { id: 'regression-brand', text: '检查浏览器标签、品牌、页脚和 PWA 名称', expect: '统一为晚风Todo；作者晚风 & DeepSeek。' },
+      { id: 'regression-brand', text: '检查浏览器标签、品牌、页脚和 PWA 名称', expect: '统一为明序；作者明序 & DeepSeek。' },
       { id: 'regression-backup', text: '导出测试账号 JSON 和 CSV 各一份', expect: '文件可打开，内容和页面一致。' },
       { id: 'regression-clean', text: '清理测试数据或停用测试账号', expect: '不把测试记录留在正式账号里。' },
       { id: 'regression-db', text: '再次确认 board_revisions 存在，数据库备份可恢复', expect: '迁移和备份都完成。' }
@@ -634,7 +634,7 @@ function exportReport() {
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
   const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
-  let md = '# 晚风Todo 测试报告\n\n';
+  let md = '# 明序 测试报告\n\n';
   md += '- 日期：' + now.toLocaleString('zh-CN', { hour12: false }) + '\n';
   md += '- 站点：https://your-domain.example/\n';
   md += '- 结果：通过 ' + c.pass + ' / ' + c.total + '，失败 ' + c.fail + '，未测 ' + c.todo + '，通过率 ' + (c.total ? Math.round(c.pass / c.total * 100) : 0) + '%\n\n';
@@ -653,7 +653,7 @@ function exportReport() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = '晚风Todo测试报告-' + stamp + '.md';
+  a.download = '明序测试报告-' + stamp + '.md';
   document.body.appendChild(a);
   a.click();
   a.remove();

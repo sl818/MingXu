@@ -116,7 +116,7 @@ try {
                 'user' => $user ? lb_public_user($user) : null,
                 'csrf' => lb_csrf(),
                 'registration_open' => $settings['registration_open'] === '1',
-                'site_name' => $settings['site_name'] ?? '晚风Todo',
+                'site_name' => $settings['site_name'] ?? '明序',
             ]);
             break;
 
@@ -170,7 +170,7 @@ try {
                 'user' => lb_public_user($user),
                 'csrf' => $_SESSION['csrf'],
                 'registration_open' => lb_setting('registration_open') === '1',
-                'site_name' => lb_setting('site_name', '晚风Todo'),
+                'site_name' => lb_setting('site_name', '明序'),
             ]);
             break;
 
@@ -237,7 +237,7 @@ try {
                 'user' => lb_public_user($user),
                 'csrf' => $_SESSION['csrf'],
                 'registration_open' => true,
-                'site_name' => lb_setting('site_name', '晚风Todo'),
+                'site_name' => lb_setting('site_name', '明序'),
             ]);
             break;
 
@@ -420,7 +420,7 @@ try {
                不传就是原来的测试消息。长度由 lb_push_send 里的 lb_push_clip 兜底（2048 字节）。 */
             $text = trim((string)($in['text'] ?? ''));
             if ($text === '') {
-                $text = '晚风 Todo 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
+                $text = '明序 测试消息' . "\n" . '时间是 ' . $now->format('Y-m-d H:i:s')
                     . "\n" . '收到这条就说明推送通道是通的。';
             }
             $ok = lb_push_send($url, $text, $why);
@@ -772,7 +772,7 @@ try {
                 'settings' => [
                     'registration_open' => $settings['registration_open'] === '1',
                     'invite_code' => $settings['invite_code'] ?? '',
-                    'site_name' => $settings['site_name'] ?? '晚风Todo',
+                    'site_name' => $settings['site_name'] ?? '明序',
                 ],
             ]);
             break;
@@ -785,7 +785,7 @@ try {
             $body = lb_body();
             $registrationOpen = !empty($body['registration_open']);
             $invite = strtoupper(trim((string)($body['invite_code'] ?? '')));
-            $siteName = trim((string)($body['site_name'] ?? '晚风Todo'));
+            $siteName = trim((string)($body['site_name'] ?? '明序'));
 
             if (!preg_match('/^[A-Z0-9_-]{4,32}$/', $invite)) {
                 lb_fail('邀请码需为 4–32 位字母、数字、下划线或短横线', 400, 'bad_invite');

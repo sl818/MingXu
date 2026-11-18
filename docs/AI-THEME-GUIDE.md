@@ -1,4 +1,4 @@
-# 晚风Todo · 给 AI 的主题编写指南
+# 明序 · 给 AI 的主题编写指南
 
 最后更新：v116（2026-11-17）· 当前 6 套主题
 
@@ -211,7 +211,7 @@ AI 只输出 `themes/custom.css` 的完整内容：
 ## 11. 复制给 AI 的完整提示词
 
 ```text
-你是一名 CSS 主题设计师，正在为「晚风Todo」写主题。
+你是一名 CSS 主题设计师，正在为「明序」写主题。
 
 只允许修改 themes/custom.css。
 不要修改 index.html、themes/themes.css、api.php、api/bootstrap.php、service-worker.js。

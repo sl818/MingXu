@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""晚风Todo 线上端到端实测（真实写入测试数据，不删除）。
+"""明序 线上端到端实测（真实写入测试数据，不删除）。
 
 覆盖：
 1. 登录（断言进入今日页）
@@ -62,7 +62,7 @@ with sync_playwright() as p:
         # ============ 1. 打开 & 未登录落地页 ============
         pg.goto(URL, wait_until="networkidle")
         pg.wait_for_timeout(1200)
-        check(pg.title() == "晚风Todo · 习惯与任务", "打开首页", pg.title())
+        check(pg.title() == "明序 · 习惯与任务", "打开首页", pg.title())
         check(pg.locator('[data-act="cloud-login"]').count() > 0, "未登录落地页展示登录入口")
         shot("01-landing")
 
