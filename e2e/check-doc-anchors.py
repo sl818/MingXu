@@ -170,7 +170,7 @@ def main():
         # 5. CSS 类
         for cls in re.findall(r'`\.([a-zA-Z][a-zA-Z0-9_-]{2,})`', text):
             # .gitignore / .env / .htaccess 这类是文件名，不是 CSS 类
-            if cls.lower() in ('gitignore', 'env', 'htaccess', 'user', 'project',
+            if cls.lower() in ('gitignore', 'gitattributes', 'env', 'htaccess', 'user', 'project',
                                'svn', 'ds', 'lock', 'ini', 'json', 'php', 'md', 'py'):
                 continue
             if ('.' + cls) not in all_css:
