@@ -155,12 +155,13 @@ def removable_indexes(decls, later_decls):
 
 def main():
     write = '--write' in sys.argv
-    path = 'index.html'
+    # v116 起 CSS 已外移到 assets/app.css（原来是 6 个内联 style 块）。
+    # 整个文件天然是一条时间线，不再需要按块拼。
+    path = 'assets/app.css'
     with open(path, encoding='utf-8', newline='') as f:
         src = f.read()
 
-    styles = list(re.finditer(r'(<style[^>]*>)(.*?)(</style>)', src, re.S))
-    print('style 块: %d' % len(styles))
+    print('文件: %s（%.0f KB）' % (path, len(src) / 1024))
 
     edits = []
     removed_rules = 0
@@ -169,11 +170,8 @@ def main():
 
     # 把 5 个 style 块里的规则收进同一条时间线：跨块的「后出现者胜」和块内同理
     all_blocks = []      # (norm_sel, ctx, abs_start, abs_end, body_start, body_end, body)
-    for m in styles:
-        base = m.start(2)
-        for b in find_blocks(m.group(2)):
-            all_blocks.append((norm_sel(b[0]), b[4], base + b[2], base + b[3],
-                               base + b[5], base + b[6], b[1]))
+    for b in find_blocks(src):
+        all_blocks.append((norm_sel(b[0]), b[4], b[2], b[3], b[5], b[6], b[1]))
 
     order = []
     seen = {}
@@ -223,7 +221,7 @@ def main():
     with open(path, 'w', encoding='utf-8', newline='') as f:
         f.write(out)
     raw = open(path, 'rb').read()
-    print('\n已写入。CRLF %d / LF %d' % (raw.count(b'\r\n'), raw.count(b'\n')))
+    print('\n已写入。字节 %d，裸 CR %d（应为 0）' % (len(raw), raw.count(b'\r')))
 
 
 if __name__ == '__main__':

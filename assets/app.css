@@ -1,19 +1,26 @@
 /* ============================================================
-   CSS 维护须知（2026-10-25 补记）
+   CSS 维护须知（v116 重写）
 
-   本页有 5 个 <style> 块，按历史顺序叠加，靠 cascade 优先级生效：
-     1. <style>              设计变量 + 布局 + 基础组件
-     2. #visual-v2           视觉改版，覆盖第 1 块
-     3. #skins               9 套皮肤变量与派生样式
-     4. #new-pages           今日/习惯/体重/随笔等新页面
-     5. #layout-v3           三布局（wide / top / side），优先级最高
+   这个文件是 6 个内联 <style> 块在 2026-11-18 原样搬出来的结果（逐字节一致），
+   排列顺序就是原来的层叠顺序，**越靠后越优先**：
 
-   已知问题：同一选择器在多个块中被重复定义（此前统计有 299 个重复）。
-   因此——修改样式前请先在全部 5 个块里搜索目标选择器，确认最终生效位置，
-   再改那一处；切勿只在最靠前的块里改，否则看起来"没生效"。
+     1. 基础层        设计变量 + 布局 + 基础组件
+     2. visual-v2     视觉改版，覆盖基础层
+     3. skins         皮肤变量与派生样式
+     4. new-pages     今日 / 习惯 / 体重 / 随笔等新页面
+     5. layout-v3     三布局（wide / top / side）
+     6. notify-v33    通知 / 命令面板
+
+   找样式的方法：搜选择器名，会命中多处——**最后出现的那份才生效**。
+   只改第一处等于没改，这是历史上最常见的坑。
+
+   关于「重复」：同上下文内同名的选择器有 166 组，但**不要手动合并**。
+   它们是跨层覆盖（v2 层加圆角、layout-v3 层改内边距），合并会移动规则位置、
+   改变它和中间几百条规则的层叠关系。e2e/css_dedupe.py 只删「可证明被完全覆盖」
+   的声明，跑一次也就删掉个位数——自动空间已经耗尽了。
 
    删除样式前先确认类名仍在被引用：项目里所有 class 都由 JS 字符串拼出，
-   搜索 `class="类名` 而非 DOM；确认无引用后再删。
+   搜索 `class="类名` 而不是去 DOM 里找；确认无引用后再删。
    ============================================================ */
 /* ============ 设计变量 ============ */
 :root{
@@ -2166,7 +2173,6 @@ body.is-dragging .arch-zone b,body.is-dragging .arch-zone .az-ico{color:var(--ac
 }
 .wk:hover{background:var(--surface-2);border-color:var(--line)}
 .wk.is-sel{background:var(--surface-2);border-color:var(--line-strong)}
-.wk-wd{font-size:10px;color:var(--muted);letter-spacing:.06em}
 .wk-track{
   flex:1;width:16px;min-height:58px;border-radius:6px;
   background:var(--surface-2);
@@ -2175,7 +2181,7 @@ body.is-dragging .arch-zone b,body.is-dragging .arch-zone .az-ico{color:var(--ac
 .wk-track i{display:block;width:100%;border-radius:6px;background:var(--accent);opacity:.85;transition:height .3s ease}
 .wk-track i.empty{background:var(--line-strong);opacity:.45}
 .wk.is-sel .wk-track i{background:var(--gold);opacity:1}
-.wk-num{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.wk-num{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
 .wk.is-future{opacity:.35}
 .week-foot{
   display:flex;gap:14px;flex-wrap:wrap;
