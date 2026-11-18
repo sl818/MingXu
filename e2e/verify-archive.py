@@ -302,13 +302,21 @@ with sync_playwright() as p:
     pg.click('[data-act="close-modal"]')
     pg.wait_for_timeout(400)
     goto(pg, 'stats')
+    # v84 起统计页按主题并成 6 块，任务在「任务」小卡里（.tk-grid 的 .rv-cell），
+    # 不再是日历页那种 .cal-summary 药丸；数字取「已完成」那格，小字写明含几条归档。
     stats_done = pg.evaluate("""() => {
-      const spans = [...document.querySelectorAll('.cal-summary span')];
-      const s = spans.find(e => e.textContent.includes('已完成'));
-      return s ? s.textContent.replace(/\\s+/g, ' ').trim() : '';
+      const cells = [...document.querySelectorAll('.tk-grid .rv-cell')];
+      const c = cells.find(x => ((x.querySelector('small') || {}).textContent || '').trim() === '已完成');
+      if (!c) return null;
+      return {
+        n: Number((((c.querySelector('b') || {}).textContent) || '').replace(/[^0-9]/g, '')),
+        sub: (((c.querySelector('span') || {}).textContent) || '').trim()
+      };
     }""")
     # 此时完成的只有 t1（在看板）+ t5（已归档），若过滤掉归档会显示 1
-    rec('统计页「已完成」仍包含归档任务（历史保留）', stats_done == '已完成 2', stats_done)
+    rec('统计页「已完成」仍包含归档任务（历史保留）',
+        bool(stats_done) and stats_done['n'] == 2 and '含归档' in stats_done['sub'],
+        str(stats_done))
 
     # 今日页不含归档任务
     goto(pg, 'today')

@@ -196,6 +196,26 @@ def main():
         never = by['从未完成']['name']
         chk('周日习惯没有掉进「从未完成」', '每周日' not in never, never)
         chk('周日习惯计入应打卡（总数 104 含它的 4 天）', '104' in k0['sub'], k0['sub'])
+
+        # ---------- 2b. 统计页习惯板块同步（v115） ----------
+        # 同一份 habitMonthOverview()，两页数字必须逐字一致；切「时间线」后要跟着隐藏
+        print('\n[2b] 统计页习惯板块同步同一份概览')
+        pg.evaluate("""() => { const b = document.querySelector('[data-nav="stats"]'); if (b) b.click(); }""")
+        pg.wait_for_timeout(1000)
+        nested = pg.evaluate("() => !!document.querySelector('.panel .hsum')")
+        ds = pg.evaluate(SUM)
+        chk('统计页里也有本月概览', ds.get('on') is True, str(ds.get('on')))
+        chk('概览在习惯面板内部', nested, str(nested))
+        chk('KPI 数值与习惯页完全一致', ds.get('kpi') == d.get('kpi'),
+            '%s vs %s' % (ds.get('kpi'), d.get('kpi')))
+        chk('点名项也一致', ds.get('list') == d.get('list'),
+            '%s vs %s' % (ds.get('list'), d.get('list')))
+        pg.click('[data-act="stats-habit-tab"][data-tab="log"]')
+        pg.wait_for_timeout(700)
+        chk('切到「时间线」后概览跟着隐藏（口径不同）',
+            pg.evaluate("() => !document.querySelector('.hsum')"), '')
+        pg.click('[data-act="stats-habit-tab"][data-tab="month"]')
+        pg.wait_for_timeout(500)
         ctx.close()
 
         # ---------- 3. 用药：有排期才参与 ----------

@@ -13319,8 +13319,11 @@ body.modal-open{overflow:hidden}
     const mTab = ['month', 'range', 'trend'].indexOf(statsMedTab) >= 0 ? statsMedTab : 'month';
     const habitSub = hTab === 'month' ? '只看有记录的日子'
       : (hTab === 'range' ? '最近 ' + range + ' 天' : '最近 ' + logList.length + ' 次操作，含服药');
+    /* v115：把习惯页的「本月概览」同步进来（口径都是本月，与「本月」分段放一起）。
+       没有可统计的习惯时 habitMonthOverview 返回空串，不影响月份网格。 */
     const habitBody = hTab === 'month'
-      ? (monthHabitRowsHtml(now.getFullYear(), now.getMonth()) || '<div class="empty-box">本月还没有记录。</div>')
+      ? habitMonthOverview() +
+        (monthHabitRowsHtml(now.getFullYear(), now.getMonth()) || '<div class="empty-box">本月还没有记录。</div>')
       : (hTab === 'range'
         ? (hstats || '<div class="empty-box">还没有习惯数据。</div>')
         : (logRows

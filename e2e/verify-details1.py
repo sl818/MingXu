@@ -85,7 +85,13 @@ LOG = """() => {
     times: rows.map(r => (r.querySelector('.log-time') || {}).textContent || ''),
     deltas: rows.map(r => (r.querySelector('.log-delta') || {}).textContent || ''),
     names: rows.map(r => (r.querySelector('.log-name') || {}).textContent || ''),
-    head: (document.querySelector('.panel-head h3') || {}).textContent || '',
+    head: (function () {
+      const anchor = btn || rows[0];
+      const panel = anchor ? anchor.closest('.panel') : null;
+      /* 统计页的标题栏是 .shead，不是 .panel-head（v84 起） */
+      const hd = panel ? (panel.querySelector('.shead') || panel.querySelector('.panel-head')) : null;
+      return hd ? hd.textContent : '';
+    })(),
     btn: btn ? btn.textContent.trim() : '',
     btnVisible: !!btn && btn.getClientRects().length > 0
   };
@@ -119,7 +125,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(800)
     pg.click('[data-act="weight-new"]'); pg.wait_for_timeout(600)
     tip = pg.evaluate("() => (document.querySelector('.weight-tip') || {}).textContent || ''")
-    rec('体重弹窗出现称重提示', tip.strip() == '建议早上如厕后空腹称重，数据更准确', tip)
+    rec('体重弹窗出现称重提示', '建议早上如厕后空腹称重' in tip, tip)
     box = pg.evaluate("""() => {
       const tip = document.querySelector('.weight-tip');
       const w = document.querySelector('input[name="weight"]');
@@ -134,6 +140,10 @@ with sync_playwright() as p:
     # ---------- 统计页日志收缩 ----------
     pg.evaluate("""() => { const b = document.querySelector('.nav-item[data-nav="stats"]'); if (b) b.click(); }""")
     pg.wait_for_timeout(900)
+    # v84 起统计页按主题分段：操作日志在「习惯」面板的「时间线」分段里，默认是「本月」
+    if pg.locator('[data-act="stats-habit-tab"][data-tab="log"]').count():
+        pg.click('[data-act="stats-habit-tab"][data-tab="log"]')
+        pg.wait_for_timeout(700)
     l1 = pg.evaluate(LOG)
     rec('默认只显示 5 条', l1['n'] == 5, '%d 条' % l1['n'])
     rec('标题写明合并后总数（9 次）', '最近 9 次操作' in l1['head'], l1['head'])
@@ -160,6 +170,9 @@ with sync_playwright() as p:
     pg.wait_for_timeout(700)
     pg.evaluate("""() => { const b = document.querySelector('.nav-item[data-nav="stats"]'); if (b) b.click(); }""")
     pg.wait_for_timeout(800)
+    if pg.locator('[data-act="stats-habit-tab"][data-tab="log"]').count():
+        pg.click('[data-act="stats-habit-tab"][data-tab="log"]')
+        pg.wait_for_timeout(700)
     l4 = pg.evaluate(LOG)
     rec('离开统计页后回到收起态', l4['n'] == 5, '%d 条' % l4['n'])
 

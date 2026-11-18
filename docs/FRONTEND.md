@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v114（2026-11-17）
+最后更新：v115（2026-11-17）
 
 ---
 
@@ -333,6 +333,8 @@ document.addEventListener('click', e => {
 `countOf(d,id)` `setCount(d,id,v)` `logHabit(id,delta)` `met(h,d)` `activeHabits(d)`
 `dayStats(d)` `rateOver(days)` `dayQualified(d)` `overallStreak()` `habitStreak(h)`
 `habitDueOn(h,d)` `habitMonthRow(h,y,m,upto)` `habitMonthOverview()`（习惯页本月概览，v109）
+统计页「习惯」面板的「本月」分段也渲染同一个 `habitMonthOverview()`（v115）——
+两页数字逐字一致；切到「近 N 天 / 时间线」时**不显示**，口径不同别混在一起。
 
 **习惯页「本月概览」（v109）**：
 

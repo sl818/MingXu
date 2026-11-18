@@ -197,7 +197,12 @@ SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',
               '.sblock-head b', '.sblock-head span', '.shead h3',
               '.stab button', '.stab button.on',
               # v85 总览里的任务摘要三格（.rv-cell 的另一处用法）
-              '.tk-grid .rv-cell small', '.tk-grid .rv-cell b', '.tk-grid .rv-cell span']
+              '.tk-grid .rv-cell small', '.tk-grid .rv-cell b', '.tk-grid .rv-cell span',
+              # v115：本月概览同步进统计页习惯板块。同样的 class 但外面多了一层 .panel 背景，
+              # 对比度要按嵌套背景单独算一次（习惯页那组在 body 下，取的是另一个底）
+              '.panel .hsum .hsum-range', '.panel .hsum .hs-k small',
+              '.panel .hsum .hs-k b', '.panel .hsum .hs-k .hs-long',
+              '.panel .hsum .hs-l small', '.panel .hsum .hs-l b', '.panel .hsum .hs-l span']
 # 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
 # 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
 SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
