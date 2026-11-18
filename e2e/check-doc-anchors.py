@@ -23,6 +23,7 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/SITE-STRUCTURE.md', 'docs/DEPLOY.md',
         'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
         'docs/REFACTOR-PLAN.md', 'docs/CHANGE-MAP.md',
+        'docs/BRAND.md', 'docs/RENAME-PLAN.md',
         'README.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
