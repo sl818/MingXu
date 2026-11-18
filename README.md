@@ -2,7 +2,7 @@
 
 > 明晰诸事次序 · 看清，然后有序
 
-[![check](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml/badge.svg)](https://github.com/sl818/wanfeng-todo/actions/workflows/check.yml)
+[![check](https://github.com/sl818/MingXu/actions/workflows/check.yml/badge.svg)](https://github.com/sl818/MingXu/actions/workflows/check.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > 一个可自托管的个人生活仪表盘：**习惯打卡、用药记录、待办看板、体重、随笔、日历回顾、统计复盘**，
