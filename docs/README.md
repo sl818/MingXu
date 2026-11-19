@@ -17,6 +17,7 @@
 | [SITE-STRUCTURE.md](SITE-STRUCTURE.md) | 文档索引 + 主题系统的准确信息                            | 写皮肤             |
 | [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **拆分评估**：实测规模、三阶段、成本与限制；第 8 节是按「AI 增删改效率」的重评 | 想动结构时 |
 | [CHANGE-MAP.md](CHANGE-MAP.md)         | **改动地图**：改某个功能要动哪几处、跑哪个测试                | 每次改动前          |
+| [DESIGN-LIB.md](DESIGN-LIB.md)         | **设计参考库**：Trackie / Yuvomi 的交互素材、成本与优先级      | 做大改版前          |
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
 | [THEME-SPEC.md](THEME-SPEC.md)         | 主题变量、组件类名、允许 / 禁止清单                         | 写皮肤             |
