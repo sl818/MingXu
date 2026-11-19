@@ -82,10 +82,58 @@ foreach ($rows as $r) {
     echo '推送开关 push_enabled = ' . ($r['push_enabled'] ?? 0) . PHP_EOL;
     echo 'webhook = ' . $masked . PHP_EOL;
 
+    /* v121：邮件通道同样决定「这个用户会不会被调度捞出来」，所以一起显示。
+       没有这张表时说明迁移没跑——调度会降级成只发企业微信。 */
+    if (lb_table_exists($pdo, 'user_mail_config')) {
+        $ms = $pdo->prepare('SELECT enabled, smtp_user, from_email, secret_enc, last_error FROM user_mail_config WHERE user_id = ?');
+        $ms->execute([(int)$r['id']]);
+        $mc = $ms->fetch();
+        if (!$mc) {
+            echo '邮件提醒 mail = 未配置' . PHP_EOL;
+        } else {
+            echo '邮件提醒 mail = enabled=' . (int)$mc['enabled']
+                . ' / 账号=' . (($mc['smtp_user'] ?? '') !== '' ? $mc['smtp_user'] : '（空）')
+                . ' / 授权码=' . (($mc['secret_enc'] ?? '') !== '' && $mc['secret_enc'] !== null ? '已存' : '（空）')
+                . PHP_EOL;
+            if ((string)($mc['last_error'] ?? '') !== '') {
+                echo '  上次错误：' . $mc['last_error'] . PHP_EOL;
+            }
+        }
+    } else {
+        echo '邮件提醒 mail = （user_mail_config 表不存在，先跑迁移）' . PHP_EOL;
+    }
+
     $state = json_decode((string)$r['data'], true);
     if (!is_array($state)) {
         echo '  （看板数据无法解析）' . PHP_EOL . PHP_EOL;
         continue;
+    }
+
+    echo PHP_EOL . '── 待办清单（未完成的都列，方便对「为什么不发」）──' . PHP_EOL;
+    $anyTask = false;
+    foreach ((array)($state['tasks'] ?? []) as $t) {
+        if (!is_array($t)) {
+            continue;
+        }
+        $st = (string)($t['status'] ?? 'todo');
+        if ($st === 'done' || $st === 'cancelled') {
+            continue;
+        }
+        $anyTask = true;
+        $due = (string)($t['due'] ?? '');
+        $nt = (string)($t['notifyTime'] ?? '09:00');
+        $no = array_key_exists('notify', $t) ? (bool)$t['notify'] : true;
+        echo '  [' . ($t['id'] ?? '?') . '] ' . ($t['title'] ?? '')
+            . '  due=' . ($due === '' ? '（无截止日）' : $due)
+            . '  通知=' . ($no ? '开 ' . $nt : '关')
+            . '  ' . $st;
+        if ($due !== $date) {
+            echo '  ← 不是今天到期，今天不会推';
+        }
+        echo PHP_EOL;
+    }
+    if (!$anyTask) {
+        echo '  （没有未完成的待办）' . PHP_EOL;
     }
 
     echo PHP_EOL . '── 药品清单 ──' . PHP_EOL;
