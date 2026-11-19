@@ -1086,9 +1086,9 @@
         httpWarn;
       actions = '<div class="btn-row">' +
         '<button class="btn" data-act="cloud-sync">立即保存</button>' +
-        '<button class="btn ghost" data-act="cloud-account">账号</button>' +
         (isAdmin ? '<button class="btn ghost" data-act="admin-panel">用户管理</button>' : '') +
         '<button class="btn ghost" data-act="cloud-logout">退出登录</button>' +
+        '<button class="btn ghost" data-act="cloud-account">资料</button>' +
         '</div>';
     } else {
       body = '<p class="muted-sm">登录后从云端加载数据；手机和电脑共用同一份。</p>' +
@@ -1805,6 +1805,8 @@
     toast('已退出登录');
   }
 
+  /* v118：账号弹窗升级成「资料 + 改密」两段，各自独立保存。
+     刻意不用 <form>：两个动作共用一个表单会让回车键触发错的那一个。 */
   function cloudAccountModal() {
     if (!cloud.user) {
       cloudLoginModal();
@@ -1812,25 +1814,59 @@
     }
     const isAdmin = !!cloud.user.is_admin;
     openModal('' +
-      '<form class="modal-card" id="cloud-account-form">' +
-        '<h3>账号</h3>' +
-        '<p class="muted-sm">邮箱：<b>' + esc(cloud.user.email) + '</b></p>' +
-        (cloud.user.display_name ? '<p class="muted-sm">显示名称：<b>' + esc(cloud.user.display_name) + '</b></p>' : '') +
-        '<p class="muted-sm">角色：' + (isAdmin ? '管理员' : '普通用户') + '</p>' +
-        '<h4 style="font-size:14px;margin:20px 0 10px">修改密码</h4>' +
-        '<label class="field"><span>当前密码</span><input name="current_password" type="password" required maxlength="200" autocomplete="current-password"></label>' +
-        '<div class="form-grid">' +
-          '<label class="field"><span>新密码（至少 8 位）</span><input name="new_password" type="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>' +
-          '<label class="field"><span>确认新密码</span><input name="new_password_confirm" type="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>' +
-        '</div>' +
-        '<p class="hint cloud-error" style="color:var(--bad)"></p>' +
-        '<p class="hint">修改后，其他设备上的登录会失效。</p>' +
+      '<div class="modal-card" id="cloud-account-form">' +
+        '<h3>账号资料</h3>' +
+        '<label class="field"><span>名称</span>' +
+          '<input name="display_name" maxlength="40" placeholder="例如：小明、晚风" value="' + esc(cloud.user.display_name || '') + '" autocomplete="nickname">' +
+        '</label>' +
+        '<label class="field"><span>邮箱（登录账号）</span>' +
+          '<input name="email" type="email" maxlength="190" value="' + esc(cloud.user.email || '') + '" autocomplete="email" placeholder="you@example.com">' +
+        '</label>' +
+        '<p class="hint">角色：' + (isAdmin ? '管理员' : '普通用户') + '。改邮箱后，下次登录要用新邮箱。</p>' +
+        '<p class="hint profile-error" style="color:var(--bad);min-height:18px"></p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn ghost" data-act="cloud-logout">退出登录</button>' +
-          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存新密码</button>' +
+          '<button type="button" class="btn primary" data-act="profile-save">保存资料</button>' +
         '</div>' +
-      '</form>');
+        '<h4 style="font-size:14px;margin:22px 0 10px">修改密码</h4>' +
+        '<label class="field"><span>当前密码</span><input name="current_password" type="password" maxlength="200" autocomplete="current-password"></label>' +
+        '<div class="form-grid">' +
+          '<label class="field"><span>新密码（至少 8 位）</span><input name="new_password" type="password" minlength="8" maxlength="200" autocomplete="new-password"></label>' +
+          '<label class="field"><span>确认新密码</span><input name="new_password_confirm" type="password" minlength="8" maxlength="200" autocomplete="new-password"></label>' +
+        '</div>' +
+        '<p class="hint cloud-error" style="color:var(--bad);min-height:18px"></p>' +
+        '<p class="hint">改完密码，其他设备上的登录会失效。</p>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn ghost" data-act="cloud-logout">退出登录</button>' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">关闭</button>' +
+          '<button type="button" class="btn" data-act="cloud-change-password">保存新密码</button>' +
+        '</div>' +
+      '</div>');
+  }
+
+  async function cloudDoSaveProfile(card) {
+    const nameEl = card.querySelector('[name="display_name"]');
+    const mailEl = card.querySelector('[name="email"]');
+    const msg = card.querySelector('.profile-error');
+    const btn = card.querySelector('[data-act="profile-save"]');
+    const name = (nameEl ? nameEl.value : '').trim();
+    const email = (mailEl ? mailEl.value : '').trim();
+    if (msg) msg.textContent = '';
+    if (!email) { if (msg) msg.textContent = '请填写邮箱'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { if (msg) msg.textContent = '邮箱格式不正确'; return; }
+    if (Array.from(name).length > 40) { if (msg) msg.textContent = '名称最多 40 个字符'; return; }
+    if (btn) btn.disabled = true;
+    try {
+      const res = await cloudApi('profile_save', { display_name: name, email: email });
+      if (res && res.user) cloud.user = res.user;
+      closeModal();
+      toast('资料已保存');
+      render();
+    } catch (e) {
+      if (msg) msg.textContent = e.message || '保存失败';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function cloudDoChangePassword(form) {
@@ -1838,7 +1874,7 @@
     const next = form.querySelector('[name="new_password"]').value || '';
     const confirm = form.querySelector('[name="new_password_confirm"]').value || '';
     const errEl = form.querySelector('.cloud-error');
-    const btn = form.querySelector('[type="submit"]');
+    const btn = form.querySelector('[data-act="cloud-change-password"]');
     if (!current || !next) {
       if (errEl) errEl.textContent = '请填写当前密码和新密码';
       return;
@@ -10469,6 +10505,186 @@
     '</div>';
   }
 
+  /* ---------- 邮件提醒（QQ 邮箱 SMTP）----------
+     mailCfg 三态：undefined = 还没问过；null = 没配置/读取失败；对象 = 已读到。
+     授权码只进不出：后端不回显明文，输入框永远留空，留空 = 保留已存的。 */
+  let mailCfg;
+  let mailLoading = false;
+  let mailBusy = false;
+  let mailRecipient = '';
+  let mailTestResult = null;   // {ok:boolean, msg:string}
+
+  function mailField(name) {
+    const el = document.getElementById('mail-' + name);
+    return el ? String(el.value || '').trim() : '';
+  }
+
+  function mailStateText() {
+    if (mailCfg === undefined) return '读取中';
+    if (!mailCfg) return '还没配置';
+    if (mailCfg.enabled) return '已开启 · 到点会发邮件';
+    return mailCfg.hasSecret ? '已配置，已暂停' : '还没填授权码';
+  }
+
+  async function mailLoad() {
+    if (mailLoading || mailCfg !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    mailLoading = true;
+    try {
+      const r = await cloudApi('mail_status');
+      mailCfg = (r && r.config && typeof r.config === 'object') ? r.config : null;
+      mailRecipient = (r && typeof r.recipient === 'string') ? r.recipient : '';
+      if (r && r.crypto_ready === false) {
+        mailTestResult = { ok: false, msg: '服务器加密组件不可用：请执行数据库迁移，或在 api/config.php 配置 mail_secret' };
+      }
+    } catch (e) {
+      mailCfg = null;
+    }
+    mailLoading = false;
+    if (view === 'config' || view === 'settings') render();
+  }
+
+  function mailValues() {
+    return {
+      host: mailField('host'),
+      port: Number(mailField('port')),
+      secure: mailField('secure'),
+      user: mailField('user'),
+      from: mailField('from'),
+      name: mailField('name'),
+      secret: mailField('secret')
+    };
+  }
+
+  function mailCheck(v, needSecret) {
+    if (!v.host) return '先填 SMTP 服务器';
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.host)) return '服务器只接受域名，例如 smtp.qq.com';
+    if (!Number.isInteger(v.port) || v.port < 1 || v.port > 65535) return '端口要填 1–65535 的数字';
+    if (!v.user || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.user)) return '用户名要填完整邮箱地址';
+    if (v.from && v.from.toLowerCase() !== v.user.toLowerCase()) {
+      return '发件人必须和用户名完全一致，否则会被判为伪造发件人';
+    }
+    if (v.name && Array.from(v.name).length > 60) return '称呼最多 60 个字';
+    if (needSecret && !v.secret && !(mailCfg && mailCfg.hasSecret)) return '先填 16 位授权码';
+    return '';
+  }
+
+  async function mailSave(enabled) {
+    const v = mailValues();
+    const bad = mailCheck(v, !!enabled);
+    if (bad) { toast(bad); return false; }
+    try {
+      const r = await cloudApi('mail_save', Object.assign({}, v, { enabled: !!enabled }));
+      mailCfg = (r && r.config) ? r.config : null;
+      mailTestResult = null;
+      render();
+      toast(enabled ? '邮件提醒已保存并开启' : '已保存，邮件提醒已暂停');
+      return true;
+    } catch (e) {
+      toast(e && e.message ? e.message : '保存失败');
+      return false;
+    }
+  }
+
+  async function mailTest() {
+    if (mailBusy) return;
+    const v = mailValues();
+    const bad = mailCheck(v, true);
+    if (bad) { toast(bad); return; }
+    mailBusy = true;
+    mailTestResult = null;
+    const sendingBtn = document.querySelector('[data-act="mail-test"]');
+    if (sendingBtn) sendingBtn.disabled = true;
+    toast('正在发送…');
+    try {
+      const r = await cloudApi('mail_test', v);
+      mailTestResult = { ok: true, msg: '测试邮件已发出，收件人：' + ((r && r.to) || mailRecipient || '你的账号邮箱') };
+      toast('发出去了，看看邮箱');
+    } catch (e) {
+      const msg = e && e.message ? e.message : '发送失败';
+      mailTestResult = { ok: false, msg: msg };
+      toast(msg);
+    } finally {
+      mailBusy = false;
+      /* 只更新表单里的结果条，不整页 render —— 否则用户刚填的内容会丢 */
+      const box = document.getElementById('mail-result');
+      if (box) {
+        box.hidden = false;
+        box.className = 'mail-result ' + (mailTestResult && mailTestResult.ok ? 'ok' : 'bad');
+        box.textContent = mailTestResult ? mailTestResult.msg : '';
+      }
+      const btn = document.querySelector('[data-act="mail-test"]');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function mailPanelHtml() {
+    const c = (mailCfg && typeof mailCfg === 'object') ? mailCfg : null;
+    const val = function (k, d) { return c && c[k] !== undefined && c[k] !== null ? String(c[k]) : String(d || ''); };
+    const on = !!(c && c.enabled);
+    const secured = [
+      ['ssl', 'SSL/TLS（QQ 465）'],
+      ['tls', 'STARTTLS（QQ 587）'],
+      ['none', '不加密（不推荐）']
+    ];
+    const secHtml = secured.map(function (o) {
+      return '<option value="' + o[0] + '"' + (val('secure', 'ssl') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+    let resultMsg = '';
+    let resultCls = '';
+    if (mailTestResult) {
+      resultMsg = mailTestResult.msg;
+      resultCls = mailTestResult.ok ? 'ok' : 'bad';
+    } else if (c && c.lastError) {
+      resultMsg = c.lastError;
+      resultCls = 'bad';
+    }
+
+    return '<div class="panel"><h3>邮件提醒</h3>' +
+      '<div class="ntf-box mail-center">' +
+        '<div class="ntf-head"><span class="ntf-dot ' + (on ? 'on' : '') + '"></span><b>发信设置</b>' +
+          '<span class="ntf-state">' + esc(mailStateText()) + '</span></div>' +
+        '<p class="muted-sm" style="margin:0 0 10px">让到点的提醒也能发到邮箱。' +
+        'QQ 邮箱填 16 位授权码（不是登录密码），测试邮件只发到你的账号邮箱 ' +
+        '<b>' + esc(mailRecipient || '（当前账号）') + '</b>。</p>' +
+        '<div class="form-grid mail-grid">' +
+          '<label class="field"><span>SMTP 服务器</span>' +
+            '<input id="mail-host" value="' + val('host', 'smtp.qq.com') + '" spellcheck="false" autocomplete="off" ' +
+            'placeholder="smtp.qq.com"></label>' +
+          '<label class="field"><span>端口</span>' +
+            '<input id="mail-port" type="number" min="1" max="65535" value="' + val('port', 465) + '"></label>' +
+          '<label class="field"><span>安全协议</span>' +
+            '<select id="mail-secure">' + secHtml + '</select></label>' +
+          '<label class="field"><span>用户名（完整邮箱）</span>' +
+            '<input id="mail-user" type="email" value="' + val('user', '') + '" spellcheck="false" autocomplete="username" ' +
+            'placeholder="123456789@qq.com"></label>' +
+          '<label class="field"><span>发件人（须与用户名一致）</span>' +
+            '<input id="mail-from" type="email" value="' + val('from', '') + '" spellcheck="false" ' +
+            'placeholder="123456789@qq.com"></label>' +
+          '<label class="field"><span>称呼</span>' +
+            '<input id="mail-name" value="' + val('name', '') + '" maxlength="60" placeholder="明序"></label>' +
+          '<label class="field wide"><span>授权码 / 密码' +
+            (c && c.hasSecret ? '（已保存，留空表示不修改）' : '') + '</span>' +
+            '<input id="mail-secret" type="password" autocomplete="new-password" ' +
+            'placeholder="QQ 邮箱 16 位授权码"></label>' +
+        '</div>' +
+        '<div id="mail-result" class="mail-result ' + resultCls + '"' + (resultMsg ? '' : ' hidden') + '>' +
+          esc(resultMsg) + '</div>' +
+        '<div class="btn-row">' +
+          '<button type="button" class="btn primary" data-act="mail-test">发信测试</button>' +
+          '<button type="button" class="btn" data-act="mail-save">保存</button>' +
+          '<button type="button" class="btn ghost" data-act="mail-cancel">取消</button>' +
+          (on ? '<button type="button" class="btn ghost" data-act="mail-off">暂停提醒</button>' : '') +
+        '</div>' +
+        '<p class="ics-hint">QQ 邮箱：服务器 <b>smtp.qq.com</b>，SSL/TLS 端口 <b>465</b>（推荐），' +
+        '也可以 STARTTLS 端口 587。开启路径：QQ 邮箱网页版 → 设置 → 账号与安全 → ' +
+        '开启 SMTP 服务 → 短信验证 → 拿到 16 位授权码。</p>' +
+        '<p class="ics-warn">⚠️ 三个坑：① 填授权码，不是 QQ 登录密码；改过 QQ 密码后旧授权码全部失效。' +
+        '② 发件人必须和用户名是同一个邮箱，冒充 @qq.com 会被 550 Invalid "From" 拒收。' +
+        '③ 发信频率是账号级限制（550 Sender frequency limited），换 IP 也没用，别短时间群发。</p>' +
+      '</div></div>';
+  }
+
   /* ---------- 提醒设置面板 ---------- */
   function remindStatusText() {
     const st = notifyState();
@@ -11125,7 +11341,8 @@
       if (wide && cloud.user) {
         const mail = cloud.user.email || cloud.user.display_name || '';
         su.innerHTML =
-          '<div class="su-card"><span class="su-avatar">' + esc((mail || '?').slice(0, 1).toUpperCase()) + '</span>' +
+          '<div class="su-card" data-act="cloud-account" role="button" tabindex="0" title="账号资料">' +
+            '<span class="su-avatar">' + esc((mail || '?').slice(0, 1).toUpperCase()) + '</span>' +
             '<span class="su-mail">' + esc(mail) + '</span></div>' +
           '<div class="su-actions">' +
             '<button class="su-btn" data-nav="settings">设置</button>' +
@@ -14152,6 +14369,8 @@
     'cloud-register': () => cloudRegisterModal(),
     'forgot-password': () => forgotPasswordModal(),
     'cloud-account': () => cloudAccountModal(),
+    'profile-save': () => { const c = document.getElementById('cloud-account-form'); if (c) cloudDoSaveProfile(c); },
+    'cloud-change-password': () => { const c = document.getElementById('cloud-account-form'); if (c) cloudDoChangePassword(c); },
     'cloud-logout': () => cloudLogout(),
     'cloud-sync': () => cloudManualSync(),
     'cloud-retry': () => cloudInit(true),
@@ -14262,9 +14481,6 @@
     } else if (form.id === 'cloud-register-form') {
       e.preventDefault();
       cloudDoRegister(form);
-    } else if (form.id === 'cloud-account-form') {
-      e.preventDefault();
-      cloudDoChangePassword(form);
     } else if (form.id === 'admin-reset-form') {
       e.preventDefault();
       adminDoReset(form);

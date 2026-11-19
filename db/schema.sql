@@ -55,6 +55,25 @@ CREATE TABLE IF NOT EXISTS push_sent (
   CONSTRAINT fk_push_sent_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 邮件提醒（QQ 邮箱 SMTP）：授权码只存密文，任何接口都不回显
+CREATE TABLE IF NOT EXISTS user_mail_config (
+  user_id INT UNSIGNED NOT NULL,
+  smtp_host VARCHAR(190) NOT NULL DEFAULT 'smtp.qq.com',
+  smtp_port SMALLINT UNSIGNED NOT NULL DEFAULT 465,
+  smtp_secure ENUM('ssl', 'tls', 'none') NOT NULL DEFAULT 'ssl',
+  smtp_user VARCHAR(190) NOT NULL DEFAULT '',
+  from_email VARCHAR(190) NOT NULL DEFAULT '',
+  from_name VARCHAR(80) NOT NULL DEFAULT '',
+  secret_enc TEXT NULL DEFAULT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  last_error VARCHAR(500) NOT NULL DEFAULT '',
+  last_test_at DATETIME NULL DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_mail_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS app_settings (
   k VARCHAR(64) NOT NULL,
   v TEXT NOT NULL,

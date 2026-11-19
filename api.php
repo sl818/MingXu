@@ -37,6 +37,10 @@ require __DIR__ . '/api/ics.php';
 /* push.php 内部已经 require_once 了 schedule.php；
    这里必须用 once，否则 schedule.php 被加载两次会「函数重复声明」直接 fatal */
 require_once __DIR__ . '/api/push.php';
+/* 邮件提醒：secret_box 提供授权码加解密，mailer 提供 SMTP 发信。
+   两者都只定义函数，不改变 push / schedule 的任何行为。 */
+require_once __DIR__ . '/api/secret_box.php';
+require_once __DIR__ . '/api/mailer.php';
 
 /* 订阅请求用不上会话：系统日历不带 Cookie，不需要登录态。
    而 session_start() 每次都会新建/锁定一个文件 —— 实测每个订阅请求都会在
@@ -472,6 +476,99 @@ try {
             lb_json(['ok' => true, 'date' => $today, 'items' => $items]);
             break;
 
+        /* ---------- 邮件提醒（QQ 邮箱 SMTP）----------
+           授权码只进不出：mail_status 不回显任何片段，只给 hasSecret。
+           原 IMAP / 企业微信推送逻辑一律不动。 */
+        case 'mail_status':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $user = lb_auth();
+            lb_json([
+                'ok' => true,
+                'config' => lb_mail_cfg_public(lb_mail_cfg_load(lb_db(), (int)$user['id'])),
+                'crypto_ready' => lb_secret_ready(),
+                'recipient' => (string)$user['email'],
+            ]);
+            break;
+
+        case 'mail_save':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $in = lb_body();
+            $res = lb_mail_cfg_save(lb_db(), (int)$user['id'], [
+                'host' => $in['host'] ?? null,
+                'port' => $in['port'] ?? null,
+                'secure' => $in['secure'] ?? null,
+                'user' => $in['user'] ?? null,
+                'from' => $in['from'] ?? null,
+                'name' => $in['name'] ?? null,
+                'secret' => $in['secret'] ?? '',
+                'enabled' => !empty($in['enabled']),
+            ]);
+            if (!$res['ok']) {
+                lb_fail($res['error'], 400, 'mail_save_failed');
+            }
+            lb_json(['ok' => true, 'config' => lb_mail_cfg_public($res['cfg'])]);
+            break;
+
+        case 'mail_test':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $in = lb_body();
+            $pdo = lb_db();
+            $uid = (int)$user['id'];
+            $saved = lb_mail_cfg_load($pdo, $uid);
+
+            /* 带字段 = 用表单里还没保存的值试发；不带 = 用已保存的配置。
+               授权码留空表示沿用已保存的那一个（前端永远拿不到明文）。 */
+            $cfg = $saved;
+            foreach (['host', 'secure', 'user', 'from', 'name'] as $k) {
+                if (array_key_exists($k, $in)) {
+                    $cfg[$k] = trim((string)$in[$k]);
+                }
+            }
+            if (array_key_exists('port', $in)) {
+                $cfg['port'] = (int)$in['port'];
+            }
+            if (!empty($in['secret'])) {
+                $cfg['secret'] = (string)$in['secret'];
+            }
+
+            /* 收件人固定为登录邮箱：绝不让这个接口变成任意地址的发信跳板 */
+            $to = (string)$user['email'];
+            if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+                lb_fail('账号邮箱不合法，无法接收测试信', 400, 'bad_recipient');
+            }
+            $now = (new DateTimeImmutable('now', lb_ics_tz()))->format('Y-m-d H:i:s');
+            $why = '';
+            $ok = lb_mail_send(
+                $cfg,
+                $to,
+                '明序 · 邮件测试',
+                '这是一封测试邮件。' . "\n" . '发送时间：' . $now . "\n"
+                . 'SMTP：' . $cfg['host'] . ':' . $cfg['port']
+                . "\n" . '收到就说明邮件通道已经配好了。',
+                $why
+            );
+            lb_mail_cfg_mark($pdo, $uid, $ok, $why);
+            if (!$ok) {
+                lb_fail('没发出去：' . $why, 502, 'mail_failed');
+            }
+            lb_json(['ok' => true, 'to' => $to]);
+            break;
+
+        case 'mail_off':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            lb_db()->prepare('UPDATE user_mail_config SET enabled = 0 WHERE user_id = ?')
+                ->execute([(int)$user['id']]);
+            lb_json(['ok' => true]);
+            break;
+
         case 'load':
             if ($method !== 'GET') {
                 lb_fail('请使用 GET', 405, 'method_not_allowed');
@@ -673,6 +770,31 @@ try {
                 }
                 throw $e;
             }
+            break;
+
+        case 'profile_save':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+
+            $body = lb_body();
+            $name = trim((string)($body['display_name'] ?? ''));
+            $email = strtolower(trim((string)($body['email'] ?? '')));
+            if (lb_strlen($name) > 40) {
+                lb_fail('名称最多 40 个字符', 400, 'bad_display_name');
+            }
+            if ($email === '' || strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                lb_fail('邮箱格式不正确', 400, 'bad_email');
+            }
+            $st = lb_db()->prepare('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1');
+            $st->execute([$email, (int)$user['id']]);
+            if ($st->fetch()) {
+                lb_fail('这个邮箱已被其他账号使用', 409, 'email_taken');
+            }
+            $up = lb_db()->prepare('UPDATE users SET display_name = ?, email = ? WHERE id = ?');
+            $up->execute([$name, $email, (int)$user['id']]);
+            $fresh = lb_user_by_id((int)$user['id']);
+            lb_json(['ok' => true, 'user' => $fresh ? lb_public_user($fresh) : null]);
             break;
 
         case 'change_password':

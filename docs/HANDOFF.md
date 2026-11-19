@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v117（2026-11-18）
+最后更新：v118（2026-11-19）
 
 ---
 
@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v117（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v117'`） |
+| 代码版本 | v118（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v118'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
@@ -138,6 +138,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v115 | 11-18 | **统计页习惯板块同步本月概览**（用户补充，非需求文档）：把 `habitMonthOverview()` 原样放进统计页「习惯」面板的「**本月**」分段（月份网格上方），两页共用同一函数、KPI 与点名项逐字一致。**只在「本月」分段显示**——概览是本月口径，跟「近 N 天」「时间线」混在同一面板里会两个百分比打架，切到别的分段自动隐藏。`verify-habit-month` 33→38 项（两页 KPI / 点名项比对 + 切分段隐藏）。对比度审计 +7：概览嵌在 `.panel` 里之后底色和习惯页那组不一样，要单独取样，2532 取样 0 不达标 0 缺失。顺带把 `verify-details1` / `verify-archive` 的过时断言修掉（统计页标题在 `.shead` 而不是 `.panel-head`、任务卡在 `.tk-grid` 而不是 `.cal-summary`），回归从此可以真的全绿。回滚点 tag `stats-habit-sync-v115` |
 | v116 | 11-18 | **拆分第一步（按 REFACTOR-PLAN 第 8 节，目标是「让 AI 增删改更快」）**：①**全仓库换行统一为 LF** + 新增 `.gitattributes`（`* text=auto eol=lf`）。原来 index.html 是 CRLF、api/*.php 是 LF、e2e 里 php 与 py 各混一半，改代码前要先猜换行，猜错就是「字符串不匹配」整段重写——v110–v115 六轮里踩了 4–5 次。63 个文件转换，逐文件校验「去掉 \r 后 md5 不变」。②**CSS 外移**：6 个内联 `<style>` 块（4,060 行）原样搬到 `assets/app.css`，`<link>` 插在 `themes/*.css` 之前，index.html 从 18,509 行降到 14,437 行。验证靠 `e2e/snap-styles.py` 抓 6 皮肤 × 明暗 × 6 页面共 24,732 个元素的 30 个 computed 属性逐字段比对：改前改后只有 2 处 `.toast` / `.sync-indicator` 的 `opacity` 抖动（抓取时动画阶段不同）。③**去重**：`e2e/css_dedupe.py` 适配 app.css 后只删掉 4 条声明就耗尽了——166 组重复全是**跨层覆盖**（间隔至少 34 条规则，144 对有同名属性），机械合并会改变层叠顺序，不能做。这点写进了 app.css 顶部注释。④新增 `docs/CHANGE-MAP.md`：功能 → 函数 / 必须同步的几处 / 对应测试。⑤`e2e/check-doc-anchors.py` 与 `_check_script` 的扫描范围补上 css 来源，否则外移后全变假报错。SW 缓存加 `./assets/app.css`。回滚点 tag `split-lf-css-v116` |
 | v117 | 11-18 | **改名：晚风 Todo → 明序 Mingxu**（品牌需求）：①logo 定稿——圆环 + 三条等长线 + 右下金勾，参数记在 `docs/BRAND.md`；替换 `icons/` 三张 PNG 与 favicon（favicon 用**无勾简版**，勾在 16px 只有 2px 宽，必然糊成一个点）。②全仓文字替换 46 处：index.html 17、manifest 2、api.php 6、api/ics.php 3、api/bootstrap.php 1、install 2、themes 6、push_test 1、test-plan 1；**「作者：晚风」两处署名保留**（那是身份不是品牌）。③e2e 断言同步 7 文件 9 处（页面标题、导出文件名前缀、订阅名）。④SW `CACHE` → v117。⑤**发布后必须登录设置页把站点名称改成「明序」**——线上库里已存旧值，只改代码默认值不生效，推送标题还会是旧名。回滚点 tag `rename-mingxu-v117` |
+| v118 | 11-19 | **账号资料**：用户系统入口两处——三区布局左下角整张用户卡可点、设置页「账号与同步」的「资料」按钮（移到退出登录之后）。弹窗从「只读展示 + 改密」升级成「名称 / 邮箱可编辑 + 改密」两段，各存各的。刻意**不用 `<form>`**：两个动作共用一个表单，回车会触发错的那一个。新增后端 `profile_save`（`display_name` 1–40 字、邮箱格式 + 唯一性校验，走 `lb_require_csrf`）。`users` 表本来就有 `display_name` 和 `email`，**没动表结构**。SW → v118。e2e 新增 `verify-profile.py`（20 项）。回滚点 tag `profile-v118` |
 
 ### 两次值得记住的事故
 

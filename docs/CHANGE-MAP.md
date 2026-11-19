@@ -152,6 +152,18 @@
 
 ---
 
+## 9.5 账号与资料
+
+| 位置 | 说明 |
+| --- | --- |
+| `cloudAccountModal` | 账号资料弹窗：名称、邮箱、改密两段。**不是 `<form>`**，两个按钮各自 `data-act` |
+| `cloudDoSaveProfile` / `cloudDoChangePassword` | 分别读卡片里的字段，各自校验 |
+| `api.php` 的 `profile_save` | 名称 1–40 字、邮箱格式 + 唯一性；改邮箱不踢会话 |
+| `api.php` 的 `change_password` | 旧密码校验 + 新密码 ≥8 位 + `session_epoch` 递增（其他设备失效） |
+| 入口 | 三区左下角 `.su-card`（整卡可点）、设置页「资料」按钮 |
+
+测试：`verify-profile.py`(20)。
+
 ## 10. 云同步 / 备份
 
 | 位置 | 说明 |
