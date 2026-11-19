@@ -10666,7 +10666,11 @@
           '<label class="field wide"><span>授权码 / 密码' +
             (c && c.hasSecret ? '（已保存，留空表示不修改）' : '') + '</span>' +
             '<input id="mail-secret" type="password" autocomplete="new-password" ' +
-            'placeholder="QQ 邮箱 16 位授权码"></label>' +
+            'placeholder="' + (c && c.hasSecret ? '已保存 · 留空不改动，要换请重新填' : 'QQ 邮箱 16 位授权码') + '">' +
+            (c && c.hasSecret
+              ? '<span class="mail-saved-hint">✓ 授权码已保存（加密存放，不回显）· 留空不改动，重新填写会覆盖</span>'
+              : '') +
+            '</label>' +
         '</div>' +
         '<div id="mail-result" class="mail-result ' + resultCls + '"' + (resultMsg ? '' : ' hidden') + '>' +
           esc(resultMsg) + '</div>' +

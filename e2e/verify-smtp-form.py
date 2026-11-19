@@ -128,7 +128,7 @@ with sync_playwright() as p:
     fields = ['mail-host', 'mail-port', 'mail-secure', 'mail-user', 'mail-from', 'mail-name', 'mail-secret']
     got = pg.evaluate("""ids => ids.map(id => {
         const e = document.getElementById(id);
-        return e ? {id: id, value: e.value, type: e.type} : null;
+        return e ? {id: id, value: e.value, type: e.type, placeholder: e.placeholder || ''} : null;
     })""", fields)
     rec('七个字段全部渲染', all(got), str([g['id'] for g in got if not g]))
 
@@ -138,6 +138,12 @@ with sync_playwright() as p:
     rec('协议默认 ssl', d['mail-secure']['value'] == 'ssl', d['mail-secure']['value'])
     rec('授权码不回显（框永远为空）', d['mail-secret']['value'] == '', repr(d['mail-secret']['value']))
     rec('授权码是 password 输入框', d['mail-secret']['type'] == 'password', d['mail-secret']['type'])
+    # 已保存时必须看得出来（否则空框 + 「16 位授权码」占位会让人以为没填过）
+    rec('已保存时 placeholder 写明已保存', '已保存' in d['mail-secret']['placeholder'], d['mail-secret']['placeholder'])
+    pg.locator('.mail-center').screenshot(path=DOC + '/design/mail-saved.png')
+    hint = pg.locator('.mail-saved-hint')
+    rec('已保存时有绿色提示行', hint.count() == 1 and '已保存' in hint.inner_text(),
+        hint.inner_text() if hint.count() else '缺失')
 
     btns = pg.evaluate("""() => ['mail-test','mail-save','mail-cancel','mail-off']
         .map(a => !!document.querySelector('[data-act="'+a+'"]'))""")

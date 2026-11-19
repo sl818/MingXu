@@ -4070,6 +4070,11 @@ body.modal-open{overflow:hidden}
 /* 邮件提醒配置（v119）：授权码只进不出，状态条靠文案 + 边框区分，不拿 --bad 压小字 */
 .mail-grid{margin-top:2px}
 .mail-grid .field.wide{grid-column:1/-1}
+.mail-saved-hint{
+  display:block;margin-top:5px;font-size:11.5px;line-height:1.5;
+  color:var(--good);font-weight:600;
+}
+
 .mail-result{margin-top:10px;padding:9px 11px;border-radius:9px;font-size:12px;line-height:1.6;
   background:var(--surface);border:1px solid var(--line);color:var(--text);white-space:pre-wrap;word-break:break-word}
 .mail-result.ok{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
