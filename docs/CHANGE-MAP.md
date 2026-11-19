@@ -152,6 +152,18 @@
 
 ---
 
+## 9.4 通知与提醒
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_schedule_day` 等（`api/schedule.php`） | 算出「某天几点该提醒什么」；只产出事件，不发 |
+| `lb_push_tick_run()`（`api/push.php`） | 每分钟调度。`$senders` 可以是单个 callable 或 `[['channel','fn'], ...]` |
+| 通道 | `wecom`（企业微信）、`mail`（邮件）。加通道只需往 `$senders` 里加一项，不动调度核心 |
+| 去重 | `push_sent` 唯一键 `(user_id, slot_key, channel)`。**channel 列必须迁移**，否则多通道互相顶掉 |
+| `tools/push_tick.php` | cron 入口，传两个通道；输出带通道标记 |
+
+测试：`test-push-tick.php`(44) / `test-notify-channel.php`(18) / `test-mailer.php`(44)。
+
 ## 9.5 账号与资料
 
 | 位置 | 说明 |

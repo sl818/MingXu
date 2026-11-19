@@ -254,24 +254,117 @@ function lb_push_sent_has_content(PDO $pdo): bool
  * @param callable $sender function(string $webhook, string $content, ?string &$err): bool
  * @return array{sent:int, skipped:int, failed:int, items:array<int,array>}
  */
+/** 表存在性：老库没跑迁移时不能直接查，否则整轮推送挂掉 */
+function lb_table_exists(PDO $pdo, string $table): bool
+{
+    if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table) !== 1) {
+        return false;
+    }
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $st = $pdo->prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?");
+            $st->execute([$table]);
+            return (bool)$st->fetchColumn();
+        }
+        $st = $pdo->prepare('SHOW TABLES LIKE ?');
+        $st->execute([$table]);
+        return (bool)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/** 列存在性：push_sent.channel 是 v121 才加的，老库要能降级运行 */
+function lb_column_exists(PDO $pdo, string $table, string $col): bool
+{
+    if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table) !== 1) {
+        return false;
+    }
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            foreach ($pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll() as $c) {
+                if (($c['name'] ?? '') === $col) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        $st = $pdo->prepare('SHOW COLUMNS FROM ' . $table . ' LIKE ?');
+        $st->execute([$col]);
+        return $st->fetchAll() !== [];
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+/** 把旧的企业微信发送函数包成统一签名 ($row, $text, &$why) */
+function lb_push_wecom_adapter(callable $fn): callable
+{
+    return function (array $row, string $text, ?string &$why) use ($fn) {
+        $why = '';
+        return (bool)$fn((string)($row['push_webhook'] ?? ''), $text, $why);
+    };
+}
+
+/** 邮件通道：把「标题 + 正文」拆成主题与正文，收件人固定为账号邮箱 */
+function lb_mail_channel_sender(PDO $pdo): callable
+{
+    return function (array $row, string $text, ?string &$why) use ($pdo) {
+        $lines = preg_split('/\r?\n/', trim($text), 2);
+        $subject = trim((string)($lines[0] ?? ''));
+        $body = (string)($lines[1] ?? '');
+        if ($subject === '') {
+            $subject = '提醒';
+        }
+        return lb_mail_send_to_user($pdo, (int)$row['id'], '【明序】' . $subject, $body, $why);
+    };
+}
+
+/**
+ * 每分钟调度一轮提醒。
+ *
+ * $senders 两种形态都支持：
+ *   - callable                        单通道（企业微信），旧调用方与旧测试不受影响
+ *   - [['channel'=>'wecom','fn'=>fn], ['channel'=>'mail','fn'=>fn], ...]
+ *     fn 统一签名 ($row, $text, &$why)，$row 带 id / push_webhook。
+ *
+ * 去重：push_sent 唯一键 (user_id, slot_key, channel)。channel 列没迁移时
+ * 退回 (user_id, slot_key)，此时多通道会互相顶掉——push_tick 会提示跑迁移。
+ */
 function lb_push_tick_run(
     PDO $pdo,
     string $date,
     string $hm,
-    callable $sender,
+    $senders,
     bool $dry = false,
     int $grace = 3
 ): array {
-    $out = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'items' => []];
+    $out = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'items' => [], 'channels' => 0];
+
+    if (is_callable($senders)) {
+        $senders = [['channel' => 'wecom', 'fn' => lb_push_wecom_adapter($senders)]];
+    }
+    if (!is_array($senders) || !$senders) {
+        return $out;
+    }
+    $out['channels'] = count($senders);
+
+    /* 谁在等提醒：配了企业微信的，或者开了邮件提醒的（后者要表存在才查） */
+    $hasMailTable = lb_table_exists($pdo, 'user_mail_config');
+    $where = "(u.push_enabled = 1 AND u.push_webhook IS NOT NULL AND u.push_webhook <> '')";
+    $mailCol = '0 AS mail_on';
+    if ($hasMailTable) {
+        $where = '(' . $where
+            . ' OR EXISTS (SELECT 1 FROM user_mail_config m WHERE m.user_id = u.id AND m.enabled = 1))';
+        $mailCol = '(SELECT 1 FROM user_mail_config m WHERE m.user_id = u.id AND m.enabled = 1) AS mail_on';
+    }
 
     $rows = $pdo->query(
-        "SELECT u.id, u.push_webhook, b.data
+        "SELECT u.id, u.push_webhook, " . $mailCol . ", b.data
            FROM users u
            INNER JOIN boards b ON b.user_id = u.id
-          WHERE u.push_enabled = 1
-            AND u.status = 'active'
-            AND u.push_webhook IS NOT NULL
-            AND u.push_webhook <> ''"
+          WHERE u.status = 'active'
+            AND " . $where
     )->fetchAll();
 
     if (!$rows) {
@@ -281,25 +374,37 @@ function lb_push_tick_run(
     $ins = null;
     $del = null;
     $hasContent = false;
+    $hasChannel = false;
     if (!$dry) {
         /* SQLite 不认 MySQL 的 INSERT IGNORE，但它是我们唯一能在本地跑起来的
            真实数据库——去重逻辑只有在真库上验过才算数，所以两种写法都留着。 */
         $verb = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
             ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
-        /* content 列可能还没加（旧库）。有就写正文，没有就退回老写法 */
         $hasContent = lb_push_sent_has_content($pdo);
+        $hasChannel = lb_column_exists($pdo, 'push_sent', 'channel');
+        $cols = ['user_id', 'slot_key', 'kind', 'sent_at'];
+        $ph = ['?', '?', '?', '?'];
+        if ($hasContent) {
+            $cols[] = 'content';
+            $ph[] = '?';
+        }
+        if ($hasChannel) {
+            $cols[] = 'channel';
+            $ph[] = '?';
+        }
         $ins = $pdo->prepare(
-            $verb . ($hasContent
-                ? ' INTO push_sent (user_id, slot_key, kind, sent_at, content) VALUES (?, ?, ?, ?, ?)'
-                : ' INTO push_sent (user_id, slot_key, kind, sent_at) VALUES (?, ?, ?, ?)')
+            $verb . ' INTO push_sent (' . implode(', ', $cols) . ') VALUES (' . implode(', ', $ph) . ')'
         );
-        $del = $pdo->prepare('DELETE FROM push_sent WHERE user_id = ? AND slot_key = ?');
+        $del = $hasChannel
+            ? $pdo->prepare('DELETE FROM push_sent WHERE user_id = ? AND slot_key = ? AND channel = ?')
+            : $pdo->prepare('DELETE FROM push_sent WHERE user_id = ? AND slot_key = ?');
     }
     $stamp = $date . ' ' . $hm . ':00';
 
     foreach ($rows as $r) {
         $uid = (int)$r['id'];
-        $hook = (string)$r['push_webhook'];
+        $hook = (string)($r['push_webhook'] ?? '');
+        $mailOn = !empty($r['mail_on']);
         $state = json_decode((string)$r['data'], true);
         if (!is_array($state)) {
             continue;
@@ -314,45 +419,62 @@ function lb_push_tick_run(
         foreach ($due as $item) {
             $key = $date . '|' . $item['kind'] . '|' . $item['id'] . '|' . $item['time'];
             $text = $item['title'] . "\n" . $item['body'];
-            $entry = ['user' => $uid, 'key' => $key, 'kind' => $item['kind'],
-                      'time' => $item['time'], 'text' => $text, 'ok' => false];
 
-            if ($dry) {
-                $entry['ok'] = true;
+            foreach ($senders as $ch) {
+                $chan = (string)($ch['channel'] ?? 'wecom');
+                /* 通道没配就不发：省掉一次必然失败的调用，也免得占位后又被撤掉 */
+                if ($chan === 'wecom' && $hook === '') {
+                    continue;
+                }
+                if ($chan === 'mail' && !$mailOn) {
+                    continue;
+                }
+
+                $entry = ['user' => $uid, 'key' => $key, 'kind' => $item['kind'],
+                          'time' => $item['time'], 'channel' => $chan, 'text' => $text, 'ok' => false];
+
+                if ($dry) {
+                    $entry['ok'] = true;
+                    $out['items'][] = $entry;
+                    $out['sent']++;
+                    continue;
+                }
+
+                /* 先占位再看结果：唯一索引保证同一条（同通道）只可能插进去一次，
+                   比「先查再插」在并发和延迟下都可靠 */
+                try {
+                    $vals = [$uid, $key, $item['kind'], $stamp];
+                    if ($hasContent) {
+                        $vals[] = $text;
+                    }
+                    if ($hasChannel) {
+                        $vals[] = $chan;
+                    }
+                    $ins->execute($vals);
+                } catch (PDOException $e) {
+                    $out['failed']++;
+                    $entry['why'] = '写发送记录失败：' . $e->getMessage();
+                    $out['items'][] = $entry;
+                    continue;
+                }
+                if ($ins->rowCount() < 1) {
+                    $out['skipped']++;
+                    continue;
+                }
+
+                $why = '';
+                $ok = (bool)($ch['fn'])($r, $text, $why);
+                if ($ok) {
+                    $out['sent']++;
+                    $entry['ok'] = true;
+                } else {
+                    $out['failed']++;
+                    $entry['why'] = $why;
+                    /* 发失败必须撤掉占位，否则这条永远不会再试，提醒就永久丢了 */
+                    $del->execute($hasChannel ? [$uid, $key, $chan] : [$uid, $key]);
+                }
                 $out['items'][] = $entry;
-                $out['sent']++;
-                continue;
             }
-
-            /* 先占位再看结果：唯一索引保证同一条只可能插进去一次，
-               比「先查再插」在并发和延迟下都可靠 */
-            try {
-                $ins->execute($hasContent
-                    ? [$uid, $key, $item['kind'], $stamp, $text]
-                    : [$uid, $key, $item['kind'], $stamp]);
-            } catch (PDOException $e) {
-                $out['failed']++;
-                $entry['why'] = '写发送记录失败：' . $e->getMessage();
-                $out['items'][] = $entry;
-                continue;
-            }
-            if ($ins->rowCount() < 1) {
-                $out['skipped']++;
-                continue;
-            }
-
-            $why = '';
-            $ok = (bool)$sender($hook, $text, $why);
-            if ($ok) {
-                $out['sent']++;
-                $entry['ok'] = true;
-            } else {
-                $out['failed']++;
-                $entry['why'] = $why;
-                /* 发失败必须撤掉占位，否则这条永远不会再试，提醒就永久丢了 */
-                $del->execute([$uid, $key]);
-            }
-            $out['items'][] = $entry;
         }
     }
 

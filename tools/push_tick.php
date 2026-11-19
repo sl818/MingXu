@@ -23,6 +23,8 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/../api/bootstrap.php';
 require __DIR__ . '/../api/push.php';
+require __DIR__ . '/../api/secret_box.php';
+require __DIR__ . '/../api/mailer.php';
 
 $argvList = array_slice($argv, 1);
 $dry = in_array('--dry', $argvList, true);
@@ -49,7 +51,16 @@ if ($at !== null) {
 
 try {
     $pdo = lb_db();
-    $r = lb_push_tick_run($pdo, $date, $hm, 'lb_push_send', $dry, 3);
+    /* v121：两个通道各自记账。没配的那条会在调度里被跳过，不会白占一次去重位 */
+    $senders = [
+        ['channel' => 'wecom', 'fn' => lb_push_wecom_adapter('lb_push_send')],
+        ['channel' => 'mail', 'fn' => lb_mail_channel_sender($pdo)],
+    ];
+    $r = lb_push_tick_run($pdo, $date, $hm, $senders, $dry, 3);
+    if (!$dry && !lb_column_exists($pdo, 'push_sent', 'channel')) {
+        fwrite(STDERR, '提示：push_sent 还没有 channel 列，多个通道会互相顶掉。'
+            . '请先执行 db/migrations/2026-11-19_notify_channel.sql' . PHP_EOL);
+    }
 } catch (PDOException $e) {
     fwrite(STDERR, '数据库出错：' . $e->getMessage() . PHP_EOL);
     fwrite(STDERR, '如果提示 push_sent 表不存在，先执行 db/migrations/2026-10-29_push.sql' . PHP_EOL);
@@ -61,9 +72,10 @@ if ($verbose) {
         $body = str_replace("\n", ' / ', $it['text']);
         if ($it['ok']) {
             echo '  ' . ($dry ? '[预演] ' : '✓ ') . $it['time'] . ' ' . $it['kind']
-                . ' → ' . $body . PHP_EOL;
+                . ' [' . ($it['channel'] ?? 'wecom') . '] → ' . $body . PHP_EOL;
         } else {
-            fwrite(STDERR, '  ✗ ' . $it['time'] . ' ' . $it['kind'] . ' → ' . $body
+            fwrite(STDERR, '  ✗ ' . $it['time'] . ' ' . $it['kind']
+                . ' [' . ($it['channel'] ?? 'wecom') . '] → ' . $body
                 . '（' . ($it['why'] ?? '') . '）' . PHP_EOL);
         }
     }
@@ -74,14 +86,15 @@ if (!$verbose && $r['failed'] > 0) {
     foreach ($r['items'] as $it) {
         if (!$it['ok']) {
             fwrite(STDERR, '推送失败 ' . $it['time'] . ' ' . $it['kind']
-                . '：' . ($it['why'] ?? '') . PHP_EOL);
+                . ' [' . ($it['channel'] ?? 'wecom') . ']：' . ($it['why'] ?? '') . PHP_EOL);
         }
     }
 }
 
 echo sprintf(
-    '[%s] 发出 %d 条，已发过跳过 %d 条，失败 %d 条' . PHP_EOL,
+    '[%s] 通道 %d 条，发出 %d 次，已发过跳过 %d 次，失败 %d 次' . PHP_EOL,
     $hm,
+    (int)($r['channels'] ?? 1),
     $r['sent'],
     $r['skipped'],
     $r['failed']
