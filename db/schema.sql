@@ -49,8 +49,9 @@ CREATE TABLE IF NOT EXISTS push_sent (
   kind VARCHAR(12) NOT NULL DEFAULT '',
   sent_at DATETIME NOT NULL,
   content TEXT NULL DEFAULT NULL,
+  channel VARCHAR(16) NOT NULL DEFAULT 'wecom',
   PRIMARY KEY (id),
-  UNIQUE KEY uq_push_sent (user_id, slot_key),
+  UNIQUE KEY uq_push_sent_channel (user_id, slot_key, channel),
   KEY idx_push_sent_time (sent_at),
   CONSTRAINT fk_push_sent_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
