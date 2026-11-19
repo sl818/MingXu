@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v116（2026-11-17）
+最后更新：v119（2026-11-19）
 
 ---
 
@@ -57,7 +57,7 @@ php -r "define('LIFEBOARD_API',1); require 'api/bootstrap.php'; require 'api/bac
 
 ---
 
-## 2. 23 个 action 路由表
+## 2. 27 个 action 路由表
 
 `鉴权` 列：`—` 无需登录 / `auth` 需登录 / `admin` 需管理员。
 `方法` 列：写接口先校验方法再校验身份，所以未登录的 POST 返回 401，未登录的 GET 写接口返回 405。
@@ -87,6 +87,14 @@ php -r "define('LIFEBOARD_API',1); require 'api/bootstrap.php'; require 'api/bac
 | `admin_user_update` | POST | admin | ✓ | 改状态 / 重置密码 | `id` `action` `value` |
 | `admin_settings` | GET | admin | — | 站点设置 | — |
 | `admin_settings_save` | POST | admin | ✓ | 保存站点设置 | `registration_open` `invite_code` |
+| `mail_status` | GET | auth | — | 脱敏邮件配置 + `crypto_ready` + 测试收件人 | — |
+| `mail_save` | POST | auth | ✓ | 保存 SMTP 配置；`secret` 留空保留原授权码 | `host` `port` `secure` `user` `from` `name` `secret` `enabled` |
+| `mail_test` | POST | auth | ✓ | 试发一封；可带未保存的表单值；收件人固定为登录邮箱 | 同 `mail_save`（不带 `enabled`） |
+| `mail_off` | POST | auth | ✓ | 只关 `enabled`，保留配置 | — |
+
+邮件层详见 [SMTP.md](SMTP.md)：`api/secret_box.php` 负责授权码加解密，
+`api/mailer.php` 负责 SMTP 会话与错误翻译，通知调用入口是 `lb_mail_send_to_user()`。
+它不写 `push_sent`、不判断该不该发，分层约定与 `api/push.php` 一致。
 
 ### 2.1 统一的响应格式
 
@@ -152,7 +160,7 @@ lb_require_csrf()  // 校验请求头 X-CSRF-Token 或 body.csrf
 
 ## 4. 数据存储
 
-### 4.1 七张表
+### 4.1 八张表
 
 | 表 | 用途 |
 |---|---|
@@ -160,7 +168,8 @@ lb_require_csrf()  // 校验请求头 X-CSRF-Token 或 body.csrf
 | `boards` | **业务数据主体**：`user_id` + `data`(LONGTEXT) + `rev` + `updated_at` |
 | `board_revisions` | 历史快照，每用户保留最近 20 版 / 30 天 |
 | `push_sent` | 推送去重记录，唯一索引 `(user_id, slot_key)` |
-| `app_settings` | 站点级设置（注册开关、邀请码） |
+| `app_settings` | 站点级设置（注册开关、邀请码、自动生成的 `mail_secret_key`） |
+| `user_mail_config` | 每用户一份 SMTP 配置，授权码只存 `secret_enc` 密文（v119） |
 | `login_attempts` | 登录限流 |
 | `register_attempts` | 注册限流 |
 

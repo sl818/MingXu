@@ -24,7 +24,7 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
         'docs/REFACTOR-PLAN.md', 'docs/CHANGE-MAP.md',
         'docs/BRAND.md', 'docs/RENAME-PLAN.md', 'docs/DESIGN-LIB.md',
-        'README.md']
+        'docs/SMTP.md', 'README.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
 NOT_CODE = {
@@ -110,6 +110,10 @@ def main():
         for span in code_spans:
             body = span.strip()
             if ' ' in body or '$' in body or "'" in body or '"' in body:
+                continue
+            # SQL 列类型（VARCHAR(190) / TINYINT(1)）不是函数调用，别当锚点。
+            # 用通用规则而不是逐个加白名单，否则每种长度都要补一次。
+            if re.match(r'^[A-Z][A-Z0-9_]*\s*\(\s*\d+\s*(,\s*\d+\s*)?\)$', body):
                 continue
             fm = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\s*\(', body)
             if not fm:

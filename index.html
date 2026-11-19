@@ -10838,11 +10838,13 @@
   function viewConfig() {
     icsLoad();
     pushLoad();
+    mailLoad();
     return '' +
       '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
       '<div class="config-wrap">' +
       noticePanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
+      mailPanelHtml() +
       dataPanelHtml() +
       '</div>';
   }
@@ -14049,6 +14051,17 @@
       pushSave(true, true);
     },
     'push-refresh': () => { pushCfg = undefined; pushLoad(); },
+
+    /* 邮件提醒：取消 = 丢掉表单里没保存的值，重新读服务器配置 */
+    'mail-test': () => { mailTest(); },
+    'mail-save': () => { mailSave(true); },
+    'mail-off': () => { mailSave(false); },
+    'mail-cancel': () => {
+      mailCfg = undefined;
+      mailTestResult = null;
+      mailLoad();
+      render();
+    },
     'ics-export': () => {
       if (cloud.user && !cloud.ready) { toast('云端数据还没加载完成，请稍候'); return; }
       const built = buildICS();

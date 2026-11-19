@@ -4,7 +4,7 @@
 >
 > 配套阅读：`FRONTEND.md` 第 3、10 节，`BACKEND.md` 第 4 节。
 
-最后更新：v116（2026-11-17）
+最后更新：v119（2026-11-19）
 
 ---
 
@@ -631,6 +631,11 @@ MED_PHASES    进行中 / 未开始 / 暂停 / 已停用   （按 status + 日�
 | v4 → v5 | `migrateQuitCravings`：老 `checks` 里的戒烟次数转成 `s` 事件，清掉「保持 0 次」备注 |
 | v5 → v6 | `migrateQuitPack`：给有戒烟习惯但没有买烟记录的账号补一包（开包时间 = 戒烟起点） |
 | 每次加载 | `migrateStock()` —— **幂等补齐，不依赖版本号** |
+
+邮件配置不进 `state`：`user_mail_config` 是独立的数据库表（v119 新增），
+按 `user_id` 一对一存 SMTP 参数与授权码密文，不走 `normalizeState` / `mergeStates` / `repairBackup`。
+原因是它是设备无关的服务器侧凭据，跟「看板数据全量快照」的同步模型完全不同；
+授权码一旦跟着快照导出，就等于把邮箱钥匙写进 JSON 备份。
 
 ### 9.1 两条规则
 

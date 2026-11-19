@@ -2,14 +2,15 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v118（2026-11-19）
+最后更新：v119（2026-11-19）
 
 ---
 
 ## 一句话状态
 
 已上线稳定运行。十二个页面 + 两布局 + 六套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
-全部验证通过。技术债集中在「主文件 14,437 行 + 外置 CSS 4,065 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
+全部验证通过；v119 新增 QQ 邮箱 SMTP 发信（配置页表单 + 四个接口 + 授权码加密存储）。
+技术债集中在「主文件 14,669 行 + 外置 CSS 4,078 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
 
 ---
 
@@ -18,10 +19,10 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v118（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v118'`） |
+| 代码版本 | v119（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v119'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
-| 数据库迁移 | 全部已执行（含 `2026-10-30_push_content.sql`） |
+| 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
 | 定时任务 | 宝塔 Shell 脚本，**每分钟**一次：`/www/server/php/82/bin/php .../tools/push_tick.php`（**不带 `--dry`**） |
 | 手机推送 | 已配企业微信机器人，实测可达 |
 | HTTPS | 已配，`ssl_protocols TLSv1.2 TLSv1.3` |
@@ -139,6 +140,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v116 | 11-18 | **拆分第一步（按 REFACTOR-PLAN 第 8 节，目标是「让 AI 增删改更快」）**：①**全仓库换行统一为 LF** + 新增 `.gitattributes`（`* text=auto eol=lf`）。原来 index.html 是 CRLF、api/*.php 是 LF、e2e 里 php 与 py 各混一半，改代码前要先猜换行，猜错就是「字符串不匹配」整段重写——v110–v115 六轮里踩了 4–5 次。63 个文件转换，逐文件校验「去掉 \r 后 md5 不变」。②**CSS 外移**：6 个内联 `<style>` 块（4,060 行）原样搬到 `assets/app.css`，`<link>` 插在 `themes/*.css` 之前，index.html 从 18,509 行降到 14,437 行。验证靠 `e2e/snap-styles.py` 抓 6 皮肤 × 明暗 × 6 页面共 24,732 个元素的 30 个 computed 属性逐字段比对：改前改后只有 2 处 `.toast` / `.sync-indicator` 的 `opacity` 抖动（抓取时动画阶段不同）。③**去重**：`e2e/css_dedupe.py` 适配 app.css 后只删掉 4 条声明就耗尽了——166 组重复全是**跨层覆盖**（间隔至少 34 条规则，144 对有同名属性），机械合并会改变层叠顺序，不能做。这点写进了 app.css 顶部注释。④新增 `docs/CHANGE-MAP.md`：功能 → 函数 / 必须同步的几处 / 对应测试。⑤`e2e/check-doc-anchors.py` 与 `_check_script` 的扫描范围补上 css 来源，否则外移后全变假报错。SW 缓存加 `./assets/app.css`。回滚点 tag `split-lf-css-v116` |
 | v117 | 11-18 | **改名：晚风 Todo → 明序 Mingxu**（品牌需求）：①logo 定稿——圆环 + 三条等长线 + 右下金勾，参数记在 `docs/BRAND.md`；替换 `icons/` 三张 PNG 与 favicon（favicon 用**无勾简版**，勾在 16px 只有 2px 宽，必然糊成一个点）。②全仓文字替换 46 处：index.html 17、manifest 2、api.php 6、api/ics.php 3、api/bootstrap.php 1、install 2、themes 6、push_test 1、test-plan 1；**「作者：晚风」两处署名保留**（那是身份不是品牌）。③e2e 断言同步 7 文件 9 处（页面标题、导出文件名前缀、订阅名）。④SW `CACHE` → v117。⑤**发布后必须登录设置页把站点名称改成「明序」**——线上库里已存旧值，只改代码默认值不生效，推送标题还会是旧名。回滚点 tag `rename-mingxu-v117` |
 | v118 | 11-19 | **账号资料**：用户系统入口两处——三区布局左下角整张用户卡可点、设置页「账号与同步」的「资料」按钮（移到退出登录之后）。弹窗从「只读展示 + 改密」升级成「名称 / 邮箱可编辑 + 改密」两段，各存各的。刻意**不用 `<form>`**：两个动作共用一个表单，回车会触发错的那一个。新增后端 `profile_save`（`display_name` 1–40 字、邮箱格式 + 唯一性校验，走 `lb_require_csrf`）。`users` 表本来就有 `display_name` 和 `email`，**没动表结构**。SW → v118。e2e 新增 `verify-profile.py`（20 项）。回滚点 tag `profile-v118` |
+| v119 | 11-19 | **邮件提醒（QQ 邮箱 SMTP）**：先核对仓库事实——**原本没有 `secret_box.php`，也没有任何 IMAP 收信代码**，所以前者按约定文件名新建、后者无从改动，企业微信推送一律不动。①新增 `api/secret_box.php`：原生 openssl AES-256-GCM，密钥取 `config.php` 的 `mail_secret`，缺省在 `app_settings` 自动生成，密文带完整性校验且接口不回显。②新增 `api/mailer.php`：stream_socket 实现 SMTP 会话（465 隐式 SSL / 587 STARTTLS / 不加密），EHLO 多行能力解析（只看末行会把 587 误判成不支持 STARTTLS），AUTH LOGIN，RFC 2047 主题与 base64 正文；按官方 1087/1083/1071 把 535、550 Invalid From、550 frequency limited 翻成人话；强制 `from === user` 防伪造发件人；主机只收公网域名防 SSRF；提供 `lb_mail_send_to_user()` 通知入口。③新增 `user_mail_config` 表（迁移 `2026-11-19_smtp.sql`），授权码只存 `secret_enc` 密文。④`api.php` 加 `mail_status` / `mail_save` / `mail_test` / `mail_off`；测试接口收件人固定为登录邮箱，不留中继口子。⑤配置页新增「邮件提醒」表单（服务器/端口/协议/用户名/发件人/称呼/授权码 + 发信测试/保存/取消），授权码框永远留空表示保留已存值。⑥新增 `docs/SMTP.md`（官方参数、报错规则、部署步骤、坑点表）与 `e2e/test-mailer.php` 44 项。`_check_script` 通过、`test-mailer.php` 44/44、`verify-smtp-form` 14/14（七字段 / QQ 默认值 / 授权码不回显 / 发件人拦截 / 错误条）、文档锚点全过；既有 `test-ics.php` 64、`test-schedule.php` 130、`test-push.php` 28、`test-push-tick.php` 44、`verify-ics-subscribe` 9、`regression-v3` 28、`verify-v15` 35、`verify-mobile-nav` 44、`verify-batch2` 51、`verify-batch3` 60、`verify-batch4` 20、`verify-api-http` 33 全绿。SW → v119。**部署必须先跑迁移**。回滚点 tag `smtp-mail-v119`（尚未打 tag） |
 
 ### 两次值得记住的事故
 

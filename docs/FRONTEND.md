@@ -4,7 +4,7 @@
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v116（2026-11-17）
+最后更新：v119（2026-11-19）
 
 ---
 
@@ -242,6 +242,11 @@ MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
 ```
+
+v119 配置页（`viewConfig()`）在「自定义通知 / 提醒」之间多一块「邮件提醒」，
+由 `mailPanelHtml()` 渲染，四个动作 `mail-test` / `mail-save` / `mail-off` / `mail-cancel`。
+授权码输入框 `id="mail-secret"` 永远留空：后端不回显明文，留空即保留已存值；
+改样式要同时看 `.mail-grid` 与 `.mail-result`（`assets/app.css` 末尾）。
 
 `NAV` 只是**字典 + 默认顺序**，实际渲染顺序统一由 `orderedNav()` 算（v86）：
 先按 `group`（记录 / 回顾）分段，段内按 `state.navOrder` 排，没排到的按默认补后面。
