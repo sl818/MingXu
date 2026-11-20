@@ -297,6 +297,95 @@ function lb_column_exists(PDO $pdo, string $table, string $col): bool
     }
 }
 
+/* ===== 通知通道矩阵（v122）=====
+   哪些事件类型走哪些通道。存在 app_settings 的 notify_prefs_<uid> 里——
+   键值表本来就有，用户级偏好先放这儿，**不用再加迁移**。
+   量大了（比如以后要按用户查、要审计）再拆独立表。 */
+
+function lb_notify_kinds(): array
+{
+    return [
+        'med' => '用药提醒',
+        'task' => '待办到点',
+        'habit' => '习惯提醒',
+        'countdown' => '倒数日',
+        'notice' => '自定义提醒',
+        'debt' => '还款提醒',
+        'report' => '每日小结',
+    ];
+}
+
+function lb_notify_channels(): array
+{
+    return ['wecom' => '企业微信', 'mail' => '邮件'];
+}
+
+/** 默认：习惯与每日小结只走企业微信——它们每天好几条，发邮件太吵 */
+function lb_notify_defaults(): array
+{
+    $out = [];
+    foreach (array_keys(lb_notify_kinds()) as $kind) {
+        $out[$kind] = ['wecom' => true, 'mail' => true];
+    }
+    $out['habit'] = ['wecom' => true, 'mail' => false];
+    $out['report'] = ['wecom' => true, 'mail' => false];
+    return $out;
+}
+
+/** 读矩阵。没配过就返回默认值（不能返回全关，否则老用户升级后一条都不发） */
+function lb_notify_prefs_load(PDO $pdo, int $uid): array
+{
+    $out = lb_notify_defaults();
+    $raw = '';
+    try {
+        $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
+        $st->execute(['notify_prefs_' . $uid]);
+        $raw = (string)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return $out;
+    }
+    if ($raw === '') {
+        return $out;
+    }
+    $j = json_decode($raw, true);
+    if (!is_array($j)) {
+        return $out;
+    }
+    foreach ($out as $kind => $row) {
+        if (!isset($j[$kind]) || !is_array($j[$kind])) {
+            continue;
+        }
+        foreach ($row as $ch => $def) {
+            if (array_key_exists($ch, $j[$kind])) {
+                $out[$kind][$ch] = (bool)$j[$kind][$ch];
+            }
+        }
+    }
+    return $out;
+}
+
+function lb_notify_prefs_save(PDO $pdo, int $uid, array $in): array
+{
+    $prefs = lb_notify_defaults();
+    foreach ($prefs as $kind => $row) {
+        foreach ($row as $ch => $def) {
+            if (isset($in[$kind]) && is_array($in[$kind]) && array_key_exists($ch, $in[$kind])) {
+                $prefs[$kind][$ch] = !empty($in[$kind][$ch]);
+            }
+        }
+    }
+    /* SQLite 不认 MySQL 的 ON DUPLICATE KEY，测试要跑在真库上，两种都留 */
+    $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
+        : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
+    try {
+        $pdo->prepare($sql)->execute(['notify_prefs_' . $uid, json_encode($prefs, JSON_UNESCAPED_UNICODE)]);
+    } catch (PDOException $e) {
+        return ['ok' => false, 'error' => '保存失败：' . $e->getMessage()];
+    }
+    return ['ok' => true, 'prefs' => $prefs];
+}
+
 /** 把旧的企业微信发送函数包成统一签名 ($row, $text, &$why) */
 function lb_push_wecom_adapter(callable $fn): callable
 {
@@ -405,6 +494,7 @@ function lb_push_tick_run(
         $uid = (int)$r['id'];
         $hook = (string)($r['push_webhook'] ?? '');
         $mailOn = !empty($r['mail_on']);
+        $prefs = lb_notify_prefs_load($pdo, $uid);
         $state = json_decode((string)$r['data'], true);
         if (!is_array($state)) {
             continue;
@@ -427,6 +517,11 @@ function lb_push_tick_run(
                     continue;
                 }
                 if ($chan === 'mail' && !$mailOn) {
+                    continue;
+                }
+                /* 通道配了不代表这个类型要走它——矩阵说了算 */
+                $kindNow = (string)($item['kind'] ?? '');
+                if (isset($prefs[$kindNow][$chan]) && !$prefs[$kindNow][$chan]) {
                     continue;
                 }
 

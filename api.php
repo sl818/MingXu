@@ -560,6 +560,28 @@ try {
             lb_json(['ok' => true, 'to' => $to]);
             break;
 
+        case 'notify_prefs':
+            $user = lb_auth();
+            lb_json([
+                'ok' => true,
+                'kinds' => lb_notify_kinds(),
+                'channels' => lb_notify_channels(),
+                'prefs' => lb_notify_prefs_load(lb_db(), (int)$user['id']),
+            ]);
+            break;
+
+        case 'notify_prefs_save':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $in = lb_body();
+            $res = lb_notify_prefs_save(lb_db(), (int)$user['id'], (array)($in['prefs'] ?? []));
+            if (!$res['ok']) {
+                lb_fail($res['error'], 400, 'prefs_save_failed');
+            }
+            lb_json(['ok' => true, 'prefs' => $res['prefs']]);
+            break;
+
         case 'mail_off':
             lb_require_post();
             $user = lb_auth();

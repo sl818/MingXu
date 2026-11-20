@@ -161,6 +161,8 @@
 | 通道 | `wecom`（企业微信）、`mail`（邮件）。加通道只需往 `$senders` 里加一项，不动调度核心 |
 | 去重 | `push_sent` 唯一键 `(user_id, slot_key, channel)`。**channel 列必须迁移**，否则多通道互相顶掉 |
 | `tools/push_tick.php` | cron 入口，传两个通道；输出带通道标记 |
+| `lb_notify_prefs_load` / `_save` | 通道矩阵，存 `app_settings` 的 `notify_prefs_<uid>`（零迁移） |
+| `lb_notify_kinds()` | 七种事件类型，**必须与 `schedule.php` 产出的 kind 一致**（notice / debt 容易写错） |
 
 测试：`test-push-tick.php`(44) / `test-notify-channel.php`(18) / `test-mailer.php`(44)。
 

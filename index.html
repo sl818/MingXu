@@ -10509,6 +10509,10 @@
      mailCfg 三态：undefined = 还没问过；null = 没配置/读取失败；对象 = 已读到。
      授权码只进不出：后端不回显明文，输入框永远留空，留空 = 保留已存的。 */
   let mailCfg;
+  /* v122 通知通道矩阵：undefined=未加载 / null=加载失败 / 对象=矩阵 */
+  let notifyPrefs;
+  let notifyMeta = null;
+  let notifyLoading = false;
   let mailLoading = false;
   let mailBusy = false;
   let mailRecipient = '';
@@ -10615,6 +10619,112 @@
       }
       const btn = document.querySelector('[data-act="mail-test"]');
       if (btn) btn.disabled = false;
+    }
+  }
+
+  async function notifyLoad() {
+    if (notifyLoading || notifyPrefs !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    notifyLoading = true;
+    try {
+      const r = await cloudApi('notify_prefs');
+      notifyPrefs = (r && r.prefs && typeof r.prefs === 'object') ? r.prefs : null;
+      notifyMeta = { kinds: (r && r.kinds) || {}, channels: (r && r.channels) || {} };
+    } catch (e) {
+      notifyPrefs = null;
+      notifyMeta = null;
+    }
+    notifyLoading = false;
+  }
+
+  /* 把矩阵翻译成一句人话：用户不该靠推理知道「谁会收到什么」 */
+  function notifySummary() {
+    if (!notifyPrefs || !notifyMeta) return '';
+    const kinds = notifyMeta.kinds || {};
+    const both = [];
+    const wecomOnly = [];
+    const mailOnly = [];
+    const none = [];
+    Object.keys(kinds).forEach(function (k) {
+      const w = !!(notifyPrefs[k] && notifyPrefs[k].wecom);
+      const m = !!(notifyPrefs[k] && notifyPrefs[k].mail);
+      if (w && m) both.push(kinds[k]);
+      else if (w) wecomOnly.push(kinds[k]);
+      else if (m) mailOnly.push(kinds[k]);
+      else none.push(kinds[k]);
+    });
+    if (none.length === Object.keys(kinds).length) {
+      return '全部关闭，不会收到任何提醒。';
+    }
+    const parts = [];
+    if (both.length) parts.push(both.join('、') + ' 发到企业微信和邮箱');
+    if (wecomOnly.length) parts.push(wecomOnly.join('、') + ' 只发企业微信');
+    if (mailOnly.length) parts.push(mailOnly.join('、') + ' 只发邮箱');
+    if (none.length) parts.push(none.join('、') + ' 不提醒');
+    return parts.length ? parts.join('；') + '。' : '全部关闭，不会收到任何提醒。';
+  }
+
+  function notifyMatrixHtml() {
+    if (!cloud.user) return '';
+    const head = '<div class="panel"><h3>通知通道矩阵</h3>';
+    if (notifyPrefs === undefined) {
+      return head + '<p class="muted-sm">正在读取…</p></div>';
+    }
+    if (notifyPrefs === null || !notifyMeta) {
+      return head + '<p class="muted-sm">读不到配置。可能没登录，或者服务器上的 `api/push.php` 还没更新。</p></div>';
+    }
+    const kinds = notifyMeta.kinds || {};
+    const chs = notifyMeta.channels || {};
+    const chKeys = Object.keys(chs);
+    const headRow = '<tr><th scope="col">提醒类型</th>' +
+      chKeys.map(function (c) { return '<th scope="col">' + esc(chs[c]) + '</th>'; }).join('') + '</tr>';
+    const bodyRows = Object.keys(kinds).map(function (k) {
+      const cells = chKeys.map(function (c) {
+        const on = !!(notifyPrefs[k] && notifyPrefs[k][c]);
+        return '<td><label class="mx-cell"><input type="checkbox" data-kind="' + esc(k) +
+          '" data-chan="' + esc(c) + '"' + (on ? ' checked' : '') + '>' +
+          '<span class="mx-box" aria-hidden="true"></span></label></td>';
+      }).join('');
+      return '<tr><th scope="row">' + esc(kinds[k]) + '</th>' + cells + '</tr>';
+    }).join('');
+    return head +
+      '<p class="muted-sm" style="margin:0 0 10px">勾选每种提醒走哪条通道。两条都取消，这类提醒就不会再打扰你。</p>' +
+      '<table class="mx-table"><thead>' + headRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
+      '<p class="hint mx-summary">' + esc(notifySummary()) + '</p>' +
+      '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通道</button></div>' +
+      '</div>';
+  }
+
+  /* 勾选时立刻更新摘要：让用户边点边看到「谁会收到什么」，不用先保存 */
+  function notifySyncSummary() {
+    const prefs = {};
+    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
+      const k = el.getAttribute('data-kind');
+      const c = el.getAttribute('data-chan');
+      prefs[k] = prefs[k] || {};
+      prefs[k][c] = !!el.checked;
+    });
+    notifyPrefs = prefs;
+    const box = document.querySelector('.mx-summary');
+    if (box) box.textContent = notifySummary();
+  }
+
+  async function notifySave() {
+    if (!notifyPrefs) return;
+    const prefs = {};
+    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
+      const k = el.getAttribute('data-kind');
+      const c = el.getAttribute('data-chan');
+      prefs[k] = prefs[k] || {};
+      prefs[k][c] = !!el.checked;
+    });
+    try {
+      const r = await cloudApi('notify_prefs_save', { prefs: prefs });
+      if (r && r.prefs) notifyPrefs = r.prefs;
+      toast('通道设置已保存');
+      render();
+    } catch (e) {
+      toast(e.message || '保存失败');
     }
   }
 
@@ -10843,12 +10953,14 @@
     icsLoad();
     pushLoad();
     mailLoad();
+    notifyLoad();
     return '' +
       '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
       '<div class="config-wrap">' +
       noticePanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       mailPanelHtml() +
+      notifyMatrixHtml() +
       dataPanelHtml() +
       '</div>';
   }
@@ -11384,6 +11496,9 @@
   }
 
   function bindView() {
+    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
+      el.addEventListener('change', notifySyncSummary);
+    });
     if (view === 'board') {
       bindBoard();
       bindBoardContext();
@@ -14059,6 +14174,7 @@
     /* 邮件提醒：取消 = 丢掉表单里没保存的值，重新读服务器配置 */
     'mail-test': () => { mailTest(); },
     'mail-save': () => { mailSave(true); },
+    'notify-save': () => { notifySave(); },
     'mail-off': () => { mailSave(false); },
     'mail-cancel': () => {
       mailCfg = undefined;

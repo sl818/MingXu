@@ -4070,6 +4070,20 @@ body.modal-open{overflow:hidden}
 /* 邮件提醒配置（v119）：授权码只进不出，状态条靠文案 + 边框区分，不拿 --bad 压小字 */
 .mail-grid{margin-top:2px}
 .mail-grid .field.wide{grid-column:1/-1}
+/* ===== 通知通道矩阵（v122）===== */
+.mx-table{width:100%;max-width:540px;border-collapse:collapse;margin:0 0 10px;font-size:12.5px}
+.mx-table th,.mx-table td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line)}
+.mx-table thead th{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;border-bottom:1px solid var(--line-strong)}
+.mx-table tbody th{font-weight:600;color:var(--text)}
+.mx-table td{text-align:center;width:92px}
+.mx-cell{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;cursor:pointer;position:relative}
+.mx-cell input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.mx-box{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-strong);background:var(--surface);display:block;transition:.15s;position:relative;pointer-events:none}
+.mx-cell input:checked + .mx-box{background:var(--accent-strong);border-color:var(--accent-strong)}
+.mx-cell input:checked + .mx-box::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.mx-cell input:focus-visible + .mx-box{outline:2px solid var(--accent);outline-offset:2px}
+.mx-summary{margin:0 0 12px;font-size:12px;color:var(--text);line-height:1.65}
+
 .mail-saved-hint{
   display:block;margin-top:5px;font-size:11.5px;line-height:1.5;
   color:var(--good);font-weight:600;
