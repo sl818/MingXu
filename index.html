@@ -40,15 +40,15 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=130">
+<link rel="stylesheet" href="assets/app.css?v=131">
 
 
 
-<link rel="stylesheet" href="themes/themes.css?v=130">
-<link rel="stylesheet" href="themes/custom.css?v=130">
-<link rel="stylesheet" href="themes/skin-cloud.css?v=130">
-<link rel="stylesheet" href="themes/skin-neu.css?v=130">
-<link rel="stylesheet" href="themes/skin-retro.css?v=130">
+<link rel="stylesheet" href="themes/themes.css?v=131">
+<link rel="stylesheet" href="themes/custom.css?v=131">
+<link rel="stylesheet" href="themes/skin-cloud.css?v=131">
+<link rel="stylesheet" href="themes/skin-neu.css?v=131">
+<link rel="stylesheet" href="themes/skin-retro.css?v=131">
 </head>
 <body>
 <div class="app landing">
@@ -15246,7 +15246,10 @@
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      /* v131：注册 URL 带版本串 + updateViaCache:'none'。
+         原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
+         于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
+      navigator.serviceWorker.register('service-worker.js?v=131', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
