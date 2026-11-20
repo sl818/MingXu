@@ -154,6 +154,9 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v128 | 11-20 | **修「发版了但样式没跟上」**：`app.css` 在 SW 里走缓存优先，而 SW 的 `install` 用 `cache.addAll()` ——那次请求会命中浏览器 HTTP 缓存（宝塔给静态文件设了缓存头），于是**新 SW 里装进去的还是旧 CSS**。表现就是同一版本下，一个浏览器正常、另一个样式全丢。修法三层：①`index.html` 的所有样式引用加 `?v=128` 版本串，彻底绕开 SW 与 HTTP 缓存；②SW 新增 `VER` 常量，ASSETS 里带同一串；③`install` 改成逐个 `fetch(new Request(url,{cache:"reload"}))` 再 `cache.put`，强制绕过 HTTP 缓存。`make_release.py` 增加一致性校验：HTML 的 `?v=` 与 SW 的 `CACHE`/`VER` 不一致就拒绝打包。**发版清单加一条**：改 SW 版本时，同步改 `index.html` 里的 `?v=`（打包脚本会拦）。SW → v128 |
 | v129 | 11-20 | **属性区改回轻量胶囊**：v127 实现时用了「四张带边框的卡片」（label 在上、值在下），视觉重量比设计稿的胶囊重得多——本来是要解决「拥挤」，卡片反而把弹窗压得更沉。改成一行胶囊（label 与值同行，`display:inline-flex`），子任务段头补回分隔线。`select` 箭头用 CSS 画（`appearance:none` + 两个渐变三角），避免各浏览器原生箭头宽度不一。SW → v129 |
 | v130 | 11-20 | **弹窗分段对齐设计稿**：并排比对后发现两处差异——①备注区缺段标题（设计稿有「备注 ————」），只有一个秃 textarea；②底部按钮上方多一条分隔线（设计稿没有）。已补备注段头、去掉 `.task-sheet .modal-actions` 的边框。实现与设计稿实测同高（550 / 552）。**保留的两处有意差异**：属性用原生 `select`（带下拉箭头，设计稿原型里是没有的 span）、「快选截止」三个快捷按钮（设计稿没有，属额外便利）。SW → v130 |
+| v131 | 11-20 | **修 SW 永不更新**：`serviceWorker.register('service-worker.js')` 用裸地址，浏览器按 HTTP 缓存判断「脚本没变」→ 不触发更新 → 新 HTML 配旧 SW、旧 CSS。改成 `register('service-worker.js?v=NNN', { updateViaCache: 'none' })`。（后来查明 v127~v130 的真正病根不是它，见 v132） |
+| v132 | 11-20 | **焦点轮廓收敛到一处（真凶）**。四套皮肤各复制了一条相同的 `[data-skin=x] :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}`，作用于**每个元素**。无边框大标题一聚焦就套上孤零零的圆角框——v127~v131 反复返工、以及「只有冷雾矩阵正常」（唯一没这条规则的皮肤）全源于此。修法：①提到 `app.css` 基础层，全站定义一次；②四套皮肤里的重复规则删除；③弹窗内输入类不吃外轮廓（标题改下划线、胶囊改 `:focus-within` 描边、备注改边框变色）。**测试基建补齐**：mock 之前只服务 `/assets/`，`/themes/` 全 404，所以本地永远测不出皮肤问题——这是连续误判「代码没问题」的技术原因。现补上，并加 4 套皮肤 × 3 项断言（共 40 项）。新增 `e2e/shots-skins.py`（六套皮肤截图 + 总览拼图）。SW → v132 `
+
 
 ### 两次值得记住的事故
 

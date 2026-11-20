@@ -62,6 +62,12 @@ body{
 }
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,select,textarea{font:inherit;color:inherit}
+
+/* 键盘焦点轮廓：**全站只在这里定义一次**。
+   以前四套皮肤各复制一条 `[data-skin=x] :focus-visible{outline:...}`，
+   结果是每加一个组件都要在 N 套皮肤里回归一遍；而且那条规则作用于所有元素，
+   无边框的大标题一聚焦就套上个孤零零的框（v127 的线上问题就是这么来的）。 */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
 h1,h2,h3,h4,p{margin:0}
 ::selection{background:var(--accent-soft)}
 .muted-sm{font-size:12px;font-weight:400}
@@ -4142,6 +4148,15 @@ body.modal-open{overflow:hidden}
 }
 .tk-note:focus{border-color:var(--accent);background:var(--surface)}
 /* 设计稿里底部按钮不画分隔线，靠留白分段就够了 */
+/* 弹窗里的输入类：外轮廓会溢出到相邻的胶囊上，改用边框/下划线提示焦点。
+   （全局那条 :focus-visible 保留给按钮、卡片这类可点控件） */
+.task-sheet input:focus-visible,
+.task-sheet select:focus-visible,
+.task-sheet textarea:focus-visible{ outline:none; }
+.task-sheet .tk-title:focus-visible{ outline:none; border-bottom:2px solid var(--accent); }
+.task-sheet .tk-note:focus-visible{ outline:none; border-color:var(--accent); background:var(--surface); }
+.task-sheet .tk-p:focus-within{ border-color:var(--accent); background:var(--surface); }
+
 .task-sheet .modal-actions{border-top:0;padding-top:10px;margin-top:4px}
 .tk-fold{border-top:1px solid var(--line);margin:0 0 4px}
 .tk-fold summary{

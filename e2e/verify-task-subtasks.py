@@ -55,7 +55,8 @@ class H(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if self.path.startswith('/assets/'):
+        if (self.path.startswith('/assets/') or self.path.startswith('/themes/')
+                or self.path.startswith('/icons/') or self.path.endswith('/manifest.json')):
             p = DOC + self.path.split('?')[0]
             try:
                 body = open(p, 'rb').read()
@@ -229,6 +230,33 @@ with sync_playwright() as p:
     pg.wait_for_timeout(600)
     rec('通知关闭的任务，折叠也展开', pg.locator('.tk-fold').evaluate('e => e.open'))
     rec('备注带出来了', '一条备注' in pg.input_value('.tk-note'), pg.input_value('.tk-note'))
+
+    print('\n=== 皮肤下的焦点轮廓（v132）===')
+    # 弹窗已经开着，直接改 data-skin（不 reload，避免 render 把它重置回默认皮肤）
+    for skin in ['cloud-float', 'paper', 'neu', 'retro']:
+        pg.evaluate("(s) => document.documentElement.setAttribute('data-skin', s)", skin)
+        pg.wait_for_timeout(200)
+        pg.locator('#task-form').click(position={'x': 10, 'y': 10})
+        pg.wait_for_timeout(150)
+        # 用真实点击聚焦：脚本 focus() 不触发 :focus-visible
+        pg.locator('.tk-title').click()
+        pg.wait_for_timeout(200)
+        r = pg.evaluate("""() => {
+          const t = document.querySelector('.tk-title');
+          const c = getComputedStyle(t);
+          const sel = document.querySelector('.tk-p select');
+          return {skin: document.documentElement.getAttribute('data-skin'),
+                  focusVisible: t.matches(':focus-visible'),
+                  titleOutline: c.outlineStyle, titleBottom: c.borderBottomWidth};
+        }""")
+        rec(skin + '：标题无外轮廓', r['titleOutline'] == 'none', str(r))
+        rec(skin + '：标题改为下划线提示', r['focusVisible'] and r['titleBottom'] != '0px', str(r))
+        pg.locator('.tk-p select').first.click()
+        pg.wait_for_timeout(200)
+        ov = pg.evaluate("() => getComputedStyle(document.querySelector('.tk-p select')).outlineStyle")
+        rec(skin + '：胶囊下拉无外轮廓', ov == 'none', ov)
+        pg.keyboard.press('Escape')
+        pg.wait_for_timeout(150)
 
     rec('无 JS / console 报错', not errs, str(errs[:2]))
     br.close()
