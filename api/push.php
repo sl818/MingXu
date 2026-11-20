@@ -504,7 +504,11 @@ function lb_notify_merge_med(array $due): array
 {
     $byTime = [];
     $out = [];
+    $pos = 0;
     foreach ($due as $item) {
+        /* 记原始位置：合并会打乱输出顺序，而顺序决定推送文案的先后
+           （20:00 的晚报必须排在药之后），所以合并完要按原位重排 */
+        $item['_pos'] = $pos++;
         $id = (string)($item['id'] ?? '');
         if (($item['kind'] ?? '') === 'med' && $id !== '' && strpos($id, 'batch_') !== 0) {
             $byTime[(string)$item['time']][] = $item;
@@ -528,7 +532,14 @@ function lb_notify_merge_med(array $due): array
             'title' => '该吃药了（' . count($group) . ' 种）',
             'body' => implode("\n", $lines),
             'merged' => count($group),
+            '_pos' => $group[0]['_pos'],
         ];
+    }
+    usort($out, function ($a, $b) {
+        return ($a['_pos'] ?? 0) <=> ($b['_pos'] ?? 0);
+    });
+    foreach ($out as $i => $item) {
+        unset($out[$i]['_pos']);
     }
     return $out;
 }

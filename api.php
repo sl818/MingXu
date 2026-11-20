@@ -301,17 +301,28 @@ try {
                 }
             }
 
+            $newUid = 0;
             try {
                 $ins = $pdo->prepare(
                     'INSERT INTO users (email, password_hash, display_name, is_admin, status, session_epoch, created_at) '
                     . 'VALUES (?, ?, ?, 0, \'active\', 0, NOW())'
                 );
                 $ins->execute([$email, password_hash($password, PASSWORD_DEFAULT), $display]);
+                /* 必须紧跟 INSERT 取。v126 曾把它放在一条 UPDATE 之后，某些驱动下会返回 0，
+                   结果账号已经建好却报「注册失败」，用户重试只会看到「已注册」。 */
+                $newUid = (int)$pdo->lastInsertId();
             } catch (PDOException $e) {
                 if ((string)$e->getCode() === '23000') {
-                    lb_fail('这个邮箱已经注册过了', 409, 'email_exists');
+                    lb_fail('这个邮箱已经注册过了，直接登录即可', 409, 'email_exists');
                 }
                 throw $e;
+            }
+
+            /* 拿不到 id 就按邮箱找回：这时候账号已经落库了，不能再说"注册失败" */
+            if ($newUid <= 0) {
+                $stNew = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+                $stNew->execute([$email]);
+                $newUid = (int)$stNew->fetchColumn();
             }
 
             if ($codeRowId > 0) {
@@ -319,9 +330,10 @@ try {
                     ->execute([date('Y-m-d H:i:s'), $codeRowId]);
             }
 
-            $user = lb_user_by_id((int)$pdo->lastInsertId());
+            $user = $newUid > 0 ? lb_user_by_id($newUid) : null;
             if (!$user) {
-                lb_fail('注册失败，请重试', 500, 'server_error');
+                /* 账号已存在，只是没能读回来。让用户直接登录，别让他再注册一次 */
+                lb_fail('账号已创建，但初始化没完成。请直接用刚才的邮箱和密码登录', 500, 'registered_but_unreadable');
             }
             lb_session_login($user);
             $up = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?');
