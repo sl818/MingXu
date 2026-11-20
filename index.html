@@ -10688,7 +10688,7 @@
       return '<tr><th scope="row">' + esc(kinds[k]) + '</th>' + cells + '</tr>';
     }).join('');
     return head +
-      '<p class="muted-sm" style="margin:0 0 10px">勾选每种提醒走哪条通道。两条都取消，这类提醒就不会再打扰你。</p>' +
+      '<p class="muted-sm" style="margin:0 0 10px">勾选每种提醒走哪条通道。两条都取消，这类提醒就不会再打扰你。<br>同一时刻的多种药会合并成一条（比如 8:00 吃六种药只发一条）。</p>' +
       '<table class="mx-table"><thead>' + headRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
       '<p class="hint mx-summary">' + esc(notifySummary()) + '</p>' +
       '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通道</button></div>' +

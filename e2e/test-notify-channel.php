@@ -178,6 +178,40 @@ $r9 = lb_push_tick_run($pdo9, D, HM, $old);
 chk('旧签名仍然只发一次', $log9 === ['legacy:hook'], implode(',', $log9));
 chk('channels 计为 1', ($r9['channels'] ?? 0) === 1, (string)($r9['channels'] ?? -1));
 
+echo '[10] 同一时刻的药合并成一条' . PHP_EOL;
+$merged = lb_notify_merge_med([
+    ['kind' => 'med', 'id' => 'm1', 'time' => '08:00', 'title' => '该吃药了', 'body' => '缬沙坦胶囊 1胶囊'],
+    ['kind' => 'med', 'id' => 'm2', 'time' => '08:00', 'title' => '该吃药了', 'body' => '甲钴胺片 1片'],
+    ['kind' => 'med', 'id' => 'm3', 'time' => '08:00', 'title' => '该吃药了', 'body' => '复方丹参滴丸 1其他'],
+]);
+chk('三条合成一条', count($merged) === 1, (string)count($merged));
+chk('标题带数量', ($merged[0]['title'] ?? '') === '该吃药了（3 种）', $merged[0]['title'] ?? '');
+chk('正文逐条列出', substr_count($merged[0]['body'] ?? '', '· ') === 3, $merged[0]['body'] ?? '');
+chk('合并后 id 是 batch_08:00', ($merged[0]['id'] ?? '') === 'batch_08:00', $merged[0]['id'] ?? '');
+
+echo '[11] 不同时刻的药不合并，单条保持原样' . PHP_EOL;
+$m2 = lb_notify_merge_med([
+    ['kind' => 'med', 'id' => 'm1', 'time' => '08:00', 'title' => '该吃药了', 'body' => 'A'],
+    ['kind' => 'med', 'id' => 'm2', 'time' => '20:00', 'title' => '该吃药了', 'body' => 'B'],
+]);
+chk('两条不同时刻仍是两条', count($m2) === 2, (string)count($m2));
+chk('单条不改标题', ($m2[0]['title'] ?? '') === '该吃药了', $m2[0]['title'] ?? '');
+
+echo '[12] 非用药类型不参与合并' . PHP_EOL;
+$m3 = lb_notify_merge_med([
+    ['kind' => 'task', 'id' => 't1', 'time' => '08:00', 'title' => '交报告', 'body' => '今天到期'],
+    ['kind' => 'task', 'id' => 't2', 'time' => '08:00', 'title' => '打电话', 'body' => '今天到期'],
+]);
+chk('两个任务不合并', count($m3) === 2, (string)count($m3));
+
+echo '[13] 合并后的条目仍然标成 med（矩阵才管得到它）' . PHP_EOL;
+$m4 = lb_notify_merge_med([
+    ['kind' => 'med', 'id' => 'a', 'time' => '08:00', 'title' => '该吃药了', 'body' => 'A'],
+    ['kind' => 'med', 'id' => 'b', 'time' => '08:00', 'title' => '该吃药了', 'body' => 'B'],
+]);
+chk('kind 还是 med', ($m4[0]['kind'] ?? '') === 'med', $m4[0]['kind'] ?? '');
+chk('带 merged 计数', ($m4[0]['merged'] ?? 0) === 2, (string)($m4[0]['merged'] ?? 0));
+
 echo PHP_EOL . str_repeat('-', 46) . PHP_EOL;
 echo '多通道调度：通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail > 0 ? 1 : 0);

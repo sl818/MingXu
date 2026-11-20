@@ -410,6 +410,46 @@ function lb_mail_channel_sender(PDO $pdo): callable
 }
 
 /**
+ * 同一时刻的多种药合并成一条（v123）。
+ *
+ * 8:00 吃六种药，发六条既吵又容易看漏——而且六条挤在通知栏里，
+ * 用户通常只点开第一条。合并成「该吃药了（6 种）」+ 列表更好读。
+ * 只合并 kind=med：任务/习惯本来就不常撞在同一分钟，合并反而会让标题变抽象。
+ */
+function lb_notify_merge_med(array $due): array
+{
+    $byTime = [];
+    $out = [];
+    foreach ($due as $item) {
+        $id = (string)($item['id'] ?? '');
+        if (($item['kind'] ?? '') === 'med' && $id !== '' && strpos($id, 'batch_') !== 0) {
+            $byTime[(string)$item['time']][] = $item;
+        } else {
+            $out[] = $item;
+        }
+    }
+    foreach ($byTime as $time => $group) {
+        if (count($group) === 1) {
+            $out[] = $group[0];
+            continue;
+        }
+        $lines = [];
+        foreach ($group as $g) {
+            $lines[] = '· ' . $g['body'];
+        }
+        $out[] = [
+            'kind' => 'med',
+            'id' => 'batch_' . $time,
+            'time' => (string)$time,
+            'title' => '该吃药了（' . count($group) . ' 种）',
+            'body' => implode("\n", $lines),
+            'merged' => count($group),
+        ];
+    }
+    return $out;
+}
+
+/**
  * 每分钟调度一轮提醒。
  *
  * $senders 两种形态都支持：
@@ -505,6 +545,7 @@ function lb_push_tick_run(
         if (!$due) {
             continue;
         }
+        $due = lb_notify_merge_med($due);
 
         foreach ($due as $item) {
             $key = $date . '|' . $item['kind'] . '|' . $item['id'] . '|' . $item['time'];
