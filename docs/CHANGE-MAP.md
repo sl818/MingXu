@@ -152,6 +152,18 @@
 
 ---
 
+## 9.2 注册
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_reg_mode()` / `lb_reg_public()`（`api/bootstrap.php`） | 三种注册方式；兼容旧 `registration_open` |
+| `api.php` 的 `register_code` | 发注册验证码；限流 60 秒 / 每天 10 条 / IP 20 条 |
+| `api.php` 的 `register` | 按模式校验邀请码或验证码；验证码校验在 INSERT 之前 |
+| `email_codes` 表 | 迁移 `2026-11-20_email_codes.sql`；只存 sha256、10 分钟、一次性 |
+| 前端 | `cloudRegisterModal`（按 `data-mode` 渲两套字段）、`registerSendCode`、`regLabel()` |
+
+测试：`verify-register-code.py`(22)。
+
 ## 9.3 站点邮件与找回密码
 
 | 位置 | 说明 |

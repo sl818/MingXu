@@ -1038,6 +1038,8 @@
     const me = await cloudApi('me');
     cloud.csrf = typeof me.csrf === 'string' ? me.csrf : '';
     cloud.registrationOpen = !!me.registration_open;
+    cloud.regMode = me.registration_mode || (me.registration_open ? 'invite' : 'closed');
+    cloud.codeReady = !!me.code_ready;
     if (me.site_name) cloud.siteName = String(me.site_name);
     if (me.user && me.user.email) {
       const prevOwner = cloud.owner;
@@ -1092,8 +1094,8 @@
         '</div>';
     } else {
       body = '<p class="muted-sm">登录后从云端加载数据；手机和电脑共用同一份。</p>' +
-        (cloud.registrationOpen
-          ? '<p class="muted-sm">开放注册，注册时需要管理员提供的邀请码。</p>'
+        (regLabel().open
+          ? '<p class="muted-sm">开放注册，' + (regLabel().label === '用邮箱注册' ? '注册时需要邮箱验证码。' : '注册时需要管理员提供的邀请码。') + '</p>'
           : '<p class="hint">注册已关闭；需要账号请联系管理员。</p>') +
         (cloud.error ? '<p class="hint" style="color:var(--bad)">' + esc(cloud.error) + '</p>' : '') +
         httpWarn;
@@ -1601,9 +1603,18 @@
     render();
   }
 
+  /* 注册入口的文案跟注册方式联动：用户点进去之前就该知道要准备邀请码还是验证码 */
+  function regLabel() {
+    const m = cloud.regMode || (cloud.registrationOpen ? 'invite' : 'closed');
+    if (m === 'email') return { open: true, label: '用邮箱注册', hint: '（需收验证码）' };
+    if (m === 'invite') return { open: true, label: '用邀请码注册', hint: '' };
+    return { open: false, label: '', hint: '' };
+  }
+
   function cloudLoginModal() {
-    const registerLink = cloud.registrationOpen
-      ? '<p class="hint">没有账号？<button type="button" class="link" data-act="cloud-register">用邀请码注册</button></p>'
+    const rl = regLabel();
+    const registerLink = rl.open
+      ? '<p class="hint">没有账号？<button type="button" class="link" data-act="cloud-register">' + rl.label + '</button>' + rl.hint + '</p>'
       : '<p class="hint">注册已关闭；需要账号请联系管理员。</p>';
     openModal('' +
       '<form class="modal-card" id="cloud-login-form">' +
@@ -1731,31 +1742,85 @@
   }
 
   function cloudRegisterModal() {
-    if (!cloud.registrationOpen) {
+    const mode = cloud.regMode || (cloud.registrationOpen ? 'invite' : 'closed');
+    if (mode === 'closed') {
       toast('管理员关闭了注册');
       return;
     }
+    const needInvite = mode === 'invite';
+    const needCode = mode === 'email';
+    if (needCode && !cloud.codeReady) {
+      toast('站点还没配好发信服务，暂时不能注册，请联系管理员');
+      return;
+    }
     openModal('' +
-      '<form class="modal-card" id="cloud-register-form">' +
+      '<form class="modal-card" id="cloud-register-form" data-mode="' + mode + '">' +
         '<h3>注册账号</h3>' +
-        '<p class="hint" style="margin:0 0 16px">需要管理员提供的邀请码；注册后自动登录。</p>' +
+        '<p class="hint" style="margin:0 0 16px">' +
+          (needInvite ? '需要管理员提供的邀请码；注册后自动登录。' : '需要验证邮箱；注册后自动登录。') +
+        '</p>' +
         '<label class="field"><span>显示名称（可选）</span><input name="display_name" maxlength="40" autocomplete="nickname" placeholder="怎么称呼你"></label>' +
         '<label class="field"><span>邮箱（登录名）</span><input name="email" type="email" required maxlength="190" autocomplete="username" placeholder="you@example.com"></label>' +
         '<div class="form-grid">' +
           '<label class="field"><span>密码（至少 8 位）</span><input name="password" type="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>' +
           '<label class="field"><span>确认密码</span><input name="password_confirm" type="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>' +
         '</div>' +
-        '<label class="field"><span>邀请码</span><input name="invite" required maxlength="32" autocapitalize="characters" autocomplete="off" placeholder="向管理员索取"></label>' +
+        (needInvite
+          ? '<label class="field"><span>邀请码</span><input name="invite" required maxlength="32" autocapitalize="characters" autocomplete="off" placeholder="向管理员索取"></label>'
+          : '<label class="field"><span>邮箱验证码</span>' +
+              '<div class="code-row">' +
+                '<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6 位数字">' +
+                '<button type="button" class="btn" data-act="reg-send-code">发送验证码</button>' +
+              '</div>' +
+            '</label>') +
         '<p class="hint cloud-error" style="color:var(--bad)"></p>' +
         (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
           ? '<p class="hint" style="color:var(--bad)">当前是 HTTP，密码会明文传输，建议先启用 HTTPS。</p>' : '') +
-        '<p class="hint">邮箱只是登录名，不发送验证邮件；忘记密码需要管理员重置。</p>' +
+        '<p class="hint">' +
+          (needInvite
+            ? '邮箱只是登录名，不发送验证邮件。'
+            : '验证码 10 分钟内有效、只能用一次；重发会让旧码立即失效。') +
+        '</p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
           '<button type="submit" class="btn primary">注册并登录</button>' +
         '</div>' +
         '<p class="hint">已有账号？<button type="button" class="link" data-act="cloud-login">直接登录</button></p>' +
       '</form>');
+  }
+
+  async function registerSendCode(btn) {
+    const form = document.getElementById('cloud-register-form');
+    if (!form) return;
+    const emailEl = form.querySelector('[name="email"]');
+    const errEl = form.querySelector('.cloud-error');
+    const email = (emailEl ? emailEl.value : '').trim();
+    if (errEl) errEl.textContent = '';
+    if (!email) {
+      if (errEl) errEl.textContent = '先填邮箱，再点发送';
+      return;
+    }
+    const original = btn.textContent;
+    btn.disabled = true;
+    try {
+      await cloudApi('register_code', { email: email });
+      let left = 60;
+      btn.textContent = left + ' 秒后重发';
+      const timer = setInterval(function () {
+        left--;
+        if (left <= 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.textContent = '重新发送';
+        } else {
+          btn.textContent = left + ' 秒后重发';
+        }
+      }, 1000);
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || '发送失败';
+      btn.disabled = false;
+      btn.textContent = original;
+    }
   }
 
   async function cloudDoLogin(form) {
@@ -1810,11 +1875,23 @@
     const email = (form.querySelector('[name="email"]').value || '').trim();
     const password = form.querySelector('[name="password"]').value || '';
     const confirm = form.querySelector('[name="password_confirm"]').value || '';
-    const invite = (form.querySelector('[name="invite"]').value || '').trim().toUpperCase();
+    const mode = form.getAttribute('data-mode') || 'invite';
+    const inviteEl = form.querySelector('[name="invite"]');
+    const codeEl = form.querySelector('[name="code"]');
+    const invite = inviteEl ? (inviteEl.value || '').trim().toUpperCase() : '';
+    const code = codeEl ? (codeEl.value || '').trim() : '';
     const errEl = form.querySelector('.cloud-error');
     const btn = form.querySelector('[type="submit"]');
-    if (!email || !password || !invite) {
-      if (errEl) errEl.textContent = '请填写邮箱、密码和邀请码';
+    if (!email || !password) {
+      if (errEl) errEl.textContent = '请填写邮箱和密码';
+      return;
+    }
+    if (mode === 'invite' && !invite) {
+      if (errEl) errEl.textContent = '请填写邀请码';
+      return;
+    }
+    if (mode === 'email' && !code) {
+      if (errEl) errEl.textContent = '请填写邮箱验证码';
       return;
     }
     if (password.length < 8) {
@@ -1833,7 +1910,8 @@
         display_name: display,
         email: email,
         password: password,
-        invite: invite
+        invite: invite,
+        code: code
       });
       const prevOwner = cloud.owner;
       if (prevOwner && String(prevOwner) !== String(res.user.id)) {
@@ -1997,8 +2075,16 @@
   function adminPanelHtml() {
     const settings = adminState.settings || {};
     const users = adminState.users || [];
-    const openOptions = '<option value="1"' + (settings.registration_open ? ' selected' : '') + '>开放（需要邀请码）</option>' +
-      '<option value="0"' + (!settings.registration_open ? ' selected' : '') + '>关闭</option>';
+    const regMode = settings.registration_mode || (settings.registration_open ? 'invite' : 'closed');
+    const mailReady = !!settings.site_mail_ready;
+    const modeOptions = [
+      ['closed', '关闭', true],
+      ['invite', '开放（需要邀请码）', true],
+      ['email', '开放（邮箱验证）', mailReady]
+    ].map(function (o) {
+      return '<option value="' + o[0] + '"' + (regMode === o[0] ? ' selected' : '') +
+        (o[2] ? '' : ' disabled') + '>' + o[1] + (o[2] ? '' : '（先配站点邮件）') + '</option>';
+    }).join('');
     const rows = users.map(u => {
       const self = cloud.user && Number(u.id) === Number(cloud.user.id);
       const adminTag = u.is_admin ? ' <span class="pin-tag">管理员</span>' : '';
@@ -2025,8 +2111,8 @@
       '<div class="panel" style="margin:0 0 14px"><h3>注册设置</h3>' +
         '<form id="admin-settings-form">' +
           '<div class="form-grid">' +
-            '<label class="field"><span>注册</span><select name="registration_open">' + openOptions + '</select></label>' +
-            '<label class="field"><span>邀请码</span><input name="invite_code" required maxlength="32" autocapitalize="characters" value="' + esc(settings.invite_code || '') + '"></label>' +
+            '<label class="field"><span>注册方式</span><select name="registration_mode">' + modeOptions + '</select></label>' +
+            '<label class="field"><span>邀请码</span><input name="invite_code" maxlength="32" autocapitalize="characters" placeholder="选「需要邀请码」时必填" value="' + esc(settings.invite_code || '') + '"></label>' +
             '<label class="field wide"><span>站点名称</span><input name="site_name" maxlength="40" value="' + esc(settings.site_name || '明序') + '"></label>' +
           '</div>' +
           '<p class="hint cloud-error" style="color:var(--bad)"></p>' +
@@ -2115,7 +2201,9 @@
   }
 
   async function adminSaveSettings(form) {
-    const open = form.querySelector('[name="registration_open"]').value === '1';
+    const modeEl = form.querySelector('[name="registration_mode"]');
+    const mode = modeEl ? modeEl.value : 'closed';
+    const open = mode !== 'closed';
     const invite = (form.querySelector('[name="invite_code"]').value || '').trim().toUpperCase();
     const site = (form.querySelector('[name="site_name"]').value || '').trim();
     const errEl = form.querySelector('.cloud-error');
@@ -2124,12 +2212,15 @@
     if (errEl) errEl.textContent = '';
     try {
       const res = await cloudApi('admin_settings_save', {
+        registration_mode: mode,
         registration_open: open,
         invite_code: invite,
         site_name: site
       });
       adminState.settings = res.settings || null;
       cloud.registrationOpen = !!open;
+      cloud.regMode = mode;
+      cloud.codeReady = !!(res.settings && res.settings.site_mail_ready);
       cloud.siteName = site || cloud.siteName;
       cloudRefreshUI();
       toast('设置已保存');
@@ -11520,11 +11611,12 @@
   }
 
   function landingHtml() {
-    const regTop = cloud.registrationOpen
-      ? '<button class="lp-btn" data-act="cloud-register">注册（需邀请码）</button>'
+    const rlLp = regLabel();
+    const regTop = rlLp.open
+      ? '<button class="lp-btn" data-act="cloud-register">' + (rlLp.label === '用邮箱注册' ? '注册（需验证码）' : '注册（需邀请码）') + '</button>'
       : '';
-    const regBig = cloud.registrationOpen
-      ? '<button class="lp-btn lg" data-act="cloud-register">用邀请码注册</button>'
+    const regBig = rlLp.open
+      ? '<button class="lp-btn lg" data-act="cloud-register">' + rlLp.label + '</button>'
       : '<span class="lp-closed">注册已关闭，请联系管理员</span>';
     const error = cloud.error
       ? '<div class="lp-err"><span>' + esc(cloud.error) + '</span>' +
@@ -14412,6 +14504,10 @@
     'mail-test': () => { mailTest(); },
     'mail-save': () => { mailSave(true); },
     'notify-save': () => { notifySave(); },
+    'reg-send-code': () => {
+      const b = document.querySelector('[data-act="reg-send-code"]');
+      if (b) registerSendCode(b);
+    },
     'site-mail-save': () => { siteMailSave(); },
     'site-mail-test': () => { siteMailTest(); },
     'mail-off': () => { mailSave(false); },

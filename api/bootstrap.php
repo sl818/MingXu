@@ -189,6 +189,45 @@ function lb_auth(): array
     return $user;
 }
 
+/**
+ * 注册开放方式（v126）：
+ *   closed  关闭
+ *   invite  开放，需要邀请码（旧行为）
+ *   email   开放，邮箱验证码（新增）
+ *
+ * 兼容旧设置：只看 registration_open 的老库，'1' 视为 invite。
+ */
+function lb_reg_mode(): string
+{
+    $m = '';
+    try {
+        $m = (string)lb_setting('registration_mode', '');
+    } catch (Throwable $e) {
+        $m = '';
+    }
+    if ($m === 'closed' || $m === 'invite' || $m === 'email') {
+        return $m;
+    }
+    try {
+        return lb_setting('registration_open', '0') === '1' ? 'invite' : 'closed';
+    } catch (Throwable $e) {
+        return 'closed';
+    }
+}
+
+/** 客户端看到的注册状态：能不能注册、要不要邀请码 / 验证码 */
+function lb_reg_public(): array
+{
+    $mode = lb_reg_mode();
+    return [
+        'registration_open' => $mode !== 'closed',   // 兼容旧前端字段
+        'registration_mode' => $mode,
+        'need_invite' => $mode === 'invite',
+        'need_code' => $mode === 'email',
+        'code_ready' => $mode === 'email' ? lb_site_mail_ready() : false,
+    ];
+}
+
 function lb_admin(): array
 {
     $user = lb_auth();

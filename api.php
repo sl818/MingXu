@@ -115,13 +115,12 @@ try {
             }
             $user = lb_user();
             $settings = lb_settings();
-            lb_json([
+            lb_json(array_merge([
                 'ok' => true,
                 'user' => $user ? lb_public_user($user) : null,
                 'csrf' => lb_csrf(),
-                'registration_open' => $settings['registration_open'] === '1',
                 'site_name' => $settings['site_name'] ?? '明序',
-            ]);
+            ], lb_reg_public()));
             break;
 
         case 'login':
@@ -178,11 +177,74 @@ try {
             ]);
             break;
 
+        /* 发注册验证码（仅 email 模式）。限流：同邮箱 60 秒一条 / 每天 10 条，同 IP 每天 20 条 */
+        case 'register_code':
+            lb_require_post();
+            lb_require_csrf();
+            if (lb_reg_mode() !== 'email') {
+                lb_fail('当前不是邮箱验证注册', 400, 'not_email_mode');
+            }
+            if (!lb_site_mail_ready()) {
+                lb_fail('站点还没配好发信服务，暂时不能注册，请联系管理员', 400, 'site_mail_not_ready');
+            }
+            lb_register_limit();
+
+            $inC = lb_body();
+            $emailC = strtolower(trim((string)($inC['email'] ?? '')));
+            if (!filter_var($emailC, FILTER_VALIDATE_EMAIL) || strlen($emailC) > 190) {
+                lb_fail('请输入有效的邮箱地址', 400, 'bad_email');
+            }
+            $pdoC = lb_db();
+            $stEx = $pdoC->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+            $stEx->execute([$emailC]);
+            if ($stEx->fetchColumn()) {
+                lb_fail('这个邮箱已经注册过了，直接登录即可', 409, 'email_exists');
+            }
+
+            $nowC = time();
+            $stFast = $pdoC->prepare('SELECT COUNT(*) FROM email_codes WHERE email = ? AND created_at > ?');
+            $stFast->execute([$emailC, date('Y-m-d H:i:s', $nowC - 60)]);
+            if ((int)$stFast->fetchColumn() > 0) {
+                lb_fail('验证码刚发过，60 秒后再试', 429, 'too_fast');
+            }
+            $stDay = $pdoC->prepare('SELECT COUNT(*) FROM email_codes WHERE email = ? AND created_at > ?');
+            $stDay->execute([$emailC, date('Y-m-d 00:00:00')]);
+            if ((int)$stDay->fetchColumn() >= 10) {
+                lb_fail('这个邮箱今天发得太多了，明天再试或联系管理员', 429, 'email_quota');
+            }
+            $ipC = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+            if ($ipC !== '') {
+                $stIp = $pdoC->prepare('SELECT COUNT(*) FROM email_codes WHERE ip = ? AND created_at > ?');
+                $stIp->execute([$ipC, date('Y-m-d 00:00:00')]);
+                if ((int)$stIp->fetchColumn() >= 20) {
+                    lb_fail('这台设备今天申请得太多了，明天再试', 429, 'ip_quota');
+                }
+            }
+
+            $codeC = (string)random_int(100000, 999999);
+            /* 重发让旧码立即失效，避免同时有两个能用的码 */
+            $pdoC->prepare('UPDATE email_codes SET used_at = ? WHERE email = ? AND purpose = ? AND used_at IS NULL')
+                ->execute([date('Y-m-d H:i:s'), $emailC, 'register']);
+            $pdoC->prepare('INSERT INTO email_codes (email, purpose, code_hash, expires_at, ip, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute([$emailC, 'register', hash('sha256', $codeC),
+                           date('Y-m-d H:i:s', $nowC + 600), $ipC, date('Y-m-d H:i:s')]);
+
+            $errC = '';
+            $okC = lb_site_mail_send($emailC, '【明序】注册验证码',
+                "你的注册验证码是：{$codeC}\n\n10 分钟内有效，只能用一次。\n"
+                . '如果不是你本人操作，忽略这封邮件即可。', $errC);
+            if (!$okC) {
+                lb_fail('验证码发送失败：' . $errC, 400, 'send_failed');
+            }
+            lb_json(['ok' => true, 'sent' => true, 'email' => $emailC]);
+            break;
+
         case 'register':
             lb_require_post();
             lb_require_csrf();
 
-            if (lb_setting('registration_open') !== '1') {
+            $regMode = lb_reg_mode();
+            if ($regMode === 'closed') {
                 lb_fail('管理员关闭了注册', 403, 'registration_closed');
             }
             lb_register_limit();
@@ -192,10 +254,21 @@ try {
             $password = (string)($body['password'] ?? '');
             $display = trim((string)($body['display_name'] ?? ''));
             $invite = strtoupper(trim((string)($body['invite'] ?? '')));
-            $expected = strtoupper((string)lb_setting('invite_code', ''));
+            $regCode = trim((string)($body['code'] ?? ''));
 
-            if ($expected === '' || !hash_equals($expected, $invite)) {
-                lb_fail('邀请码不正确', 403, 'invite_invalid');
+            if ($regMode === 'invite') {
+                $expected = strtoupper((string)lb_setting('invite_code', ''));
+                if ($expected === '' || !hash_equals($expected, $invite)) {
+                    lb_fail('邀请码不正确', 403, 'invite_invalid');
+                }
+            }
+            if ($regMode === 'email') {
+                if (!lb_site_mail_ready()) {
+                    lb_fail('站点还没配好发信服务，暂时不能注册，请联系管理员', 400, 'site_mail_not_ready');
+                }
+                if ($regCode === '') {
+                    lb_fail('请填写邮箱验证码', 400, 'code_required');
+                }
             }
             if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) {
                 lb_fail('请输入有效的邮箱地址', 400, 'bad_email');
@@ -214,6 +287,20 @@ try {
                 lb_fail('这个邮箱已经注册过了', 409, 'email_exists');
             }
 
+            /* email 模式：验证码必须对上、没过期、没用过。放在插入前，避免生成废账号 */
+            $codeRowId = 0;
+            if ($regMode === 'email') {
+                $stCode = $pdo->prepare(
+                    'SELECT id FROM email_codes WHERE email = ? AND purpose = ? AND code_hash = ?'
+                    . ' AND used_at IS NULL AND expires_at > ? ORDER BY id DESC LIMIT 1'
+                );
+                $stCode->execute([$email, 'register', hash('sha256', $regCode), date('Y-m-d H:i:s')]);
+                $codeRowId = (int)$stCode->fetchColumn();
+                if ($codeRowId <= 0) {
+                    lb_fail('验证码不正确或已过期，请重新获取', 400, 'code_invalid');
+                }
+            }
+
             try {
                 $ins = $pdo->prepare(
                     'INSERT INTO users (email, password_hash, display_name, is_admin, status, session_epoch, created_at) '
@@ -225,6 +312,11 @@ try {
                     lb_fail('这个邮箱已经注册过了', 409, 'email_exists');
                 }
                 throw $e;
+            }
+
+            if ($codeRowId > 0) {
+                $pdo->prepare('UPDATE email_codes SET used_at = ? WHERE id = ?')
+                    ->execute([date('Y-m-d H:i:s'), $codeRowId]);
             }
 
             $user = lb_user_by_id((int)$pdo->lastInsertId());
@@ -252,13 +344,12 @@ try {
                 /* 忽略 */
             }
 
-            lb_json([
+            lb_json(array_merge([
                 'ok' => true,
                 'user' => lb_public_user($user),
                 'csrf' => $_SESSION['csrf'],
-                'registration_open' => true,
                 'site_name' => lb_setting('site_name', '明序'),
-            ]);
+            ], lb_reg_public()));
             break;
 
         case 'logout':
@@ -1053,6 +1144,8 @@ try {
                 'ok' => true,
                 'settings' => [
                     'registration_open' => $settings['registration_open'] === '1',
+                    'registration_mode' => lb_reg_mode(),
+                    'site_mail_ready' => lb_site_mail_ready(),
                     'invite_code' => $settings['invite_code'] ?? '',
                     'site_name' => $settings['site_name'] ?? '明序',
                 ],
@@ -1065,12 +1158,26 @@ try {
             lb_require_csrf();
 
             $body = lb_body();
-            $registrationOpen = !empty($body['registration_open']);
+            $mode = (string)($body['registration_mode'] ?? '');
+            if ($mode === '') {
+                /* 旧客户端只传 registration_open */
+                $mode = !empty($body['registration_open']) ? 'invite' : 'closed';
+            }
+            if (!in_array($mode, ['closed', 'invite', 'email'], true)) {
+                lb_fail('注册方式只能是 关闭 / 邀请码 / 邮箱验证', 400, 'bad_reg_mode');
+            }
+            if ($mode === 'email' && !lb_site_mail_ready()) {
+                lb_fail('要开启邮箱验证注册，先把「站点邮件」配好并发信测试通过', 400, 'site_mail_not_ready');
+            }
+            $registrationOpen = $mode !== 'closed';
             $invite = strtoupper(trim((string)($body['invite_code'] ?? '')));
             $siteName = trim((string)($body['site_name'] ?? '明序'));
 
-            if (!preg_match('/^[A-Z0-9_-]{4,32}$/', $invite)) {
+            if ($invite !== '' && !preg_match('/^[A-Z0-9_-]{4,32}$/', $invite)) {
                 lb_fail('邀请码需为 4–32 位字母、数字、下划线或短横线', 400, 'bad_invite');
+            }
+            if ($mode === 'invite' && $invite === '') {
+                lb_fail('选了邀请码注册，就必须填一个邀请码', 400, 'bad_invite');
             }
             if ($siteName === '' || lb_strlen($siteName) > 40) {
                 lb_fail('站点名称需为 1–40 个字符', 400, 'bad_site_name');
@@ -1078,6 +1185,7 @@ try {
 
             lb_save_settings([
                 'registration_open' => $registrationOpen ? '1' : '0',
+                'registration_mode' => $mode,
                 'invite_code' => $invite,
                 'site_name' => $siteName,
             ]);
