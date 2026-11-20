@@ -10513,6 +10513,9 @@
   let notifyPrefs;
   let notifyMeta = null;
   let notifyLoading = false;
+  /* v124：夜间静默（默认关）与每日小结的三个时刻 */
+  let notifyQuiet = false;
+  let notifyReport = { morning: '08:20', noon: '12:30', evening: '20:00' };
   let mailLoading = false;
   let mailBusy = false;
   let mailRecipient = '';
@@ -10630,6 +10633,14 @@
       const r = await cloudApi('notify_prefs');
       notifyPrefs = (r && r.prefs && typeof r.prefs === 'object') ? r.prefs : null;
       notifyMeta = { kinds: (r && r.kinds) || {}, channels: (r && r.channels) || {} };
+      notifyQuiet = !!(r && r.quiet);
+      if (r && r.report && typeof r.report === 'object') {
+        notifyReport = {
+          morning: String(r.report.morning ?? ''),
+          noon: String(r.report.noon ?? ''),
+          evening: String(r.report.evening ?? '')
+        };
+      }
     } catch (e) {
       notifyPrefs = null;
       notifyMeta = null;
@@ -10691,7 +10702,20 @@
       '<p class="muted-sm" style="margin:0 0 10px">勾选每种提醒走哪条通道。两条都取消，这类提醒就不会再打扰你。<br>同一时刻的多种药会合并成一条（比如 8:00 吃六种药只发一条）。</p>' +
       '<table class="mx-table"><thead>' + headRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
       '<p class="hint mx-summary">' + esc(notifySummary()) + '</p>' +
-      '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通道</button></div>' +
+      '<div class="mx-extra">' +
+        '<label class="mx-switch"><input type="checkbox" id="mx-quiet"' + (notifyQuiet ? ' checked' : '') + '>' +
+          '<span class="mx-box" aria-hidden="true"></span>' +
+          '<b>夜间静默</b><span class="muted-sm">23:00 – 07:00 不推送</span></label>' +
+        '<p class="hint" style="margin:6px 0 0">开启后这段时间的提醒会被跳过，<b>也不会补发</b>。默认关闭——' +
+        '你的用药和待办都是自己设的时间，系统不该替你决定哪条不重要。</p>' +
+        '<div class="mx-report">' +
+          '<span class="mx-report-label">每日小结时刻<span class="muted-sm">留空 = 不发那一条</span></span>' +
+          '<label class="mx-time"><span>早报</span><input type="time" id="mx-rep-morning" value="' + esc(notifyReport.morning) + '"></label>' +
+          '<label class="mx-time"><span>午报</span><input type="time" id="mx-rep-noon" value="' + esc(notifyReport.noon) + '"></label>' +
+          '<label class="mx-time"><span>小结</span><input type="time" id="mx-rep-evening" value="' + esc(notifyReport.evening) + '"></label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通知设置</button></div>' +
       '</div>';
   }
 
@@ -10718,10 +10742,23 @@
       prefs[k] = prefs[k] || {};
       prefs[k][c] = !!el.checked;
     });
+    const qEl = document.getElementById('mx-quiet');
+    const quiet = !!(qEl && qEl.checked);
+    const readT = function (id) {
+      const el = document.getElementById(id);
+      return el ? el.value : '';
+    };
+    const report = {
+      morning: readT('mx-rep-morning'),
+      noon: readT('mx-rep-noon'),
+      evening: readT('mx-rep-evening')
+    };
     try {
-      const r = await cloudApi('notify_prefs_save', { prefs: prefs });
+      const r = await cloudApi('notify_prefs_save', { prefs: prefs, quiet: quiet, report: report });
       if (r && r.prefs) notifyPrefs = r.prefs;
-      toast('通道设置已保存');
+      if (r && r.report) notifyReport = r.report;
+      notifyQuiet = !!(r && r.quiet);
+      toast('通知设置已保存');
       render();
     } catch (e) {
       toast(e.message || '保存失败');

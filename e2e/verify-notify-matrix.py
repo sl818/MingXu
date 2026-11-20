@@ -78,7 +78,9 @@ class H(http.server.BaseHTTPRequestHandler):
             elif a == 'load':
                 self._j({'ok': True, 'data': BOARD['data'], 'rev': 1, 'updated_at': 1792813000000, 'history': []})
             elif a == 'notify_prefs':
-                self._j({'ok': True, 'kinds': KINDS, 'channels': CHANNELS, 'prefs': PREFS})
+                self._j({'ok': True, 'kinds': KINDS, 'channels': CHANNELS, 'prefs': PREFS,
+                         'quiet': False,
+                         'report': {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'}})
             elif a in ('push_status', 'ics_status', 'mail_status'):
                 if a == 'mail_status':
                     self._j({'ok': True, 'config': {'host': 'smtp.qq.com', 'port': 465, 'secure': 'ssl',
@@ -109,7 +111,8 @@ class H(http.server.BaseHTTPRequestHandler):
             SAVED.append(body)
             for k, row in (body.get('prefs') or {}).items():
                 PREFS.setdefault(k, {}).update(row)
-            self._j({'ok': True, 'prefs': PREFS})
+            self._j({'ok': True, 'prefs': PREFS, 'quiet': bool(body.get('quiet')),
+                     'report': body.get('report') or {}})
         elif a in ('save', 'force'):
             self._j({'ok': True, 'rev': 2, 'updated_at': 1792813000000})
         else:
@@ -198,7 +201,32 @@ with sync_playwright() as p:
     pg.wait_for_timeout(300)
     rec('全关时摘要说不会收到提醒', '不会收到任何提醒' in pg.locator('.mx-summary').inner_text(),
         pg.locator('.mx-summary').inner_text())
-    pg.locator('.mx-panel, .panel').filter(has_text='通知通道矩阵').screenshot(path=DOC + '/design/matrix.png')
+    pg.locator('.panel').filter(has_text='通知通道矩阵').screenshot(path=DOC + '/design/matrix.png')
+
+    print('\n--- 夜间静默与小结时刻 ---')
+    pg.reload(wait_until='networkidle')
+    pg.wait_for_timeout(1200)
+    pg.evaluate("() => { const b=document.querySelector('[data-nav=\"config\"]'); if(b) b.click(); }")
+    pg.wait_for_timeout(900)
+    quiet = pg.locator('#mx-quiet')
+    rec('静默开关存在', quiet.count() == 1, str(quiet.count()))
+    rec('默认不勾（系统不替用户决定）', not quiet.is_checked())
+    rec('说明里写明不会补发', '不会补发' in pg.locator('.mx-extra').inner_text())
+    rep = {k: pg.input_value('#mx-rep-' + k) for k in ('morning', 'noon', 'evening')}
+    rec('三个小结时刻有默认值', rep == {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'}, json.dumps(rep))
+
+    quiet.click()
+    pg.fill('#mx-rep-morning', '10:00')
+    pg.fill('#mx-rep-evening', '')
+    pg.wait_for_timeout(200)
+    before = len(SAVED)
+    pg.click('[data-act="notify-save"]')
+    pg.wait_for_timeout(900)
+    rec('保存后请求体带 quiet=true', len(SAVED) > before and SAVED[-1].get('quiet') is True,
+        str(SAVED[-1].get('quiet')) if SAVED else '')
+    sent_rep = (SAVED[-1].get('report') or {}) if SAVED else {}
+    rec('提交的早报是 10:00', sent_rep.get('morning') == '10:00', str(sent_rep))
+    rec('提交的小结留空', sent_rep.get('evening') == '', str(sent_rep))
 
     rec('无 JS / console 报错', not errs, str(errs[:2]))
     br.close()

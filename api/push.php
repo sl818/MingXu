@@ -386,6 +386,90 @@ function lb_notify_prefs_save(PDO $pdo, int $uid, array $in): array
     return ['ok' => true, 'prefs' => $prefs];
 }
 
+/* ===== 夜间静默与小结时刻（v124）=====
+   静默**默认关**：绝大多数提醒的时间是用户自己设的，系统替他屏蔽就是违背意图。
+   只有用户主动打开，才在 23:00–07:00 停止推送（跳过，不补发——补发会让
+   早上的第一条推送挤满昨晚的内容）。 */
+
+function lb_notify_in_quiet(string $hm): bool
+{
+    /* 跨夜：23:00–23:59 与 00:00–06:59 都算夜里 */
+    return $hm >= '23:00' || $hm < '07:00';
+}
+
+function lb_notify_quiet_load(PDO $pdo, int $uid): bool
+{
+    try {
+        $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
+        $st->execute(['notify_quiet_' . $uid]);
+        $raw = (string)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return false;
+    }
+    return $raw === '1';
+}
+
+function lb_notify_quiet_save(PDO $pdo, int $uid, bool $on): void
+{
+    $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
+        : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
+    $pdo->prepare($sql)->execute(['notify_quiet_' . $uid, $on ? '1' : '0']);
+}
+
+/** 每日小结三个时刻。空串 = 不发那一条；默认 08:20 / 12:30 / 20:00 */
+function lb_notify_report_load(PDO $pdo, int $uid): array
+{
+    $out = ['morning' => '08:20', 'noon' => '12:30', 'evening' => '20:00'];
+    try {
+        $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
+        $st->execute(['notify_report_' . $uid]);
+        $raw = (string)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return $out;
+    }
+    if ($raw === '') {
+        return $out;
+    }
+    $j = json_decode($raw, true);
+    if (!is_array($j)) {
+        return $out;
+    }
+    foreach ($out as $k => $def) {
+        if (!array_key_exists($k, $j)) {
+            continue;
+        }
+        $v = (string)$j[$k];
+        /* 只接受 HH:MM 或空串，别的值一律回退默认——脏数据不能让调度挂掉 */
+        if ($v === '' || preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) === 1) {
+            $out[$k] = $v;
+        }
+    }
+    return $out;
+}
+
+function lb_notify_report_save(PDO $pdo, int $uid, array $in): array
+{
+    $cur = lb_notify_report_load($pdo, $uid);
+    $out = [];
+    foreach ($cur as $k => $def) {
+        $v = isset($in[$k]) ? trim((string)$in[$k]) : $cur[$k];
+        if ($v !== '' && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) !== 1) {
+            return ['ok' => false, 'error' => '时间格式应该是 HH:MM，或者留空表示不发'];
+        }
+        $out[$k] = $v;
+    }
+    $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
+        : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
+    try {
+        $pdo->prepare($sql)->execute(['notify_report_' . $uid, json_encode($out, JSON_UNESCAPED_UNICODE)]);
+    } catch (PDOException $e) {
+        return ['ok' => false, 'error' => '保存失败：' . $e->getMessage()];
+    }
+    return ['ok' => true, 'report' => $out];
+}
+
 /** 把旧的企业微信发送函数包成统一签名 ($row, $text, &$why) */
 function lb_push_wecom_adapter(callable $fn): callable
 {
@@ -534,13 +618,20 @@ function lb_push_tick_run(
         $uid = (int)$r['id'];
         $hook = (string)($r['push_webhook'] ?? '');
         $mailOn = !empty($r['mail_on']);
+        /* 静默期内整段跳过。跳过不补发：早上的第一条若塞满昨晚的内容，
+           反而比不发更糟。用户开了这个开关，就是接受「这段时间不响」。 */
+        if (lb_notify_quiet_load($pdo, $uid) && lb_notify_in_quiet($hm)) {
+            $out['quiet_skipped'] = ($out['quiet_skipped'] ?? 0) + 1;
+            continue;
+        }
         $prefs = lb_notify_prefs_load($pdo, $uid);
+        $reportTimes = lb_notify_report_load($pdo, $uid);
         $state = json_decode((string)$r['data'], true);
         if (!is_array($state)) {
             continue;
         }
         /* 单条提醒（药/待办/习惯）+ 待办汇报（report），统一走 lb_schedule_due 判窗口 */
-        $plan = array_merge(lb_schedule_day($state, $date), lb_schedule_reports($state, $date), lb_schedule_notices($state, $date), lb_schedule_countdowns($state, $date), lb_schedule_debts($state, $date));
+        $plan = array_merge(lb_schedule_day($state, $date), lb_schedule_reports($state, $date, $reportTimes), lb_schedule_notices($state, $date), lb_schedule_countdowns($state, $date), lb_schedule_debts($state, $date));
         $due = lb_schedule_due($plan, $hm, $grace);
         if (!$due) {
             continue;

@@ -281,7 +281,13 @@ function lb_schedule_due(array $plan, string $now, int $grace = 3): array
  *
  * @return array<int, array{time:string, kind:string, id:string, title:string, body:string}>
  */
-function lb_schedule_reports(array $state, string $date): array
+/**
+ * 每日小结（早报 / 午报 / 小结）。
+ *
+ * $times 可覆盖三个时刻（v124）：['morning'=>'08:20','noon'=>'12:30','evening'=>'20:00']，
+ * 传空字符串表示不发那一条；不传则用内置默认值——旧调用方和旧测试不受影响。
+ */
+function lb_schedule_reports(array $state, string $date, ?array $times = null): array
 {
     $pending = [];   // 未完成（按 tag 分组）
     $total = 0;      // 未完成总数
@@ -331,16 +337,28 @@ function lb_schedule_reports(array $state, string $date): array
         $summary .= "\n· 全部完成，没有待办";
     }
 
-    return [
-        ['time' => '08:20', 'kind' => 'report', 'id' => 'morning',
-         'title' => '今日待办早报', 'body' => $summary],
-        ['time' => '12:30', 'kind' => 'report', 'id' => 'noon',
-         'title' => '待办进度午报', 'body' => $summary],
-        ['time' => '20:00', 'kind' => 'report', 'id' => 'evening',
-         'title' => '今日小结',
-         'body' => '今日完成 ' . $doneToday . ' 项待办' . "\n"
-             . '明日待办 ' . $tomorrow . ' 条'],
-    ];
+    /* 三个时刻可由用户改（作息颠倒的人 08:20 正在睡觉）；空串 = 不发那一条 */
+    $t = is_array($times) ? $times : [];
+    $tMorning = array_key_exists('morning', $t) ? (string)$t['morning'] : '08:20';
+    $tNoon = array_key_exists('noon', $t) ? (string)$t['noon'] : '12:30';
+    $tEvening = array_key_exists('evening', $t) ? (string)$t['evening'] : '20:00';
+
+    $out = [];
+    if ($tMorning !== '') {
+        $out[] = ['time' => $tMorning, 'kind' => 'report', 'id' => 'morning',
+                  'title' => '今日待办早报', 'body' => $summary];
+    }
+    if ($tNoon !== '') {
+        $out[] = ['time' => $tNoon, 'kind' => 'report', 'id' => 'noon',
+                  'title' => '待办进度午报', 'body' => $summary];
+    }
+    if ($tEvening !== '') {
+        $out[] = ['time' => $tEvening, 'kind' => 'report', 'id' => 'evening',
+                  'title' => '今日小结',
+                  'body' => '今日完成 ' . $doneToday . ' 项待办' . "\n"
+                      . '明日待办 ' . $tomorrow . ' 条'];
+    }
+    return $out;
 }
 
 /**

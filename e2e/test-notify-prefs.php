@@ -50,20 +50,20 @@ function db(): PDO
     return $pdo;
 }
 
-function notice_state(): array
+function notice_state(string $time = HM): array
 {
     return ['notices' => [[
-        'id' => 'nt1', 'text' => '记得吃维生素', 'time' => HM,
+        'id' => 'nt1', 'text' => '记得吃维生素', 'time' => $time,
         'mode' => 'daily', 'on' => true,
     ]]];
 }
 
-function add_user(PDO $pdo, int $id): void
+function add_user(PDO $pdo, int $id, string $time = HM): void
 {
     $pdo->prepare('INSERT INTO users (id, email, status, push_webhook, push_enabled) VALUES (?, ?, "active", ?, 1)')
         ->execute([$id, 'u' . $id . '@example.com', HOOK]);
     $pdo->prepare('INSERT INTO boards (user_id, data) VALUES (?, ?)')
-        ->execute([$id, json_encode(notice_state(), JSON_UNESCAPED_UNICODE)]);
+        ->execute([$id, json_encode(notice_state($time), JSON_UNESCAPED_UNICODE)]);
     $pdo->prepare('INSERT INTO user_mail_config (user_id, enabled) VALUES (?, 1)')->execute([$id]);
 }
 
@@ -135,6 +135,61 @@ echo '[7] 存储脏数据时退回默认值' . PHP_EOL;
 $pdo7 = db();
 $pdo7->prepare('INSERT INTO app_settings (k, v) VALUES (?, ?)')->execute(['notify_prefs_5', '{oops']);
 chk('坏 JSON 不影响', lb_notify_prefs_load($pdo7, 5) === $def);
+
+echo '[8] 夜间静默默认关闭' . PHP_EOL;
+$pdo8 = db();
+chk('没配过就是不静默', lb_notify_quiet_load($pdo8, 1) === false);
+chk('23:00 算夜里', lb_notify_in_quiet('23:00') === true);
+chk('03:30 算夜里', lb_notify_in_quiet('03:30') === true);
+chk('06:59 算夜里', lb_notify_in_quiet('06:59') === true);
+chk('07:00 不算', lb_notify_in_quiet('07:00') === false);
+chk('22:59 不算', lb_notify_in_quiet('22:59') === false);
+
+echo '[9] 开了静默后，夜间提醒整段跳过' . PHP_EOL;
+$pdo9 = db();
+add_user($pdo9, 9);
+lb_notify_quiet_save($pdo9, 9, true);
+chk('读回是开着的', lb_notify_quiet_load($pdo9, 9) === true);
+$log9 = [];
+$r9 = lb_push_tick_run($pdo9, D, '23:30', channels($log9));
+chk('23:30 一条都没发', $log9 === [], implode(',', $log9));
+chk('计到 quiet_skipped', ($r9['quiet_skipped'] ?? 0) === 1, (string)($r9['quiet_skipped'] ?? 0));
+$log9b = [];
+lb_push_tick_run($pdo9, D, HM, channels($log9b));
+chk('白天照常发', count($log9b) > 0, implode(',', $log9b));
+
+echo '[10] 关掉静默后夜间恢复推送' . PHP_EOL;
+$pdo10 = db();
+add_user($pdo10, 10, '23:30');
+$log10 = [];
+lb_push_tick_run($pdo10, D, '23:30', channels($log10));
+chk('默认（关）时夜里也发', count($log10) > 0, implode(',', $log10));
+
+echo '[11] 每日小结三个时刻可改' . PHP_EOL;
+$pdo11 = db();
+$rep = lb_notify_report_load($pdo11, 11);
+chk('默认 08:20 / 12:30 / 20:00',
+    $rep === ['morning' => '08:20', 'noon' => '12:30', 'evening' => '20:00'], json_encode($rep));
+$sv = lb_notify_report_save($pdo11, 11, ['morning' => '10:00', 'noon' => '', 'evening' => '22:30']);
+chk('保存成功', $sv['ok'] === true, (string)($sv['error'] ?? ''));
+$rep2 = lb_notify_report_load($pdo11, 11);
+chk('早报改成 10:00', $rep2['morning'] === '10:00', $rep2['morning']);
+chk('午报留空表示不发', $rep2['noon'] === '', '[' . $rep2['noon'] . ']');
+chk('小结改成 22:30', $rep2['evening'] === '22:30', $rep2['evening']);
+
+echo '[12] 小结时间非法时拒绝，不写坏数据' . PHP_EOL;
+$bad = lb_notify_report_save($pdo11, 11, ['morning' => '25:99']);
+chk('非法时间被拒', $bad['ok'] === false, (string)($bad['error'] ?? ''));
+chk('原值没被改动', lb_notify_report_load($pdo11, 11)['morning'] === '10:00');
+
+echo '[13] 小结时刻真的作用到调度' . PHP_EOL;
+$st = [];
+$def = lb_schedule_reports($st, D);
+chk('默认三条', count($def) === 3, (string)count($def));
+$cus = lb_schedule_reports($st, D, ['morning' => '10:00', 'noon' => '', 'evening' => '22:30']);
+chk('自定义后只剩两条', count($cus) === 2, (string)count($cus));
+chk('第一条是 10:00', ($cus[0]['time'] ?? '') === '10:00', $cus[0]['time'] ?? '');
+chk('最后一条是 22:30', ($cus[1]['time'] ?? '') === '22:30', $cus[1]['time'] ?? '');
 
 echo PHP_EOL . str_repeat('-', 46) . PHP_EOL;
 echo '通知通道矩阵：通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;

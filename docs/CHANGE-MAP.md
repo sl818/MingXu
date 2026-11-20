@@ -164,6 +164,9 @@
 | `lb_notify_prefs_load` / `_save` | 通道矩阵，存 `app_settings` 的 `notify_prefs_<uid>`（零迁移） |
 | `lb_notify_kinds()` | 七种事件类型，**必须与 `schedule.php` 产出的 kind 一致**（notice / debt 容易写错） |
 | `lb_notify_merge_med()` | 同时刻的用药合并成一条；只动 `med`，合并后 id 为 `batch_<time>` |
+| `lb_notify_quiet_load` / `_save` | 夜间静默开关，**默认关**；`lb_notify_in_quiet()` 判断 23:00–07:00 |
+| `lb_notify_report_load` / `_save` | 每日小结三个时刻，空串 = 不发；非法值拒绝写入 |
+| `lb_schedule_reports($state, $date, $times)` | 第三参数可选，不传用默认 08:20/12:30/20:00（旧调用不受影响） |
 
 测试：`test-push-tick.php`(44) / `test-notify-channel.php`(18) / `test-mailer.php`(44)。
 

@@ -562,11 +562,14 @@ try {
 
         case 'notify_prefs':
             $user = lb_auth();
+            $uid = (int)$user['id'];
             lb_json([
                 'ok' => true,
                 'kinds' => lb_notify_kinds(),
                 'channels' => lb_notify_channels(),
-                'prefs' => lb_notify_prefs_load(lb_db(), (int)$user['id']),
+                'prefs' => lb_notify_prefs_load(lb_db(), $uid),
+                'quiet' => lb_notify_quiet_load(lb_db(), $uid),
+                'report' => lb_notify_report_load(lb_db(), $uid),
             ]);
             break;
 
@@ -575,11 +578,18 @@ try {
             $user = lb_auth();
             lb_require_csrf();
             $in = lb_body();
-            $res = lb_notify_prefs_save(lb_db(), (int)$user['id'], (array)($in['prefs'] ?? []));
+            $uid = (int)$user['id'];
+            $res = lb_notify_prefs_save(lb_db(), $uid, (array)($in['prefs'] ?? []));
             if (!$res['ok']) {
                 lb_fail($res['error'], 400, 'prefs_save_failed');
             }
-            lb_json(['ok' => true, 'prefs' => $res['prefs']]);
+            lb_notify_quiet_save(lb_db(), $uid, !empty($in['quiet']));
+            $rep = lb_notify_report_save(lb_db(), $uid, (array)($in['report'] ?? []));
+            if (!$rep['ok']) {
+                lb_fail($rep['error'], 400, 'report_save_failed');
+            }
+            lb_json(['ok' => true, 'prefs' => $res['prefs'],
+                     'quiet' => !empty($in['quiet']), 'report' => $rep['report']]);
             break;
 
         case 'mail_off':
