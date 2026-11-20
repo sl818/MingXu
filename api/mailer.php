@@ -574,3 +574,141 @@ function lb_mail_send_to_user(PDO $pdo, int $uid, string $subject, string $body,
     }
     return lb_mail_send($cfg, $cfg['user'], $subject, $body, $err);
 }
+
+/* ===== 站点邮件（v125）=====
+ *
+ * 用途**严格限定两件事**：注册确认、找回密码。
+ * 提醒通知绝不走这条通道——那是每个用户自己的 user_mail_config。
+ * 这样站点邮箱不会被当成群发中继，用户的通知也只从他们自己绑的邮箱发出。
+ *
+ * 配置存 app_settings（管理员配一次，全站共用），授权码与用户级那套一样走 AES-256-GCM。
+ */
+
+function lb_site_mail_cfg_load(): array
+{
+    $enc = '';
+    try {
+        $enc = (string)lb_setting('site_mail_secret_enc', '');
+    } catch (Throwable $e) {
+        $enc = '';
+    }
+    $secret = $enc !== '' ? lb_secret_decrypt($enc) : '';
+    return [
+        'host' => (string)lb_setting('site_mail_host', ''),
+        'port' => (int)lb_setting('site_mail_port', 465),
+        'secure' => (string)lb_setting('site_mail_secure', 'ssl'),
+        'user' => (string)lb_setting('site_mail_user', ''),
+        'from' => (string)lb_setting('site_mail_from', ''),
+        'name' => (string)lb_setting('site_mail_name', '明序'),
+        'secret' => $secret,
+        'hasSecret' => $enc !== '',
+    ];
+}
+
+/** 对外只给「有没有配授权码」，不给任何片段 */
+function lb_site_mail_cfg_public(array $cfg): array
+{
+    return [
+        'host' => $cfg['host'],
+        'port' => $cfg['port'],
+        'secure' => $cfg['secure'],
+        'user' => $cfg['user'],
+        'from' => $cfg['from'],
+        'name' => $cfg['name'],
+        'hasSecret' => $cfg['hasSecret'],
+    ];
+}
+
+function lb_site_mail_ready(): bool
+{
+    $c = lb_site_mail_cfg_load();
+    return $c['host'] !== '' && $c['user'] !== '' && $c['from'] !== '' && $c['secret'] !== '';
+}
+
+/**
+ * 保存站点邮件配置。secret 传空 = 保留已存的（与用户级一致，避免每次保存都要重填授权码）。
+ */
+function lb_site_mail_cfg_save(array $in): array
+{
+    $host = trim((string)($in['host'] ?? ''));
+    $port = (int)($in['port'] ?? 465);
+    $secure = (string)($in['secure'] ?? 'ssl');
+    $user = trim((string)($in['user'] ?? ''));
+    $from = trim((string)($in['from'] ?? ''));
+    $name = trim((string)($in['name'] ?? ''));
+    $secret = (string)($in['secret'] ?? '');
+
+    if ($host === '' || !lb_mail_host_ok($host)) {
+        return ['ok' => false, 'error' => 'SMTP 服务器只接受公网域名，例如 smtp.qq.com'];
+    }
+    if ($port < 1 || $port > 65535) {
+        return ['ok' => false, 'error' => '端口应该在 1–65535 之间'];
+    }
+    if (!in_array($secure, ['ssl', 'tls', 'none'], true)) {
+        return ['ok' => false, 'error' => '安全协议只能是 SSL/TLS、STARTTLS 或不加密'];
+    }
+    if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => '用户名要填完整邮箱地址'];
+    }
+    if ($from === '') {
+        $from = $user;
+    }
+    if ($from !== $user) {
+        return ['ok' => false, 'error' => '发件人必须和用户名完全一致，否则会被判为伪造发件人'];
+    }
+
+    $vals = [
+        'site_mail_host' => $host,
+        'site_mail_port' => (string)$port,
+        'site_mail_secure' => $secure,
+        'site_mail_user' => $user,
+        'site_mail_from' => $from,
+        'site_mail_name' => $name,
+    ];
+    if ($secret !== '') {
+        $enc = lb_secret_encrypt($secret);
+        if ($enc === '') {
+            return ['ok' => false, 'error' => '授权码加密失败：服务器 openssl 不可用'];
+        }
+        $vals['site_mail_secret_enc'] = $enc;
+    }
+    try {
+        lb_save_settings($vals);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => '保存失败：' . $e->getMessage()];
+    }
+    return ['ok' => true, 'cfg' => lb_site_mail_cfg_public(lb_site_mail_cfg_load())];
+}
+
+/** 用站点配置发一封。仅供注册确认与找回密码调用，别接到提醒调度里。 */
+function lb_site_mail_send(string $to, string $subject, string $body, ?string &$err): bool
+{
+    $cfg = lb_site_mail_cfg_load();
+    if (!$cfg['hasSecret']) {
+        $err = '站点邮件还没配授权码';
+        return false;
+    }
+    if ($cfg['secret'] === '') {
+        $err = '站点邮件授权码无法解密，请在设置里重新填一次';
+        return false;
+    }
+    return lb_mail_send($cfg, $to, $subject, $body, $err);
+}
+
+/** 站点根地址：优先用设置里的 site_url，否则按请求头拼 */
+function lb_site_url(): string
+{
+    $configured = '';
+    try {
+        $configured = trim((string)lb_setting('site_url', ''));
+    } catch (Throwable $e) {
+        $configured = '';
+    }
+    if ($configured !== '') {
+        return rtrim($configured, '/');
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    return ($https ? 'https://' : 'http://') . $host;
+}

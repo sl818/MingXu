@@ -152,6 +152,18 @@
 
 ---
 
+## 9.3 站点邮件与找回密码
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_site_mail_cfg_load` / `_save`（`api/mailer.php`） | 站点级发信配置，存 `app_settings` 的 `site_mail_*` |
+| `lb_site_mail_send()` | **只给注册确认和找回密码用**，别接到提醒调度里 |
+| `api.php` 的 `password_forgot` / `password_reset` | token 存 sha256、30 分钟、一次性；防枚举 |
+| `password_resets` 表 | 迁移 `2026-11-20_password_reset.sql` |
+| 前端 | `forgotPasswordModal` / `passwordResetModal` / `checkResetToken` / `siteMailPanelHtml` |
+
+测试：`verify-site-mail.py`(25)。
+
 ## 9.4 通知与提醒
 
 | 位置 | 说明 |

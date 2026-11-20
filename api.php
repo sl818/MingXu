@@ -236,6 +236,22 @@ try {
             $up->execute([(int)$user['id']]);
             $user['last_login_at'] = date('Y-m-d H:i:s');
 
+            /* v125：注册确认信。**发不出去也不影响注册**——它只是告知，不是验证门槛。
+               站点邮箱只做这类事务性邮件；到点提醒走各用户自己绑的邮箱。 */
+            try {
+                if (lb_site_mail_ready()) {
+                    $errR = '';
+                    lb_site_mail_send($email, '【明序】账号已开通',
+                        "你的明序账号已创建。\n\n"
+                        . '登录邮箱：' . $email . "\n"
+                        . '站点地址：' . lb_site_url() . "\n\n"
+                        . "想让到点提醒也发到邮箱，去「设置 → 邮件提醒」绑定你自己的邮箱。\n"
+                        . '站点邮箱只用于注册确认和找回密码，不会替你接收提醒。', $errR);
+                }
+            } catch (Throwable $e) {
+                /* 忽略 */
+            }
+
             lb_json([
                 'ok' => true,
                 'user' => lb_public_user($user),
@@ -558,6 +574,118 @@ try {
                 lb_fail('没发出去：' . $why, 502, 'mail_failed');
             }
             lb_json(['ok' => true, 'to' => $to]);
+            break;
+
+        /* ===== 站点邮件（管理员配置，只用于注册确认与找回密码）===== */
+        case 'site_mail_status':
+            lb_admin();
+            $cfg = lb_site_mail_cfg_load();
+            lb_json(['ok' => true, 'config' => lb_site_mail_cfg_public($cfg),
+                     'ready' => lb_site_mail_ready(), 'admin_email' => (string)lb_admin()['email']]);
+            break;
+
+        case 'site_mail_save':
+            lb_require_post();
+            lb_admin();
+            lb_require_csrf();
+            $res = lb_site_mail_cfg_save((array)lb_body());
+            if (!$res['ok']) {
+                lb_fail($res['error'], 400, 'site_mail_save_failed');
+            }
+            lb_json(['ok' => true, 'config' => $res['cfg'], 'ready' => lb_site_mail_ready()]);
+            break;
+
+        case 'site_mail_test':
+            lb_require_post();
+            $admin = lb_admin();
+            lb_require_csrf();
+            if (!lb_site_mail_ready()) {
+                lb_fail('站点邮件还没配完整（服务器 / 账号 / 授权码 / 发件人）', 400, 'site_mail_not_ready');
+            }
+            $err = '';
+            $okSend = lb_site_mail_send((string)$admin['email'], '【明序】站点邮件测试',
+                "这是站点邮件的测试信件。\n\n"
+                . "它只用于「注册确认」和「找回密码」两类邮件，提醒通知不会走这个邮箱。\n"
+                . '收件人固定为管理员自己的地址。', $err);
+            if (!$okSend) {
+                lb_fail('没发出去：' . $err, 400, 'site_mail_test_failed');
+            }
+            lb_json(['ok' => true, 'to' => (string)$admin['email']]);
+            break;
+
+        /* 找回密码：第一步，申请重置链接。无论邮箱是否存在都回同样的结果，防枚举 */
+        case 'password_forgot':
+            lb_require_post();
+            lb_require_csrf();
+            $in2 = lb_body();
+            $email2 = strtolower(trim((string)($in2['email'] ?? '')));
+            if (!lb_site_mail_ready()) {
+                lb_fail('站点还没配好发信服务，请联系管理员重置密码', 400, 'site_mail_not_ready');
+            }
+            if (!filter_var($email2, FILTER_VALIDATE_EMAIL)) {
+                lb_json(['ok' => true, 'sent' => true]);
+                break;
+            }
+            $stU = lb_db()->prepare("SELECT id, email, status FROM users WHERE email = ? LIMIT 1");
+            $stU->execute([$email2]);
+            $u2 = $stU->fetch();
+            if (!$u2 || (string)$u2['status'] !== 'active') {
+                lb_json(['ok' => true, 'sent' => true]);
+                break;
+            }
+            $uid2 = (int)$u2['id'];
+            /* 5 分钟内已申请过就不重发，避免被当成发信工具 */
+            $stR = lb_db()->prepare('SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND created_at > ?');
+            $stR->execute([$uid2, date('Y-m-d H:i:s', time() - 300)]);
+            if ((int)$stR->fetchColumn() > 0) {
+                lb_json(['ok' => true, 'sent' => true]);
+                break;
+            }
+            $token = bin2hex(random_bytes(32));
+            $insR = lb_db()->prepare('INSERT INTO password_resets (user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?)');
+            $insR->execute([$uid2, hash('sha256', $token), date('Y-m-d H:i:s', time() + 1800), date('Y-m-d H:i:s')]);
+            $link = lb_site_url() . '/?reset=1&token=' . $token;
+            $err2 = '';
+            $ok2 = lb_site_mail_send($email2, '【明序】重置密码',
+                "有人在明序上申请重置这个账号的密码。\n\n"
+                . "点下面的链接设置新密码，链接 30 分钟内有效、只能用一次：\n" . $link . "\n\n"
+                . "如果不是你本人操作，忽略这封邮件即可，密码不会被改动。", $err2);
+            if (!$ok2) {
+                lb_fail('邮件发送失败：' . $err2, 400, 'send_failed');
+            }
+            lb_json(['ok' => true, 'sent' => true]);
+            break;
+
+        /* 找回密码：第二步，用令牌设置新密码 */
+        case 'password_reset':
+            lb_require_post();
+            lb_require_csrf();
+            $in3 = lb_body();
+            $tok = trim((string)($in3['token'] ?? ''));
+            $pw3 = (string)($in3['password'] ?? '');
+            if ($tok === '' || strlen($tok) < 32) {
+                lb_fail('链接不完整，请重新申请', 400, 'bad_token');
+            }
+            if (lb_strlen($pw3) < 8 || strlen($pw3) > 200) {
+                lb_fail('新密码至少 8 位', 400, 'bad_password');
+            }
+            $stT = lb_db()->prepare(
+                'SELECT id, user_id FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? LIMIT 1'
+            );
+            $stT->execute([hash('sha256', $tok), date('Y-m-d H:i:s')]);
+            $row3 = $stT->fetch();
+            if (!$row3) {
+                lb_fail('这个链接已失效或已用过，请重新申请', 400, 'token_expired');
+            }
+            $uid3 = (int)$row3['user_id'];
+            $stE = lb_db()->prepare('SELECT session_epoch FROM users WHERE id = ? LIMIT 1');
+            $stE->execute([$uid3]);
+            $epoch3 = (int)$stE->fetchColumn() + 1;
+            lb_db()->prepare('UPDATE users SET password_hash = ?, session_epoch = ? WHERE id = ?')
+                ->execute([password_hash($pw3, PASSWORD_DEFAULT), $epoch3, $uid3]);
+            lb_db()->prepare('UPDATE password_resets SET used_at = ? WHERE id = ?')
+                ->execute([date('Y-m-d H:i:s'), (int)$row3['id']]);
+            lb_json(['ok' => true]);
             break;
 
         case 'notify_prefs':

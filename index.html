@@ -1624,16 +1624,110 @@
       '</form>');
   }
 
+  /* v125：找回密码改成发邮件。站点邮件只做这一件事和注册确认，不发提醒。 */
   function forgotPasswordModal() {
     openModal('' +
-      '<div class="modal-card">' +
+      '<form class="modal-card" id="forgot-form">' +
         '<h3>找回密码</h3>' +
-        '<p style="font-size:14px;color:var(--text);line-height:1.9">找回密码：<a class="link" href="mailto:sl@sl00.top">sl@sl00.top</a></p>' +
-        '<p class="hint">请用注册时填写的邮箱联系管理员；管理员验证后会在「用户管理」里为你重置密码。出于安全考虑，没有邮件自动找回。</p>' +
+        '<p class="hint" style="margin:0 0 14px">填注册时用的邮箱，我们会发一封带重置链接的信。' +
+        '链接 <b>30 分钟内有效、只能用一次</b>。</p>' +
+        '<label class="field"><span>注册邮箱</span>' +
+          '<input name="email" type="email" required maxlength="190" autocomplete="username" placeholder="you@example.com"></label>' +
+        '<p class="hint cloud-error" style="color:var(--bad);min-height:18px"></p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="close-modal">知道了</button>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+          '<button type="submit" class="btn primary">发送重置链接</button>' +
         '</div>' +
-      '</div>');
+      '</form>');
+  }
+
+  async function cloudDoForgot(form) {
+    const email = (form.querySelector('[name="email"]').value || '').trim();
+    const errEl = form.querySelector('.cloud-error');
+    const btn = form.querySelector('[type="submit"]');
+    if (errEl) errEl.textContent = '';
+    if (!email) {
+      if (errEl) errEl.textContent = '请填邮箱';
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      await cloudApi('password_forgot', { email: email });
+      /* 不管邮箱存不存在都说同一句，避免被拿来试探哪些账号存在 */
+      openModal('' +
+        '<div class="modal-card">' +
+          '<h3>请查收邮件</h3>' +
+          '<p class="hint" style="margin:0 0 14px">如果这个邮箱注册过，你会收到一封带重置链接的邮件。' +
+          '没收到先看垃圾箱；同一邮箱 5 分钟内只能申请一次。</p>' +
+          '<div class="modal-actions"><span class="spacer"></span>' +
+            '<button type="button" class="btn primary" data-act="close-modal">知道了</button>' +
+          '</div>' +
+        '</div>');
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || '发送失败';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function passwordResetModal(token) {
+    openModal('' +
+      '<form class="modal-card" id="reset-form" data-token="' + esc(token) + '">' +
+        '<h3>设置新密码</h3>' +
+        '<p class="hint" style="margin:0 0 14px">至少 8 位。改完后其他设备上的登录会失效。</p>' +
+        '<div class="form-grid">' +
+          '<label class="field"><span>新密码</span><input name="password" type="password" minlength="8" maxlength="200" autocomplete="new-password"></label>' +
+          '<label class="field"><span>确认新密码</span><input name="password_confirm" type="password" minlength="8" maxlength="200" autocomplete="new-password"></label>' +
+        '</div>' +
+        '<p class="hint cloud-error" style="color:var(--bad);min-height:18px"></p>' +
+        '<div class="modal-actions"><span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">稍后</button>' +
+          '<button type="submit" class="btn primary">保存新密码</button>' +
+        '</div>' +
+      '</form>');
+  }
+
+  async function cloudDoReset(form) {
+    const token = form.getAttribute('data-token') || '';
+    const pw = form.querySelector('[name="password"]').value || '';
+    const pw2 = form.querySelector('[name="password_confirm"]').value || '';
+    const errEl = form.querySelector('.cloud-error');
+    const btn = form.querySelector('[type="submit"]');
+    if (errEl) errEl.textContent = '';
+    if (pw.length < 8) {
+      if (errEl) errEl.textContent = '新密码至少 8 位';
+      return;
+    }
+    if (pw !== pw2) {
+      if (errEl) errEl.textContent = '两次输入不一致';
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      await cloudApi('password_reset', { token: token, password: pw });
+      closeModal();
+      /* token 已经用过，从地址栏抹掉，避免刷新时再提交一次 */
+      try {
+        history.replaceState(null, '', location.pathname);
+      } catch (e) {}
+      toast('密码已重置，请用新密码登录');
+      cloudLoginModal();
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || '重置失败';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* 邮件里的链接形如 /?reset=1&token=xxx，落地就弹设置新密码 */
+  function checkResetToken() {
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get('reset') !== '1') return;
+      const t = u.searchParams.get('token') || '';
+      if (t.length < 32) return;
+      setTimeout(function () { passwordResetModal(t); }, 500);
+    } catch (e) {}
   }
 
   function cloudRegisterModal() {
@@ -10515,6 +10609,10 @@
   let notifyLoading = false;
   /* v124：夜间静默（默认关）与每日小结的三个时刻 */
   let notifyQuiet = false;
+  /* v125 站点邮件：管理员配一次，全站用于注册确认与找回密码 */
+  let siteMailCfg;
+  let siteMailReady = false;
+  let siteMailLoading = false;
   let notifyReport = { morning: '08:20', noon: '12:30', evening: '20:00' };
   let mailLoading = false;
   let mailBusy = false;
@@ -10622,6 +10720,106 @@
       }
       const btn = document.querySelector('[data-act="mail-test"]');
       if (btn) btn.disabled = false;
+    }
+  }
+
+  async function siteMailLoad() {
+    if (siteMailLoading || siteMailCfg !== undefined) return;
+    if (mode === 'landing' || !cloud.user || !cloud.user.is_admin) return;
+    siteMailLoading = true;
+    try {
+      const r = await cloudApi('site_mail_status');
+      siteMailCfg = (r && r.config && typeof r.config === 'object') ? r.config : null;
+      siteMailReady = !!(r && r.ready);
+    } catch (e) {
+      siteMailCfg = null;
+    }
+    siteMailLoading = false;
+  }
+
+  function siteMailPanelHtml() {
+    if (!cloud.user || !cloud.user.is_admin) return '';
+    const head = '<div class="panel"><h3>站点邮件<span class="muted-sm" style="margin-left:8px">管理员</span></h3>';
+    if (siteMailCfg === undefined) {
+      return head + '<p class="muted-sm">正在读取…</p></div>';
+    }
+    if (siteMailCfg === null) {
+      return head + '<p class="muted-sm">读不到配置，或者需要管理员权限。</p></div>';
+    }
+    const c = siteMailCfg;
+    const val = function (k, d) { return c && c[k] !== undefined && c[k] !== null ? String(c[k]) : String(d || ''); };
+    const secured = [
+      ['ssl', 'SSL/TLS（QQ 465）'],
+      ['tls', 'STARTTLS（QQ 587）'],
+      ['none', '不加密（不推荐）']
+    ];
+    const secHtml = secured.map(function (o) {
+      return '<option value="' + o[0] + '"' + (val('secure', 'ssl') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+    return head +
+      '<p class="muted-sm" style="margin:0 0 10px">这个邮箱<b>只用两件事</b>：注册确认、找回密码。' +
+      '<b>提醒通知不会走它</b>——那些由每个用户自己绑定的邮箱发出，站点邮箱不当中继。</p>' +
+      '<p class="muted-sm" style="margin:0 0 10px">当前状态：' +
+        (siteMailReady ? '<b style="color:var(--good)">已就绪</b>' : '<b style="color:var(--bad)">未配置完整</b>') +
+      '</p>' +
+      '<div class="form-grid mail-grid">' +
+        '<label class="field"><span>SMTP 服务器</span>' +
+          '<input id="sm-host" value="' + val('host', 'smtp.qq.com') + '" spellcheck="false" placeholder="smtp.qq.com"></label>' +
+        '<label class="field"><span>端口</span>' +
+          '<input id="sm-port" type="number" min="1" max="65535" value="' + val('port', 465) + '"></label>' +
+        '<label class="field"><span>安全协议</span><select id="sm-secure">' + secHtml + '</select></label>' +
+        '<label class="field"><span>用户名（完整邮箱）</span>' +
+          '<input id="sm-user" type="email" value="' + val('user', '') + '" spellcheck="false" placeholder="mingxu-todo@foxmail.com"></label>' +
+        '<label class="field"><span>发件人（须与用户名一致）</span>' +
+          '<input id="sm-from" type="email" value="' + val('from', '') + '" spellcheck="false"></label>' +
+        '<label class="field"><span>称呼</span>' +
+          '<input id="sm-name" value="' + val('name', '明序') + '" maxlength="60"></label>' +
+        '<label class="field wide"><span>授权码' + (c.hasSecret ? '（已保存，留空不修改）' : '') + '</span>' +
+          '<input id="sm-secret" type="password" autocomplete="new-password" placeholder="' +
+            (c.hasSecret ? '已保存 · 留空不改动' : '16 位授权码') + '">' +
+          (c.hasSecret ? '<span class="mail-saved-hint">✓ 授权码已保存（加密存放，不回显）</span>' : '') +
+        '</label>' +
+      '</div>' +
+      '<div id="sm-result" class="mail-result" hidden></div>' +
+      '<div class="btn-row">' +
+        '<button type="button" class="btn primary" data-act="site-mail-save">保存</button>' +
+        '<button type="button" class="btn" data-act="site-mail-test">发一封测试</button>' +
+      '</div>' +
+      '<p class="ics-hint">发件人会显示成「称呼 &lt;邮箱&gt;」。测试信只发到管理员自己的邮箱。</p>' +
+      '</div>';
+  }
+
+  async function siteMailSave() {
+    const g = function (id) {
+      const el = document.getElementById(id);
+      return el ? el.value : '';
+    };
+    const body = {
+      host: g('sm-host'), port: Number(g('sm-port')) || 465, secure: g('sm-secure'),
+      user: g('sm-user'), from: g('sm-from'), name: g('sm-name'), secret: g('sm-secret')
+    };
+    const box = document.getElementById('sm-result');
+    if (box) { box.hidden = true; box.textContent = ''; }
+    try {
+      const r = await cloudApi('site_mail_save', body);
+      if (r && r.config) siteMailCfg = r.config;
+      siteMailReady = !!(r && r.ready);
+      toast('站点邮件已保存');
+      render();
+    } catch (e) {
+      if (box) { box.hidden = false; box.className = 'mail-result bad'; box.textContent = e.message || '保存失败'; }
+      else toast(e.message || '保存失败');
+    }
+  }
+
+  async function siteMailTest() {
+    const box = document.getElementById('sm-result');
+    if (box) { box.hidden = false; box.className = 'mail-result'; box.textContent = '正在发送…'; }
+    try {
+      const r = await cloudApi('site_mail_test', {});
+      if (box) { box.hidden = false; box.className = 'mail-result ok'; box.textContent = '已发出，收件人 ' + ((r && r.to) || '管理员'); }
+    } catch (e) {
+      if (box) { box.hidden = false; box.className = 'mail-result bad'; box.textContent = e.message || '发送失败'; }
     }
   }
 
@@ -10990,6 +11188,7 @@
     icsLoad();
     pushLoad();
     mailLoad();
+    siteMailLoad();
     notifyLoad();
     return '' +
       '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
@@ -10998,6 +11197,7 @@
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       mailPanelHtml() +
       notifyMatrixHtml() +
+      siteMailPanelHtml() +
       dataPanelHtml() +
       '</div>';
   }
@@ -14212,6 +14412,8 @@
     'mail-test': () => { mailTest(); },
     'mail-save': () => { mailSave(true); },
     'notify-save': () => { notifySave(); },
+    'site-mail-save': () => { siteMailSave(); },
+    'site-mail-test': () => { siteMailTest(); },
     'mail-off': () => { mailSave(false); },
     'mail-cancel': () => {
       mailCfg = undefined;
@@ -14645,6 +14847,12 @@
     } else if (form.id === 'essay-form') {
       e.preventDefault();
       saveEssayForm(form);
+    } else if (form.id === 'forgot-form') {
+      e.preventDefault();
+      cloudDoForgot(form);
+    } else if (form.id === 'reset-form') {
+      e.preventDefault();
+      cloudDoReset(form);
     } else if (form.id === 'cloud-login-form') {
       e.preventDefault();
       cloudDoLogin(form);
@@ -14819,6 +15027,7 @@
   }
   render();
   cloudInit();
+  checkResetToken();
 })();
 </script>
 </body>
