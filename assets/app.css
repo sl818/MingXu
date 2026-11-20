@@ -4070,6 +4070,87 @@ body.modal-open{overflow:hidden}
 /* 邮件提醒配置（v119）：授权码只进不出，状态条靠文案 + 边框区分，不拿 --bad 压小字 */
 .mail-grid{margin-top:2px}
 .mail-grid .field.wide{grid-column:1/-1}
+/* ===== 任务编辑弹窗重排（v127）=====
+   原来的问题：9 个字段一路平铺，眼睛没有落脚点。
+   现在分三段——标题与属性（高频）→ 子任务（干活时看）→ 折叠的更多设置（低频）。 */
+.task-sheet{width:min(600px,100%)}
+.tk-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:2px}
+.tk-head h3{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.03em;margin:0;padding-top:4px}
+.tk-x{width:30px;height:30px;border-radius:8px;font-size:14px;line-height:1}
+.tk-title{
+  width:100%;border:0;background:transparent;font:inherit;font-size:19px;font-weight:600;
+  color:var(--text);padding:6px 0 10px;outline:0;line-height:1.4;
+}
+.tk-title::placeholder{color:var(--line-strong);font-weight:500}
+.tk-props{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px}
+@media(max-width:560px){.tk-props{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tk-p{
+  display:flex;flex-direction:column;gap:3px;padding:6px 9px 7px;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface-2);
+}
+.tk-p span{font-size:10.5px;color:var(--muted);letter-spacing:.02em}
+.tk-p select,.tk-p input{
+  border:0;background:transparent;font:inherit;font-size:12.5px;color:var(--text);
+  padding:0;outline:0;width:100%;min-width:0;
+}
+.tk-quick{display:flex;align-items:center;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.tk-quick .muted-sm{font-size:11px}
+
+.tk-sec{margin:4px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+.tk-sec-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tk-sec-head b{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.tk-sec-head em{font-style:normal;font-size:11px;color:var(--muted)}
+.tk-subs{margin:0 0 2px}
+.tk-sub{display:flex;align-items:flex-start;gap:9px;padding:5px 4px;border-radius:8px}
+.tk-sub:hover{background:var(--surface-2)}
+.tk-sub input{
+  appearance:none;width:16px;height:16px;border:1.5px solid var(--line-strong);border-radius:5px;
+  flex:none;margin:2px 0 0;cursor:pointer;position:relative;background:var(--surface);transition:.14s;
+}
+.tk-sub input:checked{background:var(--accent);border-color:var(--accent)}
+.tk-sub input:checked::after{
+  content:"";position:absolute;left:4.5px;top:1px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);
+}
+.tk-sub span{flex:1;font-size:13px;line-height:1.5;word-break:break-word;color:var(--text)}
+.tk-sub.done span{color:var(--muted);text-decoration:line-through}
+.tk-sub-del{
+  opacity:0;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:0 4px;line-height:1.5;transition:.14s;
+}
+.tk-sub:hover .tk-sub-del{opacity:1}
+.tk-sub-del:hover{color:var(--bad)}
+.tk-sub-add{display:flex;align-items:center;gap:8px;padding:6px 4px 2px;color:var(--muted);font-size:12.5px}
+.tk-sub-add input{
+  flex:1;border:0;background:transparent;font:inherit;font-size:13px;color:var(--text);
+  outline:0;padding:2px 0;min-width:0;
+}
+.tk-sub-add input::placeholder{color:var(--line-strong)}
+.tk-note{
+  width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);
+  font:inherit;font-size:13px;color:var(--text);padding:9px 11px;resize:vertical;outline:0;
+  line-height:1.65;margin:0 0 12px;
+}
+.tk-note:focus{border-color:var(--accent);background:var(--surface)}
+.tk-fold{border-top:1px solid var(--line);margin:0 0 4px}
+.tk-fold summary{
+  display:flex;align-items:center;gap:8px;padding:11px 0;cursor:pointer;
+  font-size:12.5px;color:var(--muted);list-style:none;
+}
+.tk-fold summary::-webkit-details-marker{display:none}
+.tk-fold summary::before{content:"▶";font-size:9px;transition:.16s;display:inline-block}
+.tk-fold[open] summary::before{transform:rotate(90deg)}
+.tk-fold summary:hover{color:var(--text)}
+.tk-fold summary .muted-sm{font-size:11px;color:var(--line-strong)}
+.tk-fold .form-grid{margin-top:2px}
+.tk-fold .hint{margin:10px 0 12px}
+
+/* 卡片上的子任务进度 */
+.task-subs{display:flex;align-items:center;gap:7px;margin:-2px 0 6px}
+.task-subs span{font-size:11px;color:var(--muted);flex:none}
+.task-subs i{display:block;flex:1;max-width:76px;height:4px;border-radius:3px;background:var(--line);overflow:hidden}
+.task-subs i b{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .2s}
+
 /* ===== 通知通道矩阵（v122）===== */
 .mx-table{width:100%;max-width:540px;border-collapse:collapse;margin:0 0 10px;font-size:12.5px}
 .mx-table th,.mx-table td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line)}

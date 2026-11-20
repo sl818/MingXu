@@ -1,6 +1,6 @@
 /* 明序 PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v126';
+const CACHE = 'lifeboard-shell-v127';
 const ASSETS = [
   './',
   './index.html',

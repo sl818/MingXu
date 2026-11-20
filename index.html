@@ -726,6 +726,18 @@
       t.notify = t.notify !== false;
       t.notifyTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.notifyTime || '')) ? t.notifyTime : '09:00';
       t.notifyNote = String(t.notifyNote || '');
+      /* v127 子任务：只留「有标题的对象」，顺便补 id 和布尔 done。
+         老数据没有这个字段，补成空数组，界面上不显示进度条。 */
+      if (!Array.isArray(t.subtasks)) t.subtasks = [];
+      t.subtasks = t.subtasks.filter(function (x) {
+        return x && typeof x === 'object' && String(x.title || '').trim() !== '';
+      }).map(function (x) {
+        return {
+          id: String(x.id || uid()),
+          title: String(x.title).slice(0, 80),
+          done: !!x.done
+        };
+      });
       /* 时间块：填了才在周视图里画真实色块，没填的落在「全天」行。
          时长按 15 分钟对齐，范围 15 分钟–12 小时；0 表示没设。 */
       t.startTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.startTime || '')) ? t.startTime : '';
@@ -5691,6 +5703,16 @@
     return parts.join('');
   }
 
+  /* 卡片上的子任务进度：一眼看出推进到哪，不用点开 */
+  function taskSubsBar(t) {
+    const subs = taskSubs(t);
+    if (!subs.length) return '';
+    const done = subs.filter(function (x) { return x.done; }).length;
+    const pct = Math.round(done / subs.length * 100);
+    return '<div class="task-subs"><span>' + done + '/' + subs.length + '</span>' +
+      '<i><b style="width:' + pct + '%"></b></i></div>';
+  }
+
   function taskCard(t) {
     const overdue = t.status !== 'done' && t.status !== 'cancelled' && t.due && t.due < todayStr();
     const tagColor = TAGS[t.tag] || TAGS['其他'];
@@ -5706,6 +5728,7 @@
         '<span class="prio" style="--prio:' + prio + '">' + esc(t.priority || '中') + '</span>' +
       '</div>' +
       '<h4>' + esc(t.title) + '</h4>' +
+      taskSubsBar(t) +
       (t.note ? '<p>' + esc(t.note) + '</p>' : '') +
       '<div class="task-foot">' +
         '<span class="due ' + (overdue ? 'overdue' : '') + '">' + dueText(t) + '</span>' +
@@ -11993,16 +12016,14 @@
         if (z) z.classList.remove('is-over');
         clearDropMarks();
       });
-      card.addEventListener('dblclick', e => {
+      /* v127：单击直接开编辑弹窗。原来要双击展开内联详情、再点铅笔编辑，两步；
+         备注、子任务、时间都已经在弹窗里，内联详情没有独占内容了。 */
+      card.addEventListener('click', e => {
         if (e.target.closest('button')) return;
+        if (dragId) return;
         const id = card.dataset.id;
-        if (openTaskIds.has(id)) openTaskIds.delete(id);
-        else openTaskIds.add(id);
-        card.classList.toggle('is-open');
-        if (card.classList.contains('is-open')) {
-          // center 而非 nearest：展开后的卡片（含底部操作行）不会被移动端固定底栏盖住
-          setTimeout(() => card.scrollIntoView({ block: 'center', behavior: 'smooth' }), 40);
-        }
+        const item = state.tasks.find(x => x.id === id);
+        if (item) taskModal(item);
       });
       card.addEventListener('dragover', e => {
         if (!dragId) return;
@@ -12325,6 +12346,96 @@
     }
   }
 
+  /* ===== 子任务（v127）=====
+     存在 task.subtasks 里：[{id, title, done}]。父任务的状态和截止日期**不跟着子任务自动变**，
+     只做进度展示——自动改状态会让人意外（勾完四个子任务，主任务突然消失）。 */
+  function taskSubs(t) {
+    const arr = t && Array.isArray(t.subtasks) ? t.subtasks : [];
+    return arr.filter(function (x) { return x && typeof x === 'object'; });
+  }
+
+  function taskSubsHtml(t) {
+    return taskSubs(t).map(function (x) {
+      return '<div class="tk-sub' + (x.done ? ' done' : '') + '" data-sid="' + esc(x.id || '') + '">' +
+        '<input type="checkbox"' + (x.done ? ' checked' : '') + '>' +
+        '<span>' + esc(x.title || '') + '</span>' +
+        '<button type="button" class="tk-sub-del" aria-label="删除子任务">✕</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* 折叠区里有内容就默认展开，否则用户会以为没设过 */
+  function taskFoldOpen(t) {
+    if (!t) return false;
+    if (t.startTime || Number(t.duration) > 0) return true;
+    if (t.repeat && t.repeat !== 'none') return true;
+    if (t.notify === false || (t.notifyNote || '') !== '') return true;
+    return false;
+  }
+
+  function taskSubCount(form) {
+    const box = form.querySelector('[data-sub-count]');
+    if (!box) return;
+    const rows = form.querySelectorAll('.tk-sub');
+    let done = 0;
+    rows.forEach(function (r) {
+      const cb = r.querySelector('input');
+      if (cb && cb.checked) done++;
+    });
+    box.textContent = done + '/' + rows.length;
+  }
+
+  function bindTaskSubs(form) {
+    if (!form) return;
+    const list = form.querySelector('[data-sub-list]');
+    const input = form.querySelector('[data-sub-input]');
+    if (!list || !input) return;
+    const refresh = function () {
+      list.querySelectorAll('.tk-sub').forEach(function (row) {
+        const cb = row.querySelector('input');
+        if (cb) {
+          cb.onchange = function () {
+            row.classList.toggle('done', cb.checked);
+            taskSubCount(form);
+          };
+        }
+        const del = row.querySelector('.tk-sub-del');
+        if (del) {
+          del.onclick = function () {
+            row.remove();
+            taskSubCount(form);
+          };
+        }
+      });
+      taskSubCount(form);
+    };
+    input.onkeydown = function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const v = input.value.trim();
+      if (!v) return;
+      const div = document.createElement('div');
+      div.className = 'tk-sub';
+      div.setAttribute('data-sid', '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const sp = document.createElement('span');
+      sp.textContent = v;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'tk-sub-del';
+      del.setAttribute('aria-label', '删除子任务');
+      del.textContent = '✕';
+      div.appendChild(cb);
+      div.appendChild(sp);
+      div.appendChild(del);
+      list.appendChild(div);
+      input.value = '';
+      refresh();
+    };
+    refresh();
+  }
+
   function taskModal(task, presetStatus) {
     const isNew = !task;
     const t = task || {
@@ -12347,48 +12458,55 @@
       '<option value="' + i + '"' + (repeatWeekday === i ? ' selected' : '') + '>周' + label + '</option>').join('');
 
     openModal('' +
-      '<form class="modal-card" id="task-form" data-id="' + esc(t.id || '') + '">' +
-        '<h3>' + (isNew ? '新建任务' : '编辑任务') + '</h3>' +
-        '<label class="field"><span>标题</span>' +
-          '<input name="title" required maxlength="80" value="' + esc(t.title) + '" placeholder="要做什么？"></label>' +
-        '<label class="field"><span>备注</span>' +
-          '<textarea name="note" rows="2" maxlength="300" placeholder="可选，补充一点细节">' + esc(t.note || '') + '</textarea></label>' +
-        '<div class="form-grid">' +
-          '<label class="field"><span>状态</span><select name="status">' + statusOpts + '</select></label>' +
-          '<label class="field"><span>分类</span><select name="tag">' + tagOpts + '</select></label>' +
-          '<label class="field"><span>优先级</span><select name="priority">' + prioOpts + '</select></label>' +
-          '<div class="field"><span>截止日期</span>' +
-            '<div class="due-row">' +
-              '<input type="date" name="due" value="' + esc(t.due || '') + '">' +
-              '<button type="button" class="chip" data-due-quick="tomorrow">明日</button>' +
-              '<button type="button" class="chip" data-due-quick="3">三日</button>' +
-            '</div>' +
+      '<form class="modal-card task-sheet" id="task-form" data-id="' + esc(t.id || '') + '">' +
+        '<div class="tk-head"><h3>' + (isNew ? '新建任务' : '编辑任务') + '</h3>' +
+          '<button type="button" class="icon-btn tk-x" data-act="close-modal" aria-label="关闭">✕</button></div>' +
+        '<input class="tk-title" name="title" required maxlength="80" value="' + esc(t.title) + '" placeholder="要做什么？">' +
+        '<div class="tk-props">' +
+          '<label class="tk-p"><span>状态</span><select name="status">' + statusOpts + '</select></label>' +
+          '<label class="tk-p"><span>分类</span><select name="tag">' + tagOpts + '</select></label>' +
+          '<label class="tk-p"><span>优先级</span><select name="priority">' + prioOpts + '</select></label>' +
+          '<label class="tk-p"><span>截止</span>' +
+            '<input type="date" name="due" value="' + esc(t.due || '') + '">' +
+          '</label>' +
+        '</div>' +
+        '<div class="tk-quick"><span class="muted-sm">快选截止：</span>' +
+          '<button type="button" class="chip" data-due-quick="tomorrow">明日</button>' +
+          '<button type="button" class="chip" data-due-quick="3">三日</button>' +
+          '<button type="button" class="chip" data-due-quick="week">一周</button></div>' +
+        '<div class="tk-sec">' +
+          '<div class="tk-sec-head"><b>子任务</b><em data-sub-count>0/0</em></div>' +
+          '<div class="tk-subs" data-sub-list>' + taskSubsHtml(t) + '</div>' +
+          '<div class="tk-sub-add"><span>+</span><input type="text" maxlength="80" placeholder="添加子任务，回车确认" data-sub-input></div>' +
+        '</div>' +
+        '<textarea class="tk-note" name="note" rows="2" maxlength="300" placeholder="备注（可选）">' + esc(t.note || '') + '</textarea>' +
+        '<details class="tk-fold"' + (taskFoldOpen(t) ? ' open' : '') + '>' +
+          '<summary>更多设置<span class="muted-sm">开始时间、时长、通知、重复</span></summary>' +
+          '<div class="form-grid">' +
+            '<label class="field"><span>开始时间</span><input type="time" name="startTime" value="' + esc(t.startTime || '') + '"></label>' +
+            '<label class="field"><span>时长</span><select name="duration">' +
+              [[0, '不设时长'], [30, '30 分钟'], [60, '1 小时'], [90, '1.5 小时'], [120, '2 小时'], [180, '3 小时']]
+                .map(pair => '<option value="' + pair[0] + '"' +
+                  ((Number(t.duration) || 0) === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>').join('') +
+            '</select></label>' +
+            '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
+              '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
+              '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
+              '<option value="weekly"' + (repeat === 'weekly' ? ' selected' : '') + '>每周重复</option>' +
+              '<option value="monthly"' + (repeat === 'monthly' ? ' selected' : '') + '>每月重复</option>' +
+            '</select></label>' +
+            '<label class="field" data-repeat-field data-repeat-for="time"><span>重复时间</span><input type="time" name="repeatTime" value="' + esc(t.repeatTime || '20:00') + '"></label>' +
+            '<label class="field" data-repeat-field data-repeat-for="weekly"><span>每周几</span><select name="repeatWeekday">' + weekOpts + '</select></label>' +
+            '<label class="field" data-repeat-field data-repeat-for="monthly"><span>每月几号</span><input type="number" name="repeatDay" min="1" max="31" value="' + repeatDay + '"></label>' +
+            '<label class="field"><span>通知</span><select name="notify">' +
+              '<option value="1"' + (t.notify !== false ? ' selected' : '') + '>通知</option>' +
+              '<option value="0"' + (t.notify === false ? ' selected' : '') + '>不通知</option>' +
+            '</select></label>' +
+            '<label class="field"><span>通知时间</span><input type="time" name="notifyTime" value="' + esc(t.notifyTime || '09:00') + '"></label>' +
+            '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(t.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
           '</div>' +
-          '<label class="field"><span>开始时间</span><input type="time" name="startTime" value="' + esc(t.startTime || '') + '"></label>' +
-          '<label class="field"><span>时长</span><select name="duration">' +
-            [[0, '不设时长'], [30, '30 分钟'], [60, '1 小时'], [90, '1.5 小时'], [120, '2 小时'], [180, '3 小时']]
-              .map(pair => '<option value="' + pair[0] + '"' +
-                ((Number(t.duration) || 0) === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>').join('') +
-          '</select></label>' +
-          '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
-            '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
-            '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
-            '<option value="weekly"' + (repeat === 'weekly' ? ' selected' : '') + '>每周重复</option>' +
-            '<option value="monthly"' + (repeat === 'monthly' ? ' selected' : '') + '>每月重复</option>' +
-          '</select></label>' +
-          '<label class="field" data-repeat-field data-repeat-for="time"><span>重复时间</span><input type="time" name="repeatTime" value="' + esc(t.repeatTime || '20:00') + '"></label>' +
-          '<label class="field" data-repeat-field data-repeat-for="weekly"><span>每周几</span><select name="repeatWeekday">' + weekOpts + '</select></label>' +
-          '<label class="field" data-repeat-field data-repeat-for="monthly"><span>每月几号</span><input type="number" name="repeatDay" min="1" max="31" step="1" value="' + repeatDay + '"></label>' +
-        '</div>' +
-        '<div class="form-grid notify-grid">' +
-          '<label class="field"><span>通知提醒</span><select name="notify">' +
-            '<option value="1"' + (t.notify !== false ? ' selected' : '') + '>通知</option>' +
-            '<option value="0"' + (t.notify === false ? ' selected' : '') + '>不通知</option>' +
-          '</select></label>' +
-          '<label class="field"><span>通知时间</span><input type="time" name="notifyTime" value="' + esc(t.notifyTime || '09:00') + '"></label>' +
-          '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(t.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
-        '</div>' +
-        '<p class="hint">重复任务完成后会自动生成下一次待办；通知在「通知时间」发送，仅当天到期才提醒。每月遇到小月时取当月最后一天。</p>' +
+          '<p class="hint" style="margin:10px 0 0">重复任务完成后会自动生成下一次待办；通知在「通知时间」发送，仅当天到期才提醒。每月遇到小月时取当月最后一天。</p>' +
+        '</details>' +
         '<div class="modal-actions">' +
           (isNew ? '' : '<button type="button" class="btn danger" data-act="task-del" data-id="' + t.id + '">删除</button>') +
           '<span class="spacer"></span>' +
@@ -12396,6 +12514,8 @@
           '<button type="submit" class="btn primary">保存</button>' +
         '</div>' +
       '</form>');
+
+    bindTaskSubs(document.getElementById('task-form'));
   }
 
   function habitModal(habit) {
@@ -12882,9 +13002,21 @@
     const rdVal = parseInt(get('repeatDay'), 10);
     const repeatWeekday = Number.isFinite(wdVal) ? clamp(wdVal, 0, 6) : dueD.getDay();
     const repeatDay = Number.isFinite(rdVal) ? clamp(rdVal, 1, 31) : dueD.getDate();
+    /* 子任务从 DOM 收：新增的行没有 id，这里补一个；保存时整组替换 */
+    const subRows = Array.from(form.querySelectorAll('.tk-sub')).map(function (row, i) {
+      const cb = row.querySelector('input');
+      const sp = row.querySelector('span');
+      return {
+        id: row.getAttribute('data-sid') || ('sub_' + Date.now().toString(36) + '_' + i),
+        title: (sp ? sp.textContent : '').trim(),
+        done: !!(cb && cb.checked)
+      };
+    }).filter(function (x) { return x.title !== ''; });
+
     const payload = {
       title: title,
       note: get('note'),
+      subtasks: subRows,
       status: get('status') || 'todo',
       tag: get('tag') || '其他',
       priority: get('priority') || '中',
@@ -13729,7 +13861,7 @@
       calMonth = new Date(n.getFullYear(), n.getMonth(), 1);
       render();
     },
-    'set-stats-range': el => {
+    'set-statk-range': el => {
       const r = Number(el.dataset.range) || 30;
       if ([7, 30, 90].indexOf(r) < 0) return;
       statsRange = r;
@@ -14209,19 +14341,19 @@
       weightRange = Number(el.dataset.range) || 0;
       render();
     },
-    'stats-log-toggle': () => {
+    'statk-log-toggle': () => {
       statsLogOpen = !statsLogOpen;
       render();
     },
-    'stats-habit-tab': el => {
+    'statk-habit-tab': el => {
       statsHabitTab = el.dataset.tab || 'month';
       render();
     },
-    'stats-med-tab': el => {
+    'statk-med-tab': el => {
       statsMedTab = el.dataset.tab || 'month';
       render();
     },
-    'stats-quit-fold': () => {
+    'statk-quit-fold': () => {
       statsQuitOpen = !statsQuitOpen;
       render();
     },
@@ -14836,6 +14968,9 @@
     'cloud-login': () => cloudLoginModal(),
     'cloud-register': () => cloudRegisterModal(),
     'forgot-password': () => forgotPasswordModal(),
+    /* v127.1：统计页的分段控件之前只有 data-act 没有处理器，点了没反应 */
+    'stats-habit-tab': el => { statsHabitTab = el.dataset.tab || 'month'; render(); },
+    'stats-med-tab': el => { statsMedTab = el.dataset.tab || 'month'; render(); },
     'cloud-account': () => cloudAccountModal(),
     'profile-save': () => { const c = document.getElementById('cloud-account-form'); if (c) cloudDoSaveProfile(c); },
     'cloud-change-password': () => { const c = document.getElementById('cloud-account-form'); if (c) cloudDoChangePassword(c); },
