@@ -266,9 +266,9 @@ function lb_table_exists(PDO $pdo, string $table): bool
             $st->execute([$table]);
             return (bool)$st->fetchColumn();
         }
-        $st = $pdo->prepare('SHOW TABLES LIKE ?');
-        $st->execute([$table]);
-        return (bool)$st->fetchColumn();
+        /* MySQL 的 SHOW 语句不支持参数绑定（prepare 会失败 → 这里被 catch 成 false，
+           结果邮件用户永远捞不出来）。表名已过白名单，直接拼接才是正确写法。 */
+        return (bool)$pdo->query("SHOW TABLES LIKE '" . $table . "'")->fetchColumn();
     } catch (PDOException $e) {
         return false;
     }
@@ -289,9 +289,9 @@ function lb_column_exists(PDO $pdo, string $table, string $col): bool
             }
             return false;
         }
-        $st = $pdo->prepare('SHOW COLUMNS FROM ' . $table . ' LIKE ?');
-        $st->execute([$col]);
-        return $st->fetchAll() !== [];
+        /* 同上：SHOW 不能用参数绑定 */
+        $safeCol = preg_replace('/[^A-Za-z0-9_]/', '', $col);
+        return $pdo->query("SHOW COLUMNS FROM " . $table . " LIKE '" . $safeCol . "'")->fetchAll() !== [];
     } catch (PDOException $e) {
         return false;
     }
