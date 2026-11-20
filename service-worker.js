@@ -1,16 +1,18 @@
 /* 明序 PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v127';
+const CACHE = 'lifeboard-shell-v128';
+/* 带 ?v= 的资源：HTML 里也是同一个版本串，发版时一起改 */
+const VER = 'v128';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './assets/app.css',
-  './themes/themes.css',
-  './themes/custom.css',
-  './themes/skin-cloud.css',
-  './themes/skin-neu.css',
-  './themes/skin-retro.css',
+  './assets/app.css?v=' + VER,
+  './themes/themes.css?v=' + VER,
+  './themes/custom.css?v=' + VER,
+  './themes/skin-cloud.css?v=' + VER,
+  './themes/skin-neu.css?v=' + VER,
+  './themes/skin-retro.css?v=' + VER,
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png'
@@ -18,9 +20,18 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then(cache =>
+      /* 逐个 fetch 并指定 cache:'reload'。直接 addAll 会走浏览器的 HTTP 缓存，
+         宝塔给静态文件设了缓存头，结果「新 SW 里装的还是旧 CSS」——
+         表现就是某些浏览器样式没跟上，另一些是好的。 */
+      Promise.all(ASSETS.map(url =>
+        fetch(new Request(url, { cache: 'reload' }))
+          .then(res => {
+            if (res && res.ok) return cache.put(url, res);
+          })
+          .catch(() => {})
+      ))
+    ).then(() => self.skipWaiting())
   );
 });
 

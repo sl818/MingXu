@@ -63,6 +63,26 @@ def main():
     required = set(re.findall(r"require(?:_once)?\s+__DIR__\s*\.\s*'/([^']+)'", api_src))
     missing = [r for r in required if r not in files]
 
+    # 版本一致性：index.html 的 ?v= 必须与 service-worker.js 的 VER / CACHE 对齐。
+    # 这三处不同步的话，样式会在某些浏览器上「发版了但没生效」——v127 踩过一次。
+    html = io.open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
+    sw = io.open(os.path.join(ROOT, 'service-worker.js'), encoding='utf-8').read()
+    m_cache = re.search(r"CACHE = 'lifeboard-shell-(v\d+)'", sw)
+    m_ver = re.search(r"VER = '(v\d+)'", sw)
+    html_vers = set(re.findall(r'\?v=(\d+)', html))
+    if not m_cache or not m_ver:
+        print('service-worker.js 里找不到 CACHE / VER，拒绝打包')
+        return 1
+    if m_cache.group(1) != m_ver.group(1):
+        print('版本不一致：CACHE = %s，VER = %s' % (m_cache.group(1), m_ver.group(1)))
+        return 1
+    want = m_cache.group(1).lstrip('v')
+    if html_vers != {want}:
+        print('index.html 的样式版本串与 SW 不一致：HTML 是 %s，SW 是 v%s'
+              % (sorted(html_vers) or '（没有）', want))
+        print('  把 index.html 里所有 ?v=NNN 改成 ?v=%s' % want)
+        return 1
+
     absent = [f for f in files if not os.path.exists(os.path.join(ROOT, f))]
     if absent:
         print('缺文件，拒绝打包：')

@@ -152,6 +152,17 @@
 
 ---
 
+## 9.0 静态资源缓存（v128）
+
+| 位置 | 说明 |
+| --- | --- |
+| `index.html` 的 `<link>` | 全部带 `?v=NNN`，与 SW 版本一致。**改版本时必须同步改这里** |
+| `service-worker.js` 的 `VER` | ASSETS 里统一拼 `?v=' + VER` |
+| SW `install` | 逐个 `fetch(..., {cache:'reload'})` + `cache.put`，**不能用 `cache.addAll`**（会吃 HTTP 缓存） |
+| `tools/make_release.py` | 打包前校验 HTML 的 `?v=` 与 SW 的 `CACHE`/`VER` 一致，不一致直接拒绝 |
+
+踩坑：v127 发版后，同一账号在两个浏览器上一个样式正常、一个全丢——因为旧 CSS 被重新缓存进了新 SW。
+
 ## 9.1 任务编辑与子任务（v127）
 
 | 位置 | 说明 |
