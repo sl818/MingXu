@@ -4141,6 +4141,8 @@ body.modal-open{overflow:hidden}
   line-height:1.65;margin:0 0 12px;
 }
 .tk-note:focus{border-color:var(--accent);background:var(--surface)}
+/* 设计稿里底部按钮不画分隔线，靠留白分段就够了 */
+.task-sheet .modal-actions{border-top:0;padding-top:10px;margin-top:4px}
 .tk-fold{border-top:1px solid var(--line);margin:0 0 4px}
 .tk-fold summary{
   display:flex;align-items:center;gap:8px;padding:11px 0;cursor:pointer;

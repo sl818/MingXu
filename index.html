@@ -40,15 +40,15 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=129">
+<link rel="stylesheet" href="assets/app.css?v=130">
 
 
 
-<link rel="stylesheet" href="themes/themes.css?v=129">
-<link rel="stylesheet" href="themes/custom.css?v=129">
-<link rel="stylesheet" href="themes/skin-cloud.css?v=129">
-<link rel="stylesheet" href="themes/skin-neu.css?v=129">
-<link rel="stylesheet" href="themes/skin-retro.css?v=129">
+<link rel="stylesheet" href="themes/themes.css?v=130">
+<link rel="stylesheet" href="themes/custom.css?v=130">
+<link rel="stylesheet" href="themes/skin-cloud.css?v=130">
+<link rel="stylesheet" href="themes/skin-neu.css?v=130">
+<link rel="stylesheet" href="themes/skin-retro.css?v=130">
 </head>
 <body>
 <div class="app landing">
@@ -12479,7 +12479,8 @@
           '<div class="tk-subs" data-sub-list>' + taskSubsHtml(t) + '</div>' +
           '<div class="tk-sub-add"><span>+</span><input type="text" maxlength="80" placeholder="添加子任务，回车确认" data-sub-input></div>' +
         '</div>' +
-        '<textarea class="tk-note" name="note" rows="2" maxlength="300" placeholder="备注（可选）">' + esc(t.note || '') + '</textarea>' +
+        '<div class="tk-sec-head"><b>备注</b><span class="line"></span></div>' +
+        '<textarea class="tk-note" name="note" rows="2" maxlength="300" placeholder="可选，补充一点细节">' + esc(t.note || '') + '</textarea>' +
         '<details class="tk-fold"' + (taskFoldOpen(t) ? ' open' : '') + '>' +
           '<summary>更多设置<span class="muted-sm">开始时间、时长、通知、重复</span></summary>' +
           '<div class="form-grid">' +
