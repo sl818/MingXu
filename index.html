@@ -40,15 +40,15 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=133">
+<link rel="stylesheet" href="assets/app.css?v=134">
 
 
 
-<link rel="stylesheet" href="themes/themes.css?v=133">
-<link rel="stylesheet" href="themes/custom.css?v=133">
-<link rel="stylesheet" href="themes/skin-cloud.css?v=133">
-<link rel="stylesheet" href="themes/skin-neu.css?v=133">
-<link rel="stylesheet" href="themes/skin-retro.css?v=133">
+<link rel="stylesheet" href="themes/themes.css?v=134">
+<link rel="stylesheet" href="themes/custom.css?v=134">
+<link rel="stylesheet" href="themes/skin-cloud.css?v=134">
+<link rel="stylesheet" href="themes/skin-neu.css?v=134">
+<link rel="stylesheet" href="themes/skin-retro.css?v=134">
 </head>
 <body>
 <div class="app landing">
@@ -13862,7 +13862,7 @@
       calMonth = new Date(n.getFullYear(), n.getMonth(), 1);
       render();
     },
-    'set-statk-range': el => {
+    'set-stats-range': el => {
       const r = Number(el.dataset.range) || 30;
       if ([7, 30, 90].indexOf(r) < 0) return;
       statsRange = r;
@@ -14342,19 +14342,11 @@
       weightRange = Number(el.dataset.range) || 0;
       render();
     },
-    'statk-log-toggle': () => {
+    'stats-log-toggle': () => {
       statsLogOpen = !statsLogOpen;
       render();
     },
-    'statk-habit-tab': el => {
-      statsHabitTab = el.dataset.tab || 'month';
-      render();
-    },
-    'statk-med-tab': el => {
-      statsMedTab = el.dataset.tab || 'month';
-      render();
-    },
-    'statk-quit-fold': () => {
+    'stats-quit-fold': () => {
       statsQuitOpen = !statsQuitOpen;
       render();
     },
@@ -15249,7 +15241,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=133', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=134', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

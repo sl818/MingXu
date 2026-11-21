@@ -19,7 +19,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v133（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v133'`） |
+| 代码版本 | v134（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v134'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -157,6 +157,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v131 | 11-20 | **修 SW 永不更新**：`serviceWorker.register('service-worker.js')` 用裸地址，浏览器按 HTTP 缓存判断「脚本没变」→ 不触发更新 → 新 HTML 配旧 SW、旧 CSS。改成 `register('service-worker.js?v=NNN', { updateViaCache: 'none' })`。（后来查明 v127~v130 的真正病根不是它，见 v132） |
 | v132 | 11-20 | **焦点轮廓收敛到一处（真凶）**。四套皮肤各复制了一条相同的 `[data-skin=x] :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}`，作用于**每个元素**。无边框大标题一聚焦就套上孤零零的圆角框——v127~v131 反复返工、以及「只有冷雾矩阵正常」（唯一没这条规则的皮肤）全源于此。修法：①提到 `app.css` 基础层，全站定义一次；②四套皮肤里的重复规则删除；③弹窗内输入类不吃外轮廓（标题改下划线、胶囊改 `:focus-within` 描边、备注改边框变色）。**测试基建补齐**：mock 之前只服务 `/assets/`，`/themes/` 全 404，所以本地永远测不出皮肤问题——这是连续误判「代码没问题」的技术原因。现补上，并加 4 套皮肤 × 3 项断言（共 40 项）。新增 `e2e/shots-skins.py`（六套皮肤截图 + 总览拼图）。SW → v132 `
 | v133 | 11-21 | **CSS 分层去重（REFACTOR-PLAN 阶段 0 第二步）**。app.css 内 200 组同选择器重复定义合并为一处：删 236 条整规则 + 343 条被覆盖声明，245KB → 232KB，全 LF 保持。等价性两层证明——①新增 `e2e/css_equiv_check.py`：同浏览器双页对照（git HEAD 版 vs 合并版），25 探针 × 177 属性（含 82 个自定义属性，不冻结动画）× 300 元素，计算样式 0 差异；②六皮肤 board/sheet 截图像素比对，差异均为同版本两次运行的固有噪声（paper/retro/neu/cloud-focus 跨版本为 0）。对比度三套审计全绿（跳过 0）；全量回归 10 套通过（28+35+44+51+60+20+9+15+33）。合并脚本 `e2e/css_merge_layers.py`（--dry/--write，落盘前全量解析保护）。另：THEME-SPEC.md 增补 §9.1 暗色契约、§9.2 运动规范。SW → v133 |
+| v134 | 11-21 | **修统计页三个死键（11-20 自检 P1-1）**。区间切换 / 时间线展开 / 戒烟分析折叠的处理器键被误写成 `statk-*`，与渲染的 `stats-*` 不匹配，事件分发 `if (fn)` 静默跳过——点了没反应，且 `statsRange` 恒为 30 天（想按 7/90 天复盘，看到的仍是 30 天的数，无任何提示）。修复：三键改名 `set-statk-range`→`set-stats-range`、`statk-log-toggle`→`stats-log-toggle`、`statk-quit-fold`→`stats-quit-fold`；删除 `statk-habit-tab`/`statk-med-tab` 两条冗余备份（stats- 版本就正常工作）。新增 `e2e/verify-stats-controls.py`：12 项真浏览器点击断言（区间 30→7→90 + 高亮、时间线先切「时间线」tab 再展开 5→8 行、戒烟展开/收起往返）。`_check_script.mjs` 的 `missing handlers` 归零。全量回归通过（28+35+44+51+60+20+9+33）。SW → v134 |
 
 
 ### 两次值得记住的事故
