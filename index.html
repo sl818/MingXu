@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=157">
+<link rel="stylesheet" href="assets/app.css?v=158">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=157">
+<link rel="stylesheet" href="assets/theme-v2.css?v=158">
 </head>
 <body>
 <div class="app landing">
@@ -9853,10 +9853,9 @@
     if (!list || !list.length) {
       return '<div class="ww-empty">这个区间还没有体重记录<br>记一笔之后，这里会画出曲线</div>';
     }
-    /* v114：H 从 200 提到 340 —— 右栏多了体脂卡之后，200 高的图会把卡片拉开一块空白 */
-    /* 统计页是整栏宽（1340px），600×340 的 viewBox 等比放大后高 760，
-       一张趋势图占掉一屏。那边传入更扁的比例，体重页沿用默认值。 */
-    const W = (opts && opts.w) || 600, H = (opts && opts.h) || 340, L = 38, R = 14, T = 16, B = 26;
+    /* v158：默认 H 从 340 降到 250 —— 体重页左栏宽屏下 600×340 会被等比放大到近 500px 高，
+       一张趋势图占掉一屏。统计页显式传 {w:1200,h:280}，不受这里影响。 */
+    const W = (opts && opts.w) || 600, H = (opts && opts.h) || 250, L = 38, R = 14, T = 16, B = 26;
     const pw = W - L - R, ph = H - T - B;
     const pts = list.map(w => ({ date: w.date, v: Number(w.weight), bmi: w.bmi })).filter(p => isFinite(p.v));
     if (!pts.length) return '<div class="ww-empty">这个区间还没有体重记录</div>';
@@ -9959,12 +9958,13 @@
     const info = bmiCategory(last.bmi);
     const row = (label, value, unit) =>
       '<div class="wsum-row"><small>' + label + '</small><b>' + value + (unit ? '<i>' + unit + '</i>' : '') + '</b></div>';
-    return row('起始 → 当前', first.weight + ' → ' + last.weight, ' kg') +
+    return '<div class="wsum-grid">' + row('起始 → 当前', first.weight + ' → ' + last.weight, ' kg') +
       row('区间变化', deltaText, '') +
       row('最高 / 最低', hi + ' / ' + lo, ' kg') +
       row('平均', avg, ' kg') +
       row('记录', list.length, ' 次') +
-      row('当前 BMI', last.bmi + ' ' + info.label, '');
+      row('当前 BMI', last.bmi + ' ' + info.label, '') +
+      '</div>';
   }
 
   /* 体脂（v114）：只做记录和趋势，**不给参考范围** —— 不同体脂秤的算法差异很大，
@@ -15521,7 +15521,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=157', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=158', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

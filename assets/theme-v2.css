@@ -1228,6 +1228,39 @@ body{
 .weight-stat-row b{font-size:22px;font-weight:700;font-family:var(--font-sans);}
 .weight-stat-row b i{font-size:11px;}
 
+/* ---------- P2 · 第五页：体重 ---------- */
+/* 折线图：宽屏下 600×250 会被放大到 350–390px，加一道 max-height 兜底防极端宽屏；
+   上限不会让 SVG 变形（preserveAspectRatio 默认等比居中）。 */
+.ww-svg{max-height:400px;}
+/* 趋势是中性信息，不是警告：红笔 → 墨色（与清债曲线、统计柱状图统一） */
+.ww-line{stroke:var(--text);}
+.ww-dot{stroke:var(--text);}
+.ww-dot.last{fill:var(--text);}
+.ww-goal{stroke:var(--muted);opacity:.72;}
+/* 两栏顶部对齐、各自按内容高度：不再被 stretch 拉出一块底部空白 */
+.weight-charts{align-items:start;}
+/* BMI 卡：卡中卡 → 凹陷底（去描边，跟统计页 .rv-cell 同一层） */
+.weight-bmi{border:1px solid transparent;border-radius:12px;background:var(--surface-2);}
+.weight-bmi b{font-family:var(--font-sans);font-weight:700;letter-spacing:-.02em;}
+.weight-bmi.low{border-color:color-mix(in srgb,var(--gold) 30%,transparent);}
+.weight-bmi.warn{border-color:color-mix(in srgb,var(--warn) 34%,transparent);}
+.weight-bmi.high{border-color:color-mix(in srgb,var(--bad) 34%,transparent);}
+/* 深色下**不**抬到 surface-3：BMI 大数字是红字，亮底会把对比度压到 2.53（<3.0），保持 surface-2 */
+/* bmi-pill：深色下基础类只有 3.81:1（审计长期唯一未达标）。文字往 --text 多混一档 */
+.bmi-pill{color:color-mix(in srgb,var(--muted) 55%,var(--text));}
+[data-theme="dark"] .bmi-pill{color:color-mix(in srgb,var(--muted) 32%,var(--text));}
+/* 右侧「统计」6 行 → 2×3 凹陷底数值带：右栏矮下来，跟左图更齐。
+   类名仍用 .wsum-row（多个 e2e/审计按它取样），只把「行」改成「格子」。 */
+.wsum-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.wsum-row{display:block;background:var(--surface-2);border:1px solid transparent;border-top:0;border-radius:10px;padding:9px 11px;}
+.wsum-row small{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;white-space:normal;}
+.wsum-row b{display:block;font-size:13px;font-weight:700;color:var(--text);text-align:left;font-variant-numeric:tabular-nums;}
+.wsum-row b i{font-size:10px;font-style:normal;color:var(--muted);font-weight:400;margin-left:1px;}
+[data-theme="dark"] .wsum-row{background:var(--surface-3);}
+/* 明细行：数值用同一套数字字，行距略松 */
+.weight-value{font-family:var(--font-sans);font-weight:700;}
+.weight-row{padding:11px 0;}
+
 /* ---------- 6. 时间线 ---------- */
 .log-row{grid-template-columns:56px 26px minmax(0,1fr) 52px 132px;padding:9px 2px;font-size:13px;}
 .log-time{font-size:11.5px;color:var(--muted);}
