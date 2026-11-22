@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=149">
+<link rel="stylesheet" href="assets/app.css?v=150">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=149">
+<link rel="stylesheet" href="assets/theme-v2.css?v=150">
 </head>
 <body>
 <div class="app landing">
@@ -5225,7 +5225,7 @@
     } else if (prnMeds.length) {
       actions = '<button class="vital-btn primary" data-act="med-open">打开用药</button>';
     } else {
-      actions = '<button class="vital-btn primary" data-act="med-new">添加用药</button>';
+      actions = '<button class="vital-btn new" data-act="med-new">添加用药</button>';
     }
 
     const progress = total ? Math.min(100, taken / total * 100) : 0;
@@ -6062,7 +6062,7 @@
         '<div class="head-actions">' +
           (doneCount ? '<button class="btn ghost" data-act="clear-done">清理已完成</button>' : '') +
           '<button class="btn ghost" data-act="archive-open">归档' + (archCount ? ' ' + archCount : '') + '</button>' +
-          '<button class="btn primary" data-act="task-new" data-status="todo">＋ 新建任务</button>' +
+          '<button class="btn new" data-act="task-new" data-status="todo">＋ 新建任务</button>' +
         '</div>' +
       '</div>' +
       '<div class="board-shell">' +
@@ -8436,7 +8436,7 @@
     if (!t.n) {
       return '<div class="panel"><div class="empty-box">还没有债务。<br>' +
         '把每一笔填进来（剩多少、年化多少、每月最低还多少），才能算出还清日。<br><br>' +
-        '<button type="button" class="btn primary" data-act="money-debt-new">记第一笔债</button></div></div>';
+        '<button type="button" class="btn new" data-act="money-debt-new">记第一笔债</button></div></div>';
     }
     const sim = moneySimulate(money().strategy);
     const pct = t.start ? Math.min(100, Math.round(t.paid / t.start * 100)) : 0;
@@ -8483,7 +8483,7 @@
     if (!all.length) {
       return '<div class="panel"><div class="empty-box">还没有债务。' +
         '<div class="btn-row" style="justify-content:center;margin-top:12px">' +
-        '<button type="button" class="btn primary" data-act="money-debt-new">记第一笔债</button></div></div></div>';
+        '<button type="button" class="btn new" data-act="money-debt-new">记第一笔债</button></div></div></div>';
     }
     const live = all.filter(function (d) { return Number(d.balance) > 0.005; });
     const done = all.filter(function (d) { return Number(d.balance) <= 0.005; });
@@ -8992,7 +8992,7 @@
     if (!logs.length) {
       return '<div class="panel"><div class="empty-box">还没有还款记录。<br>' +
         '每还一笔就记一下，欠款会自动减少。<br><br>' +
-        '<button type="button" class="btn primary" data-act="money-log-new">记一笔还款</button></div></div>';
+        '<button type="button" class="btn new" data-act="money-log-new">记一笔还款</button></div></div>';
     }
     const sum = logs.reduce(function (a, x) { return a + (Number(x.amount) || 0); }, 0);
     const rows = logs.map(function (x) {
@@ -9414,11 +9414,11 @@
        总览和债务两页仍是「介绍 + 记一笔债」—— 那两页要留住加债的入口。 */
     const acts = ['budget', 'plan', 'log', 'tools'].indexOf(cur) >= 0
       ? '<button class="btn" data-act="money-intro">清债介绍</button>' +
-        '<button class="btn primary" data-act="money-income-new">添加收入</button>' +
-        '<button class="btn primary" data-act="money-cat-new">添加分类预算</button>' +
+        '<button class="btn new" data-act="money-income-new">添加收入</button>' +
+        '<button class="btn new" data-act="money-cat-new">添加分类预算</button>' +
         '<button class="btn primary" data-act="money-spend-new">记一笔开销</button>'
       : '<button class="btn" data-act="money-intro">清债介绍</button>' +
-        '<button class="btn primary" data-act="money-debt-new">记一笔债</button>';
+        '<button class="btn new" data-act="money-debt-new">记一笔债</button>';
     return '<div class="page-head"><div><h2>清债</h2><p>' + moneySubtitle() + '</p></div>' +
         '<div class="head-actions">' + acts + '</div>' +
       '</div>' +
@@ -10310,7 +10310,7 @@
       '<div class="page-head"><div><h2>用药</h2><p>' + esc(sub) + '</p></div>' +
         '<div class="page-acts">' +
           '<button class="btn" data-act="stock-check">盘点库存</button>' +
-          '<button class="btn primary" data-act="med-new">＋ 添加用药</button>' +
+          '<button class="btn new" data-act="med-new">＋ 添加用药</button>' +
         '</div></div>' +
       (list.length
         ? statsHtml + groups + '<p class="hint">点时间胶囊记录服药，再点一次撤销。进行中的药会出现在今日页的用药卡里。</p>'
@@ -10444,7 +10444,7 @@
     const archivedRows = archivedHabitRows();
     return '' +
       '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯与常驻卡。用药在「用药」页单独管理。</p></div>' +
-        '<button class="btn primary" data-act="habit-new">＋ 添加习惯</button></div>' +
+        '<button class="btn new" data-act="habit-new">＋ 添加习惯</button></div>' +
       habitMonthOverview() +
       /* 有归档才分两栏：平时归档为空时左栏占满，不留一块常年空着的板 */
       '<div class="habits-wrap' + (archivedRows ? ' has-arch' : '') + '">' +
@@ -10505,7 +10505,7 @@
     }).join('');
 
     const empty = '<div class="panel"><div class="empty-box">还没有体重记录。记下第一次，之后就能看到体重和 BMI 趋势。</div>' +
-      '<div class="btn-row" style="justify-content:center"><button class="btn primary" data-act="weight-new">记录第一次</button></div></div>';
+      '<div class="btn-row" style="justify-content:center"><button class="btn new" data-act="weight-new">记录第一次</button></div></div>';
 
     const chartList = weightInRange(list, weightRange);
     const hero = latest ? '<section class="weight-hero panel">' +
@@ -10528,7 +10528,7 @@
 
     return '' +
       '<div class="page-head"><div><h2>体重</h2><p>维护身体档案，记录体重，自动计算 BMI。</p></div>' +
-        '<button class="btn primary" data-act="weight-new">＋ 记录体重</button></div>' +
+        '<button class="btn new" data-act="weight-new">＋ 记录体重</button></div>' +
       profileHtml +
       (latest ? hero : empty) +
       '<div class="weight-charts">' +
@@ -10597,7 +10597,7 @@
 
     return '' +
       '<div class="page-head"><div><h2>随笔</h2><p>随手记下想法、片段和今天发生的事。</p></div>' +
-        '<button class="btn primary" data-act="essay-new">＋ 写一篇</button></div>' +
+        '<button class="btn new" data-act="essay-new">＋ 写一篇</button></div>' +
       tagFilter +
       (all.length
         ? (list.length
@@ -11490,7 +11490,7 @@
       '</div>';
     }).join('');
     return '<div class="panel"><h3>自定义通知 ' +
-        '<button class="btn primary sm" data-act="notice-new">＋ 新增</button></h3>' +
+        '<button class="btn new sm" data-act="notice-new">＋ 新增</button></h3>' +
       '<p class="muted-sm">到点往企业微信推一条你自己写的消息。单次只在指定那天发一次，重复的按天/周/月发。</p>' +
       '<div class="notice-warn">' +
         '<b>企业微信有频率限制</b>：同一分钟最多 20 条，超出的会被<b>静默丢弃</b>——返回成功但手机不响。' +
@@ -15493,7 +15493,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=149', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=150', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

@@ -29,6 +29,12 @@
   --warn:#9a6a2f;
   --bad:#c62828;
 
+  /* 创建类主操作（新增/添加/新建）。红不再承担这件事——
+     红只留给「需要特别注意」：删除、重置、逾期、失守。 */
+  --action:#2c68ff;
+  --action-strong:#1e55e6;
+  --on-action:#ffffff;
+
   --gold:#8a6a3a;
   --gold-soft:#f6e7d4;
   --gold-ink:#7a5c26;
@@ -131,6 +137,10 @@
   --good:#7fd0b0;
   --warn:#d3a36b;
   --bad:#f87171;
+
+  --action:#2c68ff;
+  --action-strong:#4a7dff;
+  --on-action:#ffffff;
 
   --gold:#8b9bb0;
   --gold-soft:#243044;
@@ -278,6 +288,13 @@ body{
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted);}
 .btn.ghost:hover{background:var(--surface-2);color:var(--text);}
 .btn.danger{color:var(--bad);border-color:var(--line);}
+/* 创建类主按钮：蓝。与 .primary（红）并存，用途分工见 DESIGN.md */
+.btn.new{background:var(--action);border-color:var(--action);color:var(--on-action);box-shadow:none;}
+.btn.new:hover{background:var(--action-strong);border-color:var(--action-strong);}
+.vital-btn.new{background:var(--action);border-color:var(--action);color:var(--on-action);}
+.vital-btn.new:hover{background:var(--action-strong);border-color:var(--action-strong);}
+/* 手机底部那个悬浮「＋」就是新建入口 */
+.mobile-add{background:var(--action);box-shadow:0 12px 26px -10px color-mix(in srgb,var(--action) 72%,transparent);}
 .btn.sm{height:28px;padding:0 11px;font-size:12px;border-radius:7px;}
 
 /* 表单 */

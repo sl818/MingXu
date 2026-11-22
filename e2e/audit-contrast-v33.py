@@ -278,6 +278,7 @@ SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qpack-fold span', '.qsum span b']
 # 习惯页：管理行的今日状态灯（v66）
 SELS_HABITS_PAGE = ['.habit-today', '.habit-today.ok', '.habit-today.wait', '.habit-today.bad',
+                    '.page-head .btn.new',
                     '.row-act', '.row-act.danger', '.tag-chip', '.tag-chip.active',
                     '.habit-row-info b', '.habit-row-info small',
                      # v109 本月概览
