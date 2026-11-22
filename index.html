@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=150">
+<link rel="stylesheet" href="assets/app.css?v=151">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=150">
+<link rel="stylesheet" href="assets/theme-v2.css?v=151">
 </head>
 <body>
 <div class="app landing">
@@ -10234,11 +10234,13 @@
       '</div>' +
       '<div class="med-row-side">' +
         (stock ? '<span class="med-row-stock">' + esc(stock) + '</span>' : '') +
-        '<div class="med-row-ops">' +
-          '<button class="icon-btn" data-act="med-edit" data-id="' + med.id + '" title="编辑">✎</button>' +
-          '<button class="icon-btn" data-act="med-toggle" data-id="' + med.id + '" title="' +
-            (med.status === 'active' ? '暂停' : '恢复') + '">' + (med.status === 'active' ? '⏸' : '▶') + '</button>' +
-          '<button class="icon-btn danger" data-act="med-del" data-id="' + med.id + '" title="删除">✕</button>' +
+        /* ✎ / ⏸ / ✕ 三个字形看不清，改中文文字按钮，与习惯页同一套 */
+        '<div class="med-row-ops row-acts">' +
+          '<button type="button" class="row-act" data-act="med-edit" data-id="' + med.id + '" title="编辑这个药">编辑</button>' +
+          '<button type="button" class="row-act" data-act="med-toggle" data-id="' + med.id + '" title="' +
+            (med.status === 'active' ? '暂停：暂时不出现在今日页' : '恢复：重新出现在今日页') + '">' +
+            (med.status === 'active' ? '暂停' : '恢复') + '</button>' +
+          '<button type="button" class="row-act danger" data-act="med-del" data-id="' + med.id + '" title="永久删除">删除</button>' +
         '</div>' +
       '</div>' +
     '</article>';
@@ -15493,7 +15495,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=150', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=151', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

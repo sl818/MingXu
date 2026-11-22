@@ -268,6 +268,12 @@ SELS_WEIGHT = ['.weight-big', '.weight-big i', '.weight-date', '.weight-bmi b',
                '.range-switch button', '.weight-fat .hint']
 SELS_MONEY_TOOLS = ['.mrate-cell small', '.mrate-cell b', '.mtbl-row', '.mtbl-row.head',
                     '.mapr b', '.mapr span', '.mrisk-body b', '.mrisk-body span']
+# 用药页（v151 起纳入）：统计带、药行、时间胶囊、行尾按钮
+SELS_MEDS = ['.ms-card small', '.ms-card b', '.ms-card b i', '.ms-card .ms-sub',
+             '.med-group-head h3', '.med-group-head i', '.med-sub-head',
+             '.med-row-title b', '.med-row-dose', '.med-row-note', '.med-row-stock',
+             '.med-slot', '.med-slot.done', '.med-slot.is-static',
+             '.med-row-ops .row-act']
 SELS_QUIT_PAGE = ['.qsum small', '.qsum b', '.qsum span',
                   '.qs-head small', '.qs-head span', '.qs-axis span', '.qpack-main b',
                   '.qpack-main small', '.qpack-st', '.pack-cf', '.pack-cf span',
@@ -348,6 +354,9 @@ with sync_playwright() as p:
             nav(pg, 'habits')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_HABITS_PAGE)
+            nav(pg, 'meds')
+            pg.wait_for_timeout(900)
+            res += pg.evaluate(JS, SELS_MEDS)
             nav(pg, 'quit')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_QUIT_PAGE)
@@ -416,7 +425,8 @@ print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样�
          len(SELS_SETTINGS) + len(SELS_TODAY) + len(SELS_STATS)
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
          + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG)
-         + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS) + len(SELS_WEIGHT), checked))
+         + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS) + len(SELS_WEIGHT)
+         + len(SELS_MEDS), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

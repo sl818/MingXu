@@ -889,6 +889,98 @@ body{
 .tag-chip:hover{border-color:var(--line-strong);color:var(--text);}
 .habits-main > .hint,.habits-arch > .hint{font-size:11px;line-height:1.75;color:var(--muted);}
 
+/* ============================================================
+   P2 · 第二页：用药
+   ------------------------------------------------------------
+   1) 六张统计卡 → 一条被发丝线切开的数值带（与统计页同构）
+   2) 每种药从「一张白卡」改成「一组里的一行」，31 种不再是一墙卡片
+   3) 图标块去掉粉底；已服药的时间胶囊不再用红（完成是中性）
+   4) 行尾 ✎ ⏸ ✕ 字形换中文按钮
+   ============================================================ */
+.med-stats{
+  gap:0;margin:0 0 18px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.ms-card{
+  background:transparent;border:0;border-radius:0;box-shadow:none;
+  padding:13px 16px;
+}
+.ms-card + .ms-card{border-left:1px solid var(--line);}
+.ms-card small{font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--muted);}
+.ms-card b{
+  font-family:var(--font-sans);font-size:26px;font-weight:700;
+  letter-spacing:-.02em;margin-top:5px;
+}
+.ms-card b i{font-size:11px;}
+.ms-card .ms-sub{font-size:10.5px;}
+.ms-card.warn b{color:var(--red-ink);}
+.ms-bar{height:4px;background:var(--track);margin-top:7px;}
+.ms-bar i{background:var(--text);}
+
+/* 分组：标题留在纸上，药行收进一张卡里 */
+.med-group{margin-bottom:20px;}
+.med-group-head{margin-bottom:9px;}
+.med-group-head h3{font-size:15px;font-weight:600;}
+.med-group-head i{font-size:11.5px;color:var(--muted);font-style:normal;}
+.med-group-hint{font-size:11px;}
+.med-sub-head{
+  font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--muted);
+  margin:14px 0 6px;
+}
+.med-sub-head:first-of-type,.med-group-head + .med-sub-head{margin-top:0;}
+.med-board{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  gap:0;overflow:hidden;
+}
+.med-sub-head + .med-board{margin-top:0;}
+.med-row{
+  display:grid;grid-template-columns:36px minmax(0,1fr) auto;
+  gap:12px;align-items:start;
+  padding:12px 14px;border:0;border-bottom:1px solid var(--line);
+  border-radius:0;background:transparent;box-shadow:none;
+  transition:background-color .15s ease;
+}
+.med-row:last-child{border-bottom:0;}
+.med-row:hover{background:var(--surface-2);border-color:var(--line);box-shadow:none;}
+/* 每种药原来铺一块粉底，31 行就是 31 块红——图标本身的底不该有颜色 */
+.med-row-ico{
+  width:36px;height:36px;border-radius:9px;font-size:17px;
+  background:var(--surface-2);border:1px solid var(--line);
+}
+.med-row-title b{font-size:15px;font-weight:600;}
+.med-row-dose{font-size:12.5px;margin-top:3px;}
+.med-row-note{font-size:11.5px;}
+.med-row-stock{font-size:11.5px;color:var(--muted);}
+.med-row-ops{opacity:1;gap:2px;}
+/* 时间胶囊：未服=可点的描边，已服=墨色淡底 + ✓（原来已服用红，把「完成」画成了警报） */
+.med-slot{
+  height:26px;padding:0 10px;border-radius:7px;font-size:11.5px;
+  background:var(--surface);border:1px solid var(--line);color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+.med-slot:hover{
+  background:var(--surface-2);border-color:var(--line-strong);color:var(--text);
+}
+.med-slot.done{
+  background:color-mix(in srgb,var(--text) 10%,var(--surface));
+  border-color:color-mix(in srgb,var(--text) 22%,var(--line));
+  color:var(--text);font-weight:600;
+}
+.med-slot.is-static{background:var(--surface-2);border-color:var(--line);color:var(--muted);}
+.med-prn-add{
+  background:var(--action);border-color:var(--action);color:var(--on-action);
+}
+[data-theme="dark"] .med-row:hover{background:var(--surface-2);}
+[data-theme="dark"] .med-slot.done{
+  background:color-mix(in srgb,var(--text) 14%,var(--surface));
+  border-color:color-mix(in srgb,var(--text) 26%,var(--line));
+}
+@media (max-width:700px){
+  .med-row{grid-template-columns:32px minmax(0,1fr);padding:11px 12px;}
+  .med-row-ico{width:32px;height:32px;font-size:16px;}
+}
+.med-row-side{opacity:1;}
+
 /* ---------- 3. 习惯 / 用药行：四列 ---------- */
 /* 旧行是「名 + 满宽进度条」，进度条 0% 时只剩一条横贯全宽的浅线，
    12 行看下来像 12 根空导线。改成固定列宽的四列，数值靠右对齐可纵向扫读。 */
