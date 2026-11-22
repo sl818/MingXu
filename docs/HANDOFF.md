@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v156（2026-11-22）
+最后更新：v157（2026-11-22）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v156（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v156'`） |
+| 代码版本 | v157（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v157'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -187,6 +187,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v154 | 11-22 | **作废 v152**：陛下更正——保存按钮不用蓝，保持红 `.btn.primary`（蓝只给创建入口）。用 `git checkout 4fd51cf^ -- index.html` 精确回滚；v153 看板改动保留。SW → v154 |
 | v155 | 11-22 | **看板任务卡改版**：卡片改左栏竖排（`.task-rail` 复选框在上 + `.task-stub` 截止日票根在下｜`.task-main` 正文）；新增勾选完成（复用 `task-toggle`，cancelled 卡复用 `task-restore`）；右下角快捷移动 ← → 保留、**删 ✎ 编辑笔**（编辑入口=单击卡片）；优先级改 pill 徽标；保留拖拽契约。SW → v155 |
 | v156 | 11-22 | **清债第一批（总览/债务/计划）P2 重排**：`theme-v2.css` 此前完全没有清债样式，本轮为三页新建 v2 视觉层（纯 CSS，不动数据/算法/交互）。①进度条红→墨（`.mhc-bar i`/`.mdebt-bar i`）；②总览 KPI 三格→数值带；③债务卡白卡+墨条；④六格汇总→凹陷底（深色 surface-3，对齐 `.rv-cell`）；⑤策略卡选中/对比表当前行 红晕→墨描边/淡墨底；⑥曲线红→墨。对比度审计清债三页 0 项低于 AA。**第二批（预算/记录/工具）待做**。SW → v156 |
+| v157 | 11-22 | **清债第二批（预算/记录/工具）P2 重排**：①预算页「收入」「开支预算」每项名称前加 7px 小圆点（复用 `.mh-dot`，统一墨色，深色混白），`.minc` grid 补一列；②「今天还能花」进度条红→墨；③工具页利率换算四格 `.mrate-cell` 卡中卡→凹陷底（深色 surface-3）；④列表行 padding 8→10、金额/名称统一 `--font-sans`。`.mbud-bar` 四色分区条保留（chart 分类色，非警告）。**清债 6 子页 P2 全部完成**。对比度六页 0 项低于 AA。SW → v157 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
