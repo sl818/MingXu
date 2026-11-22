@@ -1001,24 +1001,61 @@ body{
   background:var(--action);border-color:var(--action);color:var(--on-action);
 }
 .task{
-  border-left:1px solid var(--line);border-radius:10px;padding:11px;
+  display:grid;grid-template-columns:58px minmax(0,1fr);
+  border-left:1px solid var(--line);border-radius:10px;padding:0;
   box-shadow:none;
 }
 .task:hover{border-color:var(--line-strong);box-shadow:none;}
 .task h4{font-size:13.5px;line-height:1.5;}
 .task p{font-size:11.5px;margin-top:4px;}
-.task-top{gap:6px;}
+/* 左栏：复选框在上、截止日票根在下 */
+.task-rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0;
+  border-right:1px dashed var(--line-strong);}
+.task-check{
+  width:16px;height:16px;flex:none;border-radius:5px;margin:0;padding:0;
+  border:1.5px solid var(--line-strong);background:transparent;cursor:pointer;
+  display:grid;place-items:center;transition:background-color .12s,border-color .12s;
+}
+.task-check:hover{border-color:var(--text);}
+.task-check.on{background:var(--text);border-color:var(--text);}
+.task-check.on::after{content:"";width:8px;height:4px;border-left:1.6px solid var(--surface);
+  border-bottom:1.6px solid var(--surface);transform:rotate(-45deg) translateY(-1px);}
+.task-stub{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.2;}
+.task-stub b{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+.task-stub span{font-size:9.5px;color:var(--muted);}
+.task-stub em{font-style:normal;font-size:9px;color:var(--muted);margin-top:2px;}
+.task-stub.over b,.task-stub.over span,.task-stub.over em{color:color-mix(in srgb,var(--bad) 86%,var(--text));}
+.task-stub.today em{color:var(--text);font-weight:600;}
+.task-stub.none{color:var(--muted);font-size:10px;}
+.task-main{padding:11px;min-width:0;}
+.task-top{justify-content:flex-start;gap:6px;}
 .task-foot{margin-top:8px;}
 /* 重复徽标是「这条会自己回来」的说明，不是警告 */
 .repeat-badge{
   color:var(--muted);background:var(--surface-2);
   border:1px solid var(--line);
 }
-.prio{font-size:10.5px;font-weight:600;}
+.prio{
+  display:inline-flex;align-items:center;font-size:10px;font-weight:700;line-height:1.6;
+  padding:0 7px;border-radius:999px;color:var(--prio);white-space:nowrap;
+  background:color-mix(in srgb,var(--prio) 13%,transparent);
+  border:1px solid color-mix(in srgb,var(--prio) 26%,transparent);
+}
+[data-theme="dark"] .prio{
+  --prio-lift:color-mix(in srgb,var(--prio) 55%,#fff);
+  color:var(--prio-lift);background:color-mix(in srgb,var(--prio-lift) 16%,transparent);
+  border-color:color-mix(in srgb,var(--prio-lift) 32%,transparent);
+}
 .task-btns{opacity:.72;gap:3px;}
 .task-btns .icon-btn{width:24px;height:24px;font-size:12px;border-radius:6px;}
 .task-btns .icon-btn:hover{background:var(--surface-2);color:var(--text);}
+.task-detail{grid-column:1 / -1;padding:0 11px 11px;}
 .task.is-focus{box-shadow:0 0 0 2px var(--text);}
+/* 深色下移动箭头、复选框描边偏暗，提亮一档 */
+[data-theme="dark"] .task-btns{opacity:.95;}
+[data-theme="dark"] .task-btns .icon-btn{color:#cbd5e1;}
+[data-theme="dark"] .task-check{border-color:#64748b;}
+[data-theme="dark"] .task-check:hover{border-color:#e2e8f0;}
 .col-empty{
   border-radius:10px;border-color:var(--line-strong);
   color:var(--muted);font-size:11.5px;

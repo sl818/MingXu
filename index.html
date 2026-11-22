@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=154">
+<link rel="stylesheet" href="assets/app.css?v=155">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=154">
+<link rel="stylesheet" href="assets/theme-v2.css?v=155">
 </head>
 <body>
 <div class="app landing">
@@ -5901,6 +5901,25 @@
       '<i><b style="width:' + pct + '%"></b></i></div>';
   }
 
+  /* 卡片左栏的截止日票根：数字 + 月份 + 说明（今天/明天/逾期 N 天/周X）。
+     只把「未完成的逾期」标红，done/cancelled 的旧日期不跟着变红。 */
+  function taskStub(t) {
+    const d = t.due && /^\d{4}-\d{2}-\d{2}$/.test(String(t.due)) ? parseD(t.due) : null;
+    if (!d) return '<div class="task-stub none">无期限</div>';
+    const today = todayStr();
+    let label = '', cls = '';
+    if (t.due === today) { label = '今天'; cls = 'today'; }
+    else if (t.due === fmt(addDays(new Date(), 1))) { label = '明天'; }
+    else if (t.due < today && t.status !== 'done' && t.status !== 'cancelled') {
+      const diff = Math.round((parseD(today) - d) / 86400000);
+      label = '逾期 ' + diff + ' 天'; cls = 'over';
+    } else {
+      label = '周' + WEEK_CN[d.getDay()];
+    }
+    return '<div class="task-stub' + (cls ? ' ' + cls : '') + '"><b>' + d.getDate() + '</b>' +
+      '<span>' + (d.getMonth() + 1) + '月</span><em>' + label + '</em></div>';
+  }
+
   function taskCard(t) {
     const overdue = t.status !== 'done' && t.status !== 'cancelled' && t.due && t.due < todayStr();
     const tagColor = TAGS[t.tag] || TAGS['其他'];
@@ -5909,22 +5928,27 @@
     const repeat = taskRepeatLabel(t);
     return '<article class="task ' + (t.status === 'done' ? 'done' : '') + (cancelled ? ' cancelled' : '') +
         (openTaskIds.has(t.id) ? ' is-open' : '') + '" draggable="true" data-id="' + t.id +
-        '" title="双击展开详情" style="--prio:' + prio + '">' +
-      '<div class="task-top">' +
-        '<span class="tag" style="--tag:' + tagColor + '">' + esc(t.tag || '其他') + '</span>' +
-        (repeat ? '<span class="repeat-badge">' + esc(repeat) + '</span>' : '') +
-        '<span class="prio" style="--prio:' + prio + '">' + esc(t.priority || '中') + '</span>' +
+        '" title="拖动移动，点击编辑" style="--prio:' + prio + '">' +
+      '<div class="task-rail">' +
+        '<button class="task-check' + (t.status === 'done' ? ' on' : '') + '" data-act="' + (cancelled ? 'task-restore' : 'task-toggle') + '" data-id="' + t.id + '" aria-label="' + (cancelled ? '恢复为待办' : '标记完成') + '"></button>' +
+        taskStub(t) +
       '</div>' +
-      '<h4>' + esc(t.title) + '</h4>' +
-      taskSubsBar(t) +
-      (t.note ? '<p>' + esc(t.note) + '</p>' : '') +
-      '<div class="task-foot">' +
-        '<span class="due ' + (overdue ? 'overdue' : '') + '">' + dueText(t) + '</span>' +
-        '<div class="task-btns">' +
-          (!cancelled && t.status !== 'todo' ? '<button class="icon-btn" data-act="task-move" data-id="' + t.id + '" data-dir="-1" title="移到上一列">←</button>' : '') +
-          (!cancelled && t.status !== 'done' ? '<button class="icon-btn" data-act="task-move" data-id="' + t.id + '" data-dir="1" title="移到下一列">→</button>' : '') +
-          (cancelled ? '<button class="icon-btn" data-act="task-restore" data-id="' + t.id + '" title="恢复为待办">↩</button>' : '') +
-          '<button class="icon-btn" data-act="task-edit" data-id="' + t.id + '" title="编辑">✎</button>' +
+      '<div class="task-main">' +
+        '<div class="task-top">' +
+          '<span class="tag" style="--tag:' + tagColor + '">' + esc(t.tag || '其他') + '</span>' +
+          (repeat ? '<span class="repeat-badge">' + esc(repeat) + '</span>' : '') +
+          '<span class="prio" style="--prio:' + prio + '">' + esc(t.priority || '中') + '</span>' +
+        '</div>' +
+        '<h4>' + esc(t.title) + '</h4>' +
+        taskSubsBar(t) +
+        (t.note ? '<p>' + esc(t.note) + '</p>' : '') +
+        '<div class="task-foot">' +
+          '<span class="due ' + (overdue ? 'overdue' : '') + '">' + dueText(t) + '</span>' +
+          '<div class="task-btns">' +
+            (!cancelled && t.status !== 'todo' ? '<button class="icon-btn" data-act="task-move" data-id="' + t.id + '" data-dir="-1" title="移到上一列">←</button>' : '') +
+            (!cancelled && t.status !== 'done' ? '<button class="icon-btn" data-act="task-move" data-id="' + t.id + '" data-dir="1" title="移到下一列">→</button>' : '') +
+            (cancelled ? '<button class="icon-btn" data-act="task-restore" data-id="' + t.id + '" title="恢复为待办">↩</button>' : '') +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="task-detail">' + taskDetailHtml(t) + '</div>' +
@@ -15495,7 +15519,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=154', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=155', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
