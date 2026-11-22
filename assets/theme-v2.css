@@ -771,6 +771,107 @@ body{
   .ts-cell b{font-size:22px;}
 }
 
+/* ============================================================
+   P2 · 第一页：习惯管理
+   ------------------------------------------------------------
+   1) 行：名称放大到 15、副标 12、行高 52，图标块去掉彩色描边
+   2) 今日状态：符号换文字胶囊（今日已完成 / 今日待打卡 / 今日未完成）
+   3) 行尾三个操作按钮给 28px 方框，删掉的红色只在 hover 出现
+   4) 排序 chips 与分段控件同语言
+   ============================================================ */
+.habits-wrap{max-width:none;}
+.habit-row{
+  padding:11px 6px;gap:12px;align-items:center;
+  border-bottom:1px solid var(--line);
+}
+.habit-row-info b{font-size:15px;font-weight:600;letter-spacing:0;}
+.habit-row-info small{font-size:12px;color:var(--muted);line-height:1.5;margin-top:1px;}
+/* 身份色只留在图标块这层 9% 淡底上；原来的 18% 彩色描边把它做成了一张小彩卡 */
+.habit-icon.sm{
+  width:30px;height:30px;border-radius:9px;font-size:15px;
+  border-color:var(--line);
+}
+/* 行里的七日条：只留圆点，不要星期字和 ✓✕（16px 里画符号会糊成一团）。
+   状态语义与卡片完全一样：墨实心=完成、半格=部分、红空心=未完成、空=没记录、红圈=今天 */
+.habit-row .hr-week{
+  display:grid;grid-template-columns:repeat(7,16px);gap:5px;
+  margin:0;flex:none;
+}
+.habit-row .hr-week .hw-cell{display:block;width:16px;}
+.habit-row .hr-week .hw-cell b{display:none;}
+.habit-row .hr-week .hw-cell i{
+  display:block;width:16px;height:16px;border-radius:50%;
+  border:1.5px solid var(--line);background:transparent;
+}
+.habit-row .hr-week .hw-cell i svg{display:none;}
+.habit-row .hr-week .hw-cell.is-done i{background:var(--text);border-color:var(--text);}
+.habit-row .hr-week .hw-cell.is-part i{
+  border-color:var(--text);
+  background:linear-gradient(180deg,transparent 50%,var(--text) 50%);
+}
+.habit-row .hr-week .hw-cell.is-fail i{border-color:var(--accent);background:var(--accent-soft);}
+.habit-row .hr-week .hw-cell.is-today i{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-soft) 80%,transparent);}
+.habit-row .hr-week .hw-cell.is-today:not(.is-done):not(.is-fail):not(.is-part) i{border-color:var(--accent);border-width:2px;}
+.habit-row .hr-week .hw-cell.is-future i{opacity:.4;}
+@media (max-width:1100px){.habit-row .hr-week{display:none;}}
+
+/* 今日状态：文字胶囊。红只给「未完成」，已完成为中性，待打卡是虚线框 */
+.habit-today{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  height:22px;min-width:72px;padding:0 8px;border-radius:6px;
+  font-size:11px;font-weight:600;line-height:1;white-space:nowrap;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+}
+/* 旧规则把 .ok 铺成身份色实底 + 白字（那时它是个圆点）；
+   现在是文字胶囊，已完成一律中性，红只留给未完成 */
+.habit-today.ok{background:var(--surface-2);border:1px solid var(--line);color:var(--text);}
+.habit-today.wait{
+  background:transparent;border-style:dashed;border-color:var(--line-strong);
+  color:var(--muted);font-weight:500;
+}
+.habit-today.bad{
+  background:var(--accent-soft);
+  border-color:color-mix(in srgb,var(--accent) 32%,var(--line));
+  color:var(--accent-2);
+}
+.habit-row .pin-tag{flex:none;}
+/* 行尾操作：三个动作直接写中文，比 ✎ / 🗄 / ✕ 三个字形清楚得多 */
+.row-acts{display:inline-flex;align-items:center;gap:2px;flex:none;margin-left:2px;}
+.row-act{
+  height:28px;padding:0 9px;border-radius:7px;
+  border:1px solid transparent;background:transparent;
+  font:inherit;font-size:11.5px;font-weight:500;color:var(--muted);
+  cursor:pointer;white-space:nowrap;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease;
+}
+.row-act:hover{background:var(--surface-2);border-color:var(--line);color:var(--text);}
+.row-act.danger:hover{
+  background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,var(--line));
+  color:var(--accent-2);
+}
+.habit-row.archived{opacity:.75;}
+.habit-row .mini-btn{display:none;}
+/* 排序 chips：与 .stab 同一套尺寸 */
+.habit-sort{display:inline-flex;gap:4px;flex-wrap:wrap;}
+.tag-chip{
+  height:28px;padding:0 11px;border-radius:7px;font-size:11.5px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+  display:inline-flex;align-items:center;
+}
+.tag-chip:hover{border-color:var(--line-strong);color:var(--text);}
+/* 深色下 --muted 压在 --surface-2 上只有 4.23（审计抓的），提到 60% 混墨 */
+[data-theme="dark"] .tag-chip{color:color-mix(in srgb,var(--muted) 60%,var(--text));}
+/* app.css 里 .habit-sort .tag-chip.active 是「红字 + 红晕底 + 绿描边」（v1 遗留），
+   选择器 (0,3,0)，必须用同样的权重压掉；红也不该用在「当前选中」这种中性状态上 */
+.habit-sort .tag-chip.active,
+.tag-chip.active{
+  background:var(--surface);border-color:var(--line-strong);
+  color:var(--text);font-weight:600;
+}
+.habit-sort .tag-chip:hover,
+.tag-chip:hover{border-color:var(--line-strong);color:var(--text);}
+.habits-main > .hint,.habits-arch > .hint{font-size:11px;line-height:1.75;color:var(--muted);}
+
 /* ---------- 3. 习惯 / 用药行：四列 ---------- */
 /* 旧行是「名 + 满宽进度条」，进度条 0% 时只剩一条横贯全宽的浅线，
    12 行看下来像 12 根空导线。改成固定列宽的四列，数值靠右对齐可纵向扫读。 */
