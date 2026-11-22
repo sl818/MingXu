@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light" data-skin="paper">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -15,17 +15,14 @@
 <script>
 (function(){
   try{
-    var s = localStorage.getItem('lifeboard.skin');
-    if(['paper','slate','mono','clay','forest','neu','cyber','retro','cloud-float','cloud-focus'].indexOf(s) >= 0) document.documentElement.setAttribute('data-skin', s);
     var lay = localStorage.getItem('lifeboard.layout');
     /* v87 删掉「左侧导航条」，老用户存的 side 一律退回 top */
     if(['top','wide'].indexOf(lay) < 0) lay = 'top';
     document.documentElement.setAttribute('data-layout', lay);
     var m = localStorage.getItem('lifeboard.theme.mode');
-    if(['auto','light','dark'].indexOf(m) < 0) m = 'auto';
-    var h = new Date().getHours();
-    var t = m === 'auto' ? ((h >= 7 && h < 19) ? 'light' : 'dark') : m;
-    document.documentElement.setAttribute('data-theme', t);
+    /* v2：只有浅色 / 深色两态，取消按时钟判断的「自动」 */
+    if (m !== 'dark') m = 'light';
+    document.documentElement.setAttribute('data-theme', m);
   }catch(e){}
 })();
 </script>
@@ -40,15 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=134">
+<link rel="stylesheet" href="assets/app.css?v=144">
 
 
 
-<link rel="stylesheet" href="themes/themes.css?v=134">
-<link rel="stylesheet" href="themes/custom.css?v=134">
-<link rel="stylesheet" href="themes/skin-cloud.css?v=134">
-<link rel="stylesheet" href="themes/skin-neu.css?v=134">
-<link rel="stylesheet" href="themes/skin-retro.css?v=134">
+<link rel="stylesheet" href="assets/theme-v2.css?v=144">
 </head>
 <body>
 <div class="app landing">
@@ -153,14 +146,8 @@
   const THEME_MODE_KEY = 'lifeboard.theme.mode';
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
-  const SKINS = [
-    { key: 'paper', name: '暖绒 · 鼠尾草', desc: '鼠尾草 / 奶油纸 / 柔和', bg: '#f8f3ea', card: '#fffcf6', side: '#3f5a49', accent: '#567458' },
-    { key: 'slate', name: '冷雾 · 矩阵', desc: '雾蓝 / 全息 / 科技', bg: '#eaf2f7', card: '#fbfdff', side: '#071725', accent: '#16708a' },
-    { key: 'cloud-float', name: '浮纸 · 抬升', desc: '留白干净 / 版心浮起', bg: '#e8edf2', card: '#ffffff', side: '#e6ecf2', accent: '#43688a' },
-    { key: 'cloud-focus', name: '聚光 · 晕影', desc: '四周晕影 / 中间亮 / 聚焦', bg: '#dbe4ed', card: '#ffffff', side: '#e3eaf2', accent: '#34567a' },
-    { key: 'neu',   name: '拟态 · 素白', desc: '新拟态 / 软浮雕', bg: '#e4e9f0', card: '#e4e9f0', side: '#e4e9f0', accent: '#4a5876' },
-    { key: 'retro', name: '复古 · 街机', desc: '像素 / 块状阴影 / 撞色', bg: '#fdf6e3', card: '#fffdf7', side: '#fdf6e3', accent: '#c2441e' }
-  ];
+  /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
+     规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
   /* ============================================================
      状态与持久化
@@ -180,6 +167,10 @@
         { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'smoke', target: 1, unit: '次', color: '#7a8471', note: '', createdAt: iso, pinned: true }
       ],
       checks: {},
+      /* 未完成标记：{日期: {习惯id: 1}}。
+         和 checks 分开存——checks 是「今天做了几次」，0 会被删键，存不住
+         「明确记了没做」。养成型用它画周条的 ✕，戒除的失守走 cravings。 */
+      skips: {},
       notes: {}, // 保留旧版备份中的随记数据；当前版本没有随记界面
       moods: {},
       events: [],
@@ -458,6 +449,24 @@
         const n = Number(day[id]);
         if (isFinite(n) && n > 0) clean[id] = Math.round(n);
       });
+      if (Object.keys(clean).length) out[d] = clean;
+    });
+    return out;
+  }
+
+  /* 未完成标记：{日期: {习惯id: 1}}
+     为什么不塞进 checks —— checks 的语义是「今天做了几次」，0 会被 setCount 删键，
+     存不住「明确记了没做」。两者语义不同，分开存：checks 说做了多少，
+     skips 说这天被判定为没做完。只有养成型用得到；戒除的失守走 cravings 的 s 事件。 */
+  function normalizeSkips(raw) {
+    if (!isPlainObject(raw)) return {};
+    const out = {};
+    Object.keys(raw).forEach(d => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      const day = raw[d];
+      if (!isPlainObject(day)) return;
+      const clean = {};
+      Object.keys(day).forEach(id => { if (day[id]) clean[id] = 1; });
       if (Object.keys(clean).length) out[d] = clean;
     });
     return out;
@@ -759,6 +768,7 @@
     data.moods = normalizeMoods(data.moods);
     data.events = Array.isArray(data.events) ? data.events : [];
     data.cravings = normalizeCravings(data.cravings);
+    data.skips = normalizeSkips(data.skips);
     data.packs = normalizePacks(data.packs);
     data.notices = normalizeNotices(data.notices);
     data.cardOrder = normalizeCardOrder(data.cardOrder);
@@ -862,34 +872,15 @@
   let taskRange = 30;
   let essayTag = '';
 
-  function autoTheme() {
-    const h = new Date().getHours();
-    return (h >= 7 && h < 19) ? 'light' : 'dark';
-  }
-
   let themeMode = (function () {
     try {
       const m = localStorage.getItem(THEME_MODE_KEY);
-      return (m === 'auto' || m === 'light' || m === 'dark') ? m : 'auto';
-    } catch (e) { return 'auto'; }
+      return (m === 'dark') ? 'dark' : 'light';
+    } catch (e) { return 'light'; }
   })();
-  let theme = themeMode === 'auto' ? autoTheme() : themeMode;
+  let theme = themeMode;
 
-  function refreshAutoTheme() {
-    if (themeMode !== 'auto') return;
-    const next = autoTheme();
-    if (next === theme) return;
-    theme = next;
-    document.documentElement.dataset.theme = theme;
-    const btn = $('#theme-btn');
-    if (btn) btn.textContent = theme === 'dark' ? '切换浅色模式' : '切换深色模式';
-  }
-  let skin = (function () {
-    try {
-      const s = localStorage.getItem(SKIN_KEY);
-      return SKINS.some(x => x.key === s) ? s : 'paper';
-    } catch (e) { return 'paper'; }
-  })();
+  const skin = 'paper'; /* 兼容旧引用；v2 只有一套主题 */
   let layout = (function () {
     try {
       const l = localStorage.getItem(LAYOUT_KEY);
@@ -1440,6 +1431,8 @@
     }
     out.checks = mergeByDay(remote.checks, local.checks);
     out.doses = mergeByDay(remote.doses, local.doses);
+    /* 未完成标记是 0/1，逐键取大与 checks 同构，直接复用同一段 */
+    out.skips = mergeByDay(remote.skips, local.skips);
 
     // 心情：按日期合并，本地优先（最后心情）
     out.moods = Object.assign({}, isPlainObject(remote.moods) ? remote.moods : {}, isPlainObject(local.moods) ? local.moods : {});
@@ -2391,6 +2384,23 @@
     const day = state.checks[d];
     return (day && day[id]) || 0;
   }
+  /* 这一天是否被明确记为「没做完」。与「压根没记录」区分开：
+     前者是用户下过的判断（周条画 ✕），后者只是空白（周条留空）。 */
+  function isSkipped(d, id) {
+    const day = state.skips && state.skips[d];
+    return !!(day && day[id]);
+  }
+  function setSkipped(d, id, on) {
+    if (!state.skips) state.skips = {};
+    if (on) {
+      if (!state.skips[d]) state.skips[d] = {};
+      state.skips[d][id] = 1;
+    } else if (state.skips[d]) {
+      delete state.skips[d][id];
+      if (!Object.keys(state.skips[d]).length) delete state.skips[d];
+    }
+    save();
+  }
   function setCount(d, id, value) {
     const v = Math.max(0, Math.round(value));
     if (!state.checks[d]) state.checks[d] = {};
@@ -3285,6 +3295,74 @@
     }
     return out.join('');
   }
+
+  /* 非常驻习惯卡的七日条：每天一个字 + 一个圆圈。
+     原来只有 7 个 8px 小点，既看不出星期几，也点不准；这一版把「哪一天」
+     和「什么状态」分开表达：字说日期，圈说状态。 */
+  const HC_TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+  const HC_CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  /* 本周的周一（周序从这天起算；项目里「周几」一律 0-6 且 0=周日） */
+  function weekMonday(d) {
+    return shiftDay(d, -((parseD(d).getDay() + 6) % 7));
+  }
+
+  /* 非常驻习惯卡的七日条：周一 → 周日，固定七列。
+     以前是「滚动的最近 7 天」，所以周日排第一、每天的位置都在动——
+     卡片之间对不齐，也读不出「这一周」。改成自然周后，同一列永远是同一个星期几。
+     圈内符号：对号 = 完成，叉 = 明确记为未完成（或戒除失守），空 = 当日没有记录。 */
+  /* 一天的「标记」：圈里画什么、本周计数怎么算，都只认这一个函数。
+     以前两处各算一套，于是出现过「七个空圈 + 本周 7/7」这种一张卡讲两套话。 */
+  function habitDayMark(h, ds, d) {
+    if (ds > d) return 'future';
+    if (isQuitLike(h)) {
+      /* 戒除的达标是隐式的：不记失守就是守住（这是产品的原有语义，也是
+         「连续 29 天」的来源）。起始日之前的日子不算——那是还没开始。 */
+      if (dayCravings(h.id, ds).some(function (e) { return e.k === 's'; })) return 'fail';
+      if (ds < quitStartDay(h)) return 'none';
+      return 'done';
+    }
+    const target = Math.max(1, Number(h.target) || 1);
+    const c = countOf(ds, h.id);
+    if (isSkipped(ds, h.id)) return 'fail';
+    if (c >= target) return 'done';
+    if (c > 0) return 'part';
+    return 'none';
+  }
+
+  function habitWeekLabelled(h, d) {
+    const target = Math.max(1, Number(h.target) || 1);
+    const q = isQuitLike(h);
+    const WD = ['日', '一', '二', '三', '四', '五', '六'];
+    const mon = weekMonday(d);
+    const out = [];
+    for (let i = 0; i < 7; i++) {
+      const ds = shiftDay(mon, i);
+      const dt = parseD(ds);
+      const st = habitDayMark(h, ds, d);
+      let tip = ds.slice(5) + ' · ';
+      if (st === 'future') tip += '还没到';
+      else if (st === 'fail') tip += (q ? '失守' : '记为未完成');
+      else if (st === 'done') tip += (q ? '守住了' : '完成 ' + countOf(ds, h.id) + '/' + target);
+      else if (st === 'part') tip += '完成 ' + countOf(ds, h.id) + '/' + target;
+      else tip += (q ? '还没开始' : '没记录');
+      out.push('<div class="hw-cell is-' + st + (ds === d ? ' is-today' : '') +
+        (st === 'future' ? ' is-future' : '') + '" title="' + esc(tip) + '">' +
+        '<b>' + WD[dt.getDay()] + '</b>' +
+        '<i>' + (st === 'done' ? HC_TICK : (st === 'fail' ? HC_CROSS : '')) + '</i></div>');
+    }
+    return out.join('');
+  }
+
+  /* 本周已达标的格数（分母固定 7）。与圈共用 habitDayMark，两者不可能再对不上。 */
+  function habitWeekDone(h, d) {
+    const mon = weekMonday(d);
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      if (habitDayMark(h, shiftDay(mon, i), d) === 'done') n++;
+    }
+    return n;
+  }
   /* 截止型习惯：在某个时刻之前完成才算「准时」。
      只对「保持 × 单次目标」生效——多次目标谈截止没有意义，戒除/戒烟也不需要。
      打卡时刻从 state.events 里取当天最后一条增量记录，**不额外存字段**。 */
@@ -4105,7 +4183,109 @@
   /* ============================================================
      今日视图
      ============================================================ */
+  /* ============================================================
+     非常驻习惯卡（v2 版式）
+     ------------------------------------------------------------
+     **与常驻五项彻底分开**：喝水 / 戒烟 / 运动 / 478 / 用药 走 vitalCard 与
+     各自的模块卡，本函数只负责「其他习惯」。两套设计互不影响。
+
+     版式语法照对标站：
+       顶部身份色条 → 标题行（类型徽标 + 节奏 + 本周计数 + 右上状态）
+       → 七日条（周一起，固定七列）→ 副行（点阵 / 戒除计数 / 连续天数）
+       → 未完成 | 完成 → 备注
+     ============================================================ */
+  function habitCardV2(h, d) {
+    const target = Math.max(1, Number(h.target) || 1);
+    const isQ = isQuitLike(h);
+    const c = countOf(d, h.id);
+    const done = met(h, d);
+    const skip = isSkipped(d, h.id);
+    const slips = isQ ? quitSlips(h, d) : 0;
+    const broken = slips > 0;
+    const streak = streakOn(h, d);
+    const best = habitBest(h, d);
+
+    /* 右上状态：三种文案，两种底色。红只给「还没做完」。
+       戒除的「今天没记录」等于守住（不点 = 一直守着），所以它不会出现
+       「今日待打卡」——真出现的话，就会与同一张卡上的「连续 29 天」「本周 7/7」打架。 */
+    let badge = '今日待打卡', badgeCls = 'wait';
+    if (skip || broken) { badge = '今日未完成'; badgeCls = 'bad'; }
+    else if (done) { badge = '今日已完成'; badgeCls = 'ok'; }
+
+    /* 节奏：一句话说清「多久做一次、做到多少」 */
+    let pace = '每天';
+    if (isQ) pace = '每天保持 0 次';
+    else if (isDeadlineHabit(h)) pace = '每天 · ' + h.deadline + ' 前';
+    else if (target > 1) pace = '每天 · 目标 ' + target + ' ' + (h.unit || '次');
+
+    const meta = '<span class="habit-kind ' + (isQ ? 'quit' : 'build') + '">' +
+        (isQ ? '戒除' : '养成') + '</span>' +
+      '<span class="hc-pace">' + esc(pace) + '</span>' +
+      '<span class="hc-sep">·</span>' +
+      '<span class="hc-weekn">本周 ' + habitWeekDone(h, d) + '/7</span>';
+
+    /* 副行：多目标给点阵，戒除给今日得失，右侧永远是连续天数 */
+    let sub = '';
+    if (isQ) {
+      if (broken) {
+        const cap = Math.min(slips, 5);
+        let dots = '';
+        for (let i = 0; i < cap; i++) dots += '<i></i>';
+        sub += '<span class="hc-tally bad">今日失守<b>' + slips + '</b>次' +
+          '<span class="hc-dots">' + dots +
+          (slips > 5 ? '<em>+' + (slips - 5) + '</em>' : '') + '</span></span>';
+      }
+      /* 守住时整行不写：右上角已经说「今日已完成」，再补一句是重复。 */
+    } else if (target > 1 && target <= 6) {
+      let pips = '';
+      for (let i = 1; i <= target; i++) {
+        const on = i <= c;
+        const val = i === c ? i - 1 : i;
+        pips += '<button type="button" class="pip' + (on ? ' on' : '') + '"' +
+          ' data-act="habit-set" data-id="' + esc(h.id) + '" data-val="' + val + '"' +
+          ' title="第 ' + i + ' ' + esc(h.unit || '次') + '"></button>';
+      }
+      sub += '<div class="hc-pips"><div class="pips">' + pips + '</div>' +
+        '<span class="hc-pipn"><b>' + c + '</b>/' + target + '</span></div>';
+    } else if (target > 6) {
+      sub += '<div class="stepper">' +
+        '<button type="button" data-act="habit-dec" data-id="' + esc(h.id) + '"' +
+          (c <= 0 ? ' disabled' : '') + '>−</button>' +
+        '<div class="habit-count">' + c + '<span> / ' + target + ' ' + esc(h.unit || '次') + '</span></div>' +
+        '<button type="button" data-act="habit-inc" data-id="' + esc(h.id) + '">＋</button></div>';
+    }
+    sub += '<span class="hc-streak">连续 <b>' + streak + '</b> 天<i>·</i>最长 ' + best + ' 天</span>';
+
+    /* 未完成在左、完成在右；都已完成的卡再点一次是撤销 */
+    const acts = '<div class="hc-acts">' +
+      '<button type="button" class="hc-btn no' + ((skip || broken) ? ' on' : '') + '"' +
+        ' data-act="habit-no" data-id="' + esc(h.id) + '"' +
+        ' title="记为今天未完成 · 再点一次撤销">' + HC_CROSS + '<span>未完成</span></button>' +
+      '<button type="button" class="hc-btn yes' + (done ? ' on' : '') + '"' +
+        ' data-act="habit-ok" data-id="' + esc(h.id) + '"' +
+        ' title="' + (isQ ? (broken ? '点一下撤销今天的失守记录' : '今天已经守住了')
+                         : (done ? '点一下撤销今天的打卡' : '记为今天已完成')) + '">' +
+        HC_TICK + '<span>' + (done ? '已完成' : '完成') + '</span></button>' +
+      '</div>';
+
+    return '<article class="habit-card hcard-v2' + (done ? ' is-done' : '') + '"' +
+      ' data-hid="' + esc(h.id) + '"' +
+      ' style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
+      '<div class="habit-head">' +
+        '<span class="hc-dot"></span>' +
+        '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + meta + '</small></div>' +
+        '<span class="habit-state ' + badgeCls + '">' + badge + '</span>' +
+      '</div>' +
+      '<div class="habit-week">' + habitWeekLabelled(h, d) + '</div>' +
+      '<div class="habit-sub">' + sub + '</div>' +
+      acts +
+      (h.note ? '<div class="habit-note">' + esc(h.note) + '</div>' : '') +
+      '</article>';
+  }
+
   function habitCard(h, d, compact) {
+    /* 非常驻习惯一律走 v2 版式；常驻五项（含用药）继续走下面的旧骨架 */
+    if (!compact && !isSmoke(h) && !h.med) return habitCardV2(h, d);
     const c = countOf(d, h.id);
     const done = met(h, d);
     /* compact = 常驻区窄卡（vitalCard 里的戒除卡）继续用旧骨架，"小习惯"重构不波及它 */
@@ -4244,21 +4424,25 @@
     /* 最长纪录只在「比当前长」时出现，否则一句话里两个数字容易看混 */
     const best = (compact || isSmokeH || h.med) ? 0 : habitBest(h, d);
     const proof = (compact || isSmokeH || h.med) ? '' :
-      '<div class="habit-proof">' +
-        (streak > 0 ? '<span class="hp-num"><b>' + streak + '</b><i>天</i></span>' : '') +
-        '<span class="hp-cap">' +
-          (streak > 0 ? (isQ ? '连续守住' : '连续达标')
-                      : (isQ && broken ? '从今天重新数' : '今天开始')) +
-          (best > streak ? ' · 最长 ' + best + ' 天' : '') +
-        '</span>' +
-        '<span class="habit-week">' + habitWeek(h, d) + '</span>' +
+      '<div class="habit-weekrow">' +
+        '<div class="habit-week">' + habitWeekLabelled(h, d) + '</div>' +
+        '<div class="habit-streak">' +
+          '<b>' + streak + '</b><i>天</i>' +
+        '</div>' +
+      '</div>' +
+      '<div class="habit-subnote">' +
+        (streak > 0 ? (isQ ? '连续守住' : '连续达标')
+                    : (isQ && broken ? '从今天重新数' : '今天开始')) +
+        (best > streak ? ' · 最长 ' + best + ' 天' : '') +
       '</div>';
 
     return '<article class="habit-card ' + (done ? 'is-done' : '') + '" data-hid="' + esc(h.id) + '"' +
       ' style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
       '<div class="habit-head">' +
         '<span class="habit-icon">' + esc(h.icon || '✅') + '</span>' +
-        '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' + esc(sub) + '</small></div>' +
+        '<div class="habit-title"><b>' + esc(h.name) + '</b><small>' +
+          (compact ? '' : '<span class="habit-kind ' + (isQ ? 'quit' : 'build') + '">' + (isQ ? '戒除' : '养成') + '</span>') +
+          esc(sub) + '</small></div>' +
         /* v100：右上角从「看不懂的圆圈」换成文字状态；戒烟卡状态由 hero/meta 表达，
            这里不再叠一个。compact（常驻窄卡）保留原来的状态灯。 */
         (compact
@@ -11471,8 +11655,8 @@
           '</button>' +
           '<button class="layout-card' + (layout === 'wide' ? ' active' : '') + '" data-act="set-layout" data-layout="wide">' +
             '<span class="layout-preview layout-pv-wide"><i></i><i></i><i></i><i></i></span>' +
-            '<span class="layout-name">三区布局' + (layout === 'wide' ? ' <i>✓</i>' : '') + '</span>' +
-            '<span class="layout-desc">左栏分组 · 右侧摘要栏</span>' +
+            '<span class="layout-name">左侧菜单栏' + (layout === 'wide' ? ' <i>✓</i>' : '') + '</span>' +
+            '<span class="layout-desc">左栏分组 · 内容定宽 1210</span>' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -11481,24 +11665,11 @@
           '只能在组内上下调：「记录」组在前、「回顾」组在后。</p>' +
         navOrderHtml() +
       '</div>' +
-      '<div class="panel"><h3>主题</h3>' +
-        '<p class="muted-sm" style="margin-bottom:2px">选一套配色；所有主题都支持浅色 / 深色，选择会记住。</p>' +
-        '<div class="theme-grid">' +
-          SKINS.map(s =>
-            '<button class="theme-card' + (skin === s.key ? ' active' : '') + '" data-act="set-skin" data-skin="' + s.key + '">' +
-              '<span class="theme-preview" style="--pv-bg:' + s.bg + ';--pv-card:' + s.card + ';--pv-side:' + s.side + ';--pv-accent:' + s.accent + '">' +
-                '<span class="pv-side"></span>' +
-                '<span class="pv-main"><span class="pv-card"></span><span class="pv-line"></span><span class="pv-line short"></span></span>' +
-              '</span>' +
-              '<span class="theme-name">' + s.name + (skin === s.key ? ' <i>✓</i>' : '') + '</span>' +
-              '<span class="theme-desc">' + s.desc + '</span>' +
-            '</button>'
-          ).join('') +
-        '</div>' +
+      '<div class="panel"><h3>外观</h3>' +
+        '<p class="muted-sm" style="margin-bottom:2px">明序只有一套主题；浅色 / 深色随时切换，选择会记住。</p>' +
         '<div class="theme-mode-row">' +
-          '<span>深浅模式（自动：7:00–19:00 浅色）</span>' +
+          '<span>显示模式</span>' +
           '<div class="theme-mode">' +
-            '<button class="' + (themeMode === 'auto' ? 'active' : '') + '" data-act="set-mode" data-mode="auto">自动</button>' +
             '<button class="' + (themeMode === 'light' ? 'active' : '') + '" data-act="set-mode" data-mode="light">浅色</button>' +
             '<button class="' + (themeMode === 'dark' ? 'active' : '') + '" data-act="set-mode" data-mode="dark">深色</button>' +
           '</div>' +
@@ -11667,7 +11838,7 @@
           '</div>' +
           '<ul class="lp-facts">' +
             '<li><b>12</b><span>个页面</span></li>' +
-            '<li><b>6</b><span>套主题 × 明暗</span></li>' +
+            '<li><b>15px</b><span>正文 · 中文可读</span></li>' +
             '<li><b>100%</b><span>数据自持</span></li>' +
           '</ul>' +
           '<p class="landing-note">数据只存在你自己的云端空间，换设备登录同一账号即可继续；不对外公开，也不用于任何其他用途。</p>' + error +
@@ -11766,7 +11937,6 @@
     if (view !== 'stats' && statsLogOpen) statsLogOpen = false;
     if (view !== 'today' && todayTasksOpen) todayTasksOpen = false;
     document.documentElement.dataset.theme = theme;
-    document.documentElement.dataset.skin = skin;
     const appEl = $('.app');
     if (appEl) appEl.classList.toggle('landing', mode === 'landing');
     document.body.dataset.view = mode === 'landing' ? 'landing' : view;
@@ -14180,6 +14350,72 @@
       toast('已恢复默认顺序');
     },
 
+    /* v2 卡片的主按钮：完成 / 未完成。
+       养成：完成 = 记到目标值；未完成 = 打上「明确没做完」的标记（不清多目标已达成的进度）。
+       戒除：完成 = 记一次「忍住了」（有记录才算确认）；未完成 = 记一次失守。
+       两边都做成 toggle —— 再点一次就是撤销，卡片上的按钮不会变成单向阀。 */
+    'habit-ok': el => {
+      const h = currentHabit(el.dataset.id);
+      if (!h) return;
+      const d = selectedDate;
+      if (isQuitLike(h)) {
+        /* 戒除没有「确认守住」这个动作——不记失守就是守住。
+           这个按钮只承担一件事：把今天误记的失守撤掉。 */
+        if (quitSlips(h, d) > 0) {
+          state.cravings = craveList().filter(function (e) {
+            return !(e.h === h.id && e.k === 's' && tsDay(e.t) === d);
+          });
+          save(); render();
+          toast('已撤销失守 · 今天重新算作守住');
+          return;
+        }
+        toast('今天已经守住了');
+        return;
+      }
+      const target = Math.max(1, Number(h.target) || 1);
+      const wasDone = countOf(d, h.id) >= target;
+      setSkipped(d, h.id, false);
+      if (wasDone) {
+        setCount(d, h.id, 0);
+        render();
+        toast('已撤销今天的打卡');
+        return;
+      }
+      setCount(d, h.id, target);
+      render();
+      habitPulse(h.id, 'on');
+    },
+    'habit-no': el => {
+      const h = currentHabit(el.dataset.id);
+      if (!h) return;
+      const d = selectedDate;
+      if (isQuitLike(h)) {
+        /* 多次模式：点一次加一条（一天几次正是这个习惯本身）；
+           单次模式：再点一次是撤销，与「完成」形成一对 */
+        if (isMultiSlip(h) || quitSlips(h, d) === 0) {
+          addCraving(h.id, 's');
+          habitPulse(h.id, 'slip');
+          return;
+        }
+        state.cravings = craveList().filter(function (e) {
+          return !(e.h === h.id && e.k === 's' && tsDay(e.t) === d);
+        });
+        save(); render();
+        toast('已撤销 · 今天重新算作守住');
+        return;
+      }
+      if (isSkipped(d, h.id)) {
+        setSkipped(d, h.id, false);
+        render();
+        toast('已撤销未完成标记');
+        return;
+      }
+      const target = Math.max(1, Number(h.target) || 1);
+      if (countOf(d, h.id) >= target) setCount(d, h.id, 0);
+      setSkipped(d, h.id, true);
+      render();
+      toast('已记为今天未完成 · 再点一次撤销');
+    },
     'habit-set': el => {
       const id = el.dataset.id;
       const v = Number(el.dataset.val) || 0;
@@ -14717,19 +14953,10 @@
     },
     'set-mode': el => {
       const m = el.dataset.mode;
-      themeMode = (m === 'light' || m === 'dark') ? m : 'auto';
-      theme = themeMode === 'auto' ? autoTheme() : themeMode;
+      themeMode = (m === 'dark') ? 'dark' : 'light';
+      theme = themeMode;
       try { localStorage.setItem(THEME_MODE_KEY, themeMode); localStorage.removeItem('lifeboard.theme'); } catch (e) {}
       render();
-    },
-    'set-skin': el => {
-      const next = el.dataset.skin;
-      if (!SKINS.some(s => s.key === next)) return;
-      skin = next;
-      try { localStorage.setItem(SKIN_KEY, skin); } catch (e) {}
-      render();
-      const found = SKINS.find(s => s.key === skin);
-      toast('主题：' + (found ? found.name : skin));
     },
     'set-layout': el => {
       const next = el.dataset.layout;
@@ -14737,7 +14964,7 @@
       document.documentElement.setAttribute('data-layout', layout);
       try { localStorage.setItem(LAYOUT_KEY, layout); } catch (e) {}
       render();
-      toast('排版：' + (layout === 'top' ? '顶部导航条' : '三区布局'));
+      toast('排版：' + (layout === 'top' ? '顶部导航条' : '左侧菜单栏'));
     },
     /* 导航顺序：只在同组内换位。写的是**完整一份 key 数组**，
        合并时才能整份覆盖，不会拼出两端交错的顺序（同 cardOrder）。 */
@@ -15199,7 +15426,6 @@
     }
     if (document.visibilityState === 'visible') {
       remindStop();          /* 切回来立即恢复原标题 */
-      refreshAutoTheme();
       if (mode === 'landing' && !cloud.user) cloudInit(true);
       else cloudMaybePull();
     }
@@ -15208,7 +15434,6 @@
   setInterval(() => {
     if (cloud.pending && cloud.user && !cloud.pushing && !cloud.conflict) cloudPush();
   }, 45000);
-  setInterval(refreshAutoTheme, 60000);
   /* 每分钟看一次有没有该提醒的；只在页面还活着时有效，关掉网页要靠日历订阅 */
   setInterval(() => { notifyPing(false); }, 60000);
 
@@ -15241,7 +15466,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=134', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=144', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

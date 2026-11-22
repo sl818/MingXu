@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小习惯重构 · 交互原型 v2</title>
+<style>
+:root{
+  --bg:#0e1319; --bg2:#121a23; --card:#161f2a; --card2:#1b2531;
+  --line:#233040; --line2:#2f4053;
+  --tx:#e9f0f7; --tx2:#a8b8c9; --tx3:#708396;
+  --brand:#3fbf8f; --brand2:#2b8f6b; --brandSoft:rgba(63,191,143,.14);
+  --warn:#e0a458; --bad:#e2707a; --badSoft:rgba(226,112,122,.14);
+  --info:#6aa9e9;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 500px at 70% -10%,#16232f 0%,var(--bg) 55%) fixed;
+  color:var(--tx);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:12px 22px;background:rgba(14,19,25,.86);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.4px}
+.logo i{width:9px;height:9px;border-radius:50%;background:var(--brand);box-shadow:0 0 12px var(--brand)}
+.tag{font-size:11px;color:var(--tx3);border:1px solid var(--line2);padding:1px 7px;border-radius:20px}
+nav.tabs{margin-left:auto;display:flex;gap:4px;background:var(--card);padding:4px;border:1px solid var(--line);border-radius:11px}
+nav.tabs button{padding:6px 13px;border-radius:8px;font-size:13px;color:var(--tx2)}
+nav.tabs button.on{background:var(--brandSoft);color:var(--brand);font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 22px 80px}
+.view{display:none;animation:fade .22s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+h1{font-size:21px;margin:0 0 4px;letter-spacing:.3px}
+h2{font-size:16px;margin:0}
+.sub{color:var(--tx3);font-size:12.5px;margin:0 0 20px}
+.sec{margin:26px 0 12px;display:flex;align-items:baseline;gap:10px}
+.sec h3{font-size:13px;margin:0;letter-spacing:.6px;color:var(--tx2);font-weight:600}
+.sec span{font-size:11.5px;color:var(--tx3)}
+.sec .line{flex:1;height:1px;background:var(--line)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px}
+.kpi .k{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.kpi small{display:block;color:var(--tx3);font-size:11.5px;margin-bottom:2px}
+.kpi b{font-size:23px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.kpi b i{font-size:12px;font-weight:400;color:var(--tx3);font-style:normal;margin-left:3px}
+.kpi .bar{height:4px;border-radius:4px;background:#1f2a37;margin-top:9px;overflow:hidden}
+.kpi .bar u{display:block;height:100%;background:var(--brand);border-radius:4px;transition:width .35s}
+.kpi .foot{font-size:11px;color:var(--tx3);margin-top:6px}
+/* ---------- habit cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hcard{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 15px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;
+  transition:border-color .2s,background .2s;
+}
+.hcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--hc,var(--brand));opacity:.85}
+.hcard.wide{grid-column:1 / -1}
+.hcard.done{background:linear-gradient(180deg,rgba(63,191,143,.06),transparent 60%),var(--card);border-color:#274a3d}
+.hc-head{display:flex;align-items:flex-start;gap:10px}
+.ico{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:var(--card2);font-size:17px;flex:none}
+.tt{flex:1;min-width:0}
+.tt b{display:block;font-size:14.5px;font-weight:650;letter-spacing:.2px}
+.tt small{display:block;color:var(--tx3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kind{display:inline-block;font-size:10px;padding:0 5px;border-radius:4px;margin-right:5px;vertical-align:1px;border:1px solid}
+.kind.build{color:var(--brand);border-color:#2a5c4a;background:rgba(63,191,143,.08)}
+.kind.quit{color:var(--bad);border-color:#5a3038;background:rgba(226,112,122,.08)}
+.pill{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--tx2);white-space:nowrap}
+.pill.ok{color:var(--brand);border-color:#2a5c4a;background:var(--brandSoft)}
+.pill.over{color:var(--bad);border-color:#5a3038;background:var(--badSoft)}
+.pill.due{color:var(--warn);border-color:#5a4630;background:rgba(224,164,88,.12)}
+/* week dots */
+.dots{display:flex;gap:5px;align-items:flex-end}
+.dot{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;color:var(--tx3)}
+.dot u{width:100%;max-width:56px;height:10px;border-radius:3px;background:#202c3a;display:block}
+.dot.full u{background:var(--hc,var(--brand))}
+.dot.part u{background:linear-gradient(90deg,var(--hc,var(--brand)) 50%,#202c3a 50%)}
+.dot.rest u{background:repeating-linear-gradient(45deg,#1d2835,#1d2835 3px,#26333f 3px,#26333f 6px)}
+.dot.today{color:var(--tx)}
+.dot.today u{outline:2px solid rgba(106,169,233,.55);outline-offset:1px}
+.dot i{font-style:normal;font-size:9.5px;line-height:1;color:var(--tx3)}
+.meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--tx3);gap:8px}
+.meta b{color:var(--tx2);font-weight:600}
+.hc-act{display:flex;gap:8px;margin-top:1px}
+.btn{background:var(--card2);border:1px solid var(--line2);padding:8px 14px;border-radius:9px;font-size:13px;transition:.15s}
+.btn:hover{border-color:#3d566e;background:#202c3a}
+.btn.primary{background:linear-gradient(180deg,#47c997,#2f9c76);border-color:#2f9c76;color:#08130f;font-weight:650}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.tiny{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--tx2)}
+.btn.danger{background:linear-gradient(180deg,#d4737c,#a84851);border-color:#8e3a42;color:#1a0c0e;font-weight:650}
+.btn.danger:hover{filter:brightness(1.06)}
+.btn.wide{flex:1}
+.stepper{display:flex;align-items:center;gap:12px}
+.stepper button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line2);background:var(--card2);font-size:18px;line-height:1}
+.stepper .num{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.stepper .num span{font-size:12px;color:var(--tx3);font-weight:400}
+.pips{display:flex;gap:6px}
+.pips button{width:22px;height:22px;border-radius:50%;border:1.5px solid #2f4053;background:transparent;transition:.15s}
+.pips button.on{background:var(--hc,var(--brand));border-color:var(--hc,var(--brand));box-shadow:0 0 0 3px rgba(63,191,143,.12)}
+.slots{display:flex;gap:8px}
+.slot{flex:1;border:1px solid var(--line2);border-radius:11px;padding:8px 6px;text-align:center;background:var(--card2);transition:.15s}
+.slot b{display:block;font-size:12.5px}
+.slot small{font-size:10.5px;color:var(--tx3)}
+.slot.on{background:var(--brandSoft);border-color:#2a5c4a}
+.slot.on small{color:var(--brand)}
+.slot.late{border-color:#5a4630;background:rgba(224,164,88,.1)}
+.slot.late small{color:var(--warn)}
+.progress{height:5px;border-radius:5px;background:#1f2a37;overflow:hidden}
+.progress u{display:block;height:100%;background:var(--hc,var(--brand));border-radius:5px;transition:width .35s}
+.hc-act{margin-top:auto}
+.progress.over u{background:var(--bad)}
+.fold{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px dashed var(--line2);border-radius:11px;color:var(--tx3);font-size:12.5px;margin-top:10px;width:100%;text-align:left}
+.fold:hover{color:var(--tx2);border-color:#3d566e}
+.fold b{color:var(--tx2)}
+/* ---------- wizard ---------- */
+.steps{display:flex;gap:0;margin-bottom:18px}
+.steps div{flex:1;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx3)}
+.steps div i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line2);display:grid;place-items:center;font-size:11px;font-style:normal;flex:none}
+.steps div.on{color:var(--tx)}
+.steps div.on i{background:var(--brand);border-color:var(--brand);color:#08130f;font-weight:700}
+.steps div.ok i{color:var(--brand);border-color:#2a5c4a;background:var(--brandSoft)}
+.steps div:not(:last-child)::after{content:"";flex:1;height:1px;background:var(--line);margin:0 10px}
+.field{margin-bottom:16px}
+.field>label{display:block;font-size:12px;color:var(--tx2);margin-bottom:7px}
+.field .hint{font-size:11.5px;color:var(--tx3);margin-top:6px}
+input[type=text],input[type=number],input[type=time],select{
+  width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;
+  padding:9px 11px;color:var(--tx);font:inherit;outline:none;transition:.15s;
+}
+input:focus,select:focus{border-color:var(--brand2);box-shadow:0 0 0 3px rgba(63,191,143,.1)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.radio-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rc{background:var(--card2);border:1.5px solid var(--line);border-radius:11px;padding:11px 12px;text-align:left;transition:.15s}
+.rc:hover{border-color:#3d566e}
+.rc.on{border-color:var(--brand);background:var(--brandSoft)}
+.rc b{display:block;font-size:13px;margin-bottom:2px}
+.rc small{font-size:11px;color:var(--tx3);line-height:1.4;display:block}
+.rc.on b{color:var(--brand)}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--line2);background:var(--card2);border-radius:20px;padding:5px 12px;font-size:12.5px;color:var(--tx2)}
+.chip.on{background:var(--brandSoft);border-color:#2a5c4a;color:var(--brand);font-weight:600}
+.switch{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--tx2)}
+.switch u{width:36px;height:20px;border-radius:20px;background:#25313f;position:relative;transition:.2s;flex:none}
+.switch u::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#7d8fa2;top:3px;left:3px;transition:.2s}
+.switch.on u{background:rgba(63,191,143,.35)}
+.switch.on u::after{left:19px;background:var(--brand)}
+.preview{
+  background:linear-gradient(180deg,rgba(63,191,143,.08),rgba(63,191,143,.02));
+  border:1px solid #2a5c4a;border-radius:11px;padding:12px 14px;font-size:13px;color:var(--tx);line-height:1.7;
+}
+.preview small{display:block;color:var(--tx3);font-size:11px;letter-spacing:.5px;margin-bottom:3px}
+.preview em{color:var(--brand);font-style:normal;font-weight:650}
+.wiz-foot{display:flex;gap:10px;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.wiz-foot .sp{flex:1}
+/* ---------- detail ---------- */
+.dh{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.dh .ico{width:44px;height:44px;font-size:22px;border-radius:13px}
+.dh h1{font-size:19px;margin:0}
+.dh .sub{margin:2px 0 0}
+.ring{
+  --p:66;
+  width:74px;height:74px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:conic-gradient(var(--brand) calc(var(--p)*1%),#22303e 0);
+  position:relative;
+}
+.ring::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--card)}
+.ring b{position:relative;z-index:1;font-size:15px;font-variant-numeric:tabular-nums}
+.ring b i{font-size:10px;color:var(--tx3);font-style:normal}
+.month{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:4px}
+.month .wd{font-size:10px;color:var(--tx3);text-align:center;padding-bottom:2px}
+.cell{min-height:40px;border-radius:6px;background:#1b2632;position:relative;display:grid;place-items:center;font-size:11px;color:var(--tx3)}
+.cell.full{background:rgba(63,191,143,.55);color:#dff7ec}
+.cell.part{background:rgba(63,191,143,.22);color:var(--brand)}
+.cell.rest{background:repeating-linear-gradient(45deg,#1d2835,#1d2835 3px,#26333f 3px,#26333f 6px)}
+.cell.miss{background:#2b1f27;color:#a17b85;border:1px solid #4a323c}
+.cell.today{outline:2px solid rgba(106,169,233,.6);outline-offset:1px}
+.cell .bf{position:absolute;top:1px;right:2px;font-size:8px;color:var(--warn)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--tx3);margin-top:12px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--tx3);font-weight:500;font-size:11.5px}
+td b{font-weight:650}
+tr:last-child td{border-bottom:0}
+.tbl-wrap{overflow:auto}
+.note{font-size:11.5px;color:var(--tx3);border-left:2px solid var(--line2);padding:2px 0 2px 10px;margin-top:12px;line-height:1.8}
+.note code{color:var(--tx2);background:#1b2632;padding:1px 5px;border-radius:4px;font-size:11px}
+.row-h{display:flex;align-items:center;gap:10px}
+.row-h .ico{width:28px;height:28px;font-size:15px}
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);opacity:0;
+  background:#1d2a36;border:1px solid #33475c;border-radius:10px;padding:9px 16px;font-size:12.5px;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);transition:.25s;pointer-events:none;z-index:50;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:760px){
+  .topbar{flex-wrap:wrap;padding:10px 14px;gap:8px}
+  .tag{display:none}
+  nav.tabs{width:100%;margin:6px 0 0;justify-content:space-between}
+  nav.tabs button{flex:1;text-align:center;white-space:nowrap}
+  .cards{grid-template-columns:1fr}
+  .kpi{grid-template-columns:1fr 1fr}
+  .kpi .k:last-child{grid-column:1/-1}
+  .radio-cards{grid-template-columns:1fr 1fr}
+  .wrap{padding:18px 14px 70px}
+  nav.tabs button{padding:6px 9px;font-size:12px}
+  .dh h1{font-size:17px}
+  .ring{width:62px;height:62px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><i></i>晚风 Todo</div>
+  <span class="tag">原型 · 小习惯重构 v2</span>
+  <nav class="tabs">
+    <button data-go="today" class="on">今日</button>
+    <button data-go="new">新建</button>
+    <button data-go="detail">详情</button>
+    <button data-go="manage">管理</button>
+  </nav>
+</div>
+
+<div class="wrap">
+
+<!-- ============ 今日 ============ -->
+<section class="view on" id="v-today">
+  <h1>今天，2026 年 11 月 21 日 周六</h1>
+  <p class="sub">原型说明：常驻区（喝水/运动/呼吸/戒烟/早睡）保持原样，本次只重构下方「小习惯」区。</p>
+
+  <div class="kpi">
+    <div class="k"><small>今日待办</small><b id="kToday">0 <i>/ 3 已完成</i></b>
+      <div class="bar"><u id="kTodayBar" style="width:0%"></u></div>
+      <div class="foot">只算今天必须做的 3 项，周期型不算进来</div></div>
+    <div class="k"><small>本周节奏</small><b id="kWeek">1 <i>/ 3 项已达成</i></b>
+      <div class="bar"><u id="kWeekBar" style="width:33%;background:#6aa9e9"></u></div>
+      <div class="foot">周期型单独计；进行中的周期不算达成</div></div>
+    <div class="k"><small>本周还剩</small><b>2 <i>天</i></b>
+      <div class="foot" style="margin-top:10px">周一为一周起点 · 分母 3 = 健身 / 奶茶 / 冥想</div></div>
+  </div>
+
+  <div class="sec"><h3>今日待办</h3><span>每日型 + 今天命中的</span><span class="line"></span></div>
+  <div class="cards" id="todayList"></div>
+
+  <div class="sec"><h3>本周还差</h3><span>周期型 · 未达成前持续出现</span><span class="line"></span></div>
+  <div class="cards" id="weekList"></div>
+
+  <button class="fold" id="foldDone">
+    <span>✓</span><span><b>已达成 1 项</b> · 冥想 本周 5/5</span><span class="sp" style="flex:1"></span><span>展开 ▾</span>
+  </button>
+  <div class="cards" id="doneList" style="display:none;margin-top:12px"></div>
+
+  <p class="note">
+    设计要点：周期型习惯一旦达成即刻折叠，避免每天占位；未达成时进入「本周还差」，与「今天必须做」分开，
+    这样日完成率不会被低频习惯长期拉低。
+  </p>
+</section>
+
+<!-- ============ 新建 ============ -->
+<section class="view" id="v-new">
+  <h1>添加小习惯</h1>
+  <p class="sub">三步走完。第 ② 步的「节奏」是本次重构的核心——它决定周期，而提醒时间在最后一步单独设，两者不再互相绑架。</p>
+
+  <div class="steps">
+    <div class="on" id="s1"><i>1</i>做什么</div>
+    <div id="s2"><i>2</i>多久一次</div>
+    <div id="s3"><i>3</i>怎么记</div>
+  </div>
+
+  <div class="panel">
+    <!-- step 1 -->
+    <div id="step1">
+      <div class="grid2">
+        <div class="field"><label>图标</label><input type="text" value="🏃" maxlength="4"></div>
+        <div class="field"><label>名称</label><input type="text" id="fName" value="健身" placeholder="例如：早睡"></div>
+      </div>
+      <div class="field">
+        <label>类型</label>
+        <div class="radio-cards" style="grid-template-columns:1fr 1fr">
+          <button class="rc on" data-type="build"><b>养成 · 做了算数</b><small>记录「做了多少次 / 多少量」</small></button>
+          <button class="rc" data-type="quit"><b>戒除 · 不犯算数</b><small>记录「没守住几次」，可设每周上限</small></button>
+        </div>
+      </div>
+      <div class="field">
+        <label>从模板开始（可选）</label>
+        <div class="chips">
+          <button class="chip" data-preset="gym">每周 3 次运动</button>
+          <button class="chip" data-preset="water">每天 8 杯水 · 分 3 时段</button>
+          <button class="chip" data-preset="plant">每 3 天浇花</button>
+          <button class="chip" data-preset="haircut">每月 1 次理发</button>
+          <button class="chip" data-preset="milk">每周最多 2 次奶茶</button>
+          <button class="chip" data-preset="challenge">21 天挑战</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div id="step2" style="display:none">
+      <div class="field">
+        <label>多久一次</label>
+        <div class="radio-cards">
+          <button class="rc on" data-mode="daily"><b>每天</b><small>每天都算一次</small></button>
+          <button class="rc" data-mode="weekdays"><b>每周固定几天</b><small>如周一三五</small></button>
+          <button class="rc" data-mode="weekly"><b>每周 N 次</b><small>哪天做都行</small></button>
+          <button class="rc" data-mode="interval"><b>每 N 天一次</b><small>隔天 / 每三天</small></button>
+          <button class="rc" data-mode="monthly"><b>每月 N 次</b><small>月度弹性</small></button>
+          <button class="rc" data-mode="monthlyDay"><b>每月某日</b><small>固定日期</small></button>
+        </div>
+      </div>
+
+      <div id="modeExtra" style="display:none">
+        <div class="field" id="exWeekdays" style="display:none">
+          <label>哪几天</label>
+          <div class="chips" id="wdChips"></div>
+        </div>
+        <div class="field" id="exCount" style="display:none">
+          <label id="exCountLabel">每周几次</label>
+          <input type="number" id="fCount" value="3" min="1" max="31">
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div class="field"><label>每次多少</label><input type="number" id="fPer" value="1" min="1"></div>
+        <div class="field"><label>单位</label><input type="text" id="fUnit" value="次" maxlength="4"></div>
+        <div class="field"><label>方向</label>
+          <select id="fCmp"><option value="gte">达到即算（≥）</option><option value="lte">不超过才达标（≤）</option></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="switch" id="swSlot"><u></u><span>拆成一天内的几个时段（早 / 中 / 晚）</span></div>
+        <div class="hint">适合「早中晚各一杯水」「早晚各一次拉伸」。周期型习惯不支持时段。</div>
+      </div>
+
+      <div id="slotBox" style="display:none">
+        <div class="grid3">
+          <div class="field"><label>早</label><input type="time" value="06:00"></div>
+          <div class="field"><label>中</label><input type="time" value="11:00"></div>
+          <div class="field"><label>晚</label><input type="time" value="18:00"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div id="step3" style="display:none">
+      <div class="grid2">
+        <div class="field"><label>打卡方式</label>
+          <select><option>自动（按配额推荐）</option><option>单次开关</option><option>圆点 / 步进</option><option>输入数值</option></select>
+        </div>
+        <div class="field"><label>提醒时间</label><input type="time" value="20:00"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>提醒频率（只影响提醒）</label>
+          <select><option>每天</option><option>每周</option><option>每月</option></select>
+        </div>
+        <div class="field"><label>颜色</label><input type="text" value="#3fbf8f"></div>
+      </div>
+      <div class="field">
+        <label>高级（默认折叠）</label>
+        <div class="grid2">
+          <div class="field"><label>每周可跳过</label><input type="number" value="1" min="0" max="3"></div>
+          <div class="field"><label>可补卡天数</label><input type="number" value="7" min="0" max="30"></div>
+        </div>
+      </div>
+      <div class="preview" id="pv3">
+        <small>保存后你会看到</small>
+        <span id="pv3text">每天早上 1 次 · 提醒 20:00</span>
+      </div>
+    </div>
+
+    <!-- preview bar -->
+    <div class="preview" style="margin-top:16px" id="pv">
+      <small>实时预览</small>
+      <span id="pvText">每天 <em>1 次</em> · 今天还差 <em>1 次</em></span>
+    </div>
+
+    <div class="wiz-foot">
+      <button class="btn ghost" id="btnBack" style="visibility:hidden">上一步</button>
+      <span class="sp"></span>
+      <button class="btn ghost" data-go="today">取消</button>
+      <button class="btn primary" id="btnNext">下一步</button>
+    </div>
+  </div>
+
+  <p class="note">
+    设计要点：主路径只问三个问题——做什么、多久一次、怎么记。跳过额度、补卡窗口这类参数默认折叠；
+    每一个选择都立刻回述成一句人话，用户不需要在脑子里模拟规则。
+  </p>
+</section>
+
+<!-- ============ 详情 ============ -->
+<section class="view" id="v-detail">
+  <div class="dh">
+    <span class="ico" style="--hc:#3fbf8f">🏃</span>
+    <div style="flex:1">
+      <h1>健身</h1>
+      <p class="sub">每周 3 次 · 每次 1 次 · 弹性出现 · 周一为一周起点</p>
+    </div>
+    <div class="ring" style="--p:66"><b>2<i>/3</i></b></div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <div class="sec" style="margin-top:2px"><h3>本周</h3><span>11/16 – 11/22 · 还剩 2 天（含今天）</span><span class="line"></span></div>
+    <div class="dots" style="gap:8px">
+      <span class="dot full"><b>一</b><u></u><i>1</i></span>
+      <span class="dot full"><b>二</b><u></u><i>1</i></span>
+      <span class="dot"><b>三</b><u></u><i>—</i></span>
+      <span class="dot"><b>四</b><u></u><i>—</i></span>
+      <span class="dot"><b>五</b><u></u><i>—</i></span>
+      <span class="dot today"><b>六</b><u></u><i>今天</i></span>
+      <span class="dot"><b>日</b><u></u><i>—</i></span>
+    </div>
+    <div class="meta" style="margin-top:12px"><span>本周已做 <b>2</b> 次</span><span>还差 <b>1</b> 次 · 弹性出现，哪天做都行</span></div>
+  </div>
+
+  <div class="sec"><h3>本月</h3><span>斜纹 = 不需要做 / 休息日</span><span class="line"></span></div>
+  <div class="panel">
+    <div class="month" id="monthGrid"></div>
+    <div class="legend">
+      <span><i style="background:rgba(63,191,143,.55)"></i>达标</span>
+      <span><i style="background:rgba(63,191,143,.22)"></i>有贡献未达标</span>
+      <span><i style="background:#221c22;border:1px solid #3a2a30"></i>应做未做</span>
+      <span><i style="background:repeating-linear-gradient(45deg,#1d2835,#1d2835 3px,#26333f 3px,#26333f 6px)"></i>不需要做</span>
+      <span><i style="background:rgba(224,164,88,.5)"></i>补卡</span>
+    </div>
+  </div>
+
+  <div class="sec"><h3>历史周期</h3><span>按周期结算，不按天</span><span class="line"></span></div>
+  <div class="panel tbl-wrap">
+    <table>
+      <tr><th>周期</th><th>达成</th><th>跳过</th><th>结论</th></tr>
+      <tr><td>11/16 – 11/22</td><td><b>2 / 3</b></td><td>0</td><td style="color:var(--tx3)">进行中</td></tr>
+      <tr><td>11/09 – 11/15</td><td><b>3 / 3</b></td><td>1</td><td style="color:var(--brand)">已达成 · 连续 4 周</td></tr>
+      <tr><td>11/02 – 11/08</td><td><b>3 / 3</b></td><td>0</td><td style="color:var(--brand)">已达成 · 连续 3 周</td></tr>
+      <tr><td>10/26 – 11/01</td><td><b>2 / 3</b></td><td>0</td><td style="color:var(--bad)">未达成</td></tr>
+      <tr><td>10/19 – 10/25</td><td><b>4 / 3</b></td><td>0</td><td style="color:var(--brand)">已达成（超额）</td></tr>
+    </table>
+    <p class="note">
+      口径：周期达成率 = 达成周期数 ÷ 应达成周期数，不含暂停与休息日。
+      未达成的周期只写「未达成 2/3」，不写「失败」——连续单位随节奏变化，这里是「连续 4 周」，不是「连续 4 天」。
+    </p>
+  </div>
+</section>
+
+<!-- ============ 管理 ============ -->
+<section class="view" id="v-manage">
+  <h1>我的习惯</h1>
+  <p class="sub">周期徽标替代了原来含糊的「每天 × 1 次」。常驻习惯仍然不能删除或归档。</p>
+
+  <div class="panel" style="padding:6px 0">
+    <div class="tbl-wrap">
+    <table>
+      <tr><th>习惯</th><th>节奏</th><th>本周期</th><th>连续</th><th></th></tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">💧</span><div><b>喝水</b><br><small style="color:var(--tx3)">常驻 · 每天 9 杯</small></div></div></td>
+        <td>每天</td><td><b>9/9</b></td><td>21 天</td><td style="text-align:right"><span class="pill">常驻</span></td>
+      </tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">🏃</span><div><b>健身</b><br><small style="color:var(--tx3)">每周 3 次 · 每次 1 次</small></div></div></td>
+        <td>每周 3 次</td><td><b>2/3</b></td><td>4 周</td>
+        <td style="text-align:right">
+          <button class="btn tiny ghost">编辑</button> <button class="btn tiny ghost">归档</button>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">🌱</span><div><b>浇花</b><br><small style="color:var(--tx3)">每 3 天一次</small></div></div></td>
+        <td>每 3 天</td><td><b>今天该做</b></td><td>7 次</td>
+        <td style="text-align:right"><button class="btn tiny ghost">编辑</button> <button class="btn tiny ghost">归档</button></td>
+      </tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">🧋</span><div><b>奶茶</b><br><small style="color:var(--tx3)">戒除 · 每周最多 2 次</small></div></div></td>
+        <td>每周 ≤ 2 次</td><td><b>1/2</b></td><td>2 周</td>
+        <td style="text-align:right"><button class="btn tiny ghost">编辑</button> <button class="btn tiny ghost">归档</button></td>
+      </tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">✂️</span><div><b>理发</b><br><small style="color:var(--tx3)">每月 1 次</small></div></div></td>
+        <td>每月 1 次</td><td><b>本月未达成</b></td><td>—</td>
+        <td style="text-align:right"><button class="btn tiny ghost">编辑</button> <button class="btn tiny ghost">归档</button></td>
+      </tr>
+      <tr>
+        <td><div class="row-h"><span class="ico">📖</span><div><b>读书</b><br><small style="color:var(--tx3)">每天 · 早/中/晚各 1 次</small></div></div></td>
+        <td>每天 · 3 时段</td><td><b>2/3</b></td><td>5 天</td>
+        <td style="text-align:right"><button class="btn tiny ghost">编辑</button> <button class="btn tiny ghost">归档</button></td>
+      </tr>
+    </table>
+    </div>
+  </div>
+
+  <p class="note">
+    排序里的「达成率」对低频习惯必须用周期达成率：比天数的话，「每月 1 次」永远垫底；
+    比率的活，「做满 4 次 = 100%」又会压过「23 天 92%」。同频才可比。
+  </p>
+</section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var state = {
+    gym:{done:2,target:3,name:'健身',mode:'weekly'},
+    water:{done:5,target:9,name:'喝水'},
+    read:{slots:{早:1,中:1,晚:0},target:3,name:'读书'},
+    plant:{done:0,target:1,name:'浇花'},
+    milk:{done:1,target:2,name:'奶茶'},
+    med:{done:5,target:5,name:'冥想'},
+    sleep:{done:0,target:1,name:'早睡'}
+  };
+
+  function el(id){return document.getElementById(id);}
+  function toast(msg){
+    var t=el('toast'); t.textContent=msg; t.classList.add('on');
+    clearTimeout(t._tm); t._tm=setTimeout(function(){t.classList.remove('on');},1600);
+  }
+
+  /* ---------- 今日卡片模板 ---------- */
+  var WD=['日','一','二','三','四','五','六'];
+  function weekDots(full,todayIdx,rest){
+    var out='';
+    for(var i=1;i<=7;i++){
+      var idx=i%7; // 周一=1 ... 周日=0
+      var cls='dot';
+      if((rest||[]).indexOf(idx)>=0) cls+=' rest';
+      else if(full.indexOf(i)>=0) cls+=' full';
+      if(idx===todayIdx) cls+=' today';
+      out+='<span class="'+cls+'"><b>'+WD[idx]+'</b><u></u></span>';
+    }
+    return out;
+  }
+
+  function cardGym(){
+    var s=state.gym, pct=Math.round(s.done/s.target*100);
+    return '<article class="hcard wide" data-k="gym" style="--hc:#3fbf8f">'+
+      '<div class="hc-head"><span class="ico">🏃</span>'+
+      '<div class="tt"><b>健身</b><small><span class="kind build">养成</span>每周 3 次 · 每次 1 次</small></div>'+
+      '<span class="pill '+(s.done>=s.target?'ok':'')+'">本周 '+s.done+'/'+s.target+'</span></div>'+
+      '<div class="dots">'+weekDots([1,2],6,[])+'</div>'+
+      '<div class="meta"><span>还差 <b>'+Math.max(0,s.target-s.done)+'</b> 次</span><span>还剩 <b>2</b> 天（含今天）· 下次提醒 明天 20:00</span></div>'+
+      '<div class="progress"><u style="width:'+pct+'%"></u></div>'+
+      '<div class="hc-act">'+
+        '<button class="btn primary wide" data-act="inc" data-k="gym">完成一次</button>'+
+        '<button class="btn ghost" data-act="dec" data-k="gym">撤销</button>'+
+      '</div></article>';
+  }
+
+  function cardWater(){
+    var s=state.water;
+    return '<article class="hcard" data-k="water" style="--hc:#6aa9e9">'+
+      '<div class="hc-head"><span class="ico">💧</span>'+
+      '<div class="tt"><b>喝水</b><small><span class="kind build">养成</span>每天 9 杯 · 22:00 前</small></div>'+
+      '<span class="pill '+(s.done>=s.target?'ok':'')+'">'+s.done+'/'+s.target+'</span></div>'+
+      '<div class="stepper"><button data-act="dec" data-k="water">−</button>'+
+      '<div class="num">'+s.done+'<span> / '+s.target+' 杯</span></div>'+
+      '<button data-act="inc" data-k="water">＋</button></div>'+
+      '<div class="meta"><span>距目标 <b>'+Math.max(0,s.target-s.done)+'</b> 杯</span><span>连续 21 天</span></div>'+
+      '</article>';
+  }
+
+  function cardRead(){
+    var s=state.read, n=Object.keys(s.slots).filter(function(k){return s.slots[k];}).length;
+    var out='';
+    ['早','中','晚'].forEach(function(k){
+      var on=s.slots[k];
+      out+='<button class="slot'+(on?' on':'')+'" data-act="slot" data-k="read" data-slot="'+k+'">'+
+        '<b>'+k+'</b><small>'+(on?'已完成':'未完成')+'</small></button>';
+    });
+    return '<article class="hcard" data-k="read" style="--hc:#b48ee0">'+
+      '<div class="hc-head"><span class="ico">📖</span>'+
+      '<div class="tt"><b>读书</b><small><span class="kind build">养成</span>每天 · 早/中/晚各 1 次</small></div>'+
+      '<span class="pill">'+n+'/3 时段</span></div>'+
+      '<div class="slots">'+out+'</div>'+
+      '<div class="meta"><span>三个时段各一次</span><span>晚 18:00–21:00</span></div>'+
+      '</article>';
+  }
+
+  function cardPlant(){
+    var s=state.plant;
+    return '<article class="hcard" data-k="plant" style="--hc:#e0a458">'+
+      '<div class="hc-head"><span class="ico">🌱</span>'+
+      '<div class="tt"><b>浇花</b><small><span class="kind build">养成</span>每 3 天一次</small></div>'+
+      '<span class="pill due">今天该做</span></div>'+
+      '<div class="meta"><span>本轮第 <b>1</b> 天 / 共 3 天</span><span>下次 11/24</span></div>'+
+      (s.done>=1
+        ? '<div class="hc-act"><button class="btn wide" disabled>本轮已完成</button><button class="btn ghost" data-act="dec" data-k="plant">撤销</button></div>'
+        : '<div class="hc-act"><button class="btn primary wide" data-act="inc" data-k="plant">浇过了</button></div>')+
+      '</article>';
+  }
+
+  function cardMilk(){
+    var s=state.milk, over=s.done>s.target;
+    return '<article class="hcard" data-k="milk" style="--hc:#e2707a">'+
+      '<div class="hc-head"><span class="ico">🧋</span>'+
+      '<div class="tt"><b>奶茶</b><small><span class="kind quit">戒除</span>每周最多 2 次</small></div>'+
+      '<span class="pill '+(over?'over':'')+'">本周 '+s.done+'/'+s.target+(over?' 已超额':'')+'</span></div>'+
+      '<div class="progress '+(over?'over':'')+'"><u style="width:'+Math.min(100,s.done/s.target*100)+'%"></u></div>'+
+      '<div class="meta"><span>'+(over?'本周已超出上限':'还在上限内，剩 '+(s.target-s.done)+' 次')+'</span><span>'+(over?'连续周数已归零':'连续 2 周守住')+'</span></div>'+
+      '<div class="hc-act">'+
+        '<button class="btn danger wide" data-act="inc" data-k="milk">又记一次</button>'+
+        '<button class="btn ghost" data-act="dec" data-k="milk">撤销</button>'+
+      '</div></article>';
+  }
+
+  function cardSleep(){
+    var s=state.sleep,done=s.done>=1;
+    return '<article class="hcard wide'+(done?' done':'')+'" data-k="sleep" style="--hc:#3fbf8f">'+
+      '<div class="hc-head"><span class="ico">🌙</span>'+
+      '<div class="tt"><b>早睡</b><small><span class="kind build">养成</span>每天 1 次 · 23:00 前</small></div>'+
+      '<span class="pill '+(done?'ok':'')+'">'+(done?'23:12 完成':'待打卡')+'</span></div>'+
+      '<div class="hc-act"><button class="btn '+(done?'':'primary')+' wide" data-act="toggle" data-k="sleep">'+
+        (done?'已完成 · 点一下撤销':'今天完成')+'</button></div>'+
+      '<div class="meta"><span>截止 23:00'+(done?'，实际 23:12（晚了 12 分钟，只标红不计失败）':'，还剩 1 小时')+'</span><span>连续 5 天</span></div>'+
+      '</article>';
+  }
+
+  function render(){
+    el('todayList').innerHTML = cardWater()+cardRead()+cardSleep();
+    el('weekList').innerHTML = cardGym()+cardPlant()+cardMilk();
+    el('doneList').innerHTML =
+      '<article class="hcard done" style="--hc:#3fbf8f"><div class="hc-head"><span class="ico">🧘</span>'+
+      '<div class="tt"><b>冥想</b><small>本周 5/5 已达成 · 连续 3 周</small></div><span class="pill ok">本周已达成</span></div>'+
+      '<div class="progress"><u style="width:100%"></u></div></article>';
+
+    var t=stToday();
+    el('kToday').innerHTML=t.done+' <i>/ '+t.total+' 已打卡</i>';
+    el('kTodayBar').style.width=(t.done/t.total*100)+'%';
+    var w=stWeek();
+    el('kWeek').innerHTML=w.done+' <i>/ '+w.total+' 项已达成</i>';
+    el('kWeekBar').style.width=(w.done/w.total*100)+'%';
+  }
+
+  function stToday(){
+    var total=3, done=0; // 喝水/读书/早睡
+    if(state.water.done>=state.water.target) done++;
+    var rn=Object.keys(state.read.slots).filter(function(k){return state.read.slots[k];}).length;
+    if(rn>=3) done++;
+    if(state.sleep.done>=1) done++;
+    return {done:done,total:total};
+  }
+  function stWeek(){
+    var total=3, done=0;   // 健身 / 奶茶 / 冥想（浇花是「每 3 天」型，不并入周口径）
+    if(state.gym.done>=state.gym.target) done++;
+    if(state.med.done>=state.med.target) done++;
+    return {done:done,total:total};
+  }
+
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');
+    if(!b) return;
+    var k=b.dataset.k, act=b.dataset.act, s=state[k];
+    if(!s) return;
+    if(act==='inc'){
+      if(k==='plant'&&s.done>=1){toast('本轮已完成');return;}
+      s.done++;
+      if(k==='milk'&&s.done>s.target) toast('已超出本周上限 · 连续周数归零');
+      else if(k==='gym'&&s.done>=s.target) toast('本周达成 3/3');
+      else toast('已记录 +1');
+    }else if(act==='dec'){
+      if(s.done<=0){toast('没有可撤销的记录');return;}
+      s.done--; toast('已撤销一次');
+    }else if(act==='toggle'){
+      s.done = s.done>=1?0:1;
+      toast(s.done?'已记录':'已撤销');
+    }else if(act==='slot'){
+      var sl=b.dataset.slot;
+      s.slots[sl] = s.slots[sl] ? 0 : 1;
+      toast(s.slots[sl]?'已记「'+sl+'」时段':'已撤销「'+sl+'」时段');
+    }
+    render();
+  });
+
+  el('foldDone').addEventListener('click',function(){
+    var d=el('doneList');
+    var open=d.style.display!=='none';
+    d.style.display=open?'none':'grid';
+    this.querySelector('span:last-child').textContent=open?'展开 ▾':'收起 ▴';
+  });
+
+  /* ---------- 页面切换 ---------- */
+  document.querySelectorAll('[data-go]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var go=btn.dataset.go;
+      document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+      el('v-'+go).classList.add('on');
+      document.querySelectorAll('nav.tabs button').forEach(function(x){x.classList.remove('on');});
+      var nb=document.querySelector('nav.tabs button[data-go="'+go+'"]');
+      if(nb) nb.classList.add('on');
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+
+  /* ---------- 新建向导 ---------- */
+  var step=1, cfg={mode:'daily',type:'build',per:1,unit:'次',count:3,days:[1,3,5],slots:false,cmp:'gte'};
+
+  function showStep(n){
+    step=n;
+    ['step1','step2','step3'].forEach(function(id,i){el(id).style.display=(i+1===n)?'':'none';});
+    [1,2,3].forEach(function(i){
+      var d=el('s'+i); d.className = i===n?'on':(i<n?'ok':'');
+    });
+    el('btnBack').style.visibility = n===1?'hidden':'visible';
+    el('btnNext').textContent = n===3?'保存':'下一步';
+    updatePreview();
+  }
+
+  function modeLabel(){
+    var m=cfg.mode;
+    if(m==='daily') return '每天';
+    if(m==='weekdays') return '每周 '+cfg.days.length+' 天';
+    if(m==='weekly') return '每周 '+cfg.count+' 次';
+    if(m==='interval') return '每 '+cfg.interval+' 天一次';
+    if(m==='monthly') return '每月 '+cfg.count+' 次';
+    if(m==='monthlyDay') return '每月 '+cfg.count+' 号';
+    return '';
+  }
+
+  function periodTarget(){
+    if(cfg.mode==='weekly') return cfg.count;
+    if(cfg.mode==='monthly') return cfg.count;
+    if(cfg.mode==='weekdays') return cfg.days.length;
+    if(cfg.mode==='monthlyDay') return 1;
+    return 1;
+  }
+
+  function updatePreview(){
+    cfg.count = Math.max(1, parseInt(el('fCount').value,10)||1);
+    cfg.per = Math.max(1, parseInt(el('fPer').value,10)||1);
+    cfg.unit = (el('fUnit').value||'次').slice(0,4);
+    cfg.cmp = el('fCmp').value;
+    var pt = periodTarget()*cfg.per;
+    var txt;
+    if(cfg.mode==='weekly'){
+      txt = '每周 <em>'+cfg.count+' 次</em> · 每次 <em>'+cfg.per+cfg.unit+'</em>' +
+            '（周目标 '+pt+' '+cfg.unit+'）· 本周还差 <em>'+pt+'</em> '+cfg.unit+' · 还剩 <em>5</em> 天';
+    }else if(cfg.mode==='weekdays'){
+      var names=cfg.days.map(function(d){return '周'+WD[d%7];}).join('、');
+      txt = '<em>'+names+'</em> · 每次 <em>'+cfg.per+cfg.unit+'</em> · 未选的日子显示斜纹，不算漏打';
+    }else if(cfg.mode==='interval'){
+      txt = '<em>每 '+cfg.interval+' 天一次</em> · 每次 <em>'+cfg.per+cfg.unit+'</em> · 今天该做会单独标出';
+    }else if(cfg.mode==='monthly'){
+      txt = '每月 <em>'+cfg.count+' 次</em> · 每次 <em>'+cfg.per+cfg.unit+'</em>（月目标 '+pt+' '+cfg.unit+'）';
+    }else if(cfg.mode==='monthlyDay'){
+      txt = '每月 <em>'+cfg.count+' 号</em> · 每次 <em>'+cfg.per+cfg.unit+'</em> · 遇到小月自动落到月末';
+    }else if(cfg.slots){
+      txt = '每天 <em>早 / 中 / 晚</em> 各 <em>'+cfg.per+cfg.unit+'</em> · 当天合计 <em>'+cfg.per*3+cfg.unit+'</em>';
+    }else{
+      txt = '每天 <em>'+cfg.per+cfg.unit+'</em>' + (cfg.cmp==='lte'?' <em>不超过</em>':'') + ' · 今天还差 <em>'+cfg.per+cfg.unit+'</em>';
+    }
+    if(cfg.cmp==='lte' && cfg.mode!=='daily') txt += ' · <em>不超过</em>才算达标';
+    el('pvText').innerHTML = txt;
+    el('pv3text').innerHTML = '<b>'+(el('fName').value||'这个习惯')+'</b>：'+modeLabel()+' · '+
+      (cfg.mode==='daily'?cfg.per+cfg.unit:'每次 '+cfg.per+cfg.unit)+' · 提醒每天 20:00';
+  }
+
+  document.querySelectorAll('[data-type]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('[data-type]').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); cfg.type=b.dataset.type;
+      if(cfg.type==='quit'){cfg.cmp='lte'; el('fCmp').value='lte';}
+      else {cfg.cmp='gte'; el('fCmp').value='gte';}
+      updatePreview();
+    });
+  });
+
+  document.querySelectorAll('[data-mode]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('[data-mode]').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); cfg.mode=b.dataset.mode;
+      el('modeExtra').style.display = (cfg.mode==='daily')?'none':'block';
+      el('exWeekdays').style.display = (cfg.mode==='weekdays')?'block':'none';
+      el('exCount').style.display = (cfg.mode==='weekly'||cfg.mode==='monthly'||cfg.mode==='monthlyDay')?'block':'none';
+      el('exCountLabel').textContent = cfg.mode==='weekly'?'每周几次':(cfg.mode==='monthly'?'每月几次':'每月几号');
+      if(cfg.mode==='interval'){
+        el('exCount').style.display='block';
+        el('exCountLabel').textContent='每隔几天（在下方「每次多少」旁的输入里填写天数）';
+        el('exCount').style.display='none';
+      }
+      // 周期型不支持时段
+      var slotWrap = el('swSlot').parentNode;
+      if(cfg.mode!=='daily'){ cfg.slots=false; el('slotBox').style.display='none'; el('swSlot').classList.remove('on');
+        slotWrap.style.opacity='.45'; slotWrap.title='周期型习惯不支持时段拆分'; }
+      else { slotWrap.style.opacity='1'; slotWrap.title=''; }
+      updatePreview();
+    });
+  });
+
+  // 星期选择
+  (function(){
+    var box=el('wdChips');
+    [1,2,3,4,5,6,0].forEach(function(d){
+      var b=document.createElement('button');
+      b.className='chip'+(cfg.days.indexOf(d)>=0?' on':'');
+      b.textContent='周'+WD[d];
+      b.dataset.d=d;
+      b.addEventListener('click',function(){
+        var idx=cfg.days.indexOf(d);
+        if(idx>=0){cfg.days.splice(idx,1);b.classList.remove('on');}
+        else{cfg.days.push(d);b.classList.add('on');}
+        updatePreview();
+      });
+      box.appendChild(b);
+    });
+  })();
+
+  el('swSlot').addEventListener('click',function(){
+    if(cfg.mode!=='daily'){toast('周期型习惯不支持时段拆分');return;}
+    cfg.slots=!cfg.slots;
+    this.classList.toggle('on',cfg.slots);
+    el('slotBox').style.display=cfg.slots?'block':'none';
+    updatePreview();
+  });
+
+  ['fName','fCount','fPer','fUnit','fCmp'].forEach(function(id){
+    el(id).addEventListener('input',updatePreview);
+    el(id).addEventListener('change',updatePreview);
+  });
+
+  el('btnNext').addEventListener('click',function(){
+    if(step<3){showStep(step+1);return;}
+    toast('已保存 · 回到今日页看看效果');
+    setTimeout(function(){
+      document.querySelector('nav.tabs button[data-go="today"]').click();
+    },700);
+  });
+  el('btnBack').addEventListener('click',function(){ if(step>1) showStep(step-1); });
+
+  // 预设
+  var presets={
+    gym:{mode:'weekly',count:3,per:1,unit:'次',type:'build',cmp:'gte',slots:false,days:[1,3,5]},
+    water:{mode:'daily',count:1,per:1,unit:'杯',type:'build',cmp:'gte',slots:true,days:[1,3,5]},
+    plant:{mode:'interval',count:1,per:1,unit:'次',type:'build',cmp:'gte',slots:false,days:[1,3,5]},
+    haircut:{mode:'monthly',count:1,per:1,unit:'次',type:'build',cmp:'gte',slots:false,days:[1,3,5]},
+    milk:{mode:'weekly',count:2,per:1,unit:'次',type:'quit',cmp:'lte',slots:false,days:[1,3,5]},
+    challenge:{mode:'daily',count:1,per:1,unit:'次',type:'build',cmp:'gte',slots:false,days:[1,3,5]}
+  };
+  document.querySelectorAll('[data-preset]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var p=presets[b.dataset.preset];
+      cfg.mode=p.mode; cfg.per=p.per; cfg.unit=p.unit; cfg.type=p.type; cfg.cmp=p.cmp;
+      cfg.slots=p.slots; cfg.count=p.count; cfg.days=p.days.slice();
+      el('fPer').value=p.per; el('fUnit').value=p.unit; el('fCmp').value=p.cmp; el('fCount').value=p.count;
+      document.querySelectorAll('[data-mode]').forEach(function(x){x.classList.toggle('on',x.dataset.mode===p.mode);});
+      document.querySelectorAll('[data-type]').forEach(function(x){x.classList.toggle('on',x.dataset.type===p.type);});
+      document.querySelectorAll('#wdChips .chip').forEach(function(x){
+        x.classList.toggle('on',cfg.days.indexOf(Number(x.dataset.d))>=0);
+      });
+      el('swSlot').classList.toggle('on',cfg.slots);
+      el('slotBox').style.display=cfg.slots?'block':'none';
+      el('modeExtra').style.display=(p.mode==='daily')?'none':'block';
+      el('exWeekdays').style.display=(p.mode==='weekdays')?'block':'none';
+      el('exCount').style.display=(p.mode==='weekly'||p.mode==='monthly'||p.mode==='monthlyDay')?'block':'none';
+      if(p.mode==='monthly'){el('exCountLabel').textContent='每月几次';}
+      if(p.mode==='weekly'){el('exCountLabel').textContent='每周几次';}
+      updatePreview();
+      toast('已套用模板 · 可继续微调');
+    });
+  });
+
+  /* ---------- 月历 ---------- */
+  (function(){
+    var g=el('monthGrid');
+    var head=['一','二','三','四','五','六','日'];
+    head.forEach(function(h){g.insertAdjacentHTML('beforeend','<div class="wd">'+h+'</div>');});
+    // 2026-11-01 是周日 -> 周一为起点，前面空 6 格
+    for(var i=0;i<6;i++) g.insertAdjacentHTML('beforeend','<div class="cell" style="background:transparent"></div>');
+    for(var d=1;d<=30;d++){
+      var cls='cell';
+      var wdIdx=(d+6)%7; // 2026-11-01 是周日，11-21 是周六
+      if(d===21) cls+=' today';
+      else if(d>21) cls+=' rest';
+      else if([2,3,6,9,10,11,13,16,17,20].indexOf(d)>=0) cls+=' full';
+      else if([5,12].indexOf(d)>=0) cls+=' part';
+      else cls+=' miss';
+      var bf=[11].indexOf(d)>=0?'<span class="bf">补</span>':'';
+      g.insertAdjacentHTML('beforeend','<div class="'+cls+'">'+d+bf+'</div>');
+    }
+  })();
+
+  render();
+  updatePreview();
+})();
+</script>
+</body>
+</html>

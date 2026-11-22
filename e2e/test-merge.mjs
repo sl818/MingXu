@@ -84,5 +84,22 @@ console.log('场景 G：events 去重并集');
   eq(m.events.length, 2, '去重后 2 条（a重复去掉，b保留）');
 }
 
+console.log('场景 H：未完成标记 skips → 按天逐键并集');
+{
+  const remote = { habits: [], tasks: [], checks: {}, skips: { '2026-11-18': { a: 1 } }, moods: {}, doses: {}, notes: {}, events: [] };
+  const local = { habits: [], tasks: [], checks: {}, skips: { '2026-11-18': { b: 1 }, '2026-11-20': { a: 1 } }, moods: {}, doses: {}, notes: {}, events: [] };
+  const m = mergeStates(remote, local);
+  eq(m.skips['2026-11-18'], { a: 1, b: 1 }, '同一天两边各标一个，都保留');
+  eq(m.skips['2026-11-20'], { a: 1 }, '本地新增的那天被保留');
+}
+
+console.log('场景 I：一侧没有 skips 字段 → 不报错');
+{
+  const remote = { habits: [], tasks: [], checks: {}, moods: {}, doses: {}, notes: {}, events: [] };
+  const local = { habits: [], tasks: [], checks: {}, skips: { '2026-11-18': { a: 1 } }, moods: {}, doses: {}, notes: {}, events: [] };
+  const m = mergeStates(remote, local);
+  eq(m.skips['2026-11-18'], { a: 1 }, '旧客户端没有这个字段也能合并');
+}
+
 console.log('\n结果：' + pass + ' 通过 / ' + fail + ' 失败');
 process.exit(fail ? 1 : 0);

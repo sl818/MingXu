@@ -1,0 +1,603 @@
+/* ============================================================
+   明序 · 主题 v2  （唯一主题：暖纸 / 白卡 / 一支红笔）
+   ------------------------------------------------------------
+   加载顺序：app.css 之后、全站最后一份样式。
+   只做两件事：① 覆盖令牌 ② 覆盖骨架与组件笔触。
+   不写页面结构与数据逻辑。
+   规范出处：DESIGN.md（v2）。旧六套主题（paper、slate、cloud-float、cloud-focus、neu、retro）已删除。
+   ============================================================ */
+
+/* ===== 1. 令牌 · 浅色（默认） ===== */
+:root{
+  --bg:#fbf3e7;
+  --bg-glow:#fde8e8;
+  --surface:#ffffff;
+  --surface-2:#fffaf3;
+  --surface-3:#f1e5d0;
+  --text:#2b2013;
+  --muted:#75644e;
+  --line:#f0e4d1;
+  --line-strong:#d8c8b2;
+
+  --accent:#dc2626;
+  --accent-2:#c62828;
+  --accent-strong:#b91c1c;
+  --accent-soft:#fde8e8;
+  --on-accent:#ffffff;
+
+  --good:#2f6b53;
+  --warn:#9a6a2f;
+  --bad:#c62828;
+
+  --gold:#8a6a3a;
+  --gold-soft:#f6e7d4;
+  --gold-ink:#7a5c26;
+
+  --shadow:none;
+  --shadow-lg:0 24px 60px -30px rgba(26,21,18,.55);
+  --radius:12px;
+  --radius-sm:8px;
+  --paper-radius:12px;
+
+  /* 图表：单色阶 + 一支红，不再四色 */
+  --chart-1:#2b2013;
+  --chart-2:#75644e;
+  --chart-3:#b0a08a;
+  --chart-4:#dc2626;
+
+  /* 侧栏 */
+  --side-bg:#ffffff;
+  --side-bg-2:#ffffff;
+  --side-glow:rgba(0,0,0,0);
+  --side-border:var(--line);
+  --side-line:var(--line-soft, #f4eadb);
+  --side-shadow:rgba(0,0,0,0);
+  --side-text:#2b2013;
+  --side-small:#7d6d56;
+  --side-nav:#75644e;
+  --side-hover:#fffaf3;
+  --side-active-bg:#fde8e8;
+  --side-active-text:#c62828;
+  --side-muted:#7d6d56;
+  --side-link:#c62828;
+  --side-foot:#7d6d56;
+  --logo-bg:#fde8e8;
+  --logo-border:#fde8e8;
+  --logo-color:#c62828;
+
+  /* Hero：从深色渐变卡改为白卡 + 右上红晕 */
+  --hero-bg:#ffffff;
+  --hero-bg-2:#ffffff;
+  --hero-bg-3:#ffffff;
+  --hero-glow:rgba(253,232,232,.95);
+  --hero-border:var(--line);
+  --hero-shadow:rgba(0,0,0,0);
+  --hero-text:#2b2013;
+  --hero-muted:#75644e;
+  --hero-date:#75644e;
+  --hero-accent:#c62828;
+  --hero-line:rgba(220,38,38,.30);
+  --hero-control-bg:#fffaf3;
+  --hero-control-border:#f0e4d1;
+  --hero-control-text:#2b2013;
+  --hero-control-hover:#f6e7d4;
+  --hero-chip-bg:#fffaf3;
+  --hero-chip-border:#f0e4d1;
+  --hero-chip-text:#75644e;
+  --hero-tag:#c62828;
+  --hero-tag-border:#f8c4bf;
+  --hero-ring:#dc2626;
+  --hero-ring-track:#f6e7d4;
+
+  --card-top:#ffffff;
+  --toast-bg:#1a1512;
+  --toast-text:#f2e9dc;
+  --track:#f6e7d4;
+
+  --font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-serif:"Inter","PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:light;
+}
+
+/* 语义别名：规范文档里叫 ink / red-pen / red-ink / red-wash，
+   实现层叫 text / accent / accent-2 / accent-soft。这里做一次映射，
+   两边名字都能用，避免再写错变量名导致整条样式静默失效。 */
+:root{
+  --ink:var(--text);
+  --ink-soft:var(--muted);
+  --red:var(--accent);
+  --red-ink:var(--accent-2);
+  --red-wash:var(--accent-soft);
+}
+
+/* ===== 2. 令牌 · 深色（冷调） ===== */
+[data-theme="dark"]{
+  --bg:#0f172a;
+  --bg-glow:rgba(239,68,68,.14);
+  --surface:#1e293b;
+  --surface-2:#1a2436;
+  --surface-3:#2a3648;
+  --text:#f1f5f9;
+  --muted:#93a2b7;
+  --line:#2e3a4d;
+  --line-strong:#3e4c60;
+
+  --accent:#dc2626;
+  --accent-2:#f87171;
+  --accent-strong:#b91c1c;
+  --accent-soft:#3e2d3c;
+  --on-accent:#ffffff;
+
+  --good:#7fd0b0;
+  --warn:#d3a36b;
+  --bad:#f87171;
+
+  --gold:#8b9bb0;
+  --gold-soft:#243044;
+  --gold-ink:#c3d0e2;
+
+  --shadow:none;
+  --shadow-lg:0 24px 60px -30px rgba(0,0,0,.75);
+
+  --chart-1:#e2e8f0;
+  --chart-2:#93a2b7;
+  --chart-3:#5a6b80;
+  --chart-4:#dc2626;
+
+  --side-bg:#1e293b;
+  --side-bg-2:#1e293b;
+  --side-glow:rgba(0,0,0,0);
+  --side-border:var(--line);
+  --side-line:#2c394b;
+  --side-shadow:rgba(0,0,0,0);
+  --side-text:#f1f5f9;
+  --side-small:#8b9bb0;
+  --side-nav:#93a2b7;
+  --side-hover:#243044;
+  --side-active-bg:#3e2d3c;
+  --side-active-text:#f87171;
+  --side-muted:#8b9bb0;
+  --side-link:#f87171;
+  --side-foot:#8b9bb0;
+  --logo-bg:#3e2d3c;
+  --logo-border:#3e2d3c;
+  --logo-color:#f87171;
+
+  --hero-bg:#1e293b;
+  --hero-bg-2:#1e293b;
+  --hero-bg-3:#1e293b;
+  --hero-glow:rgba(239,68,68,.14);
+  --hero-border:var(--line);
+  --hero-shadow:rgba(0,0,0,0);
+  --hero-text:#f1f5f9;
+  --hero-muted:#93a2b7;
+  --hero-date:#93a2b7;
+  --hero-accent:#f87171;
+  --hero-line:rgba(248,113,113,.28);
+  --hero-control-bg:#243044;
+  --hero-control-border:#2e3a4d;
+  --hero-control-text:#e2e8f0;
+  --hero-control-hover:#2a3648;
+  --hero-chip-bg:#243044;
+  --hero-chip-border:#2e3a4d;
+  --hero-chip-text:#93a2b7;
+  --hero-tag:#f87171;
+  --hero-tag-border:#4b3230;
+  --hero-ring:#dc2626;
+  --hero-ring-track:#334155;
+
+  --card-top:#1e293b;
+  --toast-bg:#0b1220;
+  --toast-text:#e2e8f0;
+  --track:#334155;
+  color-scheme:dark;
+}
+
+/* ===== 3. 骨架：左侧菜单栏 272 / 顶栏 46 / 主区 1120 ===== */
+/* 左侧菜单栏排版 */
+:root[data-layout="wide"] .app{grid-template-columns:272px minmax(0,1fr);}
+:root[data-layout="wide"] .sidebar{
+  width:272px;height:100vh;padding:16px 12px 12px;gap:0;
+  flex-direction:column;align-items:stretch;
+  background:var(--side-bg);border-right:1px solid var(--line-soft,#f4eadb);border-bottom:0;
+  box-shadow:none;
+}
+:root[data-layout="wide"] .side-foot{
+  flex-direction:column;gap:2px;margin:0;padding-top:10px;
+  border-top:1px solid var(--line-soft,#f4eadb);
+}
+/* 顶部导航条排版：46px 通栏，导航项平铺 */
+:root[data-layout="top"] .app{display:flex;flex-direction:column;min-height:100vh;}
+:root[data-layout="top"] .sidebar{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-direction:row;align-items:center;gap:14px;
+  width:auto;height:46px;min-height:46px;padding:0 16px;
+  background:var(--surface);border-right:0;border-bottom:1px solid var(--line);
+  box-shadow:none;
+}
+:root[data-layout="top"] .brand{padding:0;border-bottom:0;gap:8px;}
+:root[data-layout="top"] .brand-text small{display:none;}
+:root[data-layout="top"] .logo{width:24px;height:24px;border-radius:7px;font-size:11px;}
+:root[data-layout="top"] .nav{
+  flex:1 1 auto;min-width:0;flex-direction:row;justify-content:flex-start;
+  gap:2px;overflow-x:auto;padding:0;
+}
+:root[data-layout="top"] .nav::-webkit-scrollbar{display:none;}
+:root[data-layout="top"] .nav-item{flex:none;height:30px;padding:0 10px;border-radius:8px;font-size:13px;white-space:nowrap;}
+:root[data-layout="top"] .side-foot{
+  margin:0 0 0 auto;padding:0;border:0;
+  flex-direction:row;align-items:center;gap:8px;flex:none;
+}
+.main{max-width:none;padding:20px 28px 28px;}
+:root[data-layout="top"] .main{max-width:none;padding:20px 28px 32px;}
+:root[data-layout="wide"] .sync-indicator,
+:root[data-layout="top"] .sync-indicator{display:inline-flex!important;}
+/* 右栏彻底作废；主列的本周概览恢复显示 */
+.rail{display:none!important;}
+:root[data-layout="wide"] .today-grid{display:block;}
+:root[data-layout="wide"] .today-lower .week-panel{display:block;}
+
+/* ===== 4. 组件笔触 ===== */
+/* 底色与光斑分开写：背景色单独成属性，避免被 app.css 的 background 简写整条覆盖，
+   主题切换时也只换颜色、光斑不变。 */
+body{
+  font-size:15px;line-height:1.6;letter-spacing:0;
+  background-color:var(--bg);
+  background-image:radial-gradient(900px 420px at 88% -8%,var(--bg-glow) 0%,rgba(0,0,0,0) 62%);
+  background-repeat:no-repeat;
+  color:var(--text);
+}
+
+/* 侧栏项 */
+.nav-item{height:30px;padding:0 9px;border-radius:8px;font-size:13.5px;color:var(--side-nav);gap:9px;}
+.nav-item:hover{background:var(--side-hover);color:var(--side-text);}
+.nav-item.active{background:var(--side-active-bg);color:var(--side-active-text);box-shadow:none;font-weight:600;}
+.brand{padding:0 8px 12px;border-bottom:1px solid var(--line-soft,#f4eadb);}
+.brand-text b{font-size:15px;color:var(--text);}
+.brand-text small{font-size:9px;letter-spacing:.16em;color:var(--muted);}
+.logo{width:26px;height:26px;border-radius:8px;background:var(--logo-bg);border-color:var(--logo-border);color:var(--logo-color);box-shadow:none;}
+.side-foot{border-top:1px solid var(--line-soft,#f4eadb);}
+
+/* 卡片：白底 + 1px 线，取消渐变与阴影 */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:none;}
+.habit-card,.vital-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:none;}
+.stat-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:none;}
+.habit-card:hover,.vital-card:hover{transform:none;box-shadow:none;border-color:var(--line-strong);}
+.rail-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:none;}
+
+/* Hero：白卡 + 右上红晕 */
+.hero{background:radial-gradient(560px 240px at 100% 0%,var(--hero-glow) 0%,rgba(0,0,0,0) 62%),var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:none;}
+.hero::before{display:none;}
+.hero::after{background:radial-gradient(circle,var(--hero-glow),rgba(0,0,0,0) 66%);}
+
+/* 按钮 */
+.btn{border-radius:8px;padding:0 14px;height:32px;font-size:13px;font-weight:600;background:var(--surface-2);border:1px solid var(--line);color:var(--text);box-shadow:none;}
+.btn:hover{background:var(--surface);border-color:var(--line-strong);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);box-shadow:none;}
+.btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text);}
+.btn.danger{color:var(--bad);border-color:var(--line);}
+.btn.sm{height:28px;padding:0 11px;font-size:12px;border-radius:7px;}
+
+/* 表单 */
+.field input,.field select,.field textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;font-size:15px;padding:9px 12px;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+
+/* 标签 / 分区标题 / 弹窗 / 轻提示 */
+.tag{background:var(--accent-soft);color:var(--accent-2);border-color:transparent;font-weight:600;}
+.section-head{border-top:1px solid var(--line);margin:32px 0 16px;padding-top:20px;}
+.section-head h2{font-size:15px;font-weight:600;color:var(--text);}
+.modal-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);}
+.modal-backdrop{background:rgba(26,21,18,.55);}
+.toast{background:var(--toast-bg);color:var(--toast-text);border-color:var(--line);border-radius:99px;}
+
+/* 数字：等宽 */
+.habit-count,.stat-card b,.vital-status .vnum,.move-ring-txt b{font-family:var(--font-sans);font-variant-numeric:tabular-nums;}
+
+/* 覆盖 v1 里带 id 的宽屏规则：顶栏版不再更宽 */
+:root[data-layout="top"] #main{max-width:none!important;}
+
+@media (max-width:1180px){
+  .app{grid-template-columns:218px minmax(0,1fr);}
+}
+@media (max-width:720px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .main{padding:16px 16px 72px;}
+}
+
+/* ===== 5. 收口：提醒条 / 安装条 / 侧栏底部 ===== */
+/* 提醒条是「今天还有几件事」，不是警告：用凹陷底，红只留给「去查看」 */
+.remind-bar{background:var(--surface-2);border-color:var(--line);color:var(--text);border-radius:10px;}
+.remind-item::before{background:var(--accent);opacity:1;}
+.remind-x{color:var(--muted);}
+.install-tip{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--text);}
+.link-btn{color:var(--muted);font-size:12.5px;}
+.link-btn:hover{color:var(--text);}
+.side-user{color:var(--muted);font-size:12px;}
+.side-user button{
+  height:26px;padding:0 9px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--muted);font-size:12px;
+}
+.side-user button:hover{background:var(--surface);color:var(--text);}
+
+/* ============================================================
+   P1 · 组件收口（今日页）
+   ------------------------------------------------------------
+   1) 常驻卡：动作区贴底，内部节奏收紧
+   2) 本周七日条：原来的白色半透明柱在白卡上等于隐形 → 轨道色 + 今天红
+   3) 提醒条：信息与操作分层
+   4) 待办行与顶栏右侧动作
+   ============================================================ */
+
+/* 1. 常驻卡 */
+.habit-card,.vital-card{
+  display:flex;flex-direction:column;justify-content:flex-start;
+  padding:15px 16px 13px;border-radius:12px;gap:0;
+}
+/* 动作区贴底并加一条发丝线：留白就读成「呼吸」而不是「洞」 */
+.habit-card > *:last-child,.vital-card > *:last-child{
+  margin-top:auto;padding-top:10px;border-top:1px solid var(--line);
+}
+.habit-head{gap:9px;align-items:flex-start;}
+.habit-icon{width:30px;height:30px;border-radius:9px;font-size:15px;}
+.habit-title b{font-size:15px;font-weight:600;line-height:1.3;}
+.habit-title small{font-size:12px;color:var(--muted);line-height:1.45;margin-top:1px;}
+.habit-card .pin-tag{font-size:9px;padding:2px 6px;background:var(--surface-2);border-color:var(--line);color:var(--muted);}
+.habit-card .habit-count{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;}
+.habit-card .habit-count span{font-size:12px;color:var(--muted);}
+.habit-card .habit-note,.habit-card .habit-meta{font-size:12px;color:var(--muted);line-height:1.5;}
+.vital-btn{height:32px;border-radius:8px;font-size:13px;font-weight:600;}
+.vital-btn.ghost{font-weight:500;color:var(--muted);}
+/* 网格节奏：16px，与规范一致 */
+.habit-grid{gap:16px;}
+.hero-week{border-left-color:var(--line);border-right-color:var(--line);}
+
+/* 2. 本周七日条 */
+.hw-strip{height:58px;gap:7px;}
+.hw-track i{background:var(--track);border-radius:3px;max-width:22px;}
+.hw-day.is-sel .hw-track i{background:var(--accent);}
+.hw-big b{color:var(--text);font-size:30px;}
+.hw-big span,.hw-meta{color:var(--muted);font-size:12px;}
+.hw-head{color:var(--muted);font-size:11px;}
+.hw-wd,.hw-num{color:var(--muted);opacity:1;font-size:11px;}
+.hw-day.is-sel .hw-wd{color:var(--text);font-weight:600;}
+
+/* 3. 提醒条：一条提醒 + 一个动作 */
+.remind-bar{
+  padding:9px 12px;gap:10px;border-radius:10px;
+  align-items:center;font-size:12.5px;line-height:1.55;
+}
+.remind-ico{font-size:13px;color:var(--accent);}
+.remind-body{gap:1px 18px;}
+.remind-item{padding-left:10px;}
+.remind-item::before{width:3px;height:3px;top:8px;background:var(--accent);}
+.remind-go{
+  height:28px;padding:0 12px;border-radius:7px;border:1px solid var(--accent);
+  background:var(--accent);color:#fff;font-size:12px;font-weight:600;
+}
+.remind-go:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
+.remind-x{font-size:11.5px;color:var(--muted);padding:0 4px;}
+.remind-x:hover{color:var(--text);}
+
+/* 4. 待办行 + 顶栏右侧动作 */
+.task-list{gap:8px;}
+.task-row{border-radius:10px;padding:10px 14px;box-shadow:none;}
+.task-row:hover{border-color:var(--line-strong);}
+:root[data-layout="top"] .side-foot{
+  padding-left:14px;gap:2px;
+  border-left:1px solid var(--line);
+}
+:root[data-layout="top"] .side-foot .link-btn{
+  height:28px;padding:0 10px;border-radius:8px;font-size:12.5px;
+  border:1px solid transparent;color:var(--muted);
+}
+:root[data-layout="top"] .side-foot .link-btn:hover{
+  background:var(--surface-2);border-color:var(--line);color:var(--text);
+}
+
+/* 侧栏加宽后：导航项与分组标题同步放大一档（272px 有空间） */
+:root[data-layout="wide"] .nav-item{height:32px;font-size:14px;padding:0 10px;}
+:root[data-layout="wide"] .brand-text b{font-size:16px;}
+:root[data-layout="wide"] .side-user{margin-top:6px;}
+
+/* ===== 6. 宽布局的两处硬编码覆盖（app.css 里写死了主色与 max-width:none） ===== */
+:root[data-layout="wide"] .nav-item.active{
+  background:var(--side-active-bg);color:var(--side-active-text);
+  font-weight:600;box-shadow:none;
+}
+:root[data-layout="wide"] .nav-item.active svg{opacity:1;}
+/* 宽布局：主列填满可用宽度（陛下要求「填满屏幕」，不做居中留白） */
+:root[data-layout="wide"] .main{
+  width:100%;max-width:none;margin:0;padding:20px 28px 32px;
+}
+
+/* 主列填满后：网格允许更多列，避免每行只有两张大卡显得空 */
+.habit-grid{grid-auto-rows:minmax(0,auto);}
+
+/* ===== 7. 常驻卡列数：随屏宽递增，避免在大屏上被拉成两张巨卡 ===== */
+.habit-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+.habit-card,.vital-card{grid-column:auto;}
+@media (min-width:1200px){.habit-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media (min-width:1700px){.habit-grid{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media (max-width:720px){.habit-grid{grid-template-columns:1fr;}}
+
+/* ===== 7b. 今日打卡真正用的容器是 .vital-grid（写死两列），按屏宽放开 ===== */
+.vital-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+@media (min-width:1200px){.vital-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media (min-width:1700px){.vital-grid{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media (max-width:720px){.vital-grid{grid-template-columns:1fr;}}
+
+/* ============================================================
+   P1 · 非常驻习惯卡 v2（常驻五项独立维护，本节不影响 vitalCard）
+   ------------------------------------------------------------
+   语法照对标站：身份色顶条 → 标题行 → 七日条 → 副行 → 未完成 | 完成
+   ============================================================ */
+
+/* ---- 卡片外壳与身份色 ---- */
+.habit-card.hcard-v2{
+  position:relative;display:flex;flex-direction:column;overflow:hidden;
+  padding:19px 16px 14px;border-radius:12px;
+}
+.habit-card.hcard-v2::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--hc,#2f6f5e);
+}
+[data-theme="dark"] .habit-card.hcard-v2::before{
+  background:color-mix(in srgb,var(--hc,#2f6f5e) 70%,#ffffff);
+}
+/* P1 那条「最后一块贴底 + 发丝线」是给常驻卡动作区写的，
+   v2 的最后一个子元素通常是备注，这里整条撤销 */
+.habit-card.hcard-v2 > *:last-child{margin-top:0;padding-top:0;border-top:0;}
+
+/* ---- 标题行 ---- */
+.hcard-v2 .habit-head{align-items:flex-start;gap:8px;}
+.hcard-v2 .hc-dot{
+  width:7px;height:7px;border-radius:50%;flex:none;margin-top:8px;
+  background:var(--hc,#2f6f5e);
+}
+[data-theme="dark"] .hcard-v2 .hc-dot{
+  background:color-mix(in srgb,var(--hc,#2f6f5e) 70%,#ffffff);
+}
+.hcard-v2 .habit-title b{font-size:15px;font-weight:600;line-height:1.35;letter-spacing:-.01em;}
+.hcard-v2 .habit-title small{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  margin-top:4px;font-size:11.5px;line-height:1.4;color:var(--muted);
+}
+.hcard-v2 .habit-kind{
+  display:inline-flex;align-items:center;height:16px;padding:0 5px;margin-right:0;
+  border-radius:4px;border:1px solid var(--line);background:var(--surface-2);
+  font-size:9.5px;font-weight:600;letter-spacing:.05em;color:var(--muted);flex:none;
+}
+.hcard-v2 .habit-kind.quit{
+  color:var(--red-ink);
+  border-color:color-mix(in srgb,var(--red) 30%,var(--line));
+  background:color-mix(in srgb,var(--red-wash) 55%,var(--surface));
+}
+.hc-sep{color:var(--line);flex:none;}
+.hc-pace,.hc-weekn{white-space:nowrap;}
+
+/* 右上状态：红只给「还没做完」 */
+.hcard-v2 .habit-state{
+  flex:none;display:inline-flex;align-items:center;height:20px;padding:0 7px;
+  border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap;
+  transition:background-color .18s ease,color .18s ease;
+}
+.hcard-v2 .habit-state.wait,
+.hcard-v2 .habit-state.bad{background:var(--red-wash);color:var(--red-ink);}
+.hcard-v2 .habit-state.ok{background:var(--surface-2);color:var(--muted);}
+
+/* ---- 七日条：周一起，7 等分铺满 ---- */
+/* app.css 里 .habit-week 带 margin-left:auto（旧卡片靠它右对齐），
+   在纵向 flex 里 auto 外边距会压掉 stretch，容器宽度变成 max-content，
+   七列就缩成 7×24px 挤在中间。这里显式还原成满宽栅格。 */
+.hcard-v2 .habit-week{
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  width:100%;margin:16px 0 0;gap:0;
+}
+.hcard-v2 .hw-cell{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  min-width:0;width:auto;
+}
+.hcard-v2 .hw-cell b{font-size:10.5px;font-weight:600;line-height:1;color:var(--muted);}
+.hcard-v2 .hw-cell i{
+  display:grid;place-items:center;width:24px;height:24px;border-radius:50%;
+  border:1.5px solid var(--line);background:transparent;color:var(--surface);
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease;
+}
+.hcard-v2 .hw-cell i svg{
+  width:11px;height:11px;fill:none;stroke:currentColor;
+  stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
+}
+.hcard-v2 .hw-cell.is-done i{background:var(--text);border-color:var(--text);color:var(--surface);}
+.hcard-v2 .hw-cell.is-part i{
+  border-color:var(--text);
+  background:linear-gradient(180deg,transparent 50%,var(--text) 50%);
+}
+.hcard-v2 .hw-cell.is-fail i{border-color:var(--red);background:var(--red-wash);color:var(--red-ink);}
+.hcard-v2 .hw-cell.is-today b{color:var(--text);font-weight:700;}
+.hcard-v2 .hw-cell.is-today i{box-shadow:0 0 0 3px color-mix(in srgb,var(--red-wash) 70%,transparent);}
+.hcard-v2 .hw-cell.is-today:not(.is-done):not(.is-fail):not(.is-part) i{
+  border-color:var(--red);border-width:2px;
+}
+.hcard-v2 .hw-cell.is-future{opacity:.42;}
+
+/* ---- 副行 ---- */
+.hcard-v2 .habit-sub{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-top:13px;margin-bottom:14px;
+}
+.hcard-v2 .hc-streak{
+  margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap;
+}
+.hcard-v2 .hc-streak b{
+  font-size:17px;font-weight:700;color:var(--text);
+  font-variant-numeric:tabular-nums;margin:0 2px;
+}
+.hcard-v2 .hc-streak i{font-style:normal;color:var(--line);margin:0 5px;}
+
+/* 多目标点阵 */
+.hcard-v2 .hc-pips{display:flex;align-items:center;gap:8px;}
+.hcard-v2 .hc-pips .pips{display:flex;gap:5px;flex-wrap:wrap;}
+.hcard-v2 .hc-pips .pip{
+  width:15px;height:15px;border-radius:4px;border:1.5px solid var(--line);background:transparent;
+  transition:background-color .15s ease,border-color .15s ease,transform .1s ease;
+}
+.hcard-v2 .hc-pips .pip:hover{border-color:var(--muted);}
+.hcard-v2 .hc-pips .pip:active{transform:scale(.9);}
+.hcard-v2 .hc-pips .pip.on{background:var(--text);border-color:var(--text);}
+.hcard-v2 .hc-pipn{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.hcard-v2 .hc-pipn b{color:var(--text);font-size:13px;font-weight:700;}
+
+/* 戒除：今日得失 */
+.hcard-v2 .hc-tally{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);}
+.hcard-v2 .hc-tally b{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;}
+.hcard-v2 .hc-tally.ok::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--text);flex:none;
+}
+.hcard-v2 .hc-tally.bad{color:var(--red-ink);}
+.hcard-v2 .hc-tally.bad b{color:var(--red-ink);}
+.hcard-v2 .hc-dots{display:inline-flex;align-items:center;gap:3px;}
+.hcard-v2 .hc-dots i{width:5px;height:5px;border-radius:50%;background:var(--red);display:block;}
+.hcard-v2 .hc-dots em{font-style:normal;font-size:10.5px;margin-left:2px;}
+
+/* ---- 动作行：未完成在左、完成在右 ---- */
+.hcard-v2 .hc-acts{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin-top:auto;padding-top:12px;border-top:1px solid var(--line);
+}
+.hcard-v2 .hc-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:34px;border-radius:8px;border:1px solid var(--line);
+  font-size:13px;font-weight:600;letter-spacing:.01em;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .1s ease;
+}
+.hcard-v2 .hc-btn svg{
+  width:13px;height:13px;fill:none;stroke:currentColor;
+  stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;
+}
+.hcard-v2 .hc-btn:active{transform:translateY(1px);}
+.hcard-v2 .hc-btn.no{background:transparent;color:var(--muted);font-weight:500;}
+.hcard-v2 .hc-btn.no:hover,
+.hcard-v2 .hc-btn.no.on{border-color:var(--red);color:var(--red-ink);background:var(--red-wash);}
+.hcard-v2 .hc-btn.no.on{font-weight:600;}
+.hcard-v2 .hc-btn.yes{background:var(--surface-2);color:var(--text);}
+.hcard-v2 .hc-btn.yes:hover{border-color:var(--track);background:var(--surface);}
+.hcard-v2 .hc-btn.yes.on{background:var(--text);border-color:var(--text);color:var(--surface);}
+/* 深色下 --text 接近纯白，实心块会变成整页最亮的东西（一屏四块）。
+   改成「浅灰蓝填充」：仍然是唯一的实心按钮，但不再抢视线的第一落点。 */
+[data-theme="dark"] .hcard-v2 .hc-btn.yes.on{
+  background:color-mix(in srgb,var(--text) 15%,var(--surface));
+  border-color:color-mix(in srgb,var(--text) 26%,var(--surface));
+  color:var(--text);
+}
+
+/* 旧骨架里的旧主按钮过渡继续保留（常驻卡片在用） */
+.habit-done{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease;}
+.habit-done:active{transform:translateY(1px);}
+.quit-add{transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease;}
+.quit-add:active{transform:translateY(1px);}
+
+/* 旧骨架的多目标点阵（用药等仍走这一条）：完成态用墨色，红只留给未完成/逾期 */
+.habit-card .habit-pips-row .pip.on{background:var(--text);border-color:var(--text);}

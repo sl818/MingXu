@@ -17,6 +17,7 @@ backups/
 # 非项目代码
 beifen-dsh/
 .workbuddy/
+.impeccable/
 
 # 系统文件
 .DS_Store

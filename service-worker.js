@@ -1,18 +1,14 @@
 /* 明序 PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v134';
+const CACHE = 'lifeboard-shell-v144';
 /* 带 ?v= 的资源：HTML 里也是同一个版本串，发版时一起改 */
-const VER = 'v134';
+const VER = 'v144';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './assets/app.css?v=' + VER,
-  './themes/themes.css?v=' + VER,
-  './themes/custom.css?v=' + VER,
-  './themes/skin-cloud.css?v=' + VER,
-  './themes/skin-neu.css?v=' + VER,
-  './themes/skin-retro.css?v=' + VER,
+  './assets/theme-v2.css?v=' + VER,
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png'

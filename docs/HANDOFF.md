@@ -2,15 +2,16 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v119（2026-11-19）
+最后更新：v144（2026-11-22）
 
 ---
 
 ## 一句话状态
 
-已上线稳定运行。十二个页面 + 两布局 + 六套皮肤 + 云端账号 + 历史版本 + 日历订阅 + 手机推送，
-全部验证通过；v119 新增 QQ 邮箱 SMTP 发信（配置页表单 + 四个接口 + 授权码加密存储）。
-技术债集中在「主文件 14,669 行 + 外置 CSS 4,078 行、CSS 按版本分六层叠补丁」和「备份未异地」两处，不影响使用。
+已上线稳定运行。十二个页面 + 两布局 + 单一主题（浅/深） + 云端账号 + 历史版本 + 日历订阅 + 手机推送。
+**v135 起六套皮肤全部下线，改为唯一主题**：暖纸底 / 白卡 / 一支红，样式层拆成
+`app.css`（骨架与组件，未改）+ `assets/theme-v2.css`（令牌与笔触）。
+技术债集中在「主文件 15,487 行单文件」和「备份未异地」两处，不影响使用。
 
 ---
 
@@ -19,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v134（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v134'`） |
+| 代码版本 | v144（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v144'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -160,6 +161,17 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v134 | 11-21 | **修统计页三个死键（11-20 自检 P1-1）**。区间切换 / 时间线展开 / 戒烟分析折叠的处理器键被误写成 `statk-*`，与渲染的 `stats-*` 不匹配，事件分发 `if (fn)` 静默跳过——点了没反应，且 `statsRange` 恒为 30 天（想按 7/90 天复盘，看到的仍是 30 天的数，无任何提示）。修复：三键改名 `set-statk-range`→`set-stats-range`、`statk-log-toggle`→`stats-log-toggle`、`statk-quit-fold`→`stats-quit-fold`；删除 `statk-habit-tab`/`statk-med-tab` 两条冗余备份（stats- 版本就正常工作）。新增 `e2e/verify-stats-controls.py`：12 项真浏览器点击断言（区间 30→7→90 + 高亮、时间线先切「时间线」tab 再展开 5→8 行、戒烟展开/收起往返）。`_check_script.mjs` 的 `missing handlers` 归零。全量回归通过（28+35+44+51+60+20+9+33）。SW → v134 |
 
 
+| v135 | 11-21 | **六套皮肤下线，换单一主题（P0）**。①新增 `assets/theme-v2.css`：浅/深两套令牌 + 骨架 + 组件笔触，`app.css` 一行未动（回滚只需删一个文件）。②`index.html` 删 `SKINS` 数组、5 个主题 `<link>`、`data-skin`、`set-skin`、按时钟判断的 `autoTheme`/`refreshAutoTheme` 死代码；设置页「主题」改「外观」，只留浅/深两键。③删 `themes/` 下 5 个样式文件与 `_template.css`，README 改写为废弃说明。④`make_release.py` 清单同步。回滚 tag `theme-v2-base`。SW → v135 |
+| v136 | 11-21 | **修上线即暴露的严重缺陷：顶栏排版下导航全丢**。给侧栏写的裸类名 `.sidebar{width:218px}` 同时命中了横排顶栏，把 12 个导航项挤出视口。修法：侧栏规则全部加 `:root[data-layout="wide"]` 前缀，顶栏另写 46px 通栏。顺带收口提醒条/安装条（原为 `--gold` 混色，读起来像未样式化）与侧栏底部三个裸按钮。SW → v136 |
+| v137 | 11-21 | **P1 第一批：常驻卡 + 今日页**。①常驻卡改纵向 flex，动作区贴底并加发丝线（卡片等高时留白读成呼吸而不是洞）。②**修实质缺陷**：本周七日条的柱色是 28% 透明白，那是为深绿 hero 写的，换白卡后等于隐形 → 改轨道色 + 今天标红。③提醒条「去查看」改红实心胶囊，三个红点合并成一个。④待办行圆角 14→10、去阴影。SW → v137 |
+| v138 | 11-21 | **侧栏对齐对标站**。实测对标站侧栏 ≈275 CSS px，本项目 218，差 26%。改为 272px，主区同步 1210→1120。顺带压掉 `app.css` 两处硬编码：`wide` 布局下 `.nav-item.active{background:var(--accent)}`（整条红底，违反「浅红晕 + 红字」）与 `.main{max-width:none}`。SW → v138 |
+| v139 | 11-22 | **主列恢复填满 + 卡列数阶梯**。v138 把 `max-width:none` 当硬编码改成 1120，反而造成居中留白，已恢复。**根因修正**：今日打卡的容器是 `.vital-grid`（写死两列），不是一直改的 `.habit-grid` ——改为 <720 一列 / 720–1199 两列 / 1200–1699 三列 / ≥1700 四列。SW → v139 |
+| v140 | 11-22 | 非常驻习惯卡重做（第一版）：卡面加「养成 / 戒除」徽标、七日条改「一天一个字 + 一个圆」、连续天数移到周条右侧。**踩坑**：新 CSS 写了 `var(--ink)` / `var(--red)` / `var(--red-wash)`，但项目里叫 `--text` / `--accent` / `--accent-soft`，CSS 变量写错不报错、整条声明静默失效（圆点全空）。SW → v140 |
+| v141 | 11-22 | 补语义别名（`--ink` / `--red` / `--red-ink` / `--red-wash` → 真实变量），两套名字都能用；多目标点阵完成态改墨色。SW → v141 |
+| v142 | 11-22 | **非常驻习惯卡 v2 落地**。①入口分流 `habitCard`：`!compact && !isSmoke && !h.med` 走 `habitCardV2`，常驻五项继续旧骨架（两套设计互不影响）。②顶部 3px 身份色条 + 同色圆点（深色按 70% 混白提亮）。③周条改**自然周（周一→周日）** 7 等分栅格——旧实现是「滚动最近 7 天」，周日排第一且位置每天在动。④动作改「未完成（左）+ 完成（右）」带撤销，取消跳过。⑤**新增顶层字段 `state.skips`**（`{日期:{习惯id:1}}`，明确记为未完成）：`setCount(0)` 会删键，`checks` 存不住 0 这个判断；按规矩改 `normalizeState` / `mergeStates`，`repairBackup` 靠未知键兜底。`e2e/test-merge.mjs` 7→10 条。SW → v142 |
+| v143 | 11-22 | **修「一张卡讲两套话」**。线上实测 4 张戒除卡同时显示「本周 7/7」「连续 29 天」「七个空圈」「今日待打卡」——因为 `habitWeekDone` 读 `met()`（戒除没失守即达标），圈与徽标读「有没有显式记录」。修法：新增 `habitDayMark(h,ds,d)` 返回 `done|fail|part|none|future`，周条 / 本周计数 / 徽标全部只认它。戒除规则钉死为「没记失守 = 守住」且 `ds < quitStartDay(h)` 之前算还没开始（这是 v79 起的既有语义，也是连续天数的来源）；`habit-ok` 的戒除分支改为只撤销失守，不再写 `r` 事件。SW → v143 |
+| v144 | 11-22 | **深色两处失衡修正**。①`完成` 在已完成态本是 `--text` 实心 → 深色下等于纯白块（实测 `rgb(241,245,249)`），一屏四块成为最亮的东西；改 `color-mix(in srgb, var(--text) 15%, var(--surface))` 浅灰蓝填充。②只靠填充区分两态不够——点错会撤销记录，是有代价的操作，文案改为 `完成 / 已完成`（与右上徽标同词）。SW → v144 |
+
 ### 两次值得记住的事故
 
 **v31 库存错乱（10-27）**
@@ -181,6 +193,36 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 
 ---
 
+## 主题 v2 现状（接手必读）
+
+六套皮肤已全部删除，现在是**一套主题、明暗两态**。理解这套东西只需要四件事：
+
+| 层 | 文件 | 谁该改 |
+|---|---|---|
+| 骨架与组件 | `assets/app.css`（3,704 行，v135 后未动） | 结构与基础样式 |
+| 令牌与笔触 | `assets/theme-v2.css`（603 行） | **所有配色、字号、圆角、组件外观都改这里** |
+| 规范 | `DESIGN.md`（未入库，330 行） | 令牌来源、Do/Don't、双布局骨架 |
+| 实施记录 | `docs/THEME-V2-PLAN.md` 第 5 节 | 每一版做了什么、踩了什么坑 |
+
+**两条分层纪律**：
+
+1. 覆盖 `#main` / `#nav` 的宽高边距必须带 id（`#main{max-width}` 是 (1,2,0)，类选择器打不过）；
+2. `themes/*.css` 已不存在，皮肤相关判断全部作废；`app.css` 里遗留的 `:root[data-skin=...]` 是死代码，待清。
+
+**核心令牌（浅 / 深）**：纸底 `#fbf3e7` / `#0f172a`；卡面 `#ffffff` / `#1e293b`；
+墨 `#2b2013` / `#f1f5f9`；红笔（填充）`#dc2626` 两套不变；红字 `#c62828` / `#f87171`。
+
+**两条语义规则**（改卡面时必须遵守）：
+
+- **红 = 还没做完**。红只落在数值、未完成的进度段、主操作上；已完成一律中性。
+- **两张卡是两套设计**：常驻五项（喝水 / 戒烟 / 运动 / 478 / 用药）走 `vitalCard` 与各自模块卡，
+  **结构冻结**；其他习惯走 `habitCardV2`。改一边不许波及另一边。
+
+**习惯卡的判定只准用一个函数**：`habitDayMark(h, ds, d)`。周条的圈、本周 N/7、右上徽标全部读它。
+v142 曾出现「本周 7/7 + 七个空圈 + 今日待打卡」并存，根因就是两处各算一套。
+
+---
+
 ## 测试现状
 
 | 层 | 工具 | 规模 |
@@ -188,6 +230,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | 后端逻辑 | `e2e/test-{ics,schedule,push,push-tick,backup}.php` | 47 / 57 / 28 / 39 / 快照 |
 | 后端 HTTP | `e2e/verify-api-http.py` | 33 项 |
 | 前后端等价 | `e2e/verify-ics-subscribe.py` | 9 项 |
+| 状态合并（纯 node，无需浏览器） | `e2e/test-merge.mjs` | 10 项（含 v142 新增的 `skips` 两条） |
 | 前端 E2E | `regression-v3` / `verify-v15` / `verify-mobile-nav` / `verify-batch2~4` | 40 / 44 / 44 / 51 / 60 / 20 |
 | 单功能 | `verify-{ics-ui,push-ui,trend-v41,summary-v42,cmd-v43,stockcheck-v40}` | 各 24–43 项 |
 | 日历重构 | `verify-calendar-v47.py` | 48 项（月视图待办 / 周视图时间线 / 布局重排 / 手机适配） |
@@ -216,9 +259,10 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 
 ### 技术债（不影响功能）
 
-1. **`index.html` 拆分** —— 17,772 行 / 约 880 KB 单文件。**已经评估过，结论记在
+1. **`index.html` 拆分** —— 15,487 行单文件。**已经评估过，结论记在
    [REFACTOR-PLAN.md](REFACTOR-PLAN.md)**：先抽 CSS，再考虑 JS 分文件，不做 ES 模块化。
-   真正急的不是「文件大」，是 CSS 按版本分六层、166 个选择器重复定义。
+   CSS 已从「六层叠补丁」收到两层（`app.css` 骨架 + `theme-v2.css` 令牌与笔触），
+   下一步是清 `app.css` 里已失效的 `:root[data-skin=...]` 死代码。
 2. **备份异地** —— `backups/` 和应用同机，整机故障会一起丢。建议加对象存储同步。
 3. **数据库定时备份** —— 宝塔里配 mysqldump，与应用层快照双保险。
 
@@ -235,7 +279,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 
 1. **先读 [ARCHITECTURE.md](ARCHITECTURE.md) 的四条不变量**，尤其「改前端必须推进 SW 缓存名」。
 2. **改代码前先 `git log` 看最近的提交**，很多决定在 commit message 里写了为什么。
-3. **`index.html` 是 CRLF**，用脚本改必须 `newline=''`（详见 ARCHITECTURE 不变量 4）。
+3. **v116 起全仓 LF**，用脚本改仍要 `io.open(..., newline='')`（详见 ARCHITECTURE 不变量 4；旧「CRLF」约定已作废）。
 4. **加字段要同步四处**：`normalizeState` / `mergeStates` / `ics.php` + `buildICS` / `schedule.php`。
 5. **交付前自检**：`node _check_script.mjs` → 相关 e2e → 推进 SW → 打包。
 6. **涉及部署命令时**，把「要不要跑 SQL」「要不要改 cron」讲清楚，
