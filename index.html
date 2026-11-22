@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=151">
+<link rel="stylesheet" href="assets/app.css?v=152">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=151">
+<link rel="stylesheet" href="assets/theme-v2.css?v=152">
 </head>
 <body>
 <div class="app landing">
@@ -1680,7 +1680,7 @@
           '<p class="hint" style="margin:0 0 14px">如果这个邮箱注册过，你会收到一封带重置链接的邮件。' +
           '没收到先看垃圾箱；同一邮箱 5 分钟内只能申请一次。</p>' +
           '<div class="modal-actions"><span class="spacer"></span>' +
-            '<button type="button" class="btn primary" data-act="close-modal">知道了</button>' +
+            '<button type="button" class="btn" data-act="close-modal">知道了</button>' +
           '</div>' +
         '</div>');
     } catch (e) {
@@ -1702,7 +1702,7 @@
         '<p class="hint cloud-error" style="color:var(--bad);min-height:18px"></p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">稍后</button>' +
-          '<button type="submit" class="btn primary">保存新密码</button>' +
+          '<button type="submit" class="btn new">保存新密码</button>' +
         '</div>' +
       '</form>');
   }
@@ -2006,7 +2006,7 @@
         '<p class="hint">角色：' + (isAdmin ? '管理员' : '普通用户') + '。改邮箱后，下次登录要用新邮箱。</p>' +
         '<p class="hint profile-error" style="color:var(--bad);min-height:18px"></p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="profile-save">保存资料</button>' +
+          '<button type="button" class="btn new" data-act="profile-save">保存资料</button>' +
         '</div>' +
         '<h4 style="font-size:14px;margin:22px 0 10px">修改密码</h4>' +
         '<label class="field"><span>当前密码</span><input name="current_password" type="password" maxlength="200" autocomplete="current-password"></label>' +
@@ -2125,7 +2125,7 @@
             '<label class="field wide"><span>站点名称</span><input name="site_name" maxlength="40" value="' + esc(settings.site_name || '明序') + '"></label>' +
           '</div>' +
           '<p class="hint cloud-error" style="color:var(--bad)"></p>' +
-          '<div class="btn-row"><button class="btn primary sm" type="submit">保存设置</button></div>' +
+          '<div class="btn-row"><button class="btn new sm" type="submit">保存设置</button></div>' +
         '</form>' +
       '</div>' +
       '<div class="panel" style="margin:0"><h3>用户（' + users.length + '）</h3>' +
@@ -2298,7 +2298,7 @@
         '<p class="hint" style="margin:0 0 14px">每次保存、清空、恢复前都会留一份快照；最近 20 版 / 30 天。</p>' +
         '<div id="history-list"><div class="empty-box">加载中…</div></div>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
+          '<button type="button" class="btn" data-act="close-modal">关闭</button>' +
         '</div>' +
       '</div>');
     await loadHistoryList();
@@ -2360,7 +2360,7 @@
           '</div>' +
         '</div>');
     } catch (e) {
-      openModal('<div class="modal-card"><h3>历史版本</h3><p class="hint" style="color:var(--bad)">' + esc(e.message || '加载失败') + '</p><div class="modal-actions"><span class="spacer"></span><button type="button" class="btn primary" data-act="close-modal">关闭</button></div></div>');
+      openModal('<div class="modal-card"><h3>历史版本</h3><p class="hint" style="color:var(--bad)">' + esc(e.message || '加载失败') + '</p><div class="modal-actions"><span class="spacer"></span><button type="button" class="btn" data-act="close-modal">关闭</button></div></div>');
     }
   }
 
@@ -3107,7 +3107,7 @@
         '如果你有几天没记录、或者多买了一盒，推算值就会慢慢偏离实际。' +
         '盘一次等于校准，比让它一直错下去强。</p>' +
         '<div class="btn-row">' +
-          '<button class="btn primary" data-act="stock-check-save">保存盘点</button>' +
+          '<button class="btn new" data-act="stock-check-save">保存盘点</button>' +
           '<button class="btn" data-act="close-modal">取消</button>' +
         '</div>' +
       '</div>'
@@ -6599,7 +6599,7 @@
         '同一天别安排太多提醒——企业微信同一分钟超过 20 条会静默丢弃。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -7816,7 +7816,7 @@
       '<p class="hint">时间用来分清同一天买的两包。这包从什么时候开始算，要等上一包抽完——没抽完就先算库存。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -7925,7 +7925,7 @@
       '<p class="hint">默认是最后一条记录的时刻。如果当时是补记的，这里填真实抽完的时间。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -8034,7 +8034,7 @@
           '完成度低也不代表失败——真正有用的是「这个月比上个月好一点」。</div>' +
 
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="close-modal">知道了</button></div>' +
+          '<button type="button" class="btn" data-act="close-modal">知道了</button></div>' +
       '</div>'
     );
   }
@@ -8872,7 +8872,7 @@
       '<p class="hint">填税后到手的数，奖金这种不固定的不用算进来。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -8913,7 +8913,7 @@
       '</div>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -9024,7 +9024,7 @@
       '<p class="hint">这笔钱在那个月会全部砸向当时排在最前面的债，不改变每月额度。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -9396,7 +9396,7 @@
         '</div>' +
 
         '<div class="modal-actions"><span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="close-modal">知道了</button></div>' +
+          '<button type="button" class="btn" data-act="close-modal">知道了</button></div>' +
       '</div>'
     );
   }
@@ -9454,7 +9454,7 @@
         '利息按 余额 × 年化 ÷ 12 估算，跟银行实际账单会有几分钱误差，以账单为准。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
   }
 
@@ -10892,7 +10892,7 @@
         (editing ? '' : ' readonly') + '>' +
       '<div class="btn-row">' +
         (editing
-          ? '<button class="btn primary" data-act="push-save">保存</button>' +
+          ? '<button class="btn new" data-act="push-save">保存</button>' +
             (hook ? '<button class="btn ghost" data-act="push-cancel">取消</button>' : '')
           : '<button class="btn primary" data-act="push-edit">修改链接</button>' +
             '<button class="btn" data-act="push-test">发一条测试</button>' +
@@ -11103,7 +11103,7 @@
       '</div>' +
       '<div id="sm-result" class="mail-result" hidden></div>' +
       '<div class="btn-row">' +
-        '<button type="button" class="btn primary" data-act="site-mail-save">保存</button>' +
+        '<button type="button" class="btn new" data-act="site-mail-save">保存</button>' +
         '<button type="button" class="btn" data-act="site-mail-test">发一封测试</button>' +
       '</div>' +
       '<p class="ics-hint">发件人会显示成「称呼 &lt;邮箱&gt;」。测试信只发到管理员自己的邮箱。</p>' +
@@ -11234,7 +11234,7 @@
           '<label class="mx-time"><span>小结</span><input type="time" id="mx-rep-evening" value="' + esc(notifyReport.evening) + '"></label>' +
         '</div>' +
       '</div>' +
-      '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通知设置</button></div>' +
+      '<div class="btn-row"><button type="button" class="btn new" data-act="notify-save">保存通知设置</button></div>' +
       '</div>';
   }
 
@@ -11559,7 +11559,7 @@
       '<div class="notice-warn">同一分钟超过 20 条企业微信会静默丢弃，多条通知请把时间错开 5 分钟以上。</div>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
         '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-        '<button type="submit" class="btn primary">保存</button></div>' +
+        '<button type="submit" class="btn new">保存</button></div>' +
     '</form>');
 
     const form = document.getElementById('notice-form');
@@ -12147,7 +12147,7 @@
         '<div class="modal-actions">' +
           (list.length ? '<button type="button" class="btn ghost" data-act="archive-clear">清空归档</button>' : '') +
           '<span class="spacer"></span>' +
-          '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
+          '<button type="button" class="btn" data-act="close-modal">关闭</button>' +
         '</div>' +
       '</div>');
   }
@@ -12705,7 +12705,7 @@
           (isNew ? '' : '<button type="button" class="btn danger" data-act="task-del" data-id="' + t.id + '">删除</button>') +
           '<span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存</button>' +
+          '<button type="submit" class="btn new">保存</button>' +
         '</div>' +
       '</form>');
 
@@ -12778,7 +12778,7 @@
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存</button>' +
+          '<button type="submit" class="btn new">保存</button>' +
         '</div>' +
       '</form>');
   }
@@ -12863,7 +12863,7 @@
         '<p class="hint">只记录医生给你的方案；应用不提供剂量建议。剂量单位默认与剂型一致，可单独调整；选择「按需」时无需填次数与时间。</p>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存</button>' +
+          '<button type="submit" class="btn new">保存</button>' +
         '</div>' +
       '</form>');
   }
@@ -12942,7 +12942,7 @@
         '<div class="form-error"></div>' +
         '<div class="modal-actions"><span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存档案</button>' +
+          '<button type="submit" class="btn new">保存档案</button>' +
         '</div>' +
       '</form>');
   }
@@ -13012,7 +13012,7 @@
           (rec ? '<button type="button" class="btn danger" data-act="weight-del" data-id="' + rec.id + '">删除</button>' : '') +
           '<span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存</button>' +
+          '<button type="submit" class="btn new">保存</button>' +
         '</div>' +
       '</form>');
   }
@@ -13101,7 +13101,7 @@
           (essay ? '<button type="button" class="btn danger" data-act="essay-del" data-id="' + essay.id + '">删除</button>' : '') +
           '<span class="spacer"></span>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
-          '<button type="submit" class="btn primary">保存</button>' +
+          '<button type="submit" class="btn new">保存</button>' +
         '</div>' +
       '</form>');
   }
@@ -13160,7 +13160,7 @@
           '<li><b>账号</b>：邀请码注册；登录后数据同步到你的服务器，未登录只能看到介绍页。</li>' +
         '</ul>' +
         '<p class="hint">小建议：先只跟踪 2–3 个习惯，坚持一周后再加新的。</p>' +
-        '<div class="modal-actions"><span class="spacer"></span><button type="button" class="btn primary" data-act="close-modal">知道了</button></div>' +
+        '<div class="modal-actions"><span class="spacer"></span><button type="button" class="btn" data-act="close-modal">知道了</button></div>' +
       '</div>');
   }
 
@@ -14150,7 +14150,7 @@
             titles.map(t => '<li>' + esc(t) + '</li>').join('') +
           '</ul>' +
           '<div class="modal-actions"><span class="spacer"></span>' +
-            '<button type="button" class="btn primary" data-act="close-modal">关闭</button>' +
+            '<button type="button" class="btn" data-act="close-modal">关闭</button>' +
           '</div>' +
         '</div>');
     },
@@ -15495,7 +15495,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=151', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=152', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
