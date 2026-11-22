@@ -1072,6 +1072,60 @@ body{
 .board-tools .tag-chip:hover{border-color:var(--line-strong);color:var(--text);}
 .board-tools .tag-chip.active:hover{color:var(--text);}
 
+/* ============================================================
+   P2 · 第四页：清债（总览 / 债务 / 计划）
+   清债一直没被 v2 主题改造过：app.css 里进度条是红的、选中态是红晕、
+   汇总格是「卡中卡」。这里统一下笔——红只留给「逾期、删除」这类警告，
+   进度、选中态、趋势曲线回到墨色；面板内的卡中卡改数值带 / 凹陷底。
+   ============================================================ */
+
+/* --- 总览 hero --- */
+.money-hero small{font-size:10.5px;font-weight:700;letter-spacing:.1em;}
+.mh-big{font-family:var(--font-sans);font-weight:700;letter-spacing:-.025em;}
+/* 进度是中性信息，不是警告：红 → 墨 */
+.mhc-bar{height:6px;border-radius:99px;background:var(--track);}
+.mhc-bar i{background:var(--text);border-radius:99px;}
+
+/* 三格 KPI：卡中卡 → 一条数值带（上下发丝线 + 竖分隔） */
+.money-kpi{
+  grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:6px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.money-kpi span{padding:12px 12px 12px 0;font-size:10.5px;font-weight:700;letter-spacing:.06em;}
+.money-kpi span + span{border-left:1px solid var(--line);padding-left:12px;}
+.money-kpi b{font-family:var(--font-sans);font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:3px;}
+
+/* 还款顺序 */
+.mrow{padding:10px 2px;}
+.mrow-name{font-size:13px;font-weight:600;}
+.mrow-num{font-family:var(--font-sans);font-weight:700;}
+
+/* 趋势曲线：债务走势是参考，不是警告 → 墨 */
+.mc-area{fill:color-mix(in srgb,var(--text) 10%,transparent);}
+.mc-line{stroke:var(--text);stroke-width:1.8;}
+
+/* --- 债务卡 --- */
+.mdebt{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;}
+.mdebt-bar{background:var(--track);}
+.mdebt-bar i{background:var(--text);}
+.mdebt-tag{border-color:var(--line);color:var(--muted);font-weight:600;}
+.mdebt-num b{font-family:var(--font-sans);font-size:20px;font-weight:700;letter-spacing:-.02em;}
+
+/* 六格汇总：卡中卡 → 凹陷底（去描边，跟统计页 .rv-cell 同一层） */
+.mdebt-sum > div{
+  background:var(--surface-2);border:1px solid transparent;border-radius:10px;padding:11px 13px;
+}
+.mdebt-sum b{font-family:var(--font-sans);font-size:17px;font-weight:700;letter-spacing:-.02em;}
+[data-theme="dark"] .mdebt-sum > div{background:var(--surface-3);}
+
+/* --- 计划：策略卡 / 对比表选中态 红 → 墨 --- */
+.mstart{background:var(--surface);border-color:var(--line);}
+.mstart.on{border-color:var(--text);background:color-mix(in srgb,var(--text) 6%,var(--surface));}
+.mcmp-row.on{background:color-mix(in srgb,var(--text) 7%,transparent);}
+
+/* --- 逐月表 --- */
+.mtr{padding:9px 2px;}
+
 /* ---------- 3. 习惯 / 用药行：四列 ---------- */
 /* 旧行是「名 + 满宽进度条」，进度条 0% 时只剩一条横贯全宽的浅线，
    12 行看下来像 12 根空导线。改成固定列宽的四列，数值靠右对齐可纵向扫读。 */
