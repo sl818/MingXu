@@ -186,42 +186,39 @@ def main():
         chk('新增 19 条（比近 1 月多那条 9 月的）', by_label(st, '新增') == 19, str(by_label(st, '新增')))
         chk('已完成 11 条', by_label(st, '已完成') == 11, str(by_label(st, '已完成')))
 
-        print('[4] 统计页不再重复整块面板，改成总览里的一行摘要（v85）')
+        print('[4] 统计页的「待办」独立成块（v146），与看板底部同一套数字')
         go(pg, 'stats')
         st2 = stats(pg)
-        chk('统计页没有重复的任务完成度面板', st2 is None, str(st2))
-        chk('统计页也没有「任务概览」残留',
-            pg.locator('.cal-summary').count() == 0,
-            'cal-summary=%d' % pg.locator('.cal-summary').count())
+        chk('统计页有独立的待办面板', st2 is not None, str(st2)[:140])
+        chk('面板标题是「待办」',
+            (pg.locator('.task-stat h3').first.text_content() or '').strip() == '待办',
+            pg.locator('.task-stat h3').first.text_content())
+        chk('五格与看板完全一致',
+            [c['label'] for c in st2['cells']] == [c['label'] for c in st['cells']],
+            str([c['label'] for c in st2['cells']]))
+        chk('「新增」与看板一致', by_label(st2, '新增') == by_label(st, '新增'),
+            '%s vs %s' % (by_label(st2, '新增'), by_label(st, '新增')))
+        chk('「已完成」与看板一致', by_label(st2, '已完成') == by_label(st, '已完成'),
+            '%s vs %s' % (by_label(st2, '已完成'), by_label(st, '已完成')))
+        chk('达成率与看板一致', st2['rate'].split(' ')[-1].strip() == st['rate'].split(' ')[-1].strip(),
+            '%s vs %s' % (st2['rate'], st['rate']))
+        chk('总览里不再有任务摘要', pg.locator('.tk-grid').count() == 0,
+            'tk-grid=%d' % pg.locator('.tk-grid').count())
+        chk('总览只剩三个考核格', pg.locator('.stat-card').count() == 3,
+            'stat-card=%d' % pg.locator('.stat-card').count())
 
-        tk = pg.evaluate("""() => {
-            const cells = [...document.querySelectorAll('.tk-grid .rv-cell')].map(c => ({
-                label: (c.querySelector('small') || {}).textContent || '',
-                big: (c.querySelector('b') || {}).textContent || ''
-            }));
-            const bar = document.querySelector('.tk-bar');
-            const fill = bar && bar.querySelector('i');
-            const btn = document.querySelector('[data-act="more-go"][data-view="board"]');
-            return {
-                cells: cells,
-                ratio: bar && fill ? Math.round(fill.getBoundingClientRect().width /
-                    bar.getBoundingClientRect().width * 100) : -1,
-                btn: btn ? btn.textContent.trim() : ''
-            };
-        }""")
-        chk('总览里有任务摘要三格',
-            [c['label'] for c in tk['cells']] == ['新增', '已完成', '达成率'], str(tk['cells']))
-        num = lambda c: int(''.join(ch for ch in c['big'] if ch.isdigit()) or 0)
-        chk('摘要的「新增」与待办页一致', num(tk['cells'][0]) == by_label(st, '新增'),
-            '%s vs %s' % (tk['cells'][0]['big'], by_label(st, '新增')))
-        chk('摘要的「已完成」与待办页一致', num(tk['cells'][1]) == by_label(st, '已完成'),
-            '%s vs %s' % (tk['cells'][1]['big'], by_label(st, '已完成')))
-        chk('摘要的达成率与待办页一致', tk['cells'][2]['big'].strip() == st['rate'].split(' ')[-1].strip()
-            or tk['cells'][2]['big'].strip() in st['rate'],
-            '%s vs %s' % (tk['cells'][2]['big'], st['rate']))
-        chk('细进度条宽度 = 达成率 ±2', abs(tk['ratio'] - int(tk['cells'][2]['big'].replace('%', ''))) <= 2,
-            '条 %d%% vs 数字 %s' % (tk['ratio'], tk['cells'][2]['big']))
-        chk('有「看待办」跳转按钮', tk['btn'] == '看待办', tk['btn'])
+        # 共用一份 taskRange：在统计页切「全部」，看板底部也应是「全部」
+        pg.locator('.task-stat .ts-chip', has_text='全部').first.click()
+        pg.wait_for_timeout(600)
+        st3 = stats(pg)
+        go(pg, 'board')
+        st4 = stats(pg)
+        chk('统计页切到「全部」生效', st3 and st3['range'] == '全部', str(st3 and st3['range']))
+        chk('看板底部同步成「全部」（共用一份 taskRange）',
+            st4 and st4['range'] == '全部' and st4['cells'] == st3['cells'], str(st4 and st4['range']))
+        go(pg, 'stats')
+        pg.locator('.task-stat .ts-chip', has_text='近 1 月').first.click()
+        pg.wait_for_timeout(500)
 
         # ---------------- 月度小结 ----------------
         print('[5] 月度小结：计数类按完成量折算')

@@ -91,26 +91,36 @@ with sync_playwright() as p:
         pg.wait_for_timeout(2600)
     open_cal(pg)
 
-    print('[1] 右栏与布局')
+    print('[1] 布局：单列 + 底部四卡（v145）')
     chk('日历页有倒数日面板', pg.locator('.cd-panel').count() == 1)
     chk('空状态有提示', '还没有倒数日' in (pg.locator('.cd-empty').text_content() or ''))
     lay = pg.evaluate("""() => {
         const g = document.querySelector('.cal-layout');
-        const cs = getComputedStyle(g);
         const cal = document.querySelector('.cal-wrap').getBoundingClientRect();
         const head = document.querySelector('.page-head').getBoundingClientRect();
         const cd = document.querySelector('.cd-panel').getBoundingClientRect();
         const cards = document.querySelector('.cal-cards').getBoundingClientRect();
-        return {cols: cs.gridTemplateColumns, calLeft: Math.round(cal.left), headLeft: Math.round(head.left),
-                calW: Math.round(cal.width), cdW: Math.round(cd.width),
-                cdLeft: Math.round(cd.left), calRight: Math.round(cal.right),
-                cardsW: Math.round(cards.width), cardsLeft: Math.round(cards.left)};
+        const rows = [...document.querySelectorAll('.cal-cards > .cal-side-panel')].map(e => ({
+            t: e.querySelector('h3').textContent.replace(/\\s+/g, ' ').trim(),
+            top: Math.round(e.getBoundingClientRect().top),
+            w: Math.round(e.getBoundingClientRect().width)}));
+        return {cols: getComputedStyle(g).gridTemplateColumns,
+                calLeft: Math.round(cal.left), headLeft: Math.round(head.left),
+                calW: Math.round(cal.width), calBottom: Math.round(cal.bottom),
+                cdTop: Math.round(cd.top), cdW: Math.round(cd.width),
+                cardsW: Math.round(cards.width), cardsTop: Math.round(cards.top), rows};
     }""")
-    chk('宽屏是两栏', len(lay['cols'].split()) == 2, str(lay))
+    chk('主列单列（不再长出第二栏）', len(lay['cols'].split()) == 1, str(lay['cols']))
     chk('日历跟标题左对齐（不再居中）', abs(lay['calLeft'] - lay['headLeft']) <= 2, str(lay))
-    chk('倒数日在日历右侧', lay['cdLeft'] > lay['calRight'], str(lay))
-    chk('右栏约 340px', 320 <= lay['cdW'] <= 360, str(lay['cdW']))
-    chk('三张统计卡跨两栏', lay['cardsW'] > lay['calW'] + 100, str(lay))
+    chk('倒数日在日历下方', lay['cdTop'] >= lay['calBottom'], '%s / %s' % (lay['cdTop'], lay['calBottom']))
+    chk('四张卡同一行', len({r['top'] for r in lay['rows']}) == 1, str([r['top'] for r in lay['rows']]))
+    chk('卡片顺序是「倒数日 / 小结 / 心情 / 体重」',
+        [r['t'] for r in lay['rows']] == ['倒数日 ＋ 新增', '本月小结', '本月心情', '本月体重'],
+        str([r['t'] for r in lay['rows']]))
+    chk('卡片行跟日历同宽', abs(lay['cardsW'] - lay['calW']) <= 2, '%s / %s' % (lay['cardsW'], lay['calW']))
+    # 四等分再减去三道 14px 间隙，允许 ±6 的取整误差
+    chk('倒数日卡约四分之一宽',
+        abs(lay['cdW'] - (lay['calW'] - 42) / 4) <= 6, '%s / %s' % (lay['cdW'], round((lay['calW'] - 42) / 4)))
 
     print('[2] 未来目标：还剩 N 天')
     add(pg, '考研', '2026-11-20', '记得打印准考证', remind=[3, 1, 0])

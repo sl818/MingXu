@@ -129,7 +129,8 @@ with sync_playwright() as p:
             s = pg.evaluate(SCAN)
             newerr = len(errs) - before
             ok = s['ovf'] <= 1 and s['hasHead'] and s['cards'] > 0 and newerr == 0
-            rail_ok = (s['railVisible'] is (v == 'today' and layout == 'wide'))
+            # v135 起右栏整块删除（今日页也不再显示），任何页面都不该再出现
+            rail_ok = (s['railVisible'] is False)
             rec(f'[{layout}] {label}', ok and rail_ok,
                 f'横溢{s["ovf"]} 卡片{s["cards"]} 右栏{s["railVisible"]} 报错{newerr}')
             pg.screenshot(path=f'design/shots/rg-{layout}-{v}.png')

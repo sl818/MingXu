@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=144">
+<link rel="stylesheet" href="assets/app.css?v=147">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=144">
+<link rel="stylesheet" href="assets/theme-v2.css?v=147">
 </head>
 <body>
 <div class="app landing">
@@ -867,9 +867,13 @@
   let calMode = 'month';
   let calWeek = new Date();
   let statsRange = 30;
-  /* 任务完成度的范围。和 statsRange 分开存：那个是习惯完成率的天数，
-     两个面板放在不同页面，共用会互相干扰。0 = 全部。 */
+  /* 任务完成度的范围。v146 起统计页的「待办」块也用这一份：
+     同一份数据、同一块面板，两处窗口必须一致，否则翻页会看到两个数字。
+     0 = 全部。 */
   let taskRange = 30;
+  /* 统计页体重块自己的时间范围。页头的 7/30/90 管的是考核柱图与习惯/用药，
+     体重这块常常要看更长的周期，所以多一档「全部」。0 = 全部。 */
+  let statsWeightRange = 30;
   let essayTag = '';
 
   let themeMode = (function () {
@@ -5961,7 +5965,8 @@
     return st;
   }
 
-  function taskStatsPanel() {
+  function taskStatsPanel(title) {
+    const head = title || '任务完成度';
     const st = taskStats(taskRange);
     const pct = Math.round(st.rate * 100);
     const cells = [
@@ -5982,7 +5987,7 @@
       ? st.done + ' / ' + st.n + ' 条已完成' + (st.arch ? ' · 其中 ' + st.arch + ' 条已归档' : '')
       : '这个范围里还没有新建任务。';
     return '<section class="panel task-stat">' +
-      '<div class="ts-head"><h3>任务完成度</h3><div class="ts-range">' + chips + '</div></div>' +
+      '<div class="ts-head"><h3>' + head + '</h3><div class="ts-range">' + chips + '</div></div>' +
       '<div class="ts-grid">' + cells + '</div>' +
       '<div class="ts-rate">' +
         '<div class="ts-bar"><i style="width:' + pct + '%"></i></div>' +
@@ -6115,19 +6120,21 @@
       const count = isPrn(med)
         ? '按需 · ' + prn + ' 次'
         : (scheduled ? taken + ' / ' + scheduled + ' 次' : '—');
-      return '<div class="mh med-mh">' +
-        '<span class="habit-icon sm" style="--hc:#6f7f91">💊</span>' +
-        '<div class="mh-main">' +
-          '<div class="mh-top"><b>' + esc(med.name) + '</b><span>' + esc(count) + '</span></div>' +
-          '<div class="mh-bar"><i style="width:' + (isPrn(med) ? 0 : rate) + '%"></i></div>' +
-          '<small class="mh-extra">' + esc(medCourseLabel(med)) +
-            (medStockLabel(med) ? ' · ' + esc(medStockLabel(med)) : '') +
-            (status ? ' · ' + esc(status) : '') +
-          '</small>' +
-        '</div>' +
+      const extra = medCourseLabel(med) +
+        (medStockLabel(med) ? ' · ' + medStockLabel(med) : '') +
+        (status ? ' · ' + status : '');
+      /* 与习惯行同一套四列：点 / 名 / 进度 / 数值。原来是「名 + 满宽进度条」，
+         31 种药在 0% 时只剩一排横贯整块的浅线。 */
+      return '<div class="mh med-mh' + (isPrn(med) ? ' prn' : '') + '" style="--hc:#6f7f91">' +
+        '<span class="mh-dot"></span>' +
+        '<span class="mh-name"><b>' + esc(med.name) + '</b>' +
+          (extra ? '<small title="' + esc(extra) + '">' + esc(extra) + '</small>' : '') +
+        '</span>' +
+        '<span class="mh-bar"><i style="width:' + (isPrn(med) ? 0 : rate) + '%"></i></span>' +
+        '<span class="mh-val">' + esc(count) + '</span>' +
       '</div>';
     }).filter(Boolean).join('');
-    return rows || '<div class="empty-box">本月还没有用药数据。</div>';
+    return rows ? '<div class="mh-list">' + rows + '</div>' : '<div class="empty-box">本月还没有用药数据。</div>';
   }
 
   /* 本月习惯的统计口径：只算「已经过去且当天有记录」的日子，
@@ -6248,17 +6255,19 @@
     const html = rows.map(r => {
       const pct = Math.round(r.rate * 100);
       const num = isQuitLike(r.h)
-        ? '保持 ' + r.hit + ' / ' + r.total + ' 天'
-        : '达标 ' + r.hit + ' / ' + r.total + ' 天';
+        ? '保持 <b>' + r.hit + '</b> / ' + r.total + ' 天'
+        : '达标 <b>' + r.hit + '</b> / ' + r.total + ' 天';
+      /* 四列：点 / 名 / 进度 / 数值。身份色只留在那个 7px 点上——
+         原来是整条进度条上色，12 行就是 12 种颜色。 */
       return '<div class="mh" style="--hc:' + esc(r.h.color || '#2f6f5e') + '">' +
-        '<span class="habit-icon sm" style="--hc:' + esc(r.h.color || '#2f6f5e') + '">' + esc(r.h.icon || '✅') + '</span>' +
-        '<div class="mh-main">' +
-          '<div class="mh-top"><b>' + esc(r.h.name) + '</b><span>' + num + '</span></div>' +
-          '<div class="mh-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<span class="mh-dot"></span>' +
+        '<span class="mh-name"><b>' + esc(r.h.name) + '</b>' +
           (isQuitLike(r.h) && r.lapse
-            ? '<small class="mh-extra">' + (isSmoke(r.h) ? '点了 ' : '破戒 ') + r.lapse + ' 次</small>'
+            ? '<small class="warn">' + (isSmoke(r.h) ? '点了 ' : '破戒 ') + r.lapse + ' 次</small>'
             : '') +
-        '</div>' +
+        '</span>' +
+        '<span class="mh-bar"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="mh-val">' + num + '</span>' +
       '</div>';
     }).join('');
     return html || '<div class="empty-box">本月还没有习惯数据。</div>';
@@ -6536,7 +6545,7 @@
     const head = '<h3>倒数日 <button class="btn sm" data-act="cd-new">＋ 新增</button></h3>';
     const list = Array.isArray(state.countdowns) ? state.countdowns : [];
     if (!list.length) {
-      return '<div class="panel cd-panel">' + head +
+      return '<div class="panel cd-panel cal-side-panel">' + head +
         '<div class="cd-empty">还没有倒数日。<br>设一个日子，它替你数着。</div>' +
       '</div>';
     }
@@ -6555,7 +6564,7 @@
           (cdPastOpen ? '收起' : '展开全部 ' + past.length + ' 个') + '</button>';
       }
     }
-    return '<div class="panel cd-panel">' + head + '<div class="cd-list">' + html + '</div></div>';
+    return '<div class="panel cd-panel cal-side-panel">' + head + '<div class="cd-list">' + html + '</div></div>';
   }
 
   /* 提醒档位：0 就是当天。默认「当天 + 提前 3 天 + 提前 1 天」，够用又不吵。 */
@@ -6750,15 +6759,20 @@
     };
   }
 
-  /* 两个视图共用底部三卡：底部卡看的是「正在浏览的那个月」，
+  /* 两个视图共用底部卡片：底部卡看的是「正在浏览的那个月」，
      所以周视图翻到别的月份时，也要把 calMonth 跟着走（见 week-shift）。 */
   function viewCalendar() {
     const v = calMode === 'week' ? viewWeek() : viewMonth();
     const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    /* v145：倒数日从右侧 340px 窄栏搬进底部卡片行。
+       原来那一栏在日历 770px 高时只能装下 100px 的卡，右下方是一大片空纸；
+       DESIGN 也写明「任何页面都不允许长出第二列」。 */
     return v.head +
       '<div class="cal-layout">' + v.panel +
-        countdownPanelHtml() +
-        '<div class="cal-cards">' + monthOverview(y, m) + '</div>' +
+        '<div class="cal-cards">' +
+          countdownPanelHtml() +
+          monthOverview(y, m) +
+        '</div>' +
       '</div>';
   }
 
@@ -6837,6 +6851,11 @@
         '</span>' +
         '</button>';
     }
+
+    /* 末尾补齐空格子：格子是画在一层格线底色上的，行数不满 7 格时，
+       剩下的空轨道会露出底色，变成一块米色补丁（v145 实测）。 */
+    const tailPad = (7 - (offset + daysInMonth) % 7) % 7;
+    for (let i = 0; i < tailPad; i++) cells += '<div class="cal-cell blank"></div>';
 
     const avg = recorded ? Math.round(sum / recorded * 100) : 0;
 
@@ -7033,7 +7052,7 @@
       '</div>' +
       '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + cols + '</div>' +
       '<p class="hint">每天一根柱，高度 = 当天已服次数 ÷ 应服次数（只算当天有排期的药）。' +
-      '空柱表示那天没药；浅色表示低于 80%。' +
+      '空柱表示那天没药；红框表示低于 80%。' +
       (cur.sched ? '这 ' + range + ' 天共应服 ' + cur.sched + ' 次，已服 ' + cur.taken + ' 次。' : '') +
       (mom.prevPct === null || cur.pct === null ? ''
         : '括号里的环比是<b>本月已过 ' + mom.days + ' 天</b>对上月同期：本月 ' +
@@ -9501,8 +9520,6 @@
       monthDays.push(ds);
     }
     const month = rateOver(monthDays);
-    const doneTasks = state.tasks.filter(t => t.status === 'done');
-    const weekDone = doneTasks.filter(t => t.doneAt && t.doneAt >= last7[0]).length;
 
     const pct = v => v.days ? Math.round(v.rate * 100) + '%' : '—';
 
@@ -9581,8 +9598,6 @@
         '<div class="hstat-meta">' + hitText + '<span class="streak">🔥 连续 ' + habitStreak(h) + ' <i>天</i></span></div>' +
         '</div>';
     }).join('');
-
-    const doneToday = state.tasks.filter(t => t.status === 'done' && t.doneAt === todayStr()).length;
 
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const medStats = (state.meds || []).map(med => {
@@ -9696,15 +9711,8 @@
         ? (medStats || '<div class="empty-box">还没有用药记录。</div>')
         : medTrendBody(range, rangeDays));
 
-    /* 任务：原来是独立一块「任务完成度」，与待办页底部完全重复（v84 删掉了）。
-       但统计页少了任务就等于缺一角，所以在总览末尾压成一行三格 + 一条细进度条；
-       完整五格仍然只在待办页（点「看待办」过去看）。口径跟那边同一套 taskStats。 */
-    const tst = taskStats(taskRange);
-    const tkPct = Math.round(tst.rate * 100);
-    const tkRange = (TASK_RANGES.find(r => r[0] === taskRange) || [30, '近 1 月'])[1];
-
     return '' +
-      '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图灰线 = 无记录，浅色 = 未达标，实心 = 达标（≥75%）。</p></div>' +
+      '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图空白 = 无记录，红框 = 未达标，实心 = 达标（≥75%）。</p></div>' +
         '<div class="stats-acts">' +
           '<button type="button" class="btn sm" data-act="algo-open">考核算法</button>' +
           '<div class="range-switch">' + [7, 30, 90].map(n =>
@@ -9716,32 +9724,18 @@
           '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
           '<div class="stat-card"><small>近 ' + range + ' 天完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
           '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
-          '<div class="stat-card"><small>已完成任务</small><b>' + doneTasks.length + ' <i>条</i></b><span>近 7 天 +' + weekDone + ' · 今天 +' + doneToday + '</span></div>' +
         '</div>' +
         '<div class="sblock">' +
           '<div class="sblock-head"><b>近 ' + range + ' 天完成率</b>' +
-            '<span class="muted-sm">灰线 = 无记录 · 浅色 = 未达标 · 实心 = 达标（≥75%）</span></div>' +
+            '<span class="muted-sm">空白 = 无记录 · 红框 = 未达标 · 实心 = 达标（≥75%）</span></div>' +
           '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div>' +
         '</div>' +
         monthReviewBody() +
-        '<div class="sblock">' +
-          '<div class="sblock-head"><b>任务</b>' +
-            '<div class="sh-right">' +
-              '<span class="muted-sm">完整的五格明细在待办页底部</span>' +
-              '<button type="button" class="btn sm" data-act="more-go" data-view="board">看待办</button>' +
-            '</div>' +
-          '</div>' +
-          '<div class="rv-grid tk-grid">' +
-            '<div class="rv-cell"><small>新增</small><b>' + tst.n + ' <i>条</i></b>' +
-              '<span>' + tkRange + '</span></div>' +
-            '<div class="rv-cell"><small>已完成</small><b>' + tst.done + ' <i>条</i></b>' +
-              '<span>含归档 ' + tst.arch + ' 条</span></div>' +
-            '<div class="rv-cell"><small>达成率</small><b>' + tkPct + '%</b>' +
-              '<span>完成 ÷ 新增</span></div>' +
-          '</div>' +
-          '<div class="tk-bar"><i style="width:' + tkPct + '%"></i></div>' +
-        '</div>' +
       '</div>' +
+
+      /* v146：待办从「总览」里拆出来单独成块，内容直接复用待办页底部那块
+         （同一套 taskStats + taskRange，两处切一处变两处） */
+      taskStatsPanel('待办') +
 
       /* 习惯：本月网格 / 近 N 天明细 / 操作时间线，同一份数据的三种粒度 */
       '<div class="panel">' +
@@ -9772,7 +9766,7 @@
           '</div>'
         : '') +
 
-      weightStatsPanel(range) +
+      weightStatsPanel(statsWeightRange) +
     '';
   }
 
@@ -9829,12 +9823,14 @@
   }
 
   /* 历史体重折线图：等比缩放的 SVG，含健康区间背景带 */
-  function weightLineChart(list, profile) {
+  function weightLineChart(list, profile, opts) {
     if (!list || !list.length) {
       return '<div class="ww-empty">这个区间还没有体重记录<br>记一笔之后，这里会画出曲线</div>';
     }
     /* v114：H 从 200 提到 340 —— 右栏多了体脂卡之后，200 高的图会把卡片拉开一块空白 */
-    const W = 600, H = 340, L = 38, R = 14, T = 16, B = 26;
+    /* 统计页是整栏宽（1340px），600×340 的 viewBox 等比放大后高 760，
+       一张趋势图占掉一屏。那边传入更扁的比例，体重页沿用默认值。 */
+    const W = (opts && opts.w) || 600, H = (opts && opts.h) || 340, L = 38, R = 14, T = 16, B = 26;
     const pw = W - L - R, ph = H - T - B;
     const pts = list.map(w => ({ date: w.date, v: Number(w.weight), bmi: w.bmi })).filter(p => isFinite(p.v));
     if (!pts.length) return '<div class="ww-empty">这个区间还没有体重记录</div>';
@@ -9918,7 +9914,7 @@
     const m2 = (h / 100) * (h / 100);
     const lo = Math.round(18.5 * m2 * 10) / 10;
     const hi = Math.round(23.9 * m2 * 10) / 10;
-    return '浅绿色带是健康区间 ' + lo + '–' + hi + ' kg（BMI 18.5–23.9，按 ' + h + ' cm 换算）；未成年人仅参考。';
+    return '虚线区间是健康体重 ' + lo + '–' + hi + ' kg（BMI 18.5–23.9，按 ' + h + ' cm 换算）；未成年人仅参考。';
   }
 
   function weightSummaryHtml(list) {
@@ -10004,13 +10000,28 @@
     '</svg>';
   }
 
+  /* 统计页的体重块：自带 7/30/90/全部 四档（体重页那一套照搬过来）。
+     页头的 range 不驱动它——体重记录稀疏，短窗口常常只有一两个点。 */
+  const STATS_WEIGHT_RANGES = [[7, '近 7 天'], [30, '近 30 天'], [90, '近 90 天'], [0, '全部']];
+
   function weightStatsPanel(days) {
-    const count = Math.max(1, Number(days) || 30);
-    const start = fmt(addDays(new Date(), -(count - 1)));
-    const list = weightRecords().filter(w => w.date >= start);
+    const all = !Number(days);
+    const recs = weightRecords().filter(w => w.date <= todayStr());
+    const count = all ? recs.length : Math.max(1, Number(days) || 30);
+    const start = all
+      ? (recs.length ? recs[0].date : fmt(addDays(new Date(), -29)))
+      : fmt(addDays(new Date(), -(count - 1)));
+    const list = recs.filter(w => w.date >= start);
+    const chips = '<div class="stab">' + STATS_WEIGHT_RANGES.map(function (r) {
+      return '<button type="button" class="' + (statsWeightRange === r[0] ? 'on' : '') +
+        '" data-act="stats-weight-range" data-v="' + r[0] + '">' + r[1] + '</button>';
+    }).join('') + '</div>';
+    const rangeText = all ? '全部 ' + count + ' 次记录' : '最近 ' + count + ' 天';
     if (!list.length) {
-      return '<div class="panel"><h3>体重与 BMI</h3>' +
-        '<div class="empty-box">最近 ' + count + ' 天没有体重记录，去「体重」页记录一次。</div></div>';
+      return '<div class="panel">' +
+        '<div class="shead"><h3>体重与 BMI <span class="muted-sm">（' + rangeText + '）</span></h3>' + chips + '</div>' +
+        '<div class="empty-box">' + (all ? '还没有体重记录' : '最近 ' + count + ' 天没有体重记录') +
+          '，去「体重」页记录一次。</div></div>';
     }
     const latest = list[list.length - 1];
     const first = list[0];
@@ -10018,13 +10029,13 @@
     const diff = Math.round((latest.weight - first.weight) * 10) / 10;
     const delta = diff === 0 ? '持平' : (diff > 0 ? '+' : '') + diff + ' kg';
     return '<div class="panel">' +
-      '<div class="panel-head"><h3>体重与 BMI</h3><span class="muted-sm">最近 ' + count + ' 天</span></div>' +
+      '<div class="shead"><h3>体重与 BMI <span class="muted-sm">（' + rangeText + '）</span></h3>' + chips + '</div>' +
       '<div class="weight-stat-row">' +
         '<div><small>最新体重</small><b>' + esc(latest.weight) + ' <i>kg</i></b></div>' +
         '<div><small>BMI</small><b>' + esc(latest.bmi) + ' <i>' + esc(info.label) + '</i></b></div>' +
         '<div><small>较区间首次</small><b>' + delta + '</b></div>' +
       '</div>' +
-      weightLineChart(list, normalizeBodyProfile(state.bodyProfile)) +
+      weightLineChart(list, normalizeBodyProfile(state.bodyProfile), { w: 1200, h: 280 }) +
       '<p class="cal-hint">' + esc(latest.date) + ' 记录 · ' + esc(latest.age) + ' 岁 · ' + esc(latest.height) + ' cm' +
         (latest.age < 18 ? ' · 未成年 BMI 仅参考' : '') + '</p>' +
     '</div>';
@@ -14038,6 +14049,12 @@
       statsRange = r;
       render();
     },
+    'stats-weight-range': el => {
+      const v = Number(el.dataset.v);
+      if ([0, 7, 30, 90].indexOf(v) < 0) return;
+      statsWeightRange = v;
+      render();
+    },
     'algo-open': () => { algoModal(); },
     'task-range': el => {
       const v = Number(el.dataset.v);
@@ -15466,7 +15483,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=144', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=147', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

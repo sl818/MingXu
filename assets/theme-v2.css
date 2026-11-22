@@ -601,3 +601,435 @@ body{
 
 /* 旧骨架的多目标点阵（用药等仍走这一条）：完成态用墨色，红只留给未完成/逾期 */
 .habit-card .habit-pips-row .pip.on{background:var(--text);border-color:var(--text);}
+
+/* ============================================================
+   P1 · 第二批：统计页 + 日历页
+   ------------------------------------------------------------
+   1) 柱状图：实心 / 红描边 / 底线三段状态，弃用「浅色半透明」
+   2) 总览四格与本月回顾：去掉卡中卡，改成被发丝线切开的数值带
+   3) 习惯与用药行：点 + 名 + 进度 + 数值四列，身份色只留 7px 点
+   4) 日历格子：墨色密度刻度，红不再铺满一面
+   5) 周视图：三个类别改用「墨底 / 凹底 / 只有描边」，不再借用蓝与棕
+   ============================================================ */
+
+/* ---------- 0. 共用：面板标题与分段控件 ---------- */
+.panel h3{font-size:15px;font-weight:600;letter-spacing:0;}
+.muted-sm{font-size:12px;}
+.empty-box{border-radius:10px;font-size:13px;color:var(--muted);}
+/* 分段控件原来靠一层 box-shadow 抬起当前格；零阴影规范下改成描边 + 字重 */
+.stab,.range-switch{border-radius:9px;background:var(--surface-2);}
+.stab button,.range-switch button{font-size:11.5px;color:var(--muted);}
+.stab button.on,.range-switch button.active{
+  background:var(--surface);color:var(--text);font-weight:600;
+  box-shadow:none;border:1px solid var(--line);
+}
+.cal-tab.active{box-shadow:none;border:1px solid var(--line);}
+
+/* ---------- 1. 柱状图：三段状态 ---------- */
+/* 旧的 .bar-wrap 是一根整高的圆角轨道，30 天连起来像一排栅栏，
+   比柱本身还显眼；未达标又只是把红色降到 40%，跟「无记录」几乎分不开。
+   现在：轨道取消，整张图只留一条基线；未达标画成红框，无记录什么都不画。
+   基线不能再画在每列底边上——相邻列的边框各自 1px，缩放后会断续成虚线；
+   改成给 .chart 一个绝对定位的整宽基线，列只负责把标签吊到基线下面。 */
+.chart{
+  position:relative;height:176px;max-width:none;
+  padding-top:2px;padding-bottom:18px;gap:6px;
+}
+.chart::after{
+  content:"";position:absolute;left:0;right:0;bottom:18px;height:1px;
+  background:var(--line);pointer-events:none;
+}
+.bar-col{position:relative;height:100%;gap:0;}
+.bar-wrap{
+  position:relative;background:transparent;border-radius:0;
+  align-items:flex-end;
+}
+.bar-wrap i{
+  position:relative;z-index:1;box-sizing:border-box;
+  max-width:26px;margin:0 auto;
+  background:var(--text);border-radius:3px 3px 0 0;min-height:2px;
+}
+.bar-wrap i.low{
+  background:transparent;opacity:1;
+  border:1px solid var(--accent);border-bottom:0;border-radius:3px 3px 0 0;
+}
+/* 深色底上 1px 的 #dc2626 偏暗，换文字红那支 */
+[data-theme="dark"] .bar-wrap i.low{border-color:var(--accent-2);}
+/* 无记录：什么都不画，只剩基线。原来那截 2px 灰线会盖在基线上变粗，
+   反而比「有记录但 0%」更显眼。 */
+.bar-wrap i.zero{
+  background:transparent;border:0;height:0;min-height:0;
+}
+.bar-col span{
+  position:absolute;left:0;right:0;bottom:-18px;text-align:center;
+  font-size:10px;line-height:18px;color:var(--muted);
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;white-space:nowrap;
+}
+/* 今天：基线那一段落成红笔。红只有这 2px，不是一整根柱。 */
+.bar-col.is-today::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:var(--accent);border-radius:2px;
+}
+.bar-col.is-today span{color:var(--accent-2);font-weight:700;}
+/* 用药趋势的大百分比 */
+.adh-big{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+.adh-big i{font-size:12px;}
+.adh-delta,.adh-note{font-size:12px;}
+
+/* ---------- 2. 总览：四格数值带 ---------- */
+/* 原来四张带描边的小卡装在 .panel 里，是「卡中卡」。改成一条数值带：
+   上下各一条发丝线，中间用竖线切分，红不再给「连续达标 0 天」这种中性数字。 */
+.stat-grid{
+  gap:0;margin-bottom:18px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.stat-card{
+  background:transparent;border:0;border-radius:0;box-shadow:none;
+  padding:14px 18px;
+}
+.stat-card + .stat-card{border-left:1px solid var(--line);}
+.stat-card small{
+  font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--muted);
+}
+.stat-card b{
+  font-family:var(--font-sans);font-size:30px;font-weight:700;
+  letter-spacing:-.02em;margin:6px 0 2px;
+}
+.stat-card b i{font-size:12px;}
+.stat-card span{font-size:11.5px;color:var(--muted);}
+.stat-card:first-child b{color:var(--text);}
+
+/* 本月回顾 / 任务三格：保留凹陷底（第三级台面），去掉描边这层「框」 */
+.rv-grid{gap:10px;}
+.rv-cell{background:var(--surface-2);border:1px solid transparent;border-radius:10px;padding:11px 13px;}
+.rv-cell small{font-size:10px;font-weight:700;letter-spacing:.1em;}
+.rv-cell b{font-size:20px;font-weight:700;font-family:var(--font-sans);letter-spacing:-.02em;white-space:nowrap;}
+.rv-cell b i{font-size:11px;}
+.rv-cell span{font-size:11px;color:var(--muted);}
+/* 深色下 --surface-2 比卡面还暗，格子读成「洞」；改用第三级台面往上提 */
+[data-theme="dark"] .rv-cell,
+[data-theme="dark"] .qsum,
+[data-theme="dark"] .rv-verdict{background:var(--surface-3);}
+/* 结论条原来是一条满宽红晕，读成「出错了」；它是陈述，不是警告 */
+.rv-verdict{
+  background:var(--surface-2);border:1px solid var(--line);
+  color:var(--muted);font-size:12.5px;border-radius:10px;
+}
+.tk-bar{height:5px;background:var(--track);}
+
+/* 习惯面板里的「本月概览」三格（.hs-k）跟 .rv-cell 是同一层东西：
+   凹陷底 + 描边 = 卡中卡，这里只留凹陷底 */
+.hsum{margin-bottom:16px;}
+.hsum-kpi{gap:10px;}
+.hs-k{background:var(--surface-2);border:1px solid transparent;border-radius:10px;padding:11px 13px;}
+.hs-k small{font-size:10px;font-weight:700;letter-spacing:.1em;}
+.hs-k b{font-family:var(--font-sans);font-size:20px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;}
+.hs-k b i{font-size:11px;}
+.hs-k span{font-size:11px;color:var(--muted);}
+[data-theme="dark"] .hs-k{background:var(--surface-3);}
+
+/* ---------- 2b. 待办完成度（统计页独立成块，与看板底部同一个组件） ---------- */
+/* 这块原来只出现在看板底部，v146 起统计页也有一份，所以笔触要两边都立得住。
+   「已完成」那格原来铺 12% 红晕——成就是好消息，红只属于没做完。 */
+.task-stat{padding:18px 20px;}
+.ts-head h3{font-size:15px;}
+.ts-chip{
+  height:28px;padding:0 11px;border-radius:7px;font-size:11.5px;
+  background:var(--surface-2);border-color:var(--line);color:var(--muted);
+}
+.ts-chip:hover{border-color:var(--line-strong);color:var(--text);}
+.ts-chip.on{
+  background:var(--surface);border:1px solid var(--line-strong);
+  color:var(--text);font-weight:600;box-shadow:none;
+}
+.ts-grid{gap:10px;}
+.ts-cell{
+  background:var(--surface-2);border:1px solid transparent;border-radius:10px;
+  padding:12px 14px;
+}
+.ts-cell b{
+  font-family:var(--font-sans);font-size:28px;font-weight:700;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+}
+.ts-cell span{font-size:11px;letter-spacing:0;}
+.ts-cell.ok{
+  background:color-mix(in srgb,var(--text) 7%,var(--surface));
+  border-color:transparent;
+}
+.ts-cell.ok span{color:var(--text);}
+.ts-bar{height:6px;background:var(--track);border-color:transparent;}
+.ts-bar i{background:var(--text);}
+.ts-rate{margin-top:12px;}
+.ts-note{font-size:11.5px;}
+[data-theme="dark"] .ts-cell{background:var(--surface-3);}
+[data-theme="dark"] .ts-cell.ok{
+  background:color-mix(in srgb,var(--text) 10%,var(--surface));
+  border-color:transparent;
+}
+@media (max-width:760px){
+  .ts-cell{padding:10px 8px;}
+  .ts-cell b{font-size:22px;}
+}
+
+/* ---------- 3. 习惯 / 用药行：四列 ---------- */
+/* 旧行是「名 + 满宽进度条」，进度条 0% 时只剩一条横贯全宽的浅线，
+   12 行看下来像 12 根空导线。改成固定列宽的四列，数值靠右对齐可纵向扫读。 */
+.mh{
+  display:grid;grid-template-columns:7px minmax(0,1fr) 200px 108px;
+  align-items:center;gap:0 14px;
+  padding:11px 0;border-bottom:1px solid var(--line);
+}
+.mh:first-child{padding-top:4px;}
+.mh:last-child{border-bottom:0;padding-bottom:4px;}
+.mh-dot{
+  width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--hc,#2f6f5e);
+}
+[data-theme="dark"] .mh-dot{background:color-mix(in srgb,var(--hc,#2f6f5e) 70%,#ffffff);}
+.mh-name{min-width:0;display:flex;align-items:baseline;gap:8px;}
+.mh-name b{
+  font-size:15px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;
+}
+.mh-name small{
+  font-size:11px;color:var(--muted);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mh-name small.warn{color:var(--red-ink);flex:none;}
+.mh-bar{height:6px;border-radius:99px;background:var(--track);overflow:hidden;}
+.mh-bar i{display:block;height:100%;border-radius:99px;background:var(--text);transition:width .3s ease;}
+.mh-val{
+  font-size:12px;color:var(--muted);text-align:right;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.mh-val b{color:var(--text);font-weight:600;}
+/* 用药 31 种：宽屏分两列，省掉一半滚动。列内的进度条要收窄，
+   否则「疗程 · 库存 · 状态」那行副文案会被挤到只剩「待核…」。 */
+.mh-list{display:grid;grid-template-columns:minmax(0,1fr);}
+@media (min-width:1100px){
+  .mh-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;}
+  .mh-list .mh{grid-template-columns:7px minmax(0,1fr) 110px 96px;gap:0 12px;}
+  .mh-list .mh:nth-child(2){padding-top:4px;}
+}
+/* 按需药没有分母，进度条是空的也没意义，直接留白 */
+.mh.prn .mh-bar{visibility:hidden;}
+/* 近 N 天点阵（.hstat）：身份色不再进图表 */
+.hstat{padding:13px 4px;gap:18px;border-bottom:1px solid var(--line);}
+.hstat-name b{font-size:14px;}
+.hstat-name small{font-size:11px;}
+.hstat-dots{gap:4px;}
+.hstat-dots i{background:var(--track);border-radius:3px;}
+.hstat-dots i.ok{background:var(--text);}
+.hstat-dots i.miss{background:transparent;border:1px solid var(--accent);}
+.hstat-meta{font-size:11px;}
+.hstat-meta b{font-size:12px;}
+.hstat-meta .streak{font-size:11px;}
+/* 习惯和用药行在窄屏回到单列 */
+@media (max-width:760px){
+  .mh{grid-template-columns:7px minmax(0,1fr) 96px;gap:0 10px;}
+  .mh-bar{display:none;}
+  .mh-val{font-size:11.5px;}
+}
+
+/* ---------- 4. 戒烟汇总格 ---------- */
+/* 12 个带描边的小格排在面板里，同样犯「卡中卡」；近 4 周的迷你柱
+   用红表示「最近一周」，把红用在了好消息上。 */
+.qsum{background:var(--surface-2);border-color:transparent;border-radius:10px;padding:12px 13px;}
+.qsum small{font-size:10px;font-weight:700;letter-spacing:.08em;}
+.qsum b{font-size:21px;font-weight:700;font-family:var(--font-sans);letter-spacing:-.02em;}
+.qsum span{font-size:11px;}
+.qs-spark i{background:var(--line-strong);}
+.qs-spark i.last{background:var(--text);}
+.qsum-hours{border-color:var(--line);border-radius:10px;}
+
+/* ---------- 5. 体重折线：区间不再是一片红 ---------- */
+.ww-band{fill:color-mix(in srgb,var(--text) 5%,transparent);}
+.ww-band-line{stroke:var(--line-strong);stroke-dasharray:4 4;}
+.ww-svg{margin-top:2px;}
+.ww-grid{stroke:var(--line);}
+.ww-lbl{font-size:10px;}
+.weight-stat-row small{font-size:10.5px;font-weight:700;letter-spacing:.08em;}
+.weight-stat-row b{font-size:22px;font-weight:700;font-family:var(--font-sans);}
+.weight-stat-row b i{font-size:11px;}
+
+/* ---------- 6. 时间线 ---------- */
+.log-row{grid-template-columns:56px 26px minmax(0,1fr) 52px 132px;padding:9px 2px;font-size:13px;}
+.log-time{font-size:11.5px;color:var(--muted);}
+.log-ico{border-radius:7px;background:var(--surface-2);}
+.log-name{font-size:13px;}
+.log-delta{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;}
+.log-date{font-size:11px;}
+.log-more{
+  color:var(--text);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:99px;font-size:11.5px;padding:4px 12px;
+}
+.log-more:hover{background:var(--surface);border-color:var(--line-strong);}
+
+/* ---------- 7. 日历：月格子 ---------- */
+/* 密度刻度从「红晕」换成「墨色深浅」：完成度是数据，不是警报。
+   红只留三个点：今天那一圈、今天那个数字、周视图的现在线。
+   格子也从「30 张独立小白卡」改成一张画了格线的纸——空月份不再是一地空框。 */
+.cal-wd-row{gap:1px;}
+.cal-wd{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--muted);}
+.cal-grid{
+  gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  /* app.css 在 ≤1180 写死 grid-auto-rows:minmax(92px,auto)，比格子高，
+     空出来的 8–20px 会露出容器底色，变成横贯整行的米色带 */
+  grid-auto-rows:auto;
+}
+.cal-cell{
+  height:84px;padding:8px 9px;border:0;border-radius:0;
+  background:var(--surface);
+}
+/* 空格子也是白格：容器底色是格线色，留透明会变成一整块米色 */
+.cal-cell.blank{background:var(--surface);}
+.cal-cell:not(.blank):not(:disabled):hover{
+  background:var(--surface-2);transform:none;
+}
+.cal-fill{background:var(--text);}
+.cal-cell[data-level="1"] .cal-fill{opacity:.05}
+.cal-cell[data-level="2"] .cal-fill{opacity:.09}
+.cal-cell[data-level="3"] .cal-fill{opacity:.15}
+.cal-cell[data-level="4"] .cal-fill{opacity:.22}
+.cal-num{font-size:12.5px;font-weight:600;}
+.cal-cell[data-level="4"] .cal-num{color:var(--text);font-weight:700;}
+.cal-cell.is-today .cal-num{color:var(--accent-2);font-weight:700;}
+/* 今天原来靠右上角一个金色圆点标记，改令牌后变成第二枚红点，和描边重复 */
+.cal-cell.is-today::after{display:none;}
+.cal-cell.is-today{box-shadow:inset 0 0 0 1px var(--accent);}
+.cal-cell.is-sel{background:var(--surface-2);box-shadow:inset 0 0 0 2px var(--text);}
+.cal-cell.is-sel.is-today{box-shadow:inset 0 0 0 2px var(--accent);}
+/* 未来日期不再整格降透明度——格线是容器底色，降透明度会让格子透出灰底 */
+.cal-cell.is-future{opacity:1;}
+.cal-cell.is-future .cal-num{color:var(--muted);font-weight:500;}
+.cal-pct{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.cal-task{font-size:10.5px;}
+.cal-task-more{font-size:10px;}
+.cal-debt{font-size:10px;}
+.cal-tasks-num{font-size:10.5px;}
+.cal-legend{font-size:10.5px;gap:5px;}
+.cal-legend i{width:12px;height:12px;border-radius:3px;}
+.cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
+.cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
+.cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}
+.cal-legend i.l4{background:color-mix(in srgb,var(--text) 22%,var(--surface))}
+/* 深色下墨色接近纯白，同样比例在 #1e293b 上的落差比白卡小得多，
+   四档要各提一点才分得开 */
+[data-theme="dark"] .cal-cell[data-level="1"] .cal-fill{opacity:.07}
+[data-theme="dark"] .cal-cell[data-level="2"] .cal-fill{opacity:.12}
+[data-theme="dark"] .cal-cell[data-level="3"] .cal-fill{opacity:.19}
+[data-theme="dark"] .cal-cell[data-level="4"] .cal-fill{opacity:.28}
+[data-theme="dark"] .cal-legend i.l1{background:color-mix(in srgb,var(--text) 7%,var(--surface))}
+[data-theme="dark"] .cal-legend i.l2{background:color-mix(in srgb,var(--text) 12%,var(--surface))}
+[data-theme="dark"] .cal-legend i.l3{background:color-mix(in srgb,var(--text) 19%,var(--surface))}
+[data-theme="dark"] .cal-legend i.l4{background:color-mix(in srgb,var(--text) 28%,var(--surface))}
+.cal-legend .leg-note{font-size:10.5px;color:var(--muted);}
+/* 手机上 84px 的格子 6 行要占 500px，压回 72；月份导航那一行放不下时要能换行，
+   否则「本月」按钮会被顶出面板右边缘（v145 实测 390px） */
+@media (max-width:560px){
+  .cal-cell{height:72px;padding:6px 7px;}
+  .month-nav{flex-wrap:wrap;row-gap:6px;}
+  .month-nav b{min-width:0;flex:1 1 auto;}
+}
+
+/* ---------- 8. 日历：底部卡片行 ---------- */
+/* 右侧 340px 窄栏取消：日历 770 高、倒数日卡只有 100 高，右边空出一大片纸。
+   DESIGN 的首条布局规则是「任何页面都不允许长出第二列」，这里回到单列，
+   倒数日变成底部四张卡里的第一张（空态时也是一句完整的话，不是一块空洞）。 */
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start;}
+.cal-cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+@media (max-width:1240px){.cal-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:760px){.cal-cards{grid-template-columns:minmax(0,1fr);}}
+/* app.css 在 ≤1180 让第三张卡跨两列；四张卡时这条会把行拉歪 */
+.cal-cards > .cal-side-panel:nth-child(3){grid-column:auto;}
+/* 四张卡同高：倒数日内容通常最短，但底边必须和邻居齐 */
+.cd-panel{align-self:stretch;}
+.cd-panel .cd-empty{
+  margin-top:10px;border-color:var(--line-strong);border-radius:10px;
+  font-size:12.5px;line-height:1.9;color:var(--muted);
+}
+.cal-side-panel{padding:16px 18px;}
+.cal-side-panel h3{font-size:14px;}
+.cal-highlight b{
+  font-family:var(--font-sans);font-size:40px;font-weight:700;
+  letter-spacing:-.03em;color:var(--text);
+}
+.cal-highlight span{font-size:11.5px;}
+.cal-note{font-size:12px;line-height:1.9;}
+.cal-hint{font-size:10.5px;color:var(--muted);border-top-color:var(--line);}
+.cd-num b{font-family:var(--font-sans);font-size:26px;font-weight:700;letter-spacing:-.02em;}
+.cd-main b{font-size:14px;}
+.cd-item{border-radius:10px;}
+
+/* ---------- 9. 周视图 ---------- */
+/* 事件块原来借了两个不在令牌里的色相（用药蓝 #4c7f96、习惯棕 #b5733f）。
+   v146 起按陛下要求改回「三类别三色」：用药绿 / 待办蓝 / 习惯琥珀，要求更鲜艳、三色互不相邻。
+   这是「一支红笔」的唯一例外，且只关在这个组件里——
+   色值只出现在 .wk-ev-* 与 .wk-legend 上，不进按钮、徽标、文字与统计图表。 */
+:root{
+  --cat-task:#2563eb;
+  --cat-med:#16a34a;
+  --cat-habit:#d97706;
+}
+[data-theme="dark"]{
+  --cat-task:#60a5fa;
+  --cat-med:#4ade80;
+  --cat-habit:#fbbf24;
+}
+.wk-scroll{max-height:72vh;}
+/* 表头原来被 .wk-day 的两行内容撑到 55px，而全天行 sticky 在 44px、
+   z-index 又比表头低，于是全天行顶部 11px 被表头盖住——待办条只剩半行。
+   这里把表头钉死 46px，两个 sticky 偏移改成同一个数。 */
+.wk-head{height:46px;}
+.wk-day{height:46px;padding:0;gap:1px;justify-content:center;}
+.wk-gutter-head{height:46px;}
+.wk-allday{top:46px;}
+.wk-hour{font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);}
+.wk-wd{font-size:10.5px;font-weight:600;letter-spacing:.02em;}
+.wk-num{font-size:15px;font-weight:700;}
+.wk-day.is-today{background:var(--accent-soft);}
+.wk-day.is-today .wk-num{color:var(--accent-2);}
+.wk-col.is-today{background:color-mix(in srgb,var(--accent) 3%,transparent);}
+.wk-ev{
+  font-size:11px;line-height:1.3;padding:2px 7px;min-height:20px;
+  border:1px solid var(--line);border-left:3px solid var(--cat-task);
+  border-radius:6px;
+  background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
+  border-color:color-mix(in srgb,var(--cat-task) 28%,var(--line));
+  color:var(--text);
+}
+.wk-ev b{font-weight:500;}
+/* 三类别三色：用药绿 / 待办蓝 / 习惯琥珀（令牌在第 9 节顶部） */
+.wk-ev-task{
+  border-left-color:var(--cat-task);
+  background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
+  border-color:color-mix(in srgb,var(--cat-task) 28%,var(--line));
+}
+.wk-ev-med{
+  border-left-color:var(--cat-med);
+  background:color-mix(in srgb,var(--cat-med) 24%,var(--surface));
+  border-color:color-mix(in srgb,var(--cat-med) 28%,var(--line));
+}
+.wk-ev-habit{
+  border-left-color:var(--cat-habit);
+  background:color-mix(in srgb,var(--cat-habit) 24%,var(--surface));
+  border-color:color-mix(in srgb,var(--cat-habit) 28%,var(--line));
+}
+/* 深色下同一比例会被底色吃掉，提一档 */
+[data-theme="dark"] .wk-ev-task{background:color-mix(in srgb,var(--cat-task) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-task) 34%,var(--line));}
+[data-theme="dark"] .wk-ev-med{background:color-mix(in srgb,var(--cat-med) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-med) 34%,var(--line));}
+[data-theme="dark"] .wk-ev-habit{background:color-mix(in srgb,var(--cat-habit) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-habit) 34%,var(--line));}
+.wk-ev.is-done{opacity:.62;}
+.wk-ad-item{
+  background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--cat-task) 28%,var(--line));
+  color:var(--text);font-size:10.5px;
+}
+.wk-ad-debt{background:var(--track);color:var(--text);border:1px solid var(--line);}
+.wk-legend{font-size:10.5px;}
+.wk-legend i{width:11px;height:11px;border-radius:3px;}
+.wk-legend i.wk-l-task{background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));border-left:3px solid var(--cat-task);}
+.wk-legend i.wk-l-med{background:color-mix(in srgb,var(--cat-med) 24%,var(--surface));border-left:3px solid var(--cat-med);}
+.wk-legend i.wk-l-habit{background:color-mix(in srgb,var(--cat-habit) 24%,var(--surface));border-left:3px solid var(--cat-habit);}
+.wk-now{background:var(--accent);opacity:1;height:2px;}

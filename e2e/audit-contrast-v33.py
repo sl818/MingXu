@@ -196,13 +196,19 @@ SELS_STATS = ['.adh-big', '.adh-delta', '.adh-head + .chart .bar-col span',
               # v84 分区后新增：分段控件（当前格是 accent 字压 surface 底）、分区小标题
               '.sblock-head b', '.sblock-head span', '.shead h3',
               '.stab button', '.stab button.on',
-              # v85 总览里的任务摘要三格（.rv-cell 的另一处用法）
-              '.tk-grid .rv-cell small', '.tk-grid .rv-cell b', '.tk-grid .rv-cell span',
+              # v146：任务从总览里拆出来独立成块，取样跟着换到 .task-stat
+              '.task-stat h3', '.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
+              '.ts-note', '.ts-rate span',
               # v115：本月概览同步进统计页习惯板块。同样的 class 但外面多了一层 .panel 背景，
               # 对比度要按嵌套背景单独算一次（习惯页那组在 body 下，取的是另一个底）
               '.panel .hsum .hsum-range', '.panel .hsum .hs-k small',
               '.panel .hsum .hs-k b', '.panel .hsum .hs-k .hs-long',
-              '.panel .hsum .hs-l small', '.panel .hsum .hs-l b', '.panel .hsum .hs-l span']
+              '.panel .hsum .hs-l small', '.panel .hsum .hs-l b', '.panel .hsum .hs-l span',
+              # v145：总览改成数值带、本月回顾去框、习惯/用药改成四列行、柱状图重画
+              '.stat-card small', '.stat-card b', '.stat-card b i', '.stat-card span',
+              '.rv-cell small', '.rv-cell b', '.rv-cell b i', '.rv-cell span', '.rv-verdict',
+              '.chart .bar-col span', '.chart .bar-col.is-today span',
+              '.mh-name b', '.mh-name small', '.mh-val', '.mh-val b']
 # 待办页底部的任务完成度面板（v80）。五格里只有「已完成」换了底色，
 # 所以单独取一次 .ts-cell.ok b —— 它在 accent 淡底上，最容易踩线。
 SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
@@ -211,6 +217,9 @@ SELS_BOARD = ['.ts-chip', '.ts-chip.on', '.ts-cell b', '.ts-cell span',
 # 日历：月视图格子里的待办、底部三卡
 SELS_CAL_MONTH = ['.cal-task', '.cal-tasks-num', '.cal-pct', '.cal-tab', '.cal-side-panel h3',
                   '.cal-debt',
+                  # v145：格线化的月格子、星期表头、图例文字
+                  '.cal-wd', '.cal-num', '.cal-cell.is-future .cal-num',
+                  '.cal-legend', '.cal-legend .leg', '.cal-legend .leg-note',
                   # 倒数日右栏（v76）：大数字、单位、标题、日期、备注、分组标题
                   '.cd-num b', '.cd-num i', '.cd-main b', '.cd-main small', '.cd-main em',
                   '.cd-group', '.cd-item.past .cd-main b']
@@ -280,7 +289,8 @@ SELS_CONFIG_PAGE = ['.notice-when', '.notice-text', '.notice-warn',
                     '.ntf-head b', '.ntf-state', '.ntf-box .muted-sm', '.ics-hint', '.ics-warn',
                     '.pc-sec-head', '.pc-count']
 # v87 删掉 mono / clay / forest / cyber 四套皮肤，审计只跑剩下的
-skins = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
+# v2（v135 起）只有一套主题，明暗两态由 theme.mode 决定；这里留一个占位项
+skins = ['v2']
 
 # 安装提示要出现：未装、未关闭
 board['data']['habits'][2]['suggestTime'] = '09:00'

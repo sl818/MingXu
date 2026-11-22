@@ -47,7 +47,8 @@ JS = """
 # 命令模式下 .se-hint / .se-group 不显示，所以要分两次取样
 SELS_CMD = ['.se-cmd .se-title', '.se-cmd .se-meta']
 SELS_IDLE = ['.se-hint', '.se-group']
-skins = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
+# v2（v135 起）只有一套主题，明暗两态由 theme.mode 决定；这里留一个占位项
+skins = ['v2']
 
 bad, skipped, missing, checked = [], [], [], 0
 with sync_playwright() as p:

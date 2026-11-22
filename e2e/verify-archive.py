@@ -272,17 +272,20 @@ with sync_playwright() as p:
     rec('恢复后页头计数 -1', s2['archBtn'].strip() == '归档 1', s2['archBtn'])
     rec('恢复后弹层仍开着且只剩 1 条', m1['open'] and m1['rows'] == 1, str(m1.get('rows')))
 
-    # 详情区「归档」按钮
+    # 卡片详情区的「归档」按钮。原来这一步靠「双击卡片 → .is-open → 点归档」，
+    # 但看板的 inline 展开早已废弃（openTaskIds 只读不写），.is-open 永远不会加上。
+    # 详情块其实一直在卡片 DOM 里（.task-detail），直接点它的归档按钮即可，语义不变。
     pg.click('[data-act="close-modal"]')
     pg.wait_for_timeout(400)
-    pg.evaluate("""() => {
-      const c = document.querySelector('.task[data-id="t4"]');
-      c.dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+    inline = pg.evaluate("""() => {
+      const card = document.querySelector('.task[data-id="t4"]');
+      if (!card) return null;
+      const b = card.querySelector('[data-act="task-archive"]');
+      if (!b) return null;
+      b.click();
+      return true;
     }""")
-    pg.wait_for_timeout(500)
-    has_btn = pg.evaluate("""() => !!document.querySelector('.task[data-id="t4"].is-open [data-act="task-archive"]')""")
-    rec('详情展开后有「归档」按钮', has_btn, '')
-    pg.click('.task[data-id="t4"].is-open [data-act="task-archive"]')
+    rec('卡片详情区有「归档」按钮', bool(inline), str(inline))
     pg.wait_for_timeout(700)
     s3 = pg.evaluate(STATE)
     rec('详情按钮也能归档', '已完成的一条' not in s3['titles'], str(s3['titles']))
@@ -302,20 +305,22 @@ with sync_playwright() as p:
     pg.click('[data-act="close-modal"]')
     pg.wait_for_timeout(400)
     goto(pg, 'stats')
-    # v84 起统计页按主题并成 6 块，任务在「任务」小卡里（.tk-grid 的 .rv-cell），
-    # 不再是日历页那种 .cal-summary 药丸；数字取「已完成」那格，小字写明含几条归档。
+    # v146 起统计页的「待办」是独立板块（.task-stat），与看板底部同一个组件：
+    # 数字取「已完成」那格，小字写明其中几条已归档。
     stats_done = pg.evaluate("""() => {
-      const cells = [...document.querySelectorAll('.tk-grid .rv-cell')];
-      const c = cells.find(x => ((x.querySelector('small') || {}).textContent || '').trim() === '已完成');
+      const el = document.querySelector('.task-stat');
+      if (!el) return null;
+      const cells = [...el.querySelectorAll('.ts-cell')];
+      const c = cells.find(x => ((x.querySelector('span') || {}).textContent || '').trim() === '已完成');
       if (!c) return null;
       return {
         n: Number((((c.querySelector('b') || {}).textContent) || '').replace(/[^0-9]/g, '')),
-        sub: (((c.querySelector('span') || {}).textContent) || '').trim()
+        note: (((el.querySelector('.ts-note') || {}).textContent) || '').trim()
       };
     }""")
     # 此时完成的只有 t1（在看板）+ t5（已归档），若过滤掉归档会显示 1
     rec('统计页「已完成」仍包含归档任务（历史保留）',
-        bool(stats_done) and stats_done['n'] == 2 and '含归档' in stats_done['sub'],
+        bool(stats_done) and stats_done['n'] == 2 and '条已归档' in stats_done['note'],
         str(stats_done))
 
     # 今日页不含归档任务

@@ -65,7 +65,8 @@ SELS_CAT_TIP = ['.mcat-tip', '.mcat-tip p', '.mcat-tip b']
 SELS_SUMMARY = ['.sum-head span', '.sum-big', '.sum-lead', '.sum-table th',
                 '.sum-table td', '.sum-foot']
 # v87 删除 mono / clay / forest / cyber，只跑剩下的 5 套
-skins = ['paper', 'slate', 'neu', 'retro', 'cloud-float', 'cloud-focus']
+# v2（v135 起）只有一套主题，明暗两态由 theme.mode 决定；这里留一个占位项
+skins = ['v2']
 
 bad, skipped, missing, checked = [], 0, [], 0
 skip_detail = {}

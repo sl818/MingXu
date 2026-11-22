@@ -226,24 +226,27 @@ with sync_playwright() as p:
             noHabitPanelOnCal: [...document.querySelectorAll('.panel h3')].every(h=>!/本月习惯|本月用药/.test(h.textContent))
         };
     }""")
-    chk('日历页底部 3 张卡', lay.get('cardCount') == 3, str(lay.get('cardCount')))
-    chk('三卡是「小结 / 心情 / 体重」',
-        lay.get('titles') == ['本月小结', '本月心情', '本月体重'], str(lay.get('titles')))
-    chk('三卡在同一行', lay.get('sameRow'))
+    # v145：倒数日从右侧 340px 窄栏搬进底部卡片行，三卡变四卡
+    chk('日历页底部 4 张卡', lay.get('cardCount') == 4, str(lay.get('cardCount')))
+    chk('四卡是「倒数日 / 小结 / 心情 / 体重」',
+        lay.get('titles') == ['倒数日 ＋ 新增', '本月小结', '本月心情', '本月体重'], str(lay.get('titles')))
+    chk('四卡在同一行', lay.get('sameRow'))
     chk('旧的右侧栏已移除', lay.get('oldSideGone'))
     chk('日历页不再有本月习惯/本月用药', lay.get('noHabitPanelOnCal'))
 
     nav(pg, 'stats'); pg.wait_for_timeout(1000)
     st = pg.evaluate("""() => {
         const t=[...document.querySelectorAll('.panel h3')].map(h=>h.textContent.replace(/\\s+/g,' ').trim());
+        /* 习惯块内部还有一张「本月概览」卡（v109 起），它不是面板本体，排除掉 */
+        const main = t.filter(x=>/^(总览|待办|习惯|用药|戒烟|体重)/.test(x));
         return {titles:t, hasMed:t.some(x=>x.indexOf('用药')===0),
                 hasHabit:t.some(x=>x.indexOf('习惯')===0),
-                order: t.map(x=>x.slice(0,2))};
+                order: main.map(x=>x.slice(0,2))};
     }""")
     chk('统计页出现用药块', st.get('hasMed'), str(st.get('titles'))[:160])
     chk('统计页出现习惯块', st.get('hasHabit'))
-    chk('面板顺序：总览 → 习惯 → 用药',
-        st.get('order', [])[:3] == ['总览', '习惯', '用药'], str(st.get('order')))
+    chk('面板顺序：总览 → 待办 → 习惯 → 用药',
+        st.get('order', [])[:4] == ['总览', '待办', '习惯', '用药'], str(st.get('order')))
     chk('桌面端无 JS 报错', not errs, str(errs[:2]))
     ctx.close()
 
