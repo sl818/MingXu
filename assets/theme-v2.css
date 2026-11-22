@@ -992,38 +992,33 @@ body{
 .wk-day.is-today .wk-num{color:var(--accent-2);}
 .wk-col.is-today{background:color-mix(in srgb,var(--accent) 3%,transparent);}
 .wk-ev{
+  --ev:var(--cat-task);
   font-size:11px;line-height:1.3;padding:2px 7px;min-height:20px;
-  border:1px solid var(--line);border-left:3px solid var(--cat-task);
   border-radius:6px;
-  background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
-  border-color:color-mix(in srgb,var(--cat-task) 28%,var(--line));
+  /* 顺序要紧：先写 border-color（管四边），再单独给左边上实色。
+     反过来写的话，border-color 会把 border-left-color 一起覆盖掉，
+     3px 那条就变成 28% 的淡混色——v147 线上实测就是这个问题。 */
+  border:1px solid color-mix(in srgb,var(--ev) 28%,var(--line));
+  border-left:3px solid var(--ev);
+  background:color-mix(in srgb,var(--ev) 24%,var(--surface));
   color:var(--text);
 }
 .wk-ev b{font-weight:500;}
 /* 三类别三色：用药绿 / 待办蓝 / 习惯琥珀（令牌在第 9 节顶部） */
-.wk-ev-task{
-  border-left-color:var(--cat-task);
-  background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
-  border-color:color-mix(in srgb,var(--cat-task) 28%,var(--line));
-}
-.wk-ev-med{
-  border-left-color:var(--cat-med);
-  background:color-mix(in srgb,var(--cat-med) 24%,var(--surface));
-  border-color:color-mix(in srgb,var(--cat-med) 28%,var(--line));
-}
-.wk-ev-habit{
-  border-left-color:var(--cat-habit);
-  background:color-mix(in srgb,var(--cat-habit) 24%,var(--surface));
-  border-color:color-mix(in srgb,var(--cat-habit) 28%,var(--line));
-}
+.wk-ev-task{--ev:var(--cat-task);}
+.wk-ev-med{--ev:var(--cat-med);}
+.wk-ev-habit{--ev:var(--cat-habit);}
 /* 深色下同一比例会被底色吃掉，提一档 */
-[data-theme="dark"] .wk-ev-task{background:color-mix(in srgb,var(--cat-task) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-task) 34%,var(--line));}
-[data-theme="dark"] .wk-ev-med{background:color-mix(in srgb,var(--cat-med) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-med) 34%,var(--line));}
-[data-theme="dark"] .wk-ev-habit{background:color-mix(in srgb,var(--cat-habit) 30%,var(--surface));border-color:color-mix(in srgb,var(--cat-habit) 34%,var(--line));}
+[data-theme="dark"] .wk-ev{
+  border-color:color-mix(in srgb,var(--ev) 34%,var(--line));
+  border-left-color:var(--ev);
+  background:color-mix(in srgb,var(--ev) 30%,var(--surface));
+}
 .wk-ev.is-done{opacity:.62;}
 .wk-ad-item{
   background:color-mix(in srgb,var(--cat-task) 24%,var(--surface));
   border:1px solid color-mix(in srgb,var(--cat-task) 28%,var(--line));
+  border-left:3px solid var(--cat-task);
   color:var(--text);font-size:10.5px;
 }
 .wk-ad-debt{background:var(--track);color:var(--text);border:1px solid var(--line);}

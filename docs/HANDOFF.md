@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v147（2026-11-22）
+最后更新：v148（2026-11-22）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v147（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v147'`） |
+| 代码版本 | v148（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v148'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -178,6 +178,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 
 | v147 | 11-22 | **周视图习惯色改为琥珀**。v146 的紫 `#7c3aed`（深色 `#c084fc`）与待办蓝在深色下明度、色相都太近，两块相邻时几乎不可分；换成 `#d97706`（深色 `#fbbf24`），三色在明暗两态都落在互不相邻的色相区间。SW → v147 |
 **v31 库存错乱（10-27）**
+| v148 | 11-22 | **修周视图色条被覆盖**。v147 里 `.wk-ev-*` 先写 `border-left` 再写 `border-color`，后者是四边简写，把 3px 实色左条一起覆盖成了 28% 的淡混色——线上实测左条是 `rgb(179,210,171)` 这种淡绿，整块看着发灰。改成「先 border-color 再 border-left」，深色档同样只覆盖 `border-color` 后补 `border-left-color`；全天待办条也补上 3px 蓝左条。SW → v148 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
