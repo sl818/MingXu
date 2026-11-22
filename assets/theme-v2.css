@@ -1126,6 +1126,27 @@ body{
 /* --- 逐月表 --- */
 .mtr{padding:9px 2px;}
 
+/* ---------- 预算 / 记录 / 工具（清债第二批） ---------- */
+/* 收入 / 预算列表项前的小圆点（对齐统计页习惯点）：.minc 是 grid，多给一列；
+   .mcat 是 flex，圆点作首个 flex item，稍微靠近名称。 */
+.minc{grid-template-columns:7px minmax(0,1fr) auto auto;}
+.mcat .mh-dot{margin-right:-3px;}
+/* 「今天还能花」的进度条：红 → 墨（跟总览、债务的进度条统一） */
+.mdaily-bar{background:var(--track);}
+.mdaily-bar i{background:var(--text);}
+/* 利率换算四格：卡中卡 → 凹陷底（去描边，跟统计页 .rv-cell 同一层） */
+.mrate-cell{background:var(--surface-2);border:1px solid transparent;border-radius:10px;}
+.mrate-cell b{font-family:var(--font-sans);font-size:16px;font-weight:700;letter-spacing:-.01em;}
+[data-theme="dark"] .mrate-cell{background:var(--surface-3);}
+/* 列表行节奏与金额字体归到 v2：行距略松、金额与名称用同一套数字字 */
+.mlog,.mspend,.minc,.mcat{padding:10px 2px;}
+.mlog-amt,.mspend-amt,.minc-amt,.mcat-bud{font-family:var(--font-sans);font-weight:600;}
+.mym b{font-family:var(--font-sans);}
+/* 工具页「真实年化」大数字、利率表统一字体 */
+.mapr b{font-family:var(--font-sans);font-weight:700;}
+.mtbl-row{padding:10px 2px;}
+.mrate-cell small,.mrate-cell b{font-variant-numeric:tabular-nums;}
+
 /* ---------- 3. 习惯 / 用药行：四列 ---------- */
 /* 旧行是「名 + 满宽进度条」，进度条 0% 时只剩一条横贯全宽的浅线，
    12 行看下来像 12 根空导线。改成固定列宽的四列，数值靠右对齐可纵向扫读。 */

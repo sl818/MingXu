@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=156">
+<link rel="stylesheet" href="assets/app.css?v=157">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=156">
+<link rel="stylesheet" href="assets/theme-v2.css?v=157">
 </head>
 <body>
 <div class="app landing">
@@ -8823,6 +8823,7 @@
     const income = '<div class="panel"><h3>收入 <span class="muted-sm">（每月，税后到手）</span></h3>' +
       (incs.length ? '<div class="mlist">' + incs.map(function (x) {
         return '<div class="minc">' +
+          '<span class="mh-dot" style="--hc:var(--text)"></span>' +
           '<span class="minc-name">' + esc(x.name) + '</span>' +
           '<span class="minc-amt">¥' + moneyFmt(x.amount) + '</span>' +
           '<button type="button" class="btn sm" data-act="money-income-del" data-id="' +
@@ -8838,6 +8839,7 @@
       '<span class="muted-sm">（每月额度，不是本月实际）</span></h3>' +
       (cats.length ? '<div class="mlist">' + cats.map(function (c) {
         return '<div class="mcat">' +
+          '<span class="mh-dot" style="--hc:var(--text)"></span>' +
           '<span class="mcat-name">' + esc(c.name) + '</span>' +
           '<span class="mdebt-tag">' + (c.kind === 'fixed' ? '固定' : '日常') + '</span>' +
           '<span class="mcat-bud">¥' + moneyFmt(c.budget) + '</span>' +
@@ -15519,7 +15521,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=156', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=157', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

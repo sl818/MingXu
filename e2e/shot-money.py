@@ -22,7 +22,28 @@ money = {
     ],
     'extra': 500, 'strategy': 'snowball', 'customOrder': [],
     'snowflakes': [{'id': 's1', 'ym': '2026-12', 'amount': 5000, 'note': '年终奖'}],
-    'startYM': '', 'log': [], 'incomes': [], 'cats': [], 'spends': [],
+    'startYM': '',
+    'log': [
+        {'id': 'l1', 'date': '2026-11-10', 'debtId': 'd1', 'debtName': '招商信用卡', 'amount': 3200, 'note': '每月还款'},
+        {'id': 'l2', 'date': '2026-10-10', 'debtId': 'd1', 'debtName': '招商信用卡', 'amount': 3200, 'note': ''},
+        {'id': 'l3', 'date': '2026-11-15', 'debtId': 'd2', 'debtName': '某网贷', 'amount': 1500, 'note': '提前还一点'},
+    ],
+    'incomes': [
+        {'id': 'i1', 'name': '工资', 'amount': 12000},
+        {'id': 'i2', 'name': '副业', 'amount': 3000},
+    ],
+    'cats': [
+        {'id': 'c1', 'name': '房租', 'kind': 'fixed', 'budget': 3500},
+        {'id': 'c2', 'name': '网费话费', 'kind': 'fixed', 'budget': 200},
+        {'id': 'c3', 'name': '饮食', 'kind': 'daily', 'budget': 1500},
+        {'id': 'c4', 'name': '交通', 'kind': 'daily', 'budget': 400},
+    ],
+    'spends': [
+        {'id': 'sp1', 'date': '2026-11-05', 'catId': 'c3', 'catName': '饮食', 'amount': 48},
+        {'id': 'sp2', 'date': '2026-11-07', 'catId': 'c4', 'catName': '交通', 'amount': 22},
+        {'id': 'sp3', 'date': '2026-11-10', 'catId': 'c3', 'catName': '饮食', 'amount': 65},
+        {'id': 'sp4', 'date': '2026-11-18', 'catId': 'c4', 'catName': '交通', 'amount': 30},
+    ],
     'notify': {'on': False, 'before': [3, 1, 0], 'time': '09:00'},
 }
 board = {'data': {'version': 2, 'view': 'today', 'habits': [], 'checks': {}, 'notes': {}, 'moods': {},
@@ -76,7 +97,7 @@ port = srv.server_address[1]
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 
 def dump(pg, mode):
-    for tab in ('overview', 'debts', 'plan'):
+    for tab in ('overview', 'debts', 'budget', 'plan', 'log', 'tools'):
         pg.click(f'button[data-act="subtab"][data-page="money"][data-tab="{tab}"]'); pg.wait_for_timeout(700)
         pg.screenshot(path=f'design/shots/money-{tab}-{mode}.png', full_page=False)
 
