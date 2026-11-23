@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v164（2026-11-23）
+最后更新：v165（2026-11-23）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v164（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v164'`） |
+| 代码版本 | v165（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v165'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -195,6 +195,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v162 | 11-23 | **P2 第八页「日历」精修**（v145 已做过格线纸/墨色密度）：整月偏灰 → 完成度四档填充 5/9/15/22% 调为 4/7/11/16%；格子高 84→78px、百分比 10→10.5px。verify-calendar-v47 48/48、回归 28/28、审计 0 项低于 AA。出 `design/cal-compare.html`。SW → v162。**待办**：随笔查看全文+Markdown（陛下点名，以后做，已入 MEMORY 待做） |
 | v163 | 11-23 | **P2 第九页「统计」精修**（v145/v146 已大改）：柱状图高 176→158px；未达标红框 border 实红→`color-mix(accent 62%,line)` 柔化。其余板块保持（有意不为改而改）。verify-stats-v80 38/38、回归 28/28、审计 0 项低于 AA。出 `design/stats-compare.html`。SW → v163 |
 | v164 | 11-23 | **P2 第十页「配置」重排**（此前没被 v2 碰过）：①`.ntf-box` 去描边只留凹陷底（深色 surface-3），去掉「提醒」里的卡中卡；②红按钮收回——「开启系统通知」→`btn new`（蓝），「生成订阅链接/复制链接/发信测试」→`btn`（中性）；保存类仍红。verify-smtp-form 16/16、verify-notify-matrix 23/23、回归 28/28、审计 0 项低于 AA。出 `design/config-compare.html`。SW → v164。仅剩设置页 |
+| v165 | 11-23 | **P2 第十一页「设置」重排 · P2 收官**：①排版卡选中态 红框红晕→墨框；②预览示意图红条→墨；③hover 去位移；④外观切换投影→内描边；⑤导航顺序行去描边留凹底。「清空全部数据」仍红。verify-v15 35/35、回归 28/28、审计 0 项低于 AA。出 `design/settings-compare.html`。**P2 逐页重排 11/11 全部完成**。SW → v165 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
