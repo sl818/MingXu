@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v158（2026-11-23）
+最后更新：v159（2026-11-23）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v158（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v158'`） |
+| 代码版本 | v159（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v159'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -189,6 +189,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v156 | 11-22 | **清债第一批（总览/债务/计划）P2 重排**：`theme-v2.css` 此前完全没有清债样式，本轮为三页新建 v2 视觉层（纯 CSS，不动数据/算法/交互）。①进度条红→墨（`.mhc-bar i`/`.mdebt-bar i`）；②总览 KPI 三格→数值带；③债务卡白卡+墨条；④六格汇总→凹陷底（深色 surface-3，对齐 `.rv-cell`）；⑤策略卡选中/对比表当前行 红晕→墨描边/淡墨底；⑥曲线红→墨。对比度审计清债三页 0 项低于 AA。**第二批（预算/记录/工具）待做**。SW → v156 |
 | v157 | 11-22 | **清债第二批（预算/记录/工具）P2 重排**：①预算页「收入」「开支预算」每项名称前加 7px 小圆点（复用 `.mh-dot`，统一墨色，深色混白），`.minc` grid 补一列；②「今天还能花」进度条红→墨；③工具页利率换算四格 `.mrate-cell` 卡中卡→凹陷底（深色 surface-3）；④列表行 padding 8→10、金额/名称统一 `--font-sans`。`.mbud-bar` 四色分区条保留（chart 分类色，非警告）。**清债 6 子页 P2 全部完成**。对比度六页 0 项低于 AA。SW → v157 |
 | v158 | 11-23 | **P2 第五页「体重」重排**：①折线图默认 H 340→250（宽屏近 500px→约 200px），`.ww-svg` max-height 兜底；统计页传 `{w:1200,h:280}` 不受影响。②折线红→墨（趋势非警告）、目标线 muted。③统计 6 行→2×3 凹陷底数值带（**保留 `.wsum-row` 类名**只改 CSS，测试按它取样）。④BMI 卡描边→凹底、两栏 `align-items:start` 去底部空白。⑤修 `dark .bmi-pill 3.81`：**对比度审计首次 0 项低于 AA**（BMI 卡深色须保持 surface-2，抬 surface-3 会让红字掉到 2.53）。出前后对比网页 `design/weight-compare.html`。SW → v158 |
+| v159 | 11-23 | **体重页布局修复（折线两侧留白）**：陛下反馈宽屏下折线两侧空。**根因**：v158 的 `.ww-svg{max-height:400}` 在 1920 宽把 SVG 压成固定高、按比例居中，左右各留 155px。**修法**：①去掉 max-height，SVG `width:100%+height:auto` 等比铺满；②`.weight-charts` 改左右各半 `1fr 1fr`（原 1fr+262px），≤1080 回落单列。1920 实测 787+787、svg 745×310 铺满。回归 28/28、审计 0 项低于 AA。SW → v159 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
