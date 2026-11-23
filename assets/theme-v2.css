@@ -649,7 +649,7 @@ body{
    基线不能再画在每列底边上——相邻列的边框各自 1px，缩放后会断续成虚线；
    改成给 .chart 一个绝对定位的整宽基线，列只负责把标签吊到基线下面。 */
 .chart{
-  position:relative;height:176px;max-width:none;
+  position:relative;height:158px;max-width:none;
   padding-top:2px;padding-bottom:18px;gap:6px;
 }
 .chart::after{
@@ -668,7 +668,7 @@ body{
 }
 .bar-wrap i.low{
   background:transparent;opacity:1;
-  border:1px solid var(--accent);border-bottom:0;border-radius:3px 3px 0 0;
+  border:1px solid color-mix(in srgb,var(--accent) 62%,var(--line));border-bottom:0;border-radius:3px 3px 0 0;
 }
 /* 深色底上 1px 的 #dc2626 偏暗，换文字红那支 */
 [data-theme="dark"] .bar-wrap i.low{border-color:var(--accent-2);}
