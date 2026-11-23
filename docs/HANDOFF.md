@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v160（2026-11-23）
+最后更新：v161（2026-11-23）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v160（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v160'`） |
+| 代码版本 | v161（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v161'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -191,6 +191,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v158 | 11-23 | **P2 第五页「体重」重排**：①折线图默认 H 340→250（宽屏近 500px→约 200px），`.ww-svg` max-height 兜底；统计页传 `{w:1200,h:280}` 不受影响。②折线红→墨（趋势非警告）、目标线 muted。③统计 6 行→2×3 凹陷底数值带（**保留 `.wsum-row` 类名**只改 CSS，测试按它取样）。④BMI 卡描边→凹底、两栏 `align-items:start` 去底部空白。⑤修 `dark .bmi-pill 3.81`：**对比度审计首次 0 项低于 AA**（BMI 卡深色须保持 surface-2，抬 surface-3 会让红字掉到 2.53）。出前后对比网页 `design/weight-compare.html`。SW → v158 |
 | v159 | 11-23 | **体重页布局修复（折线两侧留白）**：陛下反馈宽屏下折线两侧空。**根因**：v158 的 `.ww-svg{max-height:400}` 在 1920 宽把 SVG 压成固定高、按比例居中，左右各留 155px。**修法**：①去掉 max-height，SVG `width:100%+height:auto` 等比铺满；②`.weight-charts` 改左右各半 `1fr 1fr`（原 1fr+262px），≤1080 回落单列。1920 实测 787+787、svg 745×310 铺满。回归 28/28、审计 0 项低于 AA。SW → v159 |
 | v160 | 11-23 | **P2 第六页「戒烟」重排**：把「红用在成就上」收回——①hero「连续 N 天没抽」`.mv-status.ok` 红→墨；②「记一笔买烟」`.btn.primary`→`.btn.new`（行动蓝）；③月历「忍住」`.qc-day.ok` 红晕→`--good` 12% 绿淡底（「抽了」仍红=失守）；④抽烟趋势 `.qt-line/.qt-dot` 红→墨。汇总格保持 v145 凹底。回归 28/28、审计 0 项低于 AA。出对比网页 `design/quit-compare.html`。SW → v160 |
+| v161 | 11-23 | **P2 第七页「随笔」重排**：①卡片圆角 16→12、去投影（v2 靠发丝线）、去 min-height（短卡不留白，同行 grid 拉齐）；②标签 hover/选中 红→墨（分类非警告）；③标题 15.5、摘要 12.5、日期字距收紧。回归 28/28、审计 0 项低于 AA。**注**：审计尚未覆盖随笔页（技术债，后续补 SELS_ESSAY）。出对比网页 `design/essay-compare.html`。SW → v161 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
