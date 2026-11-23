@@ -1298,7 +1298,7 @@ body{
   grid-auto-rows:auto;
 }
 .cal-cell{
-  height:84px;padding:8px 9px;border:0;border-radius:0;
+  height:78px;padding:7px 9px;border:0;border-radius:0;
   background:var(--surface);
 }
 /* 空格子也是白格：容器底色是格线色，留透明会变成一整块米色 */
@@ -1307,10 +1307,11 @@ body{
   background:var(--surface-2);transform:none;
 }
 .cal-fill{background:var(--text);}
-.cal-cell[data-level="1"] .cal-fill{opacity:.05}
-.cal-cell[data-level="2"] .cal-fill{opacity:.09}
-.cal-cell[data-level="3"] .cal-fill{opacity:.15}
-.cal-cell[data-level="4"] .cal-fill{opacity:.22}
+/* P2 精修：整月偏灰，四档填充整体调轻一档，仍能看出完成度深浅 */
+.cal-cell[data-level="1"] .cal-fill{opacity:.04}
+.cal-cell[data-level="2"] .cal-fill{opacity:.07}
+.cal-cell[data-level="3"] .cal-fill{opacity:.11}
+.cal-cell[data-level="4"] .cal-fill{opacity:.16}
 .cal-num{font-size:12.5px;font-weight:600;}
 .cal-cell[data-level="4"] .cal-num{color:var(--text);font-weight:700;}
 .cal-cell.is-today .cal-num{color:var(--accent-2);font-weight:700;}
@@ -1322,7 +1323,7 @@ body{
 /* 未来日期不再整格降透明度——格线是容器底色，降透明度会让格子透出灰底 */
 .cal-cell.is-future{opacity:1;}
 .cal-cell.is-future .cal-num{color:var(--muted);font-weight:500;}
-.cal-pct{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.cal-pct{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
 .cal-task{font-size:10.5px;}
 .cal-task-more{font-size:10px;}
 .cal-debt{font-size:10px;}
