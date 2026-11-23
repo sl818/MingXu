@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=168">
+<link rel="stylesheet" href="assets/app.css?v=169">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=168">
+<link rel="stylesheet" href="assets/theme-v2.css?v=169">
 </head>
 <body>
 <div class="app landing">
@@ -146,6 +146,8 @@
   const THEME_MODE_KEY = 'lifeboard.theme.mode';
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
+  /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
+  const APP_VERSION = 'v169';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -11756,6 +11758,10 @@
       '</div>' +
       cloudPanelHtml() +
       dataPanelHtml() +
+      '<div class="panel"><h3>系统版本</h3>' +
+        '<div class="version-row"><span>当前版本</span><b>' + esc(APP_VERSION) + '</b></div>' +
+        '<p class="muted-sm" style="margin:0">版本号随每次更新递增，可对照线上是否已更新到最新。</p>' +
+      '</div>' +
       '<div class="panel"><h3>小提示</h3>' +
         '<ul class="tips">' +
           '<li>每天花 10 秒打卡，晚上睡前补记也可以。</li>' +
@@ -15869,7 +15875,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=168', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=169', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
