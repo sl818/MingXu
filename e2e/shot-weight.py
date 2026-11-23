@@ -4,9 +4,11 @@ import http.server, threading, json, socketserver, secrets, sys, os
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
-TAG = 'after'
+TAG = 'after'; W = 1440; OLD = False
 for i, a in enumerate(sys.argv):
     if a == '--tag' and i + 1 < len(sys.argv): TAG = sys.argv[i + 1]
+    if a == '--w' and i + 1 < len(sys.argv): W = int(sys.argv[i + 1])
+    if a == '--old': OLD = True
 
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
 OUT = os.path.join(DOC, 'design', 'shots')
@@ -80,7 +82,7 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 with sync_playwright() as pw:
     br = pw.chromium.launch(channel='chrome', headless=True)
     for mode in ('light', 'dark'):
-        ctx = br.new_context(viewport={'width': 1440, 'height': 980})
+        ctx = br.new_context(viewport={'width': W, 'height': 1000})
         pg = ctx.new_page()
         pg.clock.install(time=datetime(2026, 11, 22, 10, 0, 0))
         pg.add_init_script(f"try{{localStorage.setItem('lifeboard.layout','wide');localStorage.setItem('lifeboard.skin','paper');localStorage.setItem('lifeboard.theme.mode','{mode}');}}catch(e){{}}")
@@ -89,6 +91,11 @@ with sync_playwright() as pw:
         pg.fill('input[name="email"]', 'test@example.com'); pg.fill('input[name="password"]', 'test@example.com')
         pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(2200)
         pg.click('.nav-item[data-nav="weight"]'); pg.wait_for_timeout(1000)
+        if OLD:
+            # 模拟 v158 旧布局：右栏固定 262px + 图 max-height 400（宽屏会两侧留白）
+            pg.add_style_tag(content=".ww-svg{max-height:400px !important;width:100% !important;height:auto !important;}"
+                                     ".weight-charts{grid-template-columns:minmax(0,1fr) 262px !important;}")
+            pg.wait_for_timeout(250)
         pg.screenshot(path=os.path.join(OUT, f'weight-{TAG}-{mode}.png'), full_page=True)
         ctx.close()
     br.close()

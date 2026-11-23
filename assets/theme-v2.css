@@ -1229,16 +1229,17 @@ body{
 .weight-stat-row b i{font-size:11px;}
 
 /* ---------- P2 · 第五页：体重 ---------- */
-/* 折线图：宽屏下 600×250 会被放大到 350–390px，加一道 max-height 兜底防极端宽屏；
-   上限不会让 SVG 变形（preserveAspectRatio 默认等比居中）。 */
-.ww-svg{max-height:400px;}
+/* 不设 max-height：宽屏下它会把 SVG 压成固定高度、两侧留白（v158 实测 1920 屏左右各留 155px）。
+   SVG 用 width:100% + height:auto 按比例铺满，图高随栏宽走。 */
 /* 趋势是中性信息，不是警告：红笔 → 墨色（与清债曲线、统计柱状图统一） */
 .ww-line{stroke:var(--text);}
 .ww-dot{stroke:var(--text);}
 .ww-dot.last{fill:var(--text);}
 .ww-goal{stroke:var(--muted);opacity:.72;}
-/* 两栏顶部对齐、各自按内容高度：不再被 stretch 拉出一块底部空白 */
-.weight-charts{align-items:start;}
+/* 折线占左半、统计+体脂占右半（原右栏固定 262px，左图被拉宽后反而两侧留白）；
+   顶部对齐、各自按内容高度，不拉伸留白。窄屏回落单列。 */
+.weight-charts{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;}
+@media (max-width:1080px){.weight-charts{grid-template-columns:1fr;}}
 /* BMI 卡：卡中卡 → 凹陷底（去描边，跟统计页 .rv-cell 同一层） */
 .weight-bmi{border:1px solid transparent;border-radius:12px;background:var(--surface-2);}
 .weight-bmi b{font-family:var(--font-sans);font-weight:700;letter-spacing:-.02em;}
