@@ -67,6 +67,12 @@ for _i in range(3):
     _cr.append({'id': 's2_%d' % _i, 't': _t8 + 3600 + 1800 * (_i + 1), 'k': 's', 'h': 'h_drink', 'g': '', 's': 0})
 board['data']['cravings'] = _cr
 
+# 随笔页（v167 起补审计）：给两条带标签的随笔，否则 .essay-tag 取不到样本。
+board['data']['essays'] = [
+    {'id': 'e_audit1', 'date': '2026-10-25', 'title': '今日备忘', 'text': '审计用的随笔正文，含标签与字数。', 'tags': ['想法', '生活'], 'updatedAt': 1},
+    {'id': 'e_audit2', 'date': '2026-10-24', 'title': '', 'text': '第二条，短一点。', 'tags': ['片段'], 'updatedAt': 2},
+]
+
 # 配置页要有通知才取得到样本
 # 倒数日：未来 / 过去 / 暂停 三种状态都要有样本
 board['data']['countdowns'] = [
@@ -178,6 +184,9 @@ JS = """
 SELS_SETTINGS = ['.layout-name', '.layout-desc', '.theme-name', '.theme-desc',
                   # v86 设置页「导航顺序」：组标题 + 行名
                   '.no-head', '.no-head span', '.no-row b']
+# v167 补：随笔页此前没被审计覆盖（长期遗漏）。标签是分类、无红；取样标题/正文/日期/标签。
+SELS_ESSAY = ['.essay-meta', '.essay-title', '.essay-text', '.essay-tag',
+              '.essay-tag-filter .tag-chip', '.essay-tag-filter .tag-chip.active']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go',
               # 「其他习惯」目标 1 次的打卡按钮（v74）。mock 里 h_run 已打卡、h_plan 没打，
               # 两种状态各取一次；用 :not(.on) 区分，否则第一个匹配到的永远是 on 态。
@@ -351,6 +360,9 @@ with sync_playwright() as p:
             nav(pg, 'config')
             pg.wait_for_timeout(900)
             res += pg.evaluate(JS, SELS_CONFIG_PAGE)
+            nav(pg, 'essays')
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_ESSAY)
             nav(pg, 'habits')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_HABITS_PAGE)
@@ -426,7 +438,7 @@ print('检查：%d 皮肤 × 明暗 = %d 组 × %d 个元素（共 %d 次取样�
          + len(SELS_CAL_MONTH) + len(SELS_CAL_WEEK) + len(SELS_MONEY) + len(SELS_MONEY_DEBTS)
          + len(SELS_MONEY_PLAN) + len(SELS_MONEY_LOG)
          + len(SELS_MONEY_BUDGET) + len(SELS_MONEY_TOOLS) + len(SELS_WEIGHT)
-         + len(SELS_MEDS), checked))
+         + len(SELS_MEDS) + len(SELS_ESSAY), checked))
 print('跳过（渐变/透明背景）：%d' % skipped)
 print('元素缺失：%d %s' % (len(missing), missing[:4]))
 print('低于 WCAG AA：%d' % len(bad))

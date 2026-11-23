@@ -229,7 +229,7 @@
 :root[data-layout="top"] .brand-text small{display:none;}
 :root[data-layout="top"] .logo{width:24px;height:24px;border-radius:7px;font-size:11px;}
 :root[data-layout="top"] .nav{
-  flex:1 1 auto;min-width:0;flex-direction:row;justify-content:flex-start;
+  flex:1 1 auto;min-width:0;flex-direction:row;justify-content:center;
   gap:2px;overflow-x:auto;padding:0;
 }
 :root[data-layout="top"] .nav::-webkit-scrollbar{display:none;}
