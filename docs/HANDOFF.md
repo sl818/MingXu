@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v168（2026-11-23）
+最后更新：v169（2026-11-23）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v168（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v168'`） |
+| 代码版本 | v169（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v169'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -199,6 +199,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v166 | 11-23 | **设置页「导航顺序」改拖拽换位**：箭头逐格点 → 手柄 `⋮⋮` 直接拖。`dragReorder`（donglang 参考实现）内联进 index.html（无构建不能 import），`navOrderHtml` 每组包 `.dr-list` + 手柄，`mountNavDrag()` render 后挂载、reorder 复用现有组内重排+保存。参数 200ms / 1.04 / cubic-bezier(0.2,0,0,1)，减少动态直接到位，无脚本内容仍可见，键盘空格拿起+方向键+空格放下。`verify-nav-order.py` 改写为键盘法（16/16）、`test-drag-nav.py`（拖拽保存 navOrder 验证）、回归 28/28、v15 35/35、手机 44/44、审计 0 项低于 AA。出 `design/nav-drag-compare.html`。SW → v166 |
 | v167 | 11-23 | **导航分组重构**：①「今日」改名**仪表盘**、group 改 `'顶'`（不在 NAV_GROUPS，indexOf=-1 自动置顶），侧栏不显组标题、下加 `.nav-sep` 分隔；②`NAV_GROUPS` → `['记录','回顾','设置']`，config/settings 归入「设置」；③`navOrderHtml` 今日单独「置顶·固定」无手柄，下接三组 dr-list。结果：仪表盘置顶 → 记录7 → 回顾2 → 设置2。verify-nav-order 17/17、回归 28/28、手机 44/44、审计 0 项低于 AA。出 `design/nav-group-compare.html`。SW → v167 |
 | v168 | 11-23 | **顶栏导航居中 + 补随笔审计**：①`theme-v2.css:231` 顶栏 `.nav` 的 `justify-content` 从 `flex-start` 改回 `center`（此前覆盖了 app.css 的 center），导航项居中、左右对称留白（诊断 `probe-topnav.py`：132–1031 → 229–1128）；②`audit-contrast-v33.py` 补随笔页（mock essays + SELS_ESSAY + 遍历），元素 188→194、0 项低于 AA。回归 28/28。SW → v168 |
+| v169 | 11-23 | **设置页新增「系统版本」板块**：`index.html` 加 `const APP_VERSION`、`viewSettings` 在数据管理与小提示之间插「系统版本」面板（显示当前版本 + 说明），theme-v2 加 `.version-row`。**版本号四处同步**（?v= / APP_VERSION / SW CACHE / SW VER）已记入 MEMORY。回归 28/28。SW → v169 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
