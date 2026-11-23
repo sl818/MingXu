@@ -1217,6 +1217,15 @@ body{
 .qs-spark i{background:var(--line-strong);}
 .qs-spark i.last{background:var(--text);}
 .qsum-hours{border-color:var(--line);border-radius:10px;}
+/* 成就用墨、失守才用红：hero「连续 N 天没抽」原是红字，读起来像警告 */
+.mv-status.ok{color:var(--text);}
+/* 月历「忍住」原是红晕底（accent-soft），改绿淡底——忍住是好事 */
+.qc-day.ok{background:color-mix(in srgb,var(--good) 12%,var(--surface));}
+/* 抽烟趋势是中性走势，红 → 墨 */
+.qt-line{stroke:var(--text);}
+.qt-dot{stroke:var(--text);}
+.qt-dot.last{fill:var(--text);}
+.qt-avg{stroke:var(--line-strong);}
 
 /* ---------- 5. 体重折线：区间不再是一片红 ---------- */
 .ww-band{fill:color-mix(in srgb,var(--text) 5%,transparent);}
