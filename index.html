@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=165">
+<link rel="stylesheet" href="assets/app.css?v=166">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=165">
+<link rel="stylesheet" href="assets/theme-v2.css?v=166">
 </head>
 <body>
 <div class="app landing">
@@ -11668,26 +11668,46 @@
     const isDefault = list.every(function (n, i) { return n.key === NAV[i].key; });
     const groups = NAV_GROUPS.map(function (g) {
       const items = list.filter(function (n) { return n.group === g; });
-      const rows = items.map(function (n, i) {
-        const btn = function (dir, txt, off) {
-          return '<button type="button" class="icon-btn"' + (off ? ' disabled' : '') +
-            ' data-act="nav-move" data-key="' + n.key + '" data-dir="' + dir + '" title="' + txt + '">' +
-            (dir < 0 ? '↑' : '↓') + '</button>';
-        };
+      const rows = items.map(function (n) {
         return '<div class="no-row">' +
           '<span class="no-ico">' + icon(n.icon) + '</span>' +
           '<b>' + esc(n.label) + '</b>' +
-          '<span class="no-move">' + btn(-1, '上移', i === 0) + btn(1, '下移', i === items.length - 1) + '</span>' +
+          '<button type="button" class="drag-handle" aria-label="拖动排序：' + esc(n.label) + '" title="按住拖动排序">⋮⋮</button>' +
         '</div>';
       }).join('');
       return '<div class="no-group">' +
-        '<div class="no-head">' + g + '<span>' + items.length + ' 项</span></div>' + rows + '</div>';
+        '<div class="no-head">' + g + '<span>' + items.length + ' 项</span></div>' +
+        '<div class="dr-list no-rows" data-nav-group="' + esc(g) + '">' + rows + '</div>' +
+      '</div>';
     }).join('');
     return '<div class="no-list">' + groups + '</div>' +
       '<div class="btn-row" style="margin-top:12px">' +
         '<button type="button" class="btn sm" data-act="nav-reset"' + (isDefault ? ' disabled' : '') +
         '>恢复默认顺序</button>' +
       '</div>';
+  }
+
+  /* 设置页「导航顺序」：每次渲染后给每个组的 .dr-list 挂拖拽排序。
+     拖完（reorder）复用现有逻辑——组内 from→to 重排、写完整 navOrder、保存、重渲染。 */
+  function mountNavDrag() {
+    document.querySelectorAll('.dr-list[data-nav-group]').forEach(function (listEl) {
+      dragReorder(listEl, { duration: 200, lift: 1.04, easing: 'cubic-bezier(0.2, 0, 0, 1)' });
+      listEl.addEventListener('reorder', function (e) {
+        const group = listEl.dataset.navGroup;
+        const from = e.detail.from, to = e.detail.to;
+        if (from === to) return;
+        const list = orderedNav();
+        const keys = list.filter(function (n) { return n.group === group; }).map(function (n) { return n.key; });
+        if (from < 0 || to < 0 || from >= keys.length || to >= keys.length) return;
+        const moved = keys.splice(from, 1)[0];
+        keys.splice(to, 0, moved);
+        let i = 0;
+        state.navOrder = list.map(function (n) { return n.group === group ? keys[i++] : n.key; });
+        state.navOrderAt = Date.now();
+        save();
+        render();
+      });
+    });
   }
 
   function viewSettings() {
@@ -11979,6 +11999,313 @@
     '</div>';
   }
 
+  /* ===== 拖拽换位排序（Drag to reorder）· 原生 JS + CSS，不依赖任何库 =====
+     参考 donglang.linter.top/effects/drag-reorder.html；原理同 StyleKit drag-physics /
+     Animation Handbook drag-to-reorder / Motion Lexicon drag-to-reorder（均 MIT），自行实现。
+     给列表加 class="dr-list"，每一项里放一个 <button class="drag-handle"> 手柄。
+     只支持等高竖排列表；减少动态时直接到位、不放大；无脚本时就是普通列表、内容顺序不变。 */
+  const drPrevs = new WeakMap();
+  function dragReorder(list, opts) {
+    opts = opts || {};
+    var duration = opts.duration == null ? 200 : opts.duration;
+    var lift = opts.lift == null ? 1.04 : opts.lift;
+    var easing = opts.easing || 'cubic-bezier(0.2, 0, 0, 1)';
+    var ignoreReducedMotion = !!opts.ignoreReducedMotion;
+    var messages = opts.messages || {};
+    drPrevs.get(list) && drPrevs.get(list).destroy();
+    list.style.setProperty('--dr-duration', duration + 'ms');
+    list.style.setProperty('--dr-easing', easing);
+    if (ignoreReducedMotion) list.setAttribute('data-dr-motion', '');
+    var reduce = function () {
+      return !ignoreReducedMotion && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    };
+    var items = function () {
+      return Array.prototype.slice.call(list.children).filter(function (el) { return el instanceof HTMLElement; });
+    };
+    var handleOf = function (item) { return item.querySelector('.drag-handle'); };
+    var nameOf = function (item) {
+      var clone = item.cloneNode(true);
+      var hs = clone.querySelectorAll('.drag-handle');
+      for (var i = 0; i < hs.length; i++) hs[i].remove();
+      return (clone.textContent || '').trim().replace(/\s+/g, ' ');
+    };
+    var sayings = {
+      picked: messages.picked || function (name, n, total) { return '已拿起：' + name + '，现在第 ' + n + ' 个，共 ' + total + ' 个。上下箭头移动，空格放下，Esc 取消'; },
+      moved: messages.moved || function (n, total) { return '移到第 ' + n + ' 个，共 ' + total + ' 个'; },
+      dropped: messages.dropped || function (name, n, total) { return '已放下：' + name + '，现在第 ' + n + ' 个，共 ' + total + ' 个'; },
+      cancelled: messages.cancelled || function () { return '已取消'; }
+    };
+    var live = document.createElement('div');
+    live.setAttribute('aria-live', 'polite');
+    live.setAttribute('aria-atomic', 'true');
+    live.className = 'dr-live';
+    list.after(live);
+    var zwsp = false;
+    var say = function (text) {
+      var target = live.isConnected ? live : (list.nextElementSibling && list.nextElementSibling.matches('.dr-live') ? list.nextElementSibling : null);
+      if (!target) return;
+      target.textContent = text + (zwsp ? '\u200b' : '');
+      zwsp = !zwsp;
+    };
+    var picked = null;
+    var destroyed = false;
+    var metrics = null;
+    var measure = function () {
+      var all = items();
+      var base = list.getBoundingClientRect().top;
+      var tops = all.map(function (el) { return el.getBoundingClientRect().top - base; });
+      var pitch = tops.length > 1 ? tops[1] - tops[0] : (all[0] ? all[0].offsetHeight : 0);
+      metrics = { tops: tops, pitch: pitch, count: all.length };
+      return metrics;
+    };
+    var slotOf = function (y) {
+      var m = metrics || measure();
+      var top = y - (picked ? picked.grabAt : 0);
+      var k = Math.round((top - m.tops[0]) / m.pitch);
+      return Math.max(0, Math.min(m.count - 1, k));
+    };
+    var written = new Map();
+    var write = function (el, value) {
+      var prev = written.has(el) ? written.get(el) : '';
+      if (prev === value) return;
+      el.style.translate = value;
+      written.set(el, value);
+    };
+    var apply = function (y) {
+      if (!picked) return;
+      var m = metrics || measure();
+      var slot = slotOf(y);
+      var top = Math.max(m.tops[0], Math.min(m.tops[m.count - 1], y - picked.grabAt));
+      var px = '0 ' + (top - m.tops[picked.from]).toFixed(1) + 'px';
+      write(picked.item, px);
+      picked.y = y;
+      items().forEach(function (el, i) {
+        if (el === picked.item) return;
+        var shifted = 0;
+        if (i > picked.from && i <= slot) shifted = -m.pitch;
+        else if (i < picked.from && i >= slot) shifted = m.pitch;
+        write(el, shifted ? '0 ' + shifted.toFixed(1) + 'px' : '');
+      });
+    };
+    var landing = null;
+    var strip = function () {
+      written = new Map();
+      items().forEach(function (el) { el.style.transition = 'none'; });
+      items().forEach(function (el) {
+        el.style.translate = '';
+        el.style.zIndex = '';
+        el.style.scale = '';
+        el.classList.remove('is-dragging');
+      });
+      void list.offsetHeight;
+      items().forEach(function (el) { el.style.transition = ''; });
+    };
+    var abortLanding = function () {
+      if (!landing) return;
+      clearTimeout(landing.timer);
+      landing.item.removeEventListener('transitionend', landing.onEnd);
+      landing = null;
+      strip();
+    };
+    var grab = function (item, y) {
+      if (landing) landing.settle();
+      if (destroyed) return null;
+      if (picked) cancel();
+      measure();
+      if (!(metrics.pitch > 0)) return null;
+      var from = items().indexOf(item);
+      picked = { item: item, from: from, y: y, grabAt: y - metrics.tops[from] };
+      item.style.transition = '';
+      item.classList.add('is-dragging');
+      item.style.zIndex = '1';
+      if (!reduce()) item.style.scale = String(lift);
+      apply(y);
+      return picked;
+    };
+    var move = function (y) { if (picked) apply(y); };
+    var drop = function () {
+      if (!picked) return null;
+      var item = picked.item, from = picked.from;
+      var m = metrics || measure();
+      var slot = slotOf(picked.y);
+      var hadFocus = list.contains(document.activeElement) && item.contains(document.activeElement);
+      var handle = handleOf(item);
+      picked = null;
+      var timer = 0;
+      var onEnd = null;
+      var finish = function () {
+        clearTimeout(timer);
+        if (onEnd) item.removeEventListener('transitionend', onEnd);
+        landing = null;
+        var fired = null;
+        if (slot !== from) {
+          var all = items();
+          list.insertBefore(item, all[slot + (slot > from ? 1 : 0)] || null);
+          fired = { detail: { from: from, to: slot } };
+        }
+        strip();
+        metrics = null;
+        handle && handle.setAttribute('aria-pressed', 'false');
+        if (hadFocus && handle) handle.focus({ preventScroll: true });
+        if (fired) list.dispatchEvent(new CustomEvent('reorder', { detail: fired.detail, bubbles: false }));
+      };
+      var curRaw = getComputedStyle(item).translate.split(' ')[1] || '0';
+      var current = parseFloat(curRaw) || 0;
+      var target = m.tops[slot] - m.tops[from];
+      if (reduce() || Math.abs(target - current) < 2) { finish(); return { from: from, to: slot }; }
+      item.style.transition = 'translate var(--dr-duration, 200ms) var(--dr-easing, cubic-bezier(0.2, 0, 0, 1)), scale var(--dr-duration, 200ms) var(--dr-easing, cubic-bezier(0.2, 0, 0, 1))';
+      item.style.translate = '0 ' + target.toFixed(1) + 'px';
+      var settled = false;
+      var settle = function () { if (settled) return; settled = true; finish(); };
+      onEnd = function (e) {
+        if (e.target !== item || e.propertyName !== 'translate') return;
+        settle();
+      };
+      item.addEventListener('transitionend', onEnd);
+      timer = setTimeout(settle, duration + 80);
+      landing = { item: item, onEnd: onEnd, timer: timer, settle: settle };
+      return { from: from, to: slot };
+    };
+    var cancel = function () {
+      abortLanding();
+      if (!picked) return;
+      var item = picked.item;
+      picked = null;
+      strip();
+      metrics = null;
+      var h = handleOf(item);
+      h && h.setAttribute('aria-pressed', 'false');
+    };
+    var active = null;
+    var keyState = null;
+    var itemOfHandle = function (handle) {
+      var item = handle.parentElement;
+      return item && item.parentElement === list ? item : null;
+    };
+    var onPointerDown = function (e) {
+      if (e.button !== 0) return;
+      var handle = e.target instanceof Element ? e.target.closest('.drag-handle') : null;
+      if (!handle || !list.contains(handle)) return;
+      if (active) return;
+      e.preventDefault();
+      if (keyState) { cancel(); say(sayings.cancelled()); keyState = null; }
+      var item = itemOfHandle(handle);
+      if (!item) return;
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      handle.setAttribute('aria-pressed', 'true');
+      active = { item: item, pointerId: e.pointerId };
+      var taken = grab(item, e.clientY - list.getBoundingClientRect().top);
+      if (!taken) {
+        active = null;
+        handle.setAttribute('aria-pressed', 'false');
+        return;
+      }
+      say(sayings.picked(nameOf(item), items().indexOf(item) + 1, items().length));
+    };
+    var onPointerMove = function (e) {
+      if (!active || e.pointerId !== active.pointerId) return;
+      move(e.clientY - list.getBoundingClientRect().top);
+    };
+    var onPointerUp = function (e) {
+      if (!active || e.pointerId !== active.pointerId) return;
+      var item = active.item;
+      active = null;
+      var where = drop();
+      if (where && where.to !== where.from) say(sayings.dropped(nameOf(item), where.to + 1, items().length));
+    };
+    var onPointerEnd = function (e) {
+      if (!active || e.pointerId !== active.pointerId) return;
+      active = null;
+      cancel();
+      say(sayings.cancelled());
+    };
+    var onKeyDown = function (e) {
+      var handle = e.target instanceof Element ? e.target.closest('.drag-handle') : null;
+      if (!handle || !list.contains(handle)) return;
+      var item = itemOfHandle(handle);
+      if (!item) return;
+      if (active) return;
+      var grabbing = keyState === item;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (grabbing) {
+          keyState = null;
+          var where = drop() || { to: items().indexOf(item) };
+          say(sayings.dropped(nameOf(item), where.to + 1, items().length));
+        } else {
+          var m = metrics || measure();
+          var taken = grab(item, m.tops[items().indexOf(item)] + m.pitch / 2);
+          if (!taken) return;
+          handle.setAttribute('aria-pressed', 'true');
+          keyState = item;
+          say(sayings.picked(nameOf(item), items().indexOf(item) + 1, items().length));
+        }
+        return;
+      }
+      if (e.key === 'Escape' && grabbing) {
+        e.preventDefault();
+        cancel();
+        say(sayings.cancelled());
+        keyState = null;
+        return;
+      }
+      if (!grabbing || !picked) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        var mm = metrics || measure();
+        var slot = slotOf(picked.y);
+        var next = Math.max(0, Math.min(mm.count - 1, slot + (e.key === 'ArrowDown' ? 1 : -1)));
+        if (next === slot) return;
+        move(picked.y + (next - slot) * mm.pitch);
+        say(sayings.moved(next + 1, mm.count));
+      }
+    };
+    var onFocusOut = function (e) {
+      if (!keyState) return;
+      if (!(e.target instanceof Element) || !keyState.contains(e.target)) return;
+      if (e.relatedTarget && keyState.contains(e.relatedTarget)) return;
+      cancel();
+      say(sayings.cancelled());
+      keyState = null;
+    };
+    var listeners = [
+      [list, 'pointerdown', onPointerDown],
+      [list, 'pointermove', onPointerMove],
+      [list, 'pointerup', onPointerUp],
+      [list, 'pointercancel', onPointerEnd],
+      [list, 'lostpointercapture', onPointerEnd],
+      [list, 'keydown', onKeyDown],
+      [list, 'focusout', onFocusOut]
+    ];
+    listeners.forEach(function (l) { l[0].addEventListener(l[1], l[2]); });
+    var ctl = {
+      grab: grab, move: move, drop: drop, cancel: cancel,
+      destroy: function () {
+        destroyed = true;
+        listeners.forEach(function (l) { l[0].removeEventListener(l[1], l[2]); });
+        cancel();
+        items().forEach(function (el) {
+          el.classList.remove('is-dragging');
+          el.style.translate = '';
+          el.style.zIndex = '';
+          el.style.scale = '';
+          el.style.transition = '';
+          var h = handleOf(el);
+          h && h.setAttribute('aria-pressed', 'false');
+        });
+        list.style.removeProperty('--dr-duration');
+        list.style.removeProperty('--dr-easing');
+        list.removeAttribute('data-dr-motion');
+        active = null;
+        keyState = null;
+        live.remove();
+        if (drPrevs.get(list) === ctl) drPrevs.delete(list);
+      }
+    };
+    drPrevs.set(list, ctl);
+    return ctl;
+  }
+
   function render() {
     dragId = null;
     if (view !== 'board' && boardFilterDay) boardFilterDay = '';
@@ -12062,6 +12389,7 @@
     if (themeBtn) themeBtn.textContent = theme === 'dark' ? '切换浅色模式' : '切换深色模式';
     $('#main').innerHTML = remindBannerHtml() + installTipHtml() + (VIEWS[view] || viewToday)() + siteFooter();
     bindView();
+    if (view === 'settings') mountNavDrag();
     updateSyncIndicator();
     remindSync();
   }
@@ -15521,7 +15849,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=165', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=166', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

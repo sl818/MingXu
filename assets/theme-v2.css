@@ -1369,6 +1369,32 @@ body{
 .theme-mode button.active{box-shadow:inset 0 0 0 1px var(--line-strong);}
 /* 导航顺序行：去描边只留凹陷底 */
 .no-row{border-color:transparent;}
+
+/* ============================================================
+   拖拽换位排序（配合 dragReorder，用于设置页「导航顺序」）
+   手柄 / 让位落位过渡 / 拿起放大与阴影 / 减少动态 / 无脚本时普通列表
+   ============================================================ */
+/* 每组的行容器：.dr-list 的直接子元素是等高竖排的 .no-row */
+.no-rows{display:flex;flex-direction:column;gap:6px;}
+/* 手柄：桌面 36×32 不撑高行，手机放大到 44 好按 */
+.drag-handle{
+  touch-action:none;flex:none;min-width:36px;min-height:32px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;background:transparent;border-radius:8px;color:var(--muted);
+  font:inherit;font-size:13px;letter-spacing:-3px;line-height:1;cursor:grab;
+}
+.drag-handle:hover{background:var(--surface-2);color:var(--text);}
+.drag-handle:active{cursor:grabbing;}
+.drag-handle:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+@media (pointer:coarse){.drag-handle{min-width:44px;min-height:44px;}}
+/* 让位 / 落位过渡（拖动中的那一项去掉过渡、跟指针走） */
+.dr-list > *{transition:translate var(--dr-duration,200ms) var(--dr-easing,cubic-bezier(0.2,0,0,1));}
+:where(.dr-list > .is-dragging){position:relative;}
+.dr-list > .is-dragging{z-index:1;box-shadow:var(--dr-shadow,0 14px 28px -12px rgb(0 0 0/.4));transition:none;}
+/* 减少动态：直接到位、不过渡（脚本的 data-dr-motion 只给演示强制播放用） */
+@media (prefers-reduced-motion:reduce){.dr-list:not([data-dr-motion]) > *{transition:none;}}
+/* 读屏提示（视觉隐藏） */
+.dr-live{position:absolute;width:1px;height:1px;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap;}
 .cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 .cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
 .cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}
