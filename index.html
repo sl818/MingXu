@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=164">
+<link rel="stylesheet" href="assets/app.css?v=165">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=164">
+<link rel="stylesheet" href="assets/theme-v2.css?v=165">
 </head>
 <body>
 <div class="app landing">
@@ -15521,7 +15521,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=164', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=165', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

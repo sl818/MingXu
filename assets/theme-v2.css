@@ -1351,6 +1351,24 @@ body{
    ============================================================ */
 .ntf-box{border-color:transparent;}
 [data-theme="dark"] .ntf-box{background:var(--surface-3);}
+
+/* ============================================================
+   P2 · 第十一页：设置
+   排版卡选中态原来是红框红晕、预览小图是红条——选中是当前状态，不是警告。
+   ============================================================ */
+/* 选中用墨框，不用红 */
+.layout-card.active{border-color:var(--text);box-shadow:0 0 0 1px var(--text);}
+/* v2 不做 hover 位移 */
+.layout-card:hover{transform:none;}
+/* 预览示意图：淡红 / 红条 → 墨色 */
+.layout-preview i{background:color-mix(in srgb,var(--text) 14%,transparent);}
+.layout-pv-top i:nth-child(1),
+.layout-pv-wide i:nth-child(1){background:var(--text);}
+.layout-pv-wide i:nth-child(3){background:color-mix(in srgb,var(--text) 26%,transparent);}
+/* 外观切换：选中不靠投影，用内描边 */
+.theme-mode button.active{box-shadow:inset 0 0 0 1px var(--line-strong);}
+/* 导航顺序行：去描边只留凹陷底 */
+.no-row{border-color:transparent;}
 .cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 .cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
 .cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}
