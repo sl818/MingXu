@@ -1329,6 +1329,20 @@ body{
 .cal-tasks-num{font-size:10.5px;}
 .cal-legend{font-size:10.5px;gap:5px;}
 .cal-legend i{width:12px;height:12px;border-radius:3px;}
+
+/* ============================================================
+   P2 · 第七页：随笔
+   卡片原来圆角 16 + 投影、标签 hover/选中是红的——标签是分类不是警告。
+   ============================================================ */
+/* 卡片：圆角 16→12、去投影（v2 靠发丝线），跟其他页统一；高度随内容，同行由 grid 拉齐 */
+.essay-card{border-radius:12px;box-shadow:none;min-height:0;}
+/* 标签 hover / 选中：红 → 墨 */
+.essay-tag:hover,.essay-tags .tag-chip:hover{color:var(--text);border-color:var(--line-strong);}
+.essay-tags .tag-chip.active{color:var(--text);border-color:var(--line-strong);background:var(--surface);}
+/* 字号：标题略收、摘要稍大更好读、日期不那么散 */
+.essay-title{font-size:15.5px;font-weight:700;}
+.essay-text{font-size:12.5px;}
+.essay-meta{font-size:10.5px;letter-spacing:.02em;}
 .cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 .cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
 .cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}
