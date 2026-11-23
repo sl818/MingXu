@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=166">
+<link rel="stylesheet" href="assets/app.css?v=167">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=166">
+<link rel="stylesheet" href="assets/theme-v2.css?v=167">
 </head>
 <body>
 <div class="app landing">
@@ -11666,6 +11666,16 @@
   function navOrderHtml() {
     const list = orderedNav();
     const isDefault = list.every(function (n, i) { return n.key === NAV[i].key; });
+    /* 今日置顶、不参与拖拽：单独一条，标「固定」 */
+    const todayNav = list.filter(function (n) { return n.key === 'today'; })[0];
+    const pinned = todayNav
+      ? '<div class="no-group"><div class="no-head">置顶<span>固定，不参与排序</span></div>' +
+          '<div class="no-row no-row-pinned">' +
+            '<span class="no-ico">' + icon(todayNav.icon) + '</span>' +
+            '<b>' + esc(todayNav.wideLabel || todayNav.label) + '</b>' +
+            '<span class="no-pin-tag">固定</span>' +
+          '</div></div>'
+      : '';
     const groups = NAV_GROUPS.map(function (g) {
       const items = list.filter(function (n) { return n.group === g; });
       const rows = items.map(function (n) {
@@ -11680,7 +11690,7 @@
         '<div class="dr-list no-rows" data-nav-group="' + esc(g) + '">' + rows + '</div>' +
       '</div>';
     }).join('');
-    return '<div class="no-list">' + groups + '</div>' +
+    return '<div class="no-list">' + pinned + groups + '</div>' +
       '<div class="btn-row" style="margin-top:12px">' +
         '<button type="button" class="btn sm" data-act="nav-reset"' + (isDefault ? ' disabled' : '') +
         '>恢复默认顺序</button>' +
@@ -11759,7 +11769,9 @@
 
   const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
   const NAV = [
-    { key: 'today', label: '今日', icon: 'today', group: '记录', wideLabel: '今日' },
+    /* 今日改名「仪表盘」，group 用不在 NAV_GROUPS 里的 '顶'：orderedNav 的 indexOf 返回 -1，
+       天然排最前、且不落进任何分组（设置页排序里也不参与拖拽）。 */
+    { key: 'today', label: '仪表盘', icon: 'today', group: '顶', wideLabel: '仪表盘' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
     { key: 'quit', label: '戒烟', icon: 'quit', group: '记录', wideLabel: '戒烟' },
     { key: 'board', label: '待办', icon: 'board', group: '记录', wideLabel: '待办看板' },
@@ -11769,8 +11781,9 @@
     { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
     { key: 'calendar', label: '日历', icon: 'calendar', group: '回顾', wideLabel: '打卡日历' },
     { key: 'stats', label: '统计', icon: 'stats', group: '回顾', wideLabel: '数据统计' },
-    { key: 'config', label: '配置', icon: 'config', group: '回顾', wideLabel: '通知配置' },
-    { key: 'settings', label: '设置', icon: 'settings', group: '回顾', wideLabel: '设置' }
+    /* 通知配置与设置从「回顾」挪进新的「设置」分栏 */
+    { key: 'config', label: '配置', icon: 'config', group: '设置', wideLabel: '通知配置' },
+    { key: 'settings', label: '设置', icon: 'settings', group: '设置', wideLabel: '设置' }
   ];
   const MORE_KEYS = ['meds', 'weight', 'essays', 'calendar', 'settings'];
   /* 移动端：4 个 tab + 中间悬浮「+」；其余页面从设置页的「更多页面」进入 */
@@ -11812,7 +11825,7 @@
 
   /* 实际导航顺序：NAV 常量只管「有哪些页 + 默认顺序」，顺序全部由这里算。
      跟 PINNED_IDS / orderedPinnedIds 是同一个分工——常量管集合，顺序单独算。 */
-  const NAV_GROUPS = ['记录', '回顾'];
+  const NAV_GROUPS = ['记录', '回顾', '设置'];
   function orderedNav() {
     const pref = Array.isArray(state.navOrder) ? state.navOrder : [];
     const rank = function (k) {
@@ -12342,7 +12355,14 @@
     if (wide) {
       let html = '', lastGroup = '';
       orderedNav().forEach(n => {
+        /* 今日置顶（group '顶'）：不加组标题、单独一条，之后接一条分隔再进分组 */
+        if (n.group === '顶') {
+          html += navItem(n);
+          lastGroup = '顶';
+          return;
+        }
         if (n.group !== lastGroup) {
+          if (lastGroup === '顶') html += '<div class="nav-sep"></div>';
           html += '<div class="nav-group">' + n.group + '</div>';
           lastGroup = n.group;
         }
@@ -15849,7 +15869,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=166', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=167', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

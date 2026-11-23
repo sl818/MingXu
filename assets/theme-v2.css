@@ -1395,6 +1395,12 @@ body{
 @media (prefers-reduced-motion:reduce){.dr-list:not([data-dr-motion]) > *{transition:none;}}
 /* 读屏提示（视觉隐藏） */
 .dr-live{position:absolute;width:1px;height:1px;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap;}
+
+/* 侧栏：今日（仪表盘）置顶后，与「记录」组之间一条分隔 */
+.nav-sep{height:1px;background:var(--line);margin:8px 12px 6px;}
+/* 设置页排序：置顶的今日行（固定、无手柄） */
+.no-row-pinned{opacity:.92;}
+.no-pin-tag{flex:none;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);}
 .cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 .cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
 .cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}

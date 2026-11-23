@@ -84,13 +84,15 @@ with sync_playwright() as p:
     print('\n[2] 设置页的排序面板')
     go(pg, 'settings')
     n = names(pg)
-    chk('共 12 行', len(n) == 12, str(len(n)))
-    chk('记录 8 项 + 回顾 4 项',
-        n == ['今日', '用药', '戒烟', '待办', '清债', '习惯', '体重', '随笔',
+    chk('共 12 行（今日 + 记录 7 + 回顾 2 + 设置 2）', len(n) == 12, str(len(n)))
+    chk('顺序：仪表盘置顶 + 三组',
+        n == ['仪表盘', '用药', '戒烟', '待办', '清债', '习惯', '体重', '随笔',
               '日历', '统计', '配置', '设置'], str(n))
+    chk('今日置顶行没有拖拽手柄',
+        pg.locator('.no-row', has_text='仪表盘').locator('.drag-handle').count() == 0)
     before = names(pg)
-    move_key(pg, '今日', -1)
-    chk('组首「今日」上移无变化（边界夹住）', names(pg) == before, str(names(pg)))
+    move_key(pg, '用药', -1)
+    chk('记录组首「用药」上移无变化（边界夹住）', names(pg) == before, str(names(pg)))
 
     print('\n[3] 把「统计」在回顾组内上移一格')
     move_key(pg, '统计', -1)
