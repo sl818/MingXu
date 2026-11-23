@@ -1344,6 +1344,13 @@ body{
 .essay-title{font-size:15.5px;font-weight:700;}
 .essay-text{font-size:12.5px;}
 .essay-meta{font-size:10.5px;letter-spacing:.02em;}
+
+/* ============================================================
+   P2 · 第十页：配置
+   「提醒」里每个 .ntf-box 都是带描边的小卡（卡中卡），去描边只留凹陷底。
+   ============================================================ */
+.ntf-box{border-color:transparent;}
+[data-theme="dark"] .ntf-box{background:var(--surface-3);}
 .cal-legend i.l1{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 .cal-legend i.l2{background:color-mix(in srgb,var(--text) 9%,var(--surface))}
 .cal-legend i.l3{background:color-mix(in srgb,var(--text) 15%,var(--surface))}

@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=163">
+<link rel="stylesheet" href="assets/app.css?v=164">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=163">
+<link rel="stylesheet" href="assets/theme-v2.css?v=164">
 </head>
 <body>
 <div class="app landing">
@@ -11367,7 +11367,7 @@
         '<div id="mail-result" class="mail-result ' + resultCls + '"' + (resultMsg ? '' : ' hidden') + '>' +
           esc(resultMsg) + '</div>' +
         '<div class="btn-row">' +
-          '<button type="button" class="btn primary" data-act="mail-test">发信测试</button>' +
+          '<button type="button" class="btn" data-act="mail-test">发信测试</button>' +
           '<button type="button" class="btn" data-act="mail-save">保存</button>' +
           '<button type="button" class="btn ghost" data-act="mail-cancel">取消</button>' +
           (on ? '<button type="button" class="btn ghost" data-act="mail-off">暂停提醒</button>' : '') +
@@ -11420,7 +11420,7 @@
         (st === 'unsupported' ? '' :
           '<div class="btn-row">' + (on
             ? '<button class="btn" data-act="notify-off">关闭系统通知</button>'
-            : '<button class="btn primary" data-act="notify-on">开启系统通知</button>') + '</div>') +
+            : '<button class="btn new" data-act="notify-on">开启系统通知</button>') + '</div>') +
       '</div>' +
       '<div class="ntf-box">' +
         '<div class="ntf-head"><span class="ntf-dot ' + (icsUrl ? 'on' : '') + '"></span><b>日历订阅</b>' +
@@ -11432,12 +11432,12 @@
           : (icsUrl
             ? '<input class="ics-url" id="ics-url" readonly value="' + esc(icsUrl) + '">' +
               '<div class="btn-row">' +
-                '<button class="btn primary" data-act="ics-copy">复制链接</button>' +
+                '<button class="btn" data-act="ics-copy">复制链接</button>' +
                 '<button class="btn" data-act="ics-reset">重新生成</button>' +
                 '<button class="btn" data-act="ics-export">导出文件</button>' +
               '</div>'
             : '<div class="btn-row">' +
-                '<button class="btn primary" data-act="ics-reset">生成订阅链接</button>' +
+                '<button class="btn" data-act="ics-reset">生成订阅链接</button>' +
                 '<button class="btn" data-act="ics-export">导出文件</button>' +
               '</div>')) +
         '<p class="ics-hint">iPhone：设置 → 日历 → 账户 → 添加账户 → 其他 → 添加已订阅的日历，把地址粘进去。' +
@@ -15521,7 +15521,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=163', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=164', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
