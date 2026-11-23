@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v166（2026-11-23）
+最后更新：v167（2026-11-23）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v166（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v166'`） |
+| 代码版本 | v167（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v167'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -197,6 +197,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v164 | 11-23 | **P2 第十页「配置」重排**（此前没被 v2 碰过）：①`.ntf-box` 去描边只留凹陷底（深色 surface-3），去掉「提醒」里的卡中卡；②红按钮收回——「开启系统通知」→`btn new`（蓝），「生成订阅链接/复制链接/发信测试」→`btn`（中性）；保存类仍红。verify-smtp-form 16/16、verify-notify-matrix 23/23、回归 28/28、审计 0 项低于 AA。出 `design/config-compare.html`。SW → v164。仅剩设置页 |
 | v165 | 11-23 | **P2 第十一页「设置」重排 · P2 收官**：①排版卡选中态 红框红晕→墨框；②预览示意图红条→墨；③hover 去位移；④外观切换投影→内描边；⑤导航顺序行去描边留凹底。「清空全部数据」仍红。verify-v15 35/35、回归 28/28、审计 0 项低于 AA。出 `design/settings-compare.html`。**P2 逐页重排 11/11 全部完成**。SW → v165 |
 | v166 | 11-23 | **设置页「导航顺序」改拖拽换位**：箭头逐格点 → 手柄 `⋮⋮` 直接拖。`dragReorder`（donglang 参考实现）内联进 index.html（无构建不能 import），`navOrderHtml` 每组包 `.dr-list` + 手柄，`mountNavDrag()` render 后挂载、reorder 复用现有组内重排+保存。参数 200ms / 1.04 / cubic-bezier(0.2,0,0,1)，减少动态直接到位，无脚本内容仍可见，键盘空格拿起+方向键+空格放下。`verify-nav-order.py` 改写为键盘法（16/16）、`test-drag-nav.py`（拖拽保存 navOrder 验证）、回归 28/28、v15 35/35、手机 44/44、审计 0 项低于 AA。出 `design/nav-drag-compare.html`。SW → v166 |
+| v167 | 11-23 | **导航分组重构**：①「今日」改名**仪表盘**、group 改 `'顶'`（不在 NAV_GROUPS，indexOf=-1 自动置顶），侧栏不显组标题、下加 `.nav-sep` 分隔；②`NAV_GROUPS` → `['记录','回顾','设置']`，config/settings 归入「设置」；③`navOrderHtml` 今日单独「置顶·固定」无手柄，下接三组 dr-list。结果：仪表盘置顶 → 记录7 → 回顾2 → 设置2。verify-nav-order 17/17、回归 28/28、手机 44/44、审计 0 项低于 AA。出 `design/nav-group-compare.html`。SW → v167 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
