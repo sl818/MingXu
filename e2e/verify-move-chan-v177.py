@@ -174,7 +174,12 @@ def open_modal(pg):
 
 
 def click_chan(pg, val):
-    pg.click('#move-sport-body .sp-chan-opt input[value="%s"]' % val)
+    """点渠道卡片本身（input 被样式隐藏，且弹窗变长后要先滚到可视区）。"""
+    card = pg.locator('#move-sport-body .sp-chan-opt',
+                      has=pg.locator('input[value="%s"]' % val)).first
+    card.scroll_into_view_if_needed()
+    pg.wait_for_timeout(200)
+    card.click()
     pg.wait_for_timeout(500)
     return pg.inner_text('#move-sport-body #sp-chan-tip').strip()
 
@@ -257,14 +262,18 @@ with sync_playwright() as pw:
     click_chan(pg, 'mail')                       # 勾上邮件
     pg.click('#move-sport-form button[type="submit"]')
     pg.wait_for_timeout(1500)
-    got = board['data']['modules']['move'].get('notifyChannels')
-    chk('保存运动后 notifyChannels 含 mail', isinstance(got, list) and 'mail' in got, str(got))
+    # v178 起渠道按「每个运动」自己存（sports[].channels），不再只存模块级
+    sps = board['data']['modules']['move'].get('sports') or []
+    got = sps[-1].get('channels') if sps else None
+    chk('保存运动后该运动的 channels 含 mail', isinstance(got, list) and 'mail' in got, str(got))
     # 页面上改提醒场景并保存
     pg.click('#move-notify-form [name="sceneWeek"]')
     pg.click('#move-notify-form button[type="submit"]')
     pg.wait_for_timeout(1400)
-    got2 = board['data']['modules']['move'].get('notifyChannels')
-    chk('页面保存提醒设置后 notifyChannels 仍是含 mail', isinstance(got2, list) and 'mail' in got2, str(got2))
+    sps2 = board['data']['modules']['move'].get('sports') or []
+    got2 = sps2[-1].get('channels') if sps2 else None
+    chk('页面保存提醒设置后该运动的 channels 仍含 mail',
+        isinstance(got2, list) and 'mail' in got2, str(got2))
 
     chk('全流程无 JS 异常', not errs, str(errs[:2]))
     br.close()

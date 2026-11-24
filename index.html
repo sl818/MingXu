@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=177">
+<link rel="stylesheet" href="assets/app.css?v=178">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=177">
+<link rel="stylesheet" href="assets/theme-v2.css?v=178">
 </head>
 <body>
 <div class="app landing">
@@ -201,7 +201,9 @@
       targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }], fields: [] }
   };
   /* v176：频率只留两档。旧的 weekly_times / free 在 normalizeMoveSport 里迁移过来。 */
-  const MOVE_FREQ = [['daily', '每天'], ['weekly', '每周']];
+  /* v178：文案改成「每天运动 / 每周选日运动」——原来的「每天 1 次」「每周 1 天」
+     会被读成「一天一次」「一周一次」，歧义太大。 */
+  const MOVE_FREQ = [['daily', '每天运动'], ['weekly', '每周选日运动']];
   const MOVE_CHANS = [['browser', '浏览器通知'], ['wecom', '企业微信群'], ['mail', '邮件通知']];
   const MOVE_WEEK = [[1, '周一'], [2, '周二'], [3, '周三'], [4, '周四'], [5, '周五'], [6, '周六'], [0, '周日']];
 
@@ -211,7 +213,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v177';
+  const APP_VERSION = 'v178';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -631,6 +633,22 @@
     let freqN = clamp(Math.round(Number(s.freqN != null ? s.freqN : s.n) || 1), 1, 99);
     if (freqKind === 'weekly') freqN = weekSel.length;
 
+    /* v178：单日多次。原来只有「每天运动」能设一天几次，「每周选日运动」设不了。
+       perDay = 每个执行日要完成几次；老数据没有这个字段时，daily 取 freqN、weekly 取 1，
+       所以既有用户的行为完全不变（默认 1 次）。 */
+    let perDay = Math.round(Number(s.perDay));
+    if (!(perDay >= 1)) perDay = freqKind === 'daily' ? freqN : 1;
+    perDay = clamp(perDay, 1, 99);
+
+    /* v178：每个运动自己的通知开与渠道（之前渠道只有模块级一份，弹窗里关不掉）。
+       channels 显式给了空数组就保留空 —— 表示「这个运动不要任何渠道」，
+       不能强行塞回 browser，否则用户怎么点都关不掉。 */
+    const CHS = ['browser', 'wecom', 'mail'];
+    const channels = Array.isArray(s.channels)
+      ? s.channels.filter(function (x) { return CHS.indexOf(x) >= 0; })
+      : ['browser'];
+    const notifyOn = s.notifyOn !== false;
+
     /* 记录方式：v176 只有 manual / fixed。
        v175 的 once（一键完成）和 multi（多次打卡）统一并到 manual，
        不猜固定步数 —— 猜错会变成「点一下 +1000 但目标 8000」的怪状态。 */
@@ -652,11 +670,14 @@
       tVal: tVal,
       freqKind: freqKind,
       freqN: freqN,
+      perDay: perDay,
       weekSel: weekSel,
       recMode: recMode,
       fixedSteps: fixedSteps,
       fields: fields,
       strokePick: strokePick,
+      notifyOn: notifyOn,
+      channels: channels,
       /* —— 以下为 v175 旧字段的镜像，读老代码/老备份时仍能取到 —— */
       unit: TGT[tIdx].unit,
       goal: tVal,
@@ -8144,7 +8165,10 @@
       const val = recs.reduce(function (a, r) { return a + (Number(r.steps) || 0); }, 0);
       return { val: val, target: Math.max(1, Number(s.tVal) || 1), unit: tf.unit, recs: recs, isSteps: true };
     }
-    return { val: recs.length, target: 1, unit: '次', recs: recs, isSteps: false };
+    /* v178：非步数按「单日几次」判达标。原来写死 target=1，
+       用户设了「每天 3 次」也只要打一次卡就算完成，形同虚设。 */
+    const per = Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1);
+    return { val: recs.length, target: per, unit: '次', recs: recs, isSteps: false };
   }
   function moveSportDone(s, d) {
     if (!s) return false;
@@ -8177,11 +8201,12 @@
     return countOf(d, 'h_move') >= 1;
   }
   function moveFreqText(s) {
+    const per = Math.max(1, Number(s.perDay) || 1);
     if (s.freqKind === 'weekly') {
       const sel = Array.isArray(s.weekSel) ? s.weekSel : [];
       const days = MOVE_WEEK.filter(function (w) { return sel.indexOf(w[0]) >= 0; })
         .map(function (w) { return w[1]; }).join('、');
-      return '每周 ' + sel.length + ' 天（' + days + '）';
+      return '每周 ' + sel.length + ' 天' + (per > 1 ? ' · 每天 ' + per + ' 次' : '') + '（' + days + '）';
     }
     return '每天 ' + (Number(s.freqN) || 1) + ' 次';
   }
@@ -8242,14 +8267,16 @@
       st = '<div class="mv-st ok">今天已完成</div>';
       note = p.isSteps
         ? ('今天已记 ' + p.val + ' / ' + p.target + ' ' + tf.unit + '，达标了')
-        : ('今天已记录 ' + p.val + ' 次，可点「补数据」补详细数据');
+        : ('今天已完成 ' + p.val + ' / ' + p.target + ' 次，可点「补数据」补详细数据');
     } else if (rest) {
       st = '<div class="mv-st rest">今日无需运动</div>';
       note = '今天按计划休息 · ' + moveFreqText(s);
-    } else if (p.isSteps && p.val > 0) {
+    } else if (p.val > 0) {
+      /* v178：非步数也要显示「还差几次」（单日多次时 1 次不等于完成） */
       st = '<div class="mv-st">还没达标</div>';
-      note = '今日已记录 ' + p.val + ' / ' + p.target + ' ' + tf.unit +
-        '，还差 ' + Math.max(0, p.target - p.val) + ' ' + tf.unit;
+      note = p.isSteps
+        ? ('今日已记录 ' + p.val + ' / ' + p.target + ' ' + tf.unit + '，还差 ' + Math.max(0, p.target - p.val) + ' ' + tf.unit)
+        : ('今天已记录 ' + p.val + ' / ' + p.target + ' 次，还差 ' + Math.max(0, p.target - p.val) + ' 次');
     } else {
       st = '<div class="mv-st">还没开始</div>';
       note = '动起来，' + T.desc;
@@ -15347,6 +15374,7 @@
     let tVal = init ? (init.tVal || MOVE_TYPES[curKey].targets[0].def) : MOVE_TYPES[curKey].targets[0].def;
     let freqKind = init ? init.freqKind : 'daily';
     let freqN = init ? (init.freqN || 1) : 1;
+    let perDay = init ? (init.perDay || 1) : 1;
     let weekSel = init ? (init.weekSel || []).slice() : [new Date().getDay()];
     let recMode = init ? (init.recMode || 'manual') : 'manual';
     let fixedSteps = init ? (init.fixedSteps || 1000) : 1000;
@@ -15354,8 +15382,12 @@
     (init ? (init.fields || []) : MOVE_TYPES[curKey].fields.map(function (f) { return f.k; }))
       .forEach(function (k) { fieldOn[k] = true; });
     let strokePick = (init && init.strokePick) || '自由泳';
-    const modChans = (moveModule().notifyChannels || ['browser']).slice();
-    let chanSel = modChans.length ? modChans : ['browser'];
+    /* v178：通知开关与渠道都按「这个运动」自己存。
+       编辑老运动（还没有 channels 字段）时，回落到模块级渠道。 */
+    let notifyOn = init ? (init.notifyOn !== false) : true;
+    let chanSel = (init && Array.isArray(init.channels))
+      ? init.channels.slice()
+      : (moveModule().notifyChannels || ['browser']).slice();
 
     function renderBody() {
       const T = MOVE_TYPES[curKey];
@@ -15378,9 +15410,7 @@
       }
       h += '<span class="f-label">运动频率</span>';
       h += '<div class="sp-freq">' + MOVE_FREQ.map(function (f) {
-        /* 按钮直接写当前值：每天 1 次 / 每周 3 天，比留一个「N」更好读 */
-        const lbl = f[0] === 'daily' ? ('每天 ' + freqN + ' 次') : ('每周 ' + Math.max(1, weekSel.length) + ' 天');
-        return '<div class="sp-freq-opt' + (freqKind === f[0] ? ' on' : '') + '" data-fk2="' + f[0] + '">' + lbl + '</div>';
+        return '<div class="sp-freq-opt' + (freqKind === f[0] ? ' on' : '') + '" data-fk2="' + f[0] + '">' + f[1] + '</div>';
       }).join('') + '</div>';
       if (freqKind === 'daily') {
         h += '<div class="sp-nrow"><span class="lbl">每天</span><input type="number" id="sp-freqn" min="1" max="99" value="' + freqN + '"><span class="u">次</span></div>';
@@ -15388,7 +15418,8 @@
         h += '<div class="sp-week" id="sp-week">' + MOVE_WEEK.map(function (w) {
           return '<button type="button" data-d="' + w[0] + '" class="' + (weekSel.indexOf(w[0]) >= 0 ? 'on' : '') + '">' + w[1] + '</button>';
         }).join('') + '</div>' +
-          '<p class="sp-hint">勾选哪几天，就是「每周哪几天要完成目标」。没勾的日子算按计划休息，不计入未达标。</p>';
+          '<div class="sp-nrow"><span class="lbl">每个选中的日子做</span><input type="number" id="sp-perday" min="1" max="99" value="' + perDay + '"><span class="u">次</span></div>' +
+          '<p class="sp-hint">勾选哪几天就是每周哪几天运动；再填每个执行日要做几次。没勾的日子算按计划休息，不计入未达标。</p>';
       }
       if (T.recordMode) {
         h += '<span class="f-label">记录方式</span>';
@@ -15421,14 +15452,22 @@
       } else {
         h += '<div class="sp-desc">该模式只需记录时长，无需额外字段。</div>';
       }
-      h += '<span class="f-label">提醒渠道（可多选）</span>';
-      h += '<p class="sp-hint">勾选时会当场检测这条渠道是否已配置：能收到会提示「服务正常」，没配置会告诉你先去「配置」页开通。</p>';
-      h += '<div class="sp-chan">' + MOVE_CHANS.map(function (c) {
-        const on = chanSel.indexOf(c[0]) >= 0;
-        return '<label class="sp-chan-opt' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
-          '<input type="checkbox" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
-      }).join('') + '</div>';
-      h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
+      /* v178：先给一个总开关。关掉就不用管渠道，三个渠道也能全不选。 */
+      h += '<span class="f-label">通知提醒</span>';
+      h += '<div class="mv-toggle-row"><div><b>接收这个运动的提醒</b><small>' +
+        (notifyOn ? '到点按下面选的渠道通知你' : '已关闭：不为这个运动发任何通知') +
+        '</small></div>' +
+        '<label class="w-switch"><input type="checkbox" id="sp-notify"' + (notifyOn ? ' checked' : '') + '><i></i></label></div>';
+      if (notifyOn) {
+        h += '<span class="f-label">提醒渠道（可单选，也可多选）</span>';
+        h += '<p class="sp-hint">勾选时会当场检测这条渠道是否已配置：能收到会提示「服务正常」，没配置会告诉你先去「配置」页开通。三个都不选，就等同于不提醒。</p>';
+        h += '<div class="sp-chan">' + MOVE_CHANS.map(function (c) {
+          const on = chanSel.indexOf(c[0]) >= 0;
+          return '<label class="sp-chan-opt' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
+            '<input type="checkbox" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
+        }).join('') + '</div>';
+        h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
+      }
       box.innerHTML = h;
       bindBody();
       checkSelected();
@@ -15440,6 +15479,13 @@
     function checkSelected() {
       const el = document.getElementById('sp-chan-tip');
       if (!el) return;
+      /* 三个渠道都取消掉是允许的，只要说清楚后果 */
+      if (!chanSel.length) {
+        el.dataset.chan = '';
+        el.className = 'sp-chan-tip bad';
+        el.textContent = '还没选任何渠道，保存后这个运动不会有提醒（要彻底关掉可以打开上面的总开关）';
+        return;
+      }
       const bad = [];
       let pending = false;
       chanSel.forEach(function (k) {
@@ -15477,6 +15523,12 @@
       });
       const fn = $('#sp-freqn');
       if (fn) fn.oninput = function () { freqN = clamp(Math.round(Number(fn.value) || 1), 1, 99); };
+      /* v178：每周选日运动也能设「每个执行日几次」 */
+      const pd = $('#sp-perday');
+      if (pd) pd.oninput = function () { perDay = clamp(Math.round(Number(pd.value) || 1), 1, 99); };
+      /* v178：通知总开关，关掉就把渠道区收起来 */
+      const nsw = $('#sp-notify');
+      if (nsw) nsw.onchange = function () { notifyOn = nsw.checked; renderBody(); };
       const wk = $('#sp-week');
       if (wk) wk.querySelectorAll('button').forEach(function (b) {
         b.onclick = function () {
@@ -15512,7 +15564,7 @@
             /* 取消一条后回到「整体状态」，而不是留着一句过时的话 */
             checkSelected();
           }
-          if (!chanSel.length) { cb.checked = true; chanSel = ['browser']; }
+          /* v178：不再强行保留一个渠道 —— 三个都能点掉，靠上面的总开关兜底 */
           ch.classList.toggle('on', cb.checked);
         };
       });
@@ -15536,10 +15588,11 @@
     form._moveState = function () {
       return {
         key: curKey, tIdx: tIdx, tVal: tVal,
-        freqKind: freqKind, freqN: freqN, weekSel: weekSel.slice(),
+        freqKind: freqKind, freqN: freqN, perDay: perDay, weekSel: weekSel.slice(),
         recMode: recMode, fixedSteps: fixedSteps,
         fields: Object.keys(fieldOn).filter(function (k) { return fieldOn[k]; }),
-        strokePick: strokePick, notifyChannels: chanSel.slice()
+        strokePick: strokePick,
+        notifyOn: notifyOn, notifyChannels: chanSel.slice()
       };
     };
     renderBody();
@@ -15560,11 +15613,16 @@
       tIdx: st.tIdx, tVal: st.tVal,
       freqKind: st.freqKind,
       freqN: st.freqKind === 'weekly' ? weekSel.length : st.freqN,
+      perDay: st.freqKind === 'weekly' ? st.perDay : st.freqN,
       weekSel: weekSel,
       recMode: st.key === 'steps' ? st.recMode : 'manual',
       fixedSteps: st.fixedSteps,
       fields: st.key === 'steps' ? [] : st.fields,
       strokePick: st.key === 'steps' ? '' : st.strokePick,
+      notifyOn: st.notifyOn,
+      /* 关掉通知就清空渠道；开着但三个都没选，就存空数组（等于不提醒），
+         绝不再强行塞回 browser —— 那正是「点不掉」的根源。 */
+      channels: st.notifyOn ? st.notifyChannels.slice() : [],
       updatedAt: now
     };
     if (editing) {
@@ -15577,7 +15635,8 @@
       if (!Array.isArray(m.sports)) m.sports = [];
       m.sports.push(sport);
     }
-    m.notifyChannels = st.notifyChannels.length ? st.notifyChannels : ['browser'];
+    /* 模块级渠道只增不减地兜底一次（兼容只看模块级的老逻辑），不再反向覆盖每个运动 */
+    if (!Array.isArray(m.notifyChannels) || !m.notifyChannels.length) m.notifyChannels = ['browser'];
     m.updatedAt = now;
     state.modules.move = m;
     state.modulesAt = Date.now();
@@ -18161,7 +18220,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=177', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=178', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
