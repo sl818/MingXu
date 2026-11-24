@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v175（2026-11-24）
+最后更新：v176（2026-11-24）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v175（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v175'`） |
+| 代码版本 | v176（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v176'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -205,6 +205,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v173 | 11-24 | **喝水页全面改版**（用户点名，先出可交互预览再落地）：①新增「喝水的好处」科普区（6 条 + 科学建议）；②设置从右上角弹窗**内联进页面**（图标/名称锁定不可改，总量/每次/杯数三字段联动 + 默认值提示）；③新增「数据统计」板块（今日/7天/30天完成度环 + 连续达标/累计喝水/近30天达标/近7天日均 + 时段分布柱 + 达标算法说明）；④内联「喝水提醒」（总开关 + 渠道多选 browser/wecom/mail + 频率双模式：每次按杯数均分 / 每天固定 1–3 次早中晚）。数据层 `state.modules.water` 新增 `notifyChannels`/`notifyMode`/`notifyDailyCount`/`notifyDailyTimes`/`notifyStart`/`notifyEnd`（`moduleDefaults`+`normalizeModule` 两处同步，合并走整块取新）。`viewWater` 重写（新 `waterHead`/`waterBenefitsHtml`/`waterSettingsHtml`/`waterStatsHtml`/`waterNotifyHtml` + `bindWaterPage` + `saveWaterSettings`/`saveWaterNotify`，submit 路由与 `bindView` 挂钩）；CSS 加 `w-` 前缀全套。提醒三处统一：`buildICS`/`api/ics.php`/`api/schedule.php` 按 `notifyMode` 生成多时间点（喝水 UID 改 `habit-h_water-N`，运动/478 不变；`api/ics.php` 新增 `lb_water_slots()` 供 schedule 复用）。SW → v173 |
 | v174 | 11-24 | **喝水页平铺满宽 + P0 技术债文档**：①修喝水页挤左——`.water-page` 的 `max-width:760px` 改为 `width:100%;min-width:0`，卡片与统计/今日等页面一样撑满内容区（浅/深色均已截图确认，右侧不再大片留白）；②新增 `docs/P0-喝水模块通知渠道路由.md`，记录「模块级渠道路由未落地」技术债（渠道 UI/存储已做、但后端推送仍走用户级 kind 偏好、未按 `state.modules.water.notifyChannels` 路由；浏览器通知是独立 Web Push 能力），标 **P0** 供后续智能体重做，`e2e/check-doc-anchors.py` 的 DOCS 加进该文档。SW → v174 |
 | v175 | 11-24 | **运动页 2.0**（用户点名，先出多版可交互预览再落地）：运动从「单一计次习惯」升级为「多类型运动记录」。①**默认关闭所有运动**——`state.modules.move.sports`（运动实例数组）初始为空，页面空状态「还没有运动」，右上角「＋ 新建运动」蓝按钮（`data-act="move-new"`）；②**按类型适配字段**——新增 `MOVE_TYPES` 类型库（每日步数/跑步/健走/骑行/跳绳/游泳/瑜伽/力量/球类），每类自带 `extras`（配速/心率/步频/踏频/泳姿）；步数是纯日常记录、**无配速/心率**，只有「记录方式」三选（手动输入/一键完成/多次打卡）；③**运动实例 + 运动记录**两层数据——`sports`（配置：key/name/icon/unit/goal/freq/n/fields/recMode/stroke）与 `records`（记录：sportId/key/d/steps/dur/dist/kcal/pace/heart/stroke），`normalizeMoveSport`/`normalizeMoveRecord` 白名单收敛，`moduleDefaults`/`normalizeModule`/`moduleFromLegacy` 三处同步；④**达标口径**——新增 `moveMet(d)`（有实例看 records 任一完成、无实例回退旧 `h_move` checks 计数，老数据达标天数不清零），`met()`/`weekDaysOf()`/`moveMonthCount()`/`hasRecords()` 统一走它；⑤前端重写 `viewMove`（`moveHead`/`moveSportsHtml`/`moveSportCardHtml`/`moveStatsHtml`/`moveNotifyHtml` + 新建/编辑弹窗 `moveSportModal` + 补数据 `moveRecordModal` + `saveMoveSportForm`/`saveMoveRecordForm`/`saveMoveNotify` + `moveDoSport`/`moveUndoSport`/`moveDelSport`）；CSS 加 `mv-` 前缀全套；⑥今日页运动常驻卡 `moveCardHtml` 改为只读状态 +「去运动」跳转（`move-goto`），不再直接 +1 打卡；统计页运动块、今日页卡副标题同步适配。**注意**：本次运动提醒渠道多选/场景开关已存 `state.modules.move`（`notifyChannels`/`notifyScenes`），但**模块级推送路由仍未落地**（与喝水同一 P0 债务，见 `docs/P0-喝水模块通知渠道路由.md`）。回滚点 tag `sport-pre-v175`。测试：`verify-v170` 42/42、`regression-v3` 28/28、`verify-v15` 35/35、`verify-mobile-nav` 44/44、`verify-batch2` 51/51、`verify-batch3` 60/60、`verify-batch4` 20/20、`test-ics` 64/64、`test-schedule` 130/130、`verify-ics-subscribe` 9/9。SW → v175 |
+| v176 | 11-24 | **运动页 2.1（按陛下逐条点名改，预览确认后落地）**：①**文案与结构**——「选择运动类型」→**选择运动模式**、「类型说明」→**运动说明**、**删掉「名称」栏**（由模式固定）；②**目标按模式适配**——`MOVE_TYPES` 每种模式加 `targets` 数组：步数=每日步数（步）、跑步=每次距离（公里）、健走/骑行=距离↔时长**下拉**、跳绳=次数↔时长**下拉**、游泳=距离（米）↔时长**下拉**、瑜伽/力量/球类=每次时长（分钟）；`sport.tIdx`+`tVal` 记录选中的档位与值；③**频率只留两档**——「每天 N 次」（紧凑输入框）与「每周 N 天」（**周一到周日多选按钮**，删掉数字框，删掉旧的「每周 N 次」「自由」）；旧 `weekly_times`/`free` 迁移成 weekly + 全 7 天；④**记录方式只留两种**——「手动输入今日步数」与「每次记录固定步数」（N 在新建时设）；旧 `once`/`multi` 收敛为 `manual`（不猜固定步数）；**固定步数打卡改成点一下直接 +N，不再弹输入框**；⑤**补数据弹窗升级**——列出「今日已记录」明细（每条带 **HH:MM 记录时间** + 修改/删除），改一条是覆盖而非新增；⑥**休息日**——新增 `moveIsRestOn(s,ds)`，今天不在勾选的星期里时卡片显示**今日无需运动**、主按钮禁用；`moveMet(d)` 在「当天全部按计划休息」时返回 true，**休息日不纳入考核**（不拉低完成率、不断连续达标，`algoModal` 已补说明）；⑦**数据统计扩展**——8 项总览（次数/时长/距离/消耗/步数/天数/日均/步数达标率）+ 按运动模式占比条 + 记录方式双栏 + 运动时段柱 + 近 14 天趋势 + 专项（跑步/骑行配速、心率、泳姿分布、跳绳、步数）+ 达标环（游泳距离米→公里折算）；⑧**新增「运动明细」板块**——全部记录可**改/删/添加**，改完卡片与统计实时重算；⑨records 白名单加 `count`（跳绳次数）/`hour`（时段）/`recMode`，缺 sportId 的老记录按 key 兜底仍算达标；⑩今日页常驻卡与统计页运动块同步「今日无需运动」口径；CSS 新增 `sp-week`/`sp-rec`/`sp-fixed`/`sp-trow`/`sp-reclist`/`st-*`/`dv-*` 等（`.tr`/`.fl` 显式 `display:block`，否则条不显色）。**兼容**：`normalizeMoveSport` 兼容 v175 全部旧字段；`normalizeModule`/`mergeStates`/`repairBackup` 三处覆盖；**本地测试数据不进包**（`_preview-*.html`、`tools/.local-dev-state.json` 已入 `.gitignore`）。回滚点 tag `move-v2-pre-v176`。测试：`verify-v170` 59/59、`verify-move-compat-v176` 24/24（新增，专测旧数据迁移）、`regression-v3` 28/28、`verify-v15` 35/35、`verify-mobile-nav` 44/44、`verify-batch2` 51/51、`verify-batch3` 59/60（「只有一种疗程时不显示小标题」在 v175 基线同样失败，属既有测试时序问题，非本次回归）、`verify-batch4` 20/20、`test-ics` 64/64、`test-schedule` 130/130、`verify-ics-subscribe` 9/9、`verify-api-http` 33/33。SW → v176 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。

@@ -3542,6 +3542,134 @@ body.modal-open{overflow:hidden;}
 @media (max-width:900px){.mv-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:600px){.mv-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
 
+/* ---- 运动页 2.1（v176）：目标档 / 频率 / 记录方式 / 统计 / 明细 ---- */
+/* 目标行（健走/骑行/跳绳/游泳可下拉切换 距离↔时长） */
+.sp-tlbl{font-size:12px;font-weight:600;color:var(--text);margin:0 0 6px}
+.sp-trow{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sp-trow select,.sp-trow input{height:38px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:13px;padding:0 10px;min-width:0}
+.sp-trow select{flex:0 0 60%}
+.sp-trow input{flex:1}
+.sp-trow .u{flex:none;font-size:12px;color:var(--muted)}
+/* 每天 N 次：紧凑输入，不再是满宽空荡的框 */
+.sp-nrow{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sp-nrow .lbl{font-size:12.5px;color:var(--muted)}
+.sp-nrow input{width:66px;height:34px;text-align:center;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:0}
+.sp-nrow .u{font-size:12px;color:var(--muted)}
+/* 每周 N 天：周一到周日多选 */
+.sp-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px}
+.sp-week button{height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0}
+.sp-week button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-2)}
+.sp-hint{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6}
+/* 记录方式：两张卡片 */
+.sp-rec{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.sp-rec-opt{padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--surface)}
+.sp-rec-opt .t{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--text)}
+.sp-rec-opt .dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line);flex:none}
+.sp-rec-opt .d{font-size:11px;color:var(--muted);margin-top:4px;padding-left:15px;line-height:1.5}
+.sp-rec-opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.sp-rec-opt.on .t{color:var(--accent-2)}
+.sp-rec-opt.on .dot{border-color:var(--accent);background:var(--accent)}
+.sp-fixed{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);margin-bottom:10px}
+.sp-fixed .lbl{font-size:12px;color:var(--muted)}
+.sp-fixed input{width:92px;height:32px;text-align:center;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:0}
+.sp-fixed .u{font-size:12px;color:var(--muted)}
+/* 泳姿多选 */
+.sp-stroke{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.sp-stroke button{padding:6px 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface-2);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.sp-stroke button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-2)}
+/* 今日已记录明细（补数据弹窗内） */
+.sp-reclist{margin:12px 0 4px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sp-reclist-h{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--surface-2);font-size:11.5px;font-weight:600;color:var(--muted)}
+.sp-reclist-h b{color:var(--text)}
+.sp-recrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:12.5px}
+.sp-recrow .rt{flex:1;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-recrow .rtime{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.sp-recrow .ra{flex:none;display:flex;gap:10px}
+
+/* 统计：8 项总览 */
+.st-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.st-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.st-none{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+/* 类型占比条（span 必须 block，否则宽度不生效） */
+.st-bars{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.st-barrow{display:flex;align-items:center;gap:10px;font-size:12px}
+.st-barrow .nm{flex:0 0 34%;display:flex;align-items:center;gap:6px;color:var(--text);min-width:0}
+.st-barrow .dot{width:8px;height:8px;border-radius:2px;flex:none}
+.st-barrow .tr{flex:1;height:9px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:block}
+.st-barrow .fl{display:block;height:100%;border-radius:99px}
+.st-barrow .vl{flex:none;color:var(--muted)}
+/* 记录方式双栏 */
+.st-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.st-split .box{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.st-split h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--text)}
+.st-split .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:3px 0}
+.st-split .kv b{color:var(--text);font-weight:600}
+/* 时段柱 / 近 14 天趋势 */
+.st-hours{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;align-items:end;margin-top:14px}
+.st-hours .hb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
+.st-hours .hb b{font-size:11.5px;color:var(--text);font-weight:600}
+.st-hours .hb i{width:100%;max-width:34px;background:color-mix(in srgb,var(--sport,#b5733f) 70%,var(--surface-3));border-radius:4px 4px 0 0;min-height:2px;display:block}
+.st-hours .hb span{font-size:10px;color:var(--muted);white-space:nowrap}
+.st-trend{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;margin-top:14px}
+.st-trend .tb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
+.st-trend .tb i{width:100%;background:color-mix(in srgb,var(--sport,#b5733f) 60%,var(--surface-3));border-radius:3px 3px 0 0;min-height:2px;display:block}
+.st-trend .tb span{font-size:9px;color:var(--muted)}
+/* 专项 */
+.st-spec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.st-spec .sp{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.st-spec h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--text)}
+.st-spec .row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:2px 0}
+.st-spec .row b{color:var(--text);font-weight:600}
+.st-strokes .s{display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:6px;color:var(--muted)}
+.st-strokes .sn{flex:0 0 44px}
+.st-strokes .tr{flex:1;height:7px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:block}
+.st-strokes .fl{display:block;height:100%;background:var(--sport,#b5733f);border-radius:99px}
+.st-strokes b{color:var(--text);font-weight:600;flex:none}
+/* 达标环 */
+.st-ring{display:flex;align-items:center;gap:24px;margin-top:12px;flex-wrap:wrap}
+.st-ring .big{position:relative;width:88px;height:88px;flex:none}
+.st-ring .big svg{width:88px;height:88px;display:block}
+.st-ring .big .t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.st-ring .big .t b{font-size:16px;font-weight:700;color:var(--text)}
+.st-ring .big .t span{font-size:9.5px;color:var(--muted)}
+.st-ring .lst{flex:1;min-width:160px;display:flex;flex-direction:column;gap:6px}
+.st-ring .lst .r{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted)}
+.st-ring .lst .r b{color:var(--text);font-weight:600}
+
+/* 运动明细 */
+.dv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dv-list{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:420px;overflow-y:auto}
+.dv-row{display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--line)}
+.dv-row:last-child{border-bottom:none}
+.dv-row .ic{flex:none;font-size:15px}
+.dv-row .dt{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.dv-row .nm{flex:0 0 84px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-row .val{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-row .ops{flex:none;display:flex;gap:10px}
+.dv-empty{padding:22px 12px;text-align:center;font-size:12.5px;color:var(--muted)}
+.lnk{background:none;border:none;padding:0;font:inherit;font-size:12.5px;color:var(--accent);cursor:pointer}
+.lnk.danger{color:var(--accent)}
+
+/* 休息日 */
+.mv-card.is-rest{opacity:.94}
+.mv-st.rest{color:var(--muted)}
+.mv-btn[disabled]{opacity:.5;cursor:not-allowed}
+
+@media (max-width:900px){
+  .st-spec{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:600px){
+  .st-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .st-grid2,.st-split{grid-template-columns:1fr}
+  .st-spec{grid-template-columns:1fr}
+  .st-ring{gap:16px}
+  .sp-week{grid-template-columns:repeat(4,1fr)}
+  .sp-trow select{flex:0 0 56%}
+  .dv-row .nm{flex:0 0 62px}
+  .dv-row{gap:7px;padding:9px 10px}
+  .st-trend .tb span{font-size:8px}
+}
+
 /* ============ 戒烟页 ============ */
 .quit-page{display:flex;flex-direction:column;gap:16px}
 /* 上半：左卡右日历并排。戒烟卡占剩余宽度（约 750px），日历固定 360px */
