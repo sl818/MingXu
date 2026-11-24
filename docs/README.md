@@ -14,14 +14,25 @@
 | [FRONTEND.md](FRONTEND.md)             | `index.html` 内部结构、12 个页面 / 15 个 view 函数、182 个 action 怎么分发、主题、移动端 | 改前端             |
 | [BACKEND.md](BACKEND.md)               | 23 个接口的鉴权、**三套提醒的过滤条件对照**、推送、备份、部署运维        | 改后端             |
 | [DATA-MODEL.md](DATA-MODEL.md)         | `state` 全部字段、迁移链、多端合并规则                     | 加字段 / 改合并 / 查数据 |
-| [SITE-STRUCTURE.md](SITE-STRUCTURE.md) | 文档索引 + 主题系统的准确信息                            | 写皮肤             |
 | [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **拆分评估**：实测规模、三阶段、成本与限制；第 8 节是按「AI 增删改效率」的重评 | 想动结构时 |
 | [CHANGE-MAP.md](CHANGE-MAP.md)         | **改动地图**：改某个功能要动哪几处、跑哪个测试                | 每次改动前          |
-| [DESIGN-LIB.md](DESIGN-LIB.md)         | **设计参考库**：Trackie / Yuvomi 的交互素材、成本与优先级      | 做大改版前          |
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
-| [THEME-SPEC.md](THEME-SPEC.md)         | 主题变量、组件类名、允许 / 禁止清单                         | 写皮肤             |
-| [AI-THEME-GUIDE.md](AI-THEME-GUIDE.md) | 可直接复制给 AI 的主题编写提示词                          | 让 AI 写皮肤        |
+
+## 设计文档（2026-11-23 起集中在 `design/`）
+
+| 文档                                     | 回答什么问题                                      | 什么时候读           |
+| -------------------------------------- | ------------------------------------------- | --------------- |
+| [design/README.md](design/README.md)   | **设计文档索引 + 每份的时效与适用范围**（读设计文档先看这份）        | 动视觉层之前          |
+| [design/REVIEW-2026-11-23.md](design/REVIEW-2026-11-23.md) | 最近一次设计评审：23/40、13 条待办、复核记录、复评方法 | 做视觉层 / 想知道欠什么 |
+| [design/SITE-STRUCTURE.md](design/SITE-STRUCTURE.md) | 文档地图、三层职责、主题属性、PWA 缓存（2026-11-23 重写）  | 想知道视觉文件怎么分工     |
+| [design/THEME-V2-PLAN.md](design/THEME-V2-PLAN.md)   | 主题 v2 的需求与逐版执行记录                        | 改主题           |
+| [design/BRAND.md](design/BRAND.md)     | logo、命名、slogan、语气、字体                        | 动品牌资产时          |
+| [design/DESIGN-LIB.md](design/DESIGN-LIB.md) | 设计参考库：Trackie / Yuvomi 的交互素材、成本与优先级      | 做大改版前          |
+| [design/THEME-SPEC.md](design/THEME-SPEC.md) | ⚠️ **已失效**：六皮肤时代的变量契约（机制已删）              | 只作历史参考          |
+| [design/AI-THEME-GUIDE.md](design/AI-THEME-GUIDE.md) | ⚠️ **已失效**：给 AI 写 `themes/custom.css` 的提示词      | 只作历史参考          |
+
+> 视觉规范的**唯一出处**是根目录 [DESIGN.md](../DESIGN.md)，不在本目录。
 
 **建议阅读顺序**：ARCHITECTURE 第 3 节（数据流图）→ DATA-MODEL 第 1 节（`state` 长什么样）  
 → FRONTEND 第 6 节（点一个按钮发生什么）→ 只读你关心的那个视图。
@@ -44,9 +55,9 @@ grep -n "'med-take':" index.html                # 定位 handler
 | [线上测试报告-2026-10-26.md](reports/线上测试报告-2026-10-26.md) | v30 时代的线上测试报告                          |
 | [库存事故复盘-2026-10-27.md](reports/库存事故复盘-2026-10-27.md) | v31 库存错乱与用药记录丢失的完整复盘                   |
 | [网站改动报告.md](reports/网站改动报告.md)                       | 早期改动的汇总                                |
-| [明序-UI评审报告.md](reports/明序-UI评审报告.md)         | UI 评审结论                                |
 | [整站优化清单.md](reports/整站优化清单.md)                       | 整站优化项清单（多数已执行）                         |
-| `明序 UI优化方案.pdf`                                  | UI 方案设计稿                               |
+
+> UI 评审报告与 UI 方案设计稿已于 2026-11-23 移入 [`design/reviews/`](design/reviews/)。
 
 ---
 

@@ -5,7 +5,7 @@
 - 六套皮肤（paper / slate / cloud-float / cloud-focus / neu / retro）已全部删除，相关文件在本目录下不再存在。
 - 主题样式位置：**`assets/theme-v2.css`**（加载在 `assets/app.css` 之后，全站最后一份样式）。
 - 设计规范位置：根目录 **`DESIGN.md`**（令牌、字阶、栅格、组件态、动效）。
-- 需求与执行计划：`docs/THEME-V2-PLAN.md`。
+- 需求与执行计划：`docs/design/THEME-V2-PLAN.md`。
 
 ## 为什么这个目录还在
 

@@ -108,6 +108,28 @@ STATE = {
              'start': 5000, 'apr': 0, 'min': 0, 'due': 20, 'note': ''},
         ],
     },
+    # v170 拆分后，四个健康模块配置在 modules；喝水 v173 起按 notifyMode 拆多时间点
+    'modules': {
+        'water': {'on': True, 'name': '喝水', 'icon': '💧', 'color': '#4c7f96', 'note': '', 'unit': '杯',
+                  'cups': 9, 'perMl': 250, 'goalMl': 2300,
+                  'notify': True, 'suggestTime': '', 'notifyFreq': 'daily',
+                  'notifyWeekday': 1, 'notifyMonthday': 1, 'notifyNote': '',
+                  'notifyChannels': ['browser'], 'notifyMode': 'each', 'notifyDailyCount': 2,
+                  'notifyDailyTimes': {'morning': '08:00', 'noon': '12:30', 'afternoon': '15:00'},
+                  'notifyStart': '08:00', 'notifyEnd': '21:00',
+                  'createdAt': '2026-10-01T00:00:00Z', 'updatedAt': '2026-10-01T00:00:00Z'},
+        'move': {'on': True, 'name': '运动', 'icon': '🏃', 'color': '#b5733f', 'note': '30 分钟以上', 'unit': '次',
+                 'times': 1, 'notify': True, 'suggestTime': '', 'notifyFreq': 'daily',
+                 'notifyWeekday': 1, 'notifyMonthday': 1, 'notifyNote': '',
+                 'createdAt': '2026-10-01T00:00:00Z', 'updatedAt': '2026-10-01T00:00:00Z'},
+        'breathe': {'on': True, 'name': '478呼吸法', 'icon': '🌬️', 'color': '#5b8f8a', 'note': '4-7-8 呼吸', 'unit': '组',
+                    'groups': 1, 'cycles': 4, 'notify': True, 'suggestTime': '15:00', 'notifyFreq': 'daily',
+                    'notifyWeekday': 1, 'notifyMonthday': 1, 'notifyNote': '',
+                    'createdAt': '2026-10-01T00:00:00Z', 'updatedAt': '2026-10-01T00:00:00Z'},
+        'quit': {'on': True, 'name': '戒烟', 'icon': '🚭', 'color': '#7a8471', 'note': '',
+                 'startDate': '', 'perDay': 0, 'packPrice': 0, 'packSize': 20,
+                 'createdAt': '2026-10-01T00:00:00Z', 'updatedAt': '2026-10-01T00:00:00Z'},
+    },
 }
 
 # ---------- A. PHP 生成 ----------

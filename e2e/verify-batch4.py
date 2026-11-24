@@ -289,11 +289,11 @@ with sync_playwright() as p:
         p4.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
         p4.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
         p4.wait_for_timeout(2600)
-        nav(p4, 'habits')
+        nav(p4, 'today')
         v1 = p4.evaluate("""() => ({
-            breathe: Array.from(document.querySelectorAll('.habit-row-info b')).some(e => e.textContent.indexOf('478') >= 0)
+            breathe: !!document.querySelector('[data-act="breathing-start"]')
         })""")
-        rec('无版本号的老数据会执行 v1→v3 迁移（补回呼吸法习惯）', v1['breathe'], json.dumps(v1, ensure_ascii=False))
+        rec('无版本号的老数据会执行迁移（呼吸法作为健康模块被补齐）', v1['breathe'], json.dumps(v1, ensure_ascii=False))
         # 触发一次保存，检查落库的数据带上了版本号
         # 真改一次数据触发保存：用「今日状态」的心情按钮，它一定在今日页且必定写库
         nav(p4, 'today')

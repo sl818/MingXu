@@ -177,6 +177,48 @@ function lb_ics_clock($v, string $fallback): array
     return [(int)$m[1], (int)$m[2]];
 }
 
+/**
+ * 喝水模块的提醒时间点（v173）。
+ * - notifyMode=daily：取 notifyDailyTimes 的前 notifyDailyCount 个（早/中/晚）。
+ * - notifyMode=each（默认）：在 notifyStart~notifyEnd 之间按杯数均分。
+ * schedule.php 通过 require 复用本函数，与前端 buildICS 口径一致。
+ *
+ * @return array<int, string>  HH:MM 时间点列表（升序）
+ */
+function lb_water_slots(array $m, int $cups): array
+{
+    $mode = (string)($m['notifyMode'] ?? 'each');
+    if ($mode === 'daily') {
+        $n = max(1, min(3, (int)($m['notifyDailyCount'] ?? 2)));
+        $dt = isset($m['notifyDailyTimes']) && is_array($m['notifyDailyTimes']) ? $m['notifyDailyTimes'] : [];
+        $names = ['morning', 'noon', 'afternoon'];
+        $slots = [];
+        for ($i = 0; $i < $n; $i++) {
+            $t = (string)($dt[$names[$i]] ?? '');
+            if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) {
+                $slots[] = $t;
+            }
+        }
+        return $slots;
+    }
+    $start = (string)($m['notifyStart'] ?? '08:00');
+    $end = (string)($m['notifyEnd'] ?? '21:00');
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start, $sm)
+        || !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end, $em)) {
+        return [];
+    }
+    $s = (int)$sm[1] * 60 + (int)$sm[2];
+    $e = (int)$em[1] * 60 + (int)$em[2];
+    $total = $e > $s ? $e - $s : $e - $s + 1440;
+    $step = $cups > 1 ? $total / ($cups - 1) : 0;
+    $slots = [];
+    for ($i = 0; $i < $cups; $i++) {
+        $mm = ($s + (int)round($step * $i)) % 1440;
+        $slots[] = sprintf('%02d:%02d', intdiv($mm, 60), $mm % 60);
+    }
+    return $slots;
+}
+
 /* 订阅地址无效时输出一个「空日历」而不是 404。
    原因：线上 Nginx 配了 error_page 404，会把 PHP 的 404 换成自己的 HTML 页面。
    日历客户端收到 HTML 只会报「格式错误 / 无法添加」，比空日历还难排查。
@@ -373,7 +415,8 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         if (!is_array($h) || !empty($h['archivedAt'])) {
             continue;
         }
-        if (!empty($h['med']) || !empty($h['optional']) || ($h['type'] ?? '') === 'quit') {
+        if (!empty($h['med']) || !empty($h['optional']) || ($h['type'] ?? '') === 'quit'
+            || in_array((string)($h['id'] ?? ''), ['h_water', 'h_move', 'h_breathe', 'h_drink'], true)) {
             continue;
         }
         /* 通知开关：默认开 */
@@ -407,6 +450,73 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             'habit-' . (string)($h['id'] ?? ''),
             $start, $start->modify('+15 minutes'),
             $icon . ' ' . $name, (string)($h['note'] ?? ''), $rrule
+        );
+        $count++;
+    }
+
+    /* ---- 健康模块（水/运动/478）：配置在 state.modules；戒烟不提醒。
+       喝水按 notifyMode 拆成多个时间点（v173）；运动/478 仍是单条 suggestTime。 ---- */
+    $modules = isset($state['modules']) && is_array($state['modules']) ? $state['modules'] : [];
+    $modRec = ['water' => 'h_water', 'move' => 'h_move', 'breathe' => 'h_breathe'];
+    foreach ($modRec as $mkey => $hid) {
+        $m = $modules[$mkey] ?? null;
+        if (!is_array($m)) {
+            continue;
+        }
+        if (($m['on'] ?? true) === false) {
+            continue;
+        }
+        if (($m['notify'] ?? true) === false) {
+            continue;
+        }
+        $icon = (string)($m['icon'] ?? '🔔');
+        $name = (string)($m['name'] ?? '健康');
+        $note = (string)($m['note'] ?? '');
+
+        /* 喝水：按 notifyMode 拆成多个时间点（v173） */
+        if ($mkey === 'water') {
+            $cups = max(1, (int)($m['cups'] ?? 9));
+            foreach (lb_water_slots($m, $cups) as $i => $t) {
+                [$hh, $mm] = array_map('intval', explode(':', $t));
+                $start = $todayDate->setTime($hh, $mm);
+                if ($start <= $now) {
+                    $start = $start->modify('+1 day');
+                }
+                $out[] = lb_ics_event(
+                    'habit-' . $hid . '-' . ($i + 1),
+                    $start, $start->modify('+15 minutes'),
+                    $icon . ' ' . $name . ' · 第 ' . ($i + 1) . ' 杯', $note, 'FREQ=DAILY'
+                );
+                $count++;
+            }
+            continue;
+        }
+
+        /* 运动 / 478：原单条 suggestTime */
+        $st = (string)($m['suggestTime'] ?? '');
+        if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {
+            continue;
+        }
+        $start = $todayDate->setTime((int)$mm[1], (int)$mm[2]);
+        $freq = (string)($m['notifyFreq'] ?? 'daily');
+        $rrule = 'FREQ=DAILY';
+        $step = '+1 day';
+        if ($freq === 'weekly') {
+            $wd = max(0, min(6, (int)($m['notifyWeekday'] ?? 1)));
+            $rrule = 'FREQ=WEEKLY;BYDAY=' . LB_ICS_WEEK[$wd];
+            $step = '+7 days';
+        } elseif ($freq === 'monthly') {
+            $md = max(1, min(31, (int)($m['notifyMonthday'] ?? 1)));
+            $rrule = 'FREQ=MONTHLY;BYMONTHDAY=' . $md;
+            $step = '+1 month';
+        }
+        while ($start <= $now) {
+            $start = $start->modify($step);
+        }
+        $out[] = lb_ics_event(
+            'habit-' . $hid,
+            $start, $start->modify('+15 minutes'),
+            $icon . ' ' . $name, $note, $rrule
         );
         $count++;
     }

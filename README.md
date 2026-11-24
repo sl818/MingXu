@@ -32,7 +32,7 @@
 - 部署步骤看 [DEPLOY.md](docs/DEPLOY.md)
 - 技术结构看 [ARCHITECTURE.md](docs/ARCHITECTURE.md)（分册：[FRONTEND](docs/FRONTEND.md) / [BACKEND](docs/BACKEND.md) / [DATA-MODEL](docs/DATA-MODEL.md)）
 - 版本流水看 [HANDOFF.md](docs/HANDOFF.md)
-- 写新皮肤看 [THEME-SPEC.md](docs/THEME-SPEC.md) / [AI-THEME-GUIDE.md](docs/AI-THEME-GUIDE.md)
+- 视觉与设计看 [design/README.md](docs/design/README.md)（含 [DESIGN.md](DESIGN.md)、[评审待办](docs/design/REVIEW-2026-11-23.md)）
 - 全部文档索引看 [docs/README.md](docs/README.md)
 
 ---
@@ -605,8 +605,8 @@ docs/                 架构、前后端、数据模型、部署、主题规范
 
 - 前端逻辑在 `index.html`，样式在 `assets/app.css`；改之前先读 [`docs/FRONTEND.md`](docs/FRONTEND.md)，
   改样式注意同名选择器**最后一条生效**，不要只看第一处。
-- 皮肤只在 `themes/*.css` 写变量，规范见 [`docs/THEME-SPEC.md`](docs/THEME-SPEC.md)；
-  新增主题键要在 `SKINS`、首屏白名单、`<link>`、SW `ASSETS` 四处注册。
+- 视觉层只改 `assets/theme-v2.css` 的令牌与组件笔触（六皮肤机制已删除，`themes/*.css` 不再有文件），
+  规范见根目录 [`DESIGN.md`](DESIGN.md)，文档时效见 [`docs/design/README.md`](docs/design/README.md)。
 - 后端文件一律 `require_once`；新增顶层数据字段必须同步
   `normalizeState` / `mergeStates` / `repairBackup` 三处（漏第三处会直接删用户数据）。
 - 改完至少跑：

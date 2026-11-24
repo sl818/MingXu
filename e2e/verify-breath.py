@@ -225,7 +225,9 @@ with sync_playwright() as p:
     rec('[迁移] 旧 optional 卡仍按呼吸卡渲染', c['small'].startswith('每天一组 · 4 次循环'), c['small'])
     rec('[迁移] 完成态文案正常', '4 次循环跑完了' in c['sub'], c['sub'])
     pct = pg.evaluate("() => (document.querySelector('.hero-pct b') || {}).textContent || ''")
-    rec('[迁移] 已计入达标率（1/1 = 100%）', pct.strip() == '100%', pct)
+    # v170 拆分后：常驻健康模块恒为 4 个（喝水/运动/478/戒烟），本场景只有 h_breathe 锚点，
+    # 迁移会补齐其余三个模块。当天呼吸达标 + 戒烟未抽 = 2/4 = 50%。
+    rec('[迁移] 已计入达标率（2/4 = 50%：呼吸达标 + 戒烟未抽）', pct.strip() == '50%', pct)
     ctx.close()
 
     # ---------- 手机 ----------

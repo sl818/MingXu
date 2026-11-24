@@ -92,10 +92,10 @@ with sync_playwright() as p:
         };
     }""")
     chk('抽屉打开', bool(sheet), '')
-    # v61 加「戒烟」→ 7 项；v71 加「配置」→ 8 项
-    chk('九个入口齐全（%s）' % '/'.join(sheet['labels']),
+    # v61 加「戒烟」→ 7 项；v71 加「配置」→ 8 项；v170 拆分健康模块 +3 → 12 项
+    chk('十二个入口齐全（%s）' % '/'.join(sheet['labels']),
     # v86 起抽屉顺序跟随 orderedNav()，体重排在随笔前 —— 按集合比，顺序归 verify-nav-order 管
-        sorted(sheet['labels']) == sorted(['清债', '戒烟', '习惯', '体重', '随笔', '日历', '统计', '配置', '设置']),
+        sorted(sheet['labels']) == sorted(['清债', '戒烟', '喝水', '运动', '478呼吸法', '习惯', '体重', '随笔', '日历', '统计', '配置', '设置']),
         json.dumps(sheet['labels'], ensure_ascii=False))
     chk('抽屉停在底部导航之上（bottom=%d / vh=%d / 栏高=%d）' % (sheet['bottom'], sheet['vh'], sheet['barH']),
         abs(sheet['bottom'] - (sheet['vh'] - sheet['barH'])) <= 2,
@@ -172,7 +172,7 @@ with sync_playwright() as p:
     })""")
     chk('桌面端不显示底部导航', not dt['barShown'], json.dumps(dt))
     # v61 起导航 9 项变 10 项（加「戒烟」）
-    chk('桌面侧栏有 12 个页面入口', dt['sideItems'] == 12, 'sideItems=%d' % dt['sideItems'])
+    chk('桌面侧栏有 15 个页面入口', dt['sideItems'] == 15, 'sideItems=%d' % dt['sideItems'])
     dctx.close()
 
     print('\n[7] 错误汇总')

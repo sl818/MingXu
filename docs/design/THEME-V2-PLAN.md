@@ -370,7 +370,7 @@
 - **本地存储**：`lifeboard.skin` 旧值（paper/slate/cloud-*/neu/retro）统一回落新键；`lifeboard.theme.mode` 的 `auto` 回落 `light`。
 - **布局**：`wide` 布局名改为 `side`（或保留键名只改行为），旧值要兼容。
 - **右栏**：删除 `.rail` 后必须解除 `:root[data-layout="wide"] .today-lower .week-panel{display:none}`，否则「本周概览」整块消失；同时删除 `:root[data-layout="wide"] .sync-indicator{display:none!important}`。
-- **文档**：`DESIGN.md` 已按 v2 覆盖；`docs/THEME-SPEC.md` 需同步改（旧版只描述六皮肤）。
+- **文档**：`DESIGN.md` 已按 v2 覆盖；`docs/design/THEME-SPEC.md` 已标注失效（旧版只描述六皮肤，机制已删）。
 
 ## 9. 待定
 

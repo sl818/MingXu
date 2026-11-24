@@ -268,6 +268,8 @@ with sync_playwright() as p:
 
     # ---------------- 3.2 待办筛选 ----------------
     if run('3.2'):
+        # 只统计本节筛选动作触发的保存：登录/迁移时的那次推送不算。
+        SAVES[0] = 0
         nav(pg, 'board')
         cw = pg.evaluate("() => Math.round(document.querySelector('.board .col').getBoundingClientRect().width)")
         wrap = pg.evaluate("""() => {

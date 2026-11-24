@@ -187,11 +187,13 @@ io.open(p, 'w', encoding='utf-8', newline='').write(s.replace('\n', nl))
 | **BACKEND.md** | 23 个接口、鉴权、三套提醒、推送、备份、部署 | 改任何后端代码前 |
 | **DATA-MODEL.md** | `state` 全部字段、迁移、合并规则 | 加字段、改合并、查数据 |
 | `DEPLOY.md` | 宝塔部署、Nginx、HTTPS、备份、cron | 上线时 |
-| `THEME-SPEC.md` / `AI-THEME-GUIDE.md` | 写新皮肤 | 加主题时 |
+| `docs/design/THEME-V2-PLAN.md` | 当前主题 v2 的需求与执行记录 | 改视觉时 |
+| `docs/design/BRAND.md` | logo、命名、语气、字体 | 动品牌资产时 |
+| `docs/design/REVIEW-2026-11-23.md` | 2026-11-23 设计评审结论与待办（含时效） | 做视觉层前 |
 | `docs/README.md` | 目录索引 | 不知道该看哪份 |
 | `../README.md` | 功能说明（给用户看的） | 想知道"这功能是干什么的" |
 | `HANDOFF.md` | 版本流水与交接 | 想知道"哪些版本改了什么" |
-| `SITE-STRUCTURE.md` | 已并入本文，保留为指路牌 | — |
+| `docs/design/SITE-STRUCTURE.md` | 已并入本文，保留为指路牌 | — |
 | `reports/` | 历史测试报告与事故复盘 | 想知道"当时为什么这么改" |
 
 > 本文里出现的 `api/ics.php`、`index.html`、`e2e/xxx.py` 这类路径，**一律相对项目根**，

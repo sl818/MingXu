@@ -237,7 +237,7 @@ render()
 **导航相关常量**（都在主脚本顶部附近）：
 
 ```js
-NAV         // PC 侧栏（12 项）：今日 · 用药 · 戒烟 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 配置 · 设置
+NAV         // PC 侧栏（15 项）：仪表盘 · 用药 · 戒烟 · 喝水 · 运动 · 478呼吸法 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 配置 · 设置
 MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more)]
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
@@ -900,7 +900,7 @@ dataset.layout = top | side | wide  ← 三种 PC 布局
 4. **加进 `service-worker.js` 的 `ASSETS`**（否则离线时皮肤丢失）
 5. 跑对比度审计：`e2e/audit-contrast-v33.py`
 
-详见 `THEME-SPEC.md`。
+详见 `design/THEME-SPEC.md`（已失效，六皮肤已下线，见 `design/README.md` 的时效表）。
 
 ---
 

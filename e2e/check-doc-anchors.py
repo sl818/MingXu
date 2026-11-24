@@ -20,11 +20,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 文档都在 docs/ 下（根目录只留 README.md 作入口）
 DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/DATA-MODEL.md', 'docs/README.md', 'docs/HANDOFF.md',
-        'docs/SITE-STRUCTURE.md', 'docs/DEPLOY.md',
-        'docs/THEME-SPEC.md', 'docs/AI-THEME-GUIDE.md',
+        'docs/DEPLOY.md',
         'docs/REFACTOR-PLAN.md', 'docs/CHANGE-MAP.md',
-        'docs/BRAND.md', 'docs/RENAME-PLAN.md', 'docs/DESIGN-LIB.md',
-        'docs/SMTP.md', 'docs/THEME-V2-PLAN.md', 'README.md']
+        'docs/RENAME-PLAN.md',
+        'docs/SMTP.md', 'README.md',
+        # 待办技术债（P0）2026-11-24 起
+        'docs/P0-喝水模块通知渠道路由.md',
+        # 设计类文档 2026-11-23 起集中在 docs/design/
+        # 只核对「还会指导未来改动」的几份；THEME-SPEC / AI-THEME-GUIDE 是六皮肤时代的存档，
+        # 正文必然提到已删除的 themes/*.css，纳进来只会制造固定噪音。
+        'docs/design/README.md', 'docs/design/SITE-STRUCTURE.md',
+        'docs/design/BRAND.md', 'docs/design/DESIGN-LIB.md',
+        'docs/design/THEME-V2-PLAN.md', 'docs/design/REVIEW-2026-11-23.md']
 
 # 已知的"不是代码符号"的白名单，避免误报
 NOT_CODE = {
@@ -44,6 +51,22 @@ NOT_CODE = {
 
 def load(p):
     return io.open(p, encoding='utf-8', newline='').read().replace('\r\n', '\n')
+
+
+# 文档里会写、但不是本项目代码符号的词：检测器规则名、ARIA 属性、标准 CSS 函数。
+# 加进来是为了让 3b 那条「形如 act」的启发式不乱报。
+EXTERNAL_TERMS = {
+    'nested-cards', 'low-contrast', 'skipped-heading', 'text-occlusion',
+    'undersized-ui-text', 'tiny-text', 'side-tab', 'overused-font',
+    'cream-palette', 'hero-eyebrow-chip', 'kicker-above-heading',
+    'design-system-color', 'design-system-font-size', 'design-system-radius',
+    'design-system-font', 'flat-type-hierarchy',
+    'aria-labelledby', 'aria-modal', 'aria-hidden', 'aria-live',
+    'min-width', 'min-height', 'max-width', 'max-height',
+    'auto-fit', 'minmax', 'placeholder', 'sepia',
+    # 六皮肤时代的 key，文档里当历史名词提到
+    'skin-cloud', 'data-skin',
+}
 
 
 def main():
@@ -93,7 +116,7 @@ def main():
         """收集出现在「已删除 / 废弃 / 移除」说明行里的反引号符号，后面按行豁免。"""
         out = set()
         for line in text.split('\n'):
-            if re.search(r'删|移除|废弃|去掉', line):
+            if re.search(r'删|移除|废弃|去掉|失效', line):
                 out.update(x.strip() for x in re.findall(r'`([^`\n]+)`', line))
         return out
 
@@ -141,6 +164,8 @@ def main():
         for span in code_spans:
             s = span.strip()
             if re.match(r'^[a-z]+(-[a-z]+)+$', s) and len(s) > 5:
+                if s in EXTERNAL_TERMS:
+                    continue
                 if s in action_keys or s in all_code:
                     continue
                 if os.path.exists(os.path.join(ROOT, 'e2e', s + '.py')):
@@ -150,7 +175,11 @@ def main():
         # 4. 文件路径：写了目录就按路径找；只写文件名就按文件名在整个项目里找
         all_files = set()
         for dirpath, _dirs, files in os.walk(ROOT):
-            if any(x in dirpath for x in ('.git', 'design', 'beifen-dsh', 'node_modules')):
+            if any(x in dirpath for x in ('.git', 'beifen-dsh', 'node_modules')):
+                continue
+            # 跳过根目录的 design/（截图与原型），但 **不要** 跳过 docs/design/（2026-11-23 起的设计文档目录）
+            rel = os.path.relpath(dirpath, ROOT)
+            if rel.split(os.sep)[0] == 'design':
                 continue
             for f in files:
                 all_files.add(f)

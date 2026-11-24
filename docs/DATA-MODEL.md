@@ -40,11 +40,13 @@
 | id | 说明 |
 |---|---|
 | `h_med` | 用药卡的占位习惯。`met()` 看药品记录，不看 `checks`。习惯管理页会跳过它 |
-| `h_water` | 喝水。`target` 是杯数（默认 9），实际毫升靠 `waterMlOf()` 换算 |
-| `h_move` | 运动。有独立的周视图和七段环 |
-| `h_breathe` | 478 呼吸法。**会自动补进 habits**，即使被删也会被 `ensureBreathingHabit()` 加回来 |
-| `h_drink` | 戒烟，`type: 'quit'` |
+| `h_water` | 喝水。**v170 起是模块锚点**——配置在 `state.modules.water`，此条目冻结、不参与任何计算（回滚用） |
+| `h_move` | 运动。**v170 起是模块锚点**（`state.modules.move`） |
+| `h_breathe` | 478 呼吸法。**v170 起是模块锚点**（`state.modules.breathe`），不再被 `ensureBreathingHabit()` 当活跃习惯补回 |
+| `h_drink` | 戒烟，`type: 'smoke'`。**v170 起是模块锚点**（`state.modules.quit`） |
 | `med_default` | 默认药品 |
+
+> **v170 起**：`h_water/h_move/h_breathe/h_drink` 这四个 id 只作为**记录主键**（`RECORD_IDS`）与**回滚锚点**保留在 `habits` 里，不再进入 `activeHabits()`（用 `isModuleAnchor()` 过滤）。它们的配置搬到顶层 `state.modules`（`modulesAt` 乐观锁同 `money`）。渲染层统一走 `moduleAsHabit(key)` 把模块映射成旧的 habit 形状，戒烟页/喝水卡/运动卡/呼吸卡因此零改动。
 
 ---
 

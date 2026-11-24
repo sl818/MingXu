@@ -170,8 +170,9 @@ function lb_schedule_day(array $state, string $date): array
         if (!is_array($h) || !empty($h['archivedAt'])) {
             continue;
         }
-        if (!empty($h['optional']) || !empty($h['med'])) {
-            continue;   // 可选项不催；用药类习惯由药品自己提醒
+        if (!empty($h['optional']) || !empty($h['med'])
+            || in_array((string)($h['id'] ?? ''), ['h_water', 'h_move', 'h_breathe', 'h_drink'], true)) {
+            continue;   // 可选项不催；用药类习惯由药品自己提醒；四个健康模块由模块配置接管
         }
         /* 与 ics.php 保持一致：戒除类（quit）不排提醒，它靠当天“没破戒”来算 */
         if (($h['type'] ?? '') === 'quit') {
@@ -222,6 +223,85 @@ function lb_schedule_day(array $state, string $date): array
             $body .= "\n" . $notifyNote;
         }
         $icon = (string)($h['icon'] ?? '');
+        $out[] = [
+            'time' => $slot,
+            'kind' => 'habit',
+            'id' => $hid,
+            'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+            'body' => $body,
+        ];
+    }
+
+    /* ---------------------------------------------------------------- 健康模块
+       水/运动/478 的配置在 state.modules；戒烟不提醒。口径与上面的习惯一致。 */
+    $modules = isset($state['modules']) && is_array($state['modules']) ? $state['modules'] : [];
+    $modRec = ['water' => 'h_water', 'move' => 'h_move', 'breathe' => 'h_breathe'];
+    foreach ($modRec as $mkey => $hid) {
+        $m = $modules[$mkey] ?? null;
+        if (!is_array($m)) {
+            continue;
+        }
+        if (($m['on'] ?? true) === false) {
+            continue;
+        }
+        if (($m['notify'] ?? true) === false) {
+            continue;
+        }
+        $name = trim((string)($m['name'] ?? ''));
+        if ($name === '') {
+            $name = '健康习惯';
+        }
+        $icon = (string)($m['icon'] ?? '');
+
+        /* 喝水：按 notifyMode 生成多个时间点（v173） */
+        if ($mkey === 'water') {
+            $cups = max(1, (int)($m['cups'] ?? 9));
+            $done = isset($checks[$hid]) ? (int)$checks[$hid] : 0;
+            foreach (lb_water_slots($m, $cups) as $i => $t) {
+                if ($done >= $i + 1) {
+                    continue;   // 已喝到第 i+1 杯，就不再催这一杯
+                }
+                $left = max(0, $cups - $done);
+                $body = $left > 1
+                    ? '该喝水了 · 今天还差 ' . (string)$left . ' 杯'
+                    : '该喝水了 · 今天还差最后一杯';
+                $out[] = [
+                    'time' => $t,
+                    'kind' => 'habit',
+                    'id' => $hid,
+                    'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+                    'body' => $body,
+                ];
+            }
+            continue;
+        }
+
+        /* 运动 / 478：沿用原 suggestTime 单条逻辑 */
+        $slot = (string)($m['suggestTime'] ?? '');
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
+            continue;
+        }
+        $freq = (string)($m['notifyFreq'] ?? 'daily');
+        if ($freq === 'weekly') {
+            $wd = max(0, min(6, (int)($m['notifyWeekday'] ?? 1)));
+            if ((int)date('w', strtotime($date)) !== $wd) {
+                continue;
+            }
+        } elseif ($freq === 'monthly') {
+            $md = max(1, min(31, (int)($m['notifyMonthday'] ?? 1)));
+            if ((int)date('j', strtotime($date)) !== $md) {
+                continue;
+            }
+        }
+        /* 今天已经打过卡就不再催 */
+        if (isset($checks[$hid]) && (float)$checks[$hid] > 0) {
+            continue;
+        }
+        $target = $mkey === 'move' ? max(1, (int)($m['times'] ?? 1)) : max(1, (int)($m['groups'] ?? 1));
+        $unit = $mkey === 'move' ? '次' : '组';
+        $body = $target > 1
+            ? '今天还差 ' . (string)$target . $unit
+            : '今天的习惯还没打卡';
         $out[] = [
             'time' => $slot,
             'kind' => 'habit',

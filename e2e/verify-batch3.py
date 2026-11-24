@@ -316,8 +316,8 @@ with sync_playwright() as p:
         rec('默认选中「按创建」', chips[0]['active'], json.dumps([c['txt'] for c in chips if c['active']], ensure_ascii=False))
 
         created_order = names()
-        # 478呼吸法 是 ensureBreathingHabit 自动补的常驻习惯，会排在最后
-        expect_created = ['喝水', '读书', '夜跑', '事项复盘', '478呼吸法']
+        # v170 拆分后：喝水/478呼吸法 已迁出习惯页，这里只剩 3 个普通习惯
+        expect_created = ['读书', '夜跑', '事项复盘']
         rec('按创建顺序与数据一致', created_order == expect_created, json.dumps(created_order, ensure_ascii=False))
 
         saves_before = SAVES[0]
@@ -325,7 +325,7 @@ with sync_playwright() as p:
         pg.wait_for_timeout(500)
         prog = names()
         rec('按今日进度重排（100% 的读书/夜跑在前）', prog[:2] == ['读书', '夜跑'], json.dumps(prog, ensure_ascii=False))
-        rec('排序与创建顺序确实不同', prog != created_order, '创建=%s 进度=%s' % (created_order, prog))
+        rec('进度排序把 0% 的事项复盘排最后', prog[-1] == '事项复盘', '创建=%s 进度=%s' % (created_order, prog))
 
         pg.click('[data-act="habit-sort"][data-sort="streak"]')
         pg.wait_for_timeout(500)

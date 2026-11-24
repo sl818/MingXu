@@ -1,6 +1,6 @@
 # 改名清单 · 晚风 Todo → 明序 Mingxu
 
-> 品牌定义见 [BRAND.md](BRAND.md)。本清单只回答「改哪里、按什么顺序、哪里容易漏」。
+> 品牌定义见 [design/BRAND.md](design/BRAND.md)。本清单只回答「改哪里、按什么顺序、哪里容易漏」。
 > 状态标记：`[x]` 已做 · `[~]` 待用户确认后决定
 >
 > **2026-11-18 更新**：代码与文档部分已全部落地（v117），相关章节改为已做；品牌名、logo 已定稿。
@@ -107,9 +107,9 @@ L187 `<title>… · 晚风Todo安装`、L204 品牌块 `晚风Todo <small>INSTAL
 
 - `README.md`：标题、开头简介、功能介绍、截图说明、仓库描述、所有自引用
 - `docs/README.md`：版本行与索引
-- `docs/ARCHITECTURE.md` / `docs/SITE-STRUCTURE.md` / `docs/DEPLOY.md` /
-  `docs/THEME-SPEC.md` / `docs/AI-THEME-GUIDE.md`：项目名出现在标题与正文
-- `docs/BRAND.md`：**新建，已完成**（本文档即品牌定义）
+- `docs/ARCHITECTURE.md` / `docs/design/SITE-STRUCTURE.md` / `docs/DEPLOY.md` /
+  `docs/design/THEME-SPEC.md` / `docs/design/AI-THEME-GUIDE.md`：项目名出现在标题与正文
+- `docs/design/BRAND.md`：**新建，已完成**（本文档即品牌定义）
 
 **不改**：`docs/HANDOFF.md` 的历史流水（那是当时的记录，改名不该篡改历史），
 只在最新一行加一句「v117 起改名为明序」。`docs/REFACTOR-PLAN.md` / `CHANGE-MAP.md`

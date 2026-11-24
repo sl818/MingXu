@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=169">
+<link rel="stylesheet" href="assets/app.css?v=174">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=169">
+<link rel="stylesheet" href="assets/theme-v2.css?v=174">
 </head>
 <body>
 <div class="app landing">
@@ -141,13 +141,22 @@
   /* 常驻卡顺序即此顺序。戒烟放最后：5 张时它会跨两列变成宽卡。 */
   const PINNED_IDS = ['h_med', 'h_water', 'h_move', 'h_breathe', 'h_drink'];
 
+  /* ---- 常驻模块（v170 拆分）----
+     喝水 / 运动 / 478 / 戒烟 的配置搬到 state.modules，**打卡记录仍用下面这组旧主键**：
+     checks[日期][id]、events[].id、cravings[].h、packs 全部以它为准。
+     改名等于重写所有历史日期，还会让未升级的设备与日历订阅对不上，所以刻意保留。
+     habits 里同名的那四个条目退化成「冻结锚点」：不读、不写、不删，只在回滚旧版本时兜底。 */
+  const RECORD_IDS = { water: 'h_water', move: 'h_move', breathe: 'h_breathe', quit: 'h_drink' };
+  const MODULE_KEYS = ['water', 'move', 'breathe', 'quit'];
+  const MODULE_LABEL = { water: '喝水', move: '运动', breathe: '478呼吸法', quit: '戒烟' };
+
   const KEY = 'lifeboard.v1';
   const CLOUD_KEY = 'lifeboard.cloud';
   const THEME_MODE_KEY = 'lifeboard.theme.mode';
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v169';
+  const APP_VERSION = 'v174';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -168,6 +177,9 @@
         { id: 'h_breathe', name: '478呼吸法', icon: '🌬️', type: 'build', target: 1, unit: '组', color: '#5b8f8a', note: '4-7-8 呼吸', breatheCycles: 4, suggestTime: '15:00', createdAt: iso, pinned: true },
         { id: 'h_drink', name: '戒烟', icon: '🚭', type: 'smoke', target: 1, unit: '次', color: '#7a8471', note: '', createdAt: iso, pinned: true }
       ],
+      /* 四个常驻模块的配置（v170）。上面 habits 里同名的四条只是回滚锚点，不参与任何计算。 */
+      modules: seedModules(),
+      modulesAt: 0,
       checks: {},
       /* 未完成标记：{日期: {习惯id: 1}}。
          和 checks 分开存——checks 是「今天做了几次」，0 会被删键，存不住
@@ -420,6 +432,236 @@
     return !!value && typeof value === 'object' && !Array.isArray(value);
   }
 
+  /* ============================================================
+     常驻模块：数据层（v170）
+     - 配置：state.modules.<water|move|breathe|quit>
+     - 记录：仍用 RECORD_IDS 的旧主键，见文件头注释
+     - 锚点：habits 里那四个条目只用于回滚，任何逻辑都不读它
+     ============================================================ */
+  function isModuleAnchor(h) {
+    return !!h && MODULE_KEYS.some(k => RECORD_IDS[k] === h.id);
+  }
+  function moduleKeyOf(id) {
+    for (let i = 0; i < MODULE_KEYS.length; i++) {
+      if (RECORD_IDS[MODULE_KEYS[i]] === id) return MODULE_KEYS[i];
+    }
+    return '';
+  }
+
+  function moduleDefaults(key) {
+    const iso = new Date().toISOString();
+    const base = {
+      on: true, name: MODULE_LABEL[key] || key, icon: '✅', color: '#2f6f5e', note: '',
+      createdAt: iso, updatedAt: iso
+    };
+    if (key === 'water') {
+      return Object.assign(base, {
+        name: '喝水', icon: '💧', color: '#4c7f96', note: '', unit: '杯',
+        cups: 9, perMl: 250, goalMl: 2300,
+        notify: true, suggestTime: '', notifyFreq: 'daily',
+        notifyWeekday: 1, notifyMonthday: 1, notifyNote: '',
+        notifyChannels: ['browser'], notifyMode: 'each', notifyDailyCount: 2,
+        notifyDailyTimes: { morning: '08:00', noon: '12:30', afternoon: '15:00' },
+        notifyStart: '08:00', notifyEnd: '21:00'
+      });
+    }
+    if (key === 'move') {
+      return Object.assign(base, {
+        name: '运动', icon: '🏃', color: '#b5733f', note: '30 分钟以上', unit: '次',
+        times: 1, notify: true, suggestTime: '', notifyFreq: 'daily',
+        notifyWeekday: 1, notifyMonthday: 1, notifyNote: ''
+      });
+    }
+    if (key === 'breathe') {
+      return Object.assign(base, {
+        name: '478呼吸法', icon: '🌬️', color: '#5b8f8a', note: '4-7-8 呼吸', unit: '组',
+        groups: 1, cycles: 4, notify: true, suggestTime: '15:00', notifyFreq: 'daily',
+        notifyWeekday: 1, notifyMonthday: 1, notifyNote: ''
+      });
+    }
+    return Object.assign(base, {
+      name: '戒烟', icon: '🚭', color: '#7a8471', note: '',
+      startDate: '', perDay: 0, packPrice: 0, packSize: 20
+    });
+  }
+
+  /* 新用户的第一份模块配置（与 seedState 里那四个锚点的值保持一致） */
+  function seedModules() {
+    const out = {};
+    MODULE_KEYS.forEach(function (k) { out[k] = moduleDefaults(k); });
+    return out;
+  }
+
+  /* 从冻结锚点（旧 habit）提取一次配置。兼容被旧版改坏的数据：
+     喝水 target 被写成 1 时，按 goalMl / perMl 反推杯数。 */  function moduleFromLegacy(key, h) {
+    const d = moduleDefaults(key);
+    if (!h || typeof h !== 'object') return d;
+    const m = Object.assign(d, {
+      name: String(h.name || d.name).trim().slice(0, 20) || d.name,
+      icon: String(h.icon || d.icon).slice(0, 4),
+      color: /^#[0-9a-f]{6}$/i.test(String(h.color || '')) ? String(h.color) : d.color,
+      note: String(h.note || '').slice(0, 40),
+      createdAt: String(h.createdAt || d.createdAt)
+    });
+    if (key === 'water') {
+      const per = clamp(Math.round(Number(h.perMl) || 250), 50, 1000);
+      const goal = Math.max(200, Math.round(Number(h.goalMl) || 2300));
+      let cups = clamp(parseInt(h.target, 10) || 0, 0, 24);
+      if (cups < 2 && goal > per) cups = clamp(Math.ceil(goal / per), 1, 24);
+      m.cups = cups || 9;
+      m.perMl = per;
+      m.goalMl = Math.max(goal, m.cups * per);
+    } else if (key === 'move') {
+      m.times = clamp(parseInt(h.target, 10) || 1, 1, 99);
+    } else if (key === 'breathe') {
+      m.groups = clamp(parseInt(h.target, 10) || 1, 1, 99);
+      m.cycles = clamp(parseInt(h.breatheCycles, 10) || 4, 1, 8);
+    } else {
+      const s = String(h.quitStart || '');
+      m.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+      m.perDay = clamp(parseInt(h.quitPerDay, 10) || 0, 0, 100);
+      m.packPrice = Math.max(0, Math.min(9999, Number(h.quitPackPrice) || 0));
+      m.packSize = clamp(parseInt(h.quitPackSize, 10) || 20, 1, 50);
+    }
+    if (key !== 'quit') {
+      m.notify = h.notify !== false;
+      const st = String(h.suggestTime || '');
+      m.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : d.suggestTime;
+      m.notifyFreq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
+      const nwd = Number(h.notifyWeekday);
+      m.notifyWeekday = (nwd >= 0 && nwd <= 6) ? Math.round(nwd) : 1;
+      const nmd = Number(h.notifyMonthday);
+      m.notifyMonthday = (nmd >= 1 && nmd <= 31) ? Math.round(nmd) : 1;
+      m.notifyNote = String(h.notifyNote || '').slice(0, 60);
+    }
+    return m;
+  }
+
+  /* 单个模块的字段白名单 + 范围收敛。已有的合法值不覆盖，只补缺失与纠非法。 */
+  function normalizeModule(key, raw) {
+    const d = moduleDefaults(key);
+    const m = isPlainObject(raw) ? raw : {};
+    const out = {
+      on: m.on !== false,
+      name: String(m.name || d.name).trim().slice(0, 20) || d.name,
+      icon: String(m.icon || d.icon).slice(0, 4),
+      color: /^#[0-9a-f]{6}$/i.test(String(m.color || '')) ? String(m.color) : d.color,
+      note: String(m.note || '').slice(0, 40),
+      createdAt: String(m.createdAt || d.createdAt),
+      updatedAt: String(m.updatedAt || d.updatedAt)
+    };
+    if (key === 'water') {
+      out.unit = '杯';
+      out.perMl = clamp(Math.round(Number(m.perMl) || d.perMl), 50, 1000);
+      out.cups = clamp(Math.round(Number(m.cups) || d.cups), 1, 24);
+      out.goalMl = Math.max(clamp(Math.round(Number(m.goalMl) || d.goalMl), 200, 8000), out.cups * out.perMl);
+      /* 喝水通知：渠道多选 + 频率双模式（v173） */
+      const CH = ['browser', 'wecom', 'mail'];
+      const ch = Array.isArray(m.notifyChannels) ? m.notifyChannels.filter(function (x) { return CH.indexOf(x) >= 0; }) : [];
+      out.notifyChannels = ch.length ? ch : ['browser'];
+      out.notifyMode = m.notifyMode === 'daily' ? 'daily' : 'each';
+      out.notifyDailyCount = [1, 2, 3].indexOf(Number(m.notifyDailyCount)) >= 0 ? Number(m.notifyDailyCount) : 2;
+      const dt = isPlainObject(m.notifyDailyTimes) ? m.notifyDailyTimes : {};
+      const TIME_OK = function (s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || '')); };
+      out.notifyDailyTimes = {
+        morning: TIME_OK(dt.morning) ? dt.morning : '08:00',
+        noon: TIME_OK(dt.noon) ? dt.noon : '12:30',
+        afternoon: TIME_OK(dt.afternoon) ? dt.afternoon : '15:00'
+      };
+      out.notifyStart = TIME_OK(m.notifyStart) ? m.notifyStart : '08:00';
+      out.notifyEnd = TIME_OK(m.notifyEnd) ? m.notifyEnd : '21:00';
+    } else if (key === 'move') {
+      out.unit = '次';
+      out.times = clamp(Math.round(Number(m.times) || d.times), 1, 99);
+    } else if (key === 'breathe') {
+      out.unit = '组';
+      out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, 99);
+      out.cycles = clamp(Math.round(Number(m.cycles) || d.cycles), 1, 8);
+    } else {
+      const s = String(m.startDate || '');
+      out.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+      out.perDay = clamp(Math.round(Number(m.perDay) || 0), 0, 100);
+      out.packPrice = Math.max(0, Math.min(9999, Number(m.packPrice) || 0));
+      out.packSize = clamp(Math.round(Number(m.packSize) || 20), 1, 50);
+    }
+    if (key !== 'quit') {
+      out.notify = m.notify !== false;
+      const st = String(m.suggestTime || '');
+      out.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : d.suggestTime;
+      out.notifyFreq = ['daily', 'weekly', 'monthly'].indexOf(m.notifyFreq) >= 0 ? m.notifyFreq : 'daily';
+      const nwd = Number(m.notifyWeekday);
+      out.notifyWeekday = (nwd >= 0 && nwd <= 6) ? Math.round(nwd) : 1;
+      const nmd = Number(m.notifyMonthday);
+      out.notifyMonthday = (nmd >= 1 && nmd <= 31) ? Math.round(nmd) : 1;
+      out.notifyNote = String(m.notifyNote || '').slice(0, 60);
+    }
+    return out;
+  }
+
+  /* 四个模块整体归一化：缺的从锚点提取，有的只补字段；不认识的模块键原样带过。
+     幂等：跑几次结果一样。 */
+  function normalizeModules(raw, habits) {
+    const src = isPlainObject(raw) ? raw : {};
+    const legacy = {};
+    (Array.isArray(habits) ? habits : []).forEach(h => {
+      if (isModuleAnchor(h) && !legacy[h.id]) legacy[h.id] = h;
+    });
+    const out = {};
+    MODULE_KEYS.forEach(function (k) {
+      out[k] = isPlainObject(src[k]) ? normalizeModule(k, src[k]) : moduleFromLegacy(k, legacy[RECORD_IDS[k]]);
+    });
+    Object.keys(src).forEach(function (k) {
+      if (typeof out[k] === 'undefined') out[k] = src[k];
+    });
+    return out;
+  }
+
+  /* 所有入口（加载 / 保存 / 导入 / 合并）统一在这里补齐模块。
+     注意：挂在 ensureStateMaps 上，而不是 migrateState —— 导入备份那条路径
+     （handleImport → repairBackup → ensureStateMaps）根本不走 migrateState。 */
+  function ensureModules(data) {
+    if (!data || typeof data !== 'object') return data;
+    data.modules = normalizeModules(data.modules, data.habits);
+    data.modulesAt = Math.max(0, Math.round(Number(data.modulesAt) || 0));
+    return data;
+  }
+
+  /* 把模块映射成「旧 habit 形状」，让 quitCard / breathingCard / moveCardHtml /
+     water 分支 / met / weekDaysOf 这些函数一行都不用改。 */
+  function moduleAsHabit(key) {
+    const mods = (typeof state !== 'undefined' && state && isPlainObject(state.modules)) ? state.modules : null;
+    let m = mods ? mods[key] : null;
+    if (!isPlainObject(m)) {
+      /* 兜底：modules 还没生成（加载中的渲染窗口）时，从冻结锚点现算一份，只读 */
+      const hs = (typeof state !== 'undefined' && state && Array.isArray(state.habits)) ? state.habits : [];
+      m = moduleFromLegacy(key, hs.find(x => x && x.id === RECORD_IDS[key]));
+    }
+    const base = {
+      id: RECORD_IDS[key], name: m.name, icon: m.icon, color: m.color, note: m.note || '',
+      unit: m.unit || '次', createdAt: m.createdAt, pinned: true, optional: false,
+      suggestTime: m.suggestTime || ''
+    };
+    if (key === 'water') return Object.assign(base, { type: 'build', target: m.cups, perMl: m.perMl, goalMl: m.goalMl });
+    if (key === 'move') return Object.assign(base, { type: 'build', target: m.times });
+    if (key === 'breathe') return Object.assign(base, { type: 'build', target: m.groups, breatheCycles: m.cycles });
+    return Object.assign(base, {
+      type: 'smoke', target: 1, quitStart: m.startDate,
+      quitPerDay: m.perDay, quitPackPrice: m.packPrice, quitPackSize: m.packSize
+    });
+  }
+
+  /* 四个模块的「habit 视图」，按 PINNED_IDS 的顺序给出 */
+  function moduleHabits() {
+    const out = [];
+    MODULE_KEYS.forEach(function (k) {
+      const m = state && isPlainObject(state.modules) ? state.modules[k] : null;
+      if (m && m.on === false) return;
+      out.push(moduleAsHabit(k));
+    });
+    return out;
+  }
+
+
   function rebuildChecksFromEvents(events) {
     const out = {};
     (Array.isArray(events) ? events : []).forEach(e => {
@@ -541,6 +783,7 @@
 
   function ensureStateMaps() {
     if (!state || typeof state !== 'object') return;
+    ensureModules(state);
     state.checks = normalizeChecks(state.checks, state.events);
     state.moods = normalizeMoods(state.moods);
     state.notes = isPlainObject(state.notes) ? state.notes : {};
@@ -782,6 +1025,9 @@
     data.countdowns = normalizeCountdowns(data.countdowns);
     data.doses = isPlainObject(data.doses) ? data.doses : {};
     migrateState(data);
+    /* 四个常驻模块（v170）：放在 migrateState 之后、Object.assign(seedState) 之前，
+       这样「老数据只有 habits」时能从锚点提取，而 seedState 的默认值不会覆盖用户的配置。 */
+    ensureModules(data);
     return Object.assign(seedState(), data);
   }
 
@@ -1538,6 +1784,31 @@
       }
       out.money = merged;
       out.moneyAt = Math.max(lK, rK);
+    }
+    /* 常驻模块：**逐个模块**比 updatedAt 取新，不做整块覆盖。
+       整块取新会让「A 端改喝水、B 端改运动」互相吃掉对方的改动。 */
+    const lMods = (local.modules && typeof local.modules === 'object') ? local.modules : null;
+    const rMods = (remote.modules && typeof remote.modules === 'object') ? remote.modules : null;
+    if (lMods || rMods) {
+      const lm2 = lMods || {}, rm2 = rMods || {};
+      const mergedMods = {};
+      MODULE_KEYS.forEach(function (k) {
+        const a = rm2[k], b = lm2[k];
+        if (!isPlainObject(a) && !isPlainObject(b)) return;
+        if (!isPlainObject(a)) { mergedMods[k] = b; return; }
+        if (!isPlainObject(b)) { mergedMods[k] = a; return; }
+        const at = Date.parse(String(a.updatedAt || '')) || 0;
+        const bt = Date.parse(String(b.updatedAt || '')) || 0;
+        mergedMods[k] = bt > at ? b : a;
+      });
+      /* 不认识的模块键原样带过（与 repairBackup 的兜底思路一致） */
+      [rm2, lm2].forEach(function (src) {
+        Object.keys(src).forEach(function (k) {
+          if (typeof mergedMods[k] === 'undefined') mergedMods[k] = src[k];
+        });
+      });
+      out.modules = mergedMods;
+      out.modulesAt = Math.max(Number(local.modulesAt) || 0, Number(remote.modulesAt) || 0);
     }
     /* 导航顺序同理：整份覆盖，绝不按 key 并集（并集会拼出两端交错的顺序） */
     const lNAt = Number(local.navOrderAt) || 0;
@@ -2492,6 +2763,9 @@
     return fmt(d) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
   function habitById(hid) {
+    /* 模块的记录键（h_water 等）优先返回模块视图，别去读冻结锚点 */
+    const key = moduleKeyOf(hid);
+    if (key) return moduleAsHabit(key);
     return (state.habits || []).find(function (x) { return x.id === hid; }) || null;
   }
   function cravingsOf(hid) {
@@ -2794,7 +3068,7 @@
   }
 
   function addCraving(hid, kind) {
-    const h = (state.habits || []).find(function (x) { return x.id === hid; });
+    const h = habitById(hid);
     if (!isQuitLike(h)) return;
     if (kind !== 's' && kind !== 'r') return;
     /* 一包抽满、库存又是 0 时不再收这条记录。挡在数据层而不是只靠按钮的 disabled：
@@ -3192,7 +3466,7 @@
     const day = state.checks[d];
     if (day) {
       const hasVisibleCheck = Object.keys(day).some(id => {
-        const h = state.habits.find(x => x.id === id);
+        const h = habitById(id);
         return h && !isArchived(h) && Number(day[id]) > 0;
       });
       if (hasVisibleCheck) return true;
@@ -3213,10 +3487,17 @@
     return c >= Math.max(1, Number(h.target) || 1);
   }
   function activeHabits(d) {
-    return state.habits.filter(h => !h.optional && !isArchived(h) && !(h.med && medScheduledCount(d) === 0));
+    /* 四个常驻模块的锚点不在习惯体系里了：它们由 moduleAsHabit() 单独提供 */
+    return state.habits.filter(h => !h.optional && !isArchived(h) && !isModuleAnchor(h)
+      && !(h.med && medScheduledCount(d) === 0));
+  }
+  /* 考核口径的唯一入口：普通习惯 + 四个模块。
+     dayStats / 横幅 / 「还差几项」/ 日历页都从这里取，避免两套名单打架。 */
+  function assessmentHabits(d) {
+    return activeHabits(d).concat(moduleHabits());
   }
   function dayStats(d) {
-    const habits = activeHabits(d);
+    const habits = assessmentHabits(d);
     const total = habits.length;
     const done = habits.filter(h => met(h, d)).length;
     return { total: total, done: done, ratio: total ? done / total : 0 };
@@ -3544,6 +3825,9 @@
     board: '<rect x="3" y="4" width="5" height="16" rx="1.6"/><rect x="9.5" y="4" width="5" height="10" rx="1.6"/><rect x="16" y="4" width="5" height="13" rx="1.6"/>',
     habits: '<path d="M4 12.5l4.2 4.2L20 5.5"/><path d="M4 6.5h6"/>',
     quit: '<rect x="3" y="9" width="3.5" height="7" rx="1.1"/><rect x="6.5" y="9" width="13" height="4" rx="1.1"/><path d="M8.5 7.2c0-1.6 1-2.4 2.2-2.4s1.3.9 2.6.9 1.4-.9 2.6-.9 2.2.8 2.2 2.4"/>',
+    water: '<path d="M12 3.5c3.4 4 5.5 7.2 5.5 10a5.5 5.5 0 1 1-11 0c0-2.8 2.1-6 5.5-10z"/><path d="M8.6 16.2c1 1.3 2.1 2 3.4 2s2.4-.7 3.4-2"/>',
+    move: '<path d="M3.5 9v6M20.5 9v6M6 12h12M6 10.5v3M18 10.5v3"/>',
+    breathe: '<circle cx="12" cy="12" r="7.5"/><path d="M8.5 12c1-1.7 2.5-1.7 3.5 0s2.5 1.7 3.5 0"/>',
     weight: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 9h8M12 9v3"/><circle cx="12" cy="15" r="2.2"/>',
     essay: '<path d="M5 4h10l4 4v12H5z"/><path d="M8 12h8M8 16h5"/>',
     more: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="2.4"/>',
@@ -3603,10 +3887,17 @@
     });
     (state.habits || []).forEach(h => {
       /* h_med 是「用药卡」的占位习惯，习惯页会跳过它（habitManageRows 过滤 !h.med），
-         跳过去只会落空；用药本身有独立入口，这里不重复收录。 */
-      if (h.med || !String(h.name || '').trim()) return;
+         跳过去只会落空；用药本身有独立入口，这里不重复收录。
+         v170：四个常驻卡的锚点也不收录，改成下面按模块收录，落点是各自页面。 */
+      if (h.med || isModuleAnchor(h) || !String(h.name || '').trim()) return;
       pool.push({ kind: 'habit', id: h.id, title: h.name, text: h.note || '',
                   view: 'habits', meta: isArchived(h) ? '已归档' : (h.unit || '次') });
+    });
+    MODULE_KEYS.forEach(function (k) {
+      const m = state.modules && state.modules[k];
+      if (!m || m.on === false || !String(m.name || '').trim()) return;
+      pool.push({ kind: 'module', id: RECORD_IDS[k], title: m.name, text: m.note || '',
+                  view: k, meta: MODULE_LABEL[k] });
     });
     return pool;
   }
@@ -3658,7 +3949,7 @@
     if (!t) return null;
     /* h_med 是「用药」这个虚拟习惯，它的对勾由药品记录驱动，
        手动 +1 不会影响完成判定，所以不参与命令匹配 */
-    const list = state.habits.filter(h => !h.optional && !isArchived(h) && !h.med);
+    const list = assessmentHabits(todayStr()).filter(h => !h.med);
     const exact = list.find(h => String(h.name || '').toLowerCase() === t);
     if (exact) return exact;
     return list.find(h => String(h.name || '').toLowerCase().indexOf(t) >= 0) || null;
@@ -3976,7 +4267,7 @@
     }
 
     /* 习惯：只有填了「建议时间」的才会被催（如 478 呼吸法 15:00） */
-    const habitDue = activeHabits(d).filter(h => {
+    const habitDue = assessmentHabits(d).filter(h => {
       if (h.med || isQuitLike(h)) return false;
       const st = String(h.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st) || st > hm) return false;
@@ -3990,9 +4281,10 @@
       });
     }
 
-    const water = (state.habits || []).find(h => h.id === 'h_water' && !isArchived(h));
-    if (water) {
-      const target = Number(water.target) || 9;
+    const wmod = state.modules && state.modules.water;
+    if (wmod && wmod.on !== false) {
+      const water = moduleAsHabit('water');
+      const target = Math.max(1, Number(water.target) || 9);
       const done = countOf(d, water.id);
       if (done < target) {
         const last = (state.events || [])
@@ -5598,30 +5890,36 @@
     const streak = overallStreak();
     const pend = pendingTasks(d);
     const doneToday = liveTasks().filter(t => t.status === 'done' && t.doneAt === d);
-    const visibleHabits = state.habits.filter(h => !isArchived(h));
+    const visibleHabits = state.habits.filter(h => !isArchived(h) && !isModuleAnchor(h));
 
     let sub;
-    if (!visibleHabits.length) {
-      sub = '还没有习惯，先去「习惯」页添加第一个吧。';
-    } else if (!hasRecords(d)) {
+    if (!hasRecords(d)) {
       sub = isToday ? '今天还没有开始，从最简单的那一项开始。' : '这一天还没有记录，可以补记。';
     } else if (st.done === st.total) {
       sub = '全部完成，今天做得很好 🎉';
     } else {
-      const missed = activeHabits(d).filter(h => !met(h, d)).map(h => h.name);
+      const missed = assessmentHabits(d).filter(h => !met(h, d)).map(h => h.name);
       sub = '还差 ' + missed.length + ' 项：' + missed.join('、');
     }
 
-    const pinned = orderedPinnedIds().map(id => visibleHabits.find(h => h.id === id)).filter(Boolean);
-    const others = visibleHabits.filter(h => pinned.indexOf(h) < 0);
+    /* 常驻卡：四个模块（数据在 state.modules）+ 用药占位（仍是习惯）。
+       顺序仍由 orderedPinnedIds() 决定，用户的既有排序不受影响。 */
+    const pinned = orderedPinnedIds().map(function (id) {
+      const key = moduleKeyOf(id);
+      const h = key ? moduleAsHabit(key) : visibleHabits.find(x => x.id === id);
+      return h ? { id: id, h: h } : null;
+    }).filter(Boolean);
+    const pinnedIds = pinned.map(s => s.id);
+    const others = visibleHabits.filter(h => pinnedIds.indexOf(h.id) < 0);
     let habitHtml, habitMeta;
-    if (!visibleHabits.length) {
-      habitHtml = '<div class="empty-box">还没有习惯。去「习惯」页添加「喝水」「运动」等，开始记录。</div>';
+    if (!pinned.length && !others.length) {
+      habitHtml = '<div class="empty-box">还没有习惯。去「习惯」页添加「早睡」「读书」等，开始记录。</div>';
       habitMeta = '还没有习惯';
     } else {
       habitHtml =
         (pinned.length ? '<div class="vital-grid' + (cardSortMode ? ' is-sorting' : '') + '">' +
-          pinned.map(function (h, i) {
+          pinned.map(function (slot, i) {
+            const h = slot.h;
             const card = h.med ? medCard(h, d) : vitalCard(h, d);
             if (!cardSortMode) return card;
             /* 排序条直接插在卡片末尾，不去动 medCard / vitalCard / quitCard 三个渲染函数——
@@ -5630,9 +5928,9 @@
             if (at < 0) return card;
             return card.slice(0, at) +
               '<div class="card-sortbar">' +
-                '<button type="button" class="csb" data-act="card-move" data-id="' + h.id +
+                '<button type="button" class="csb" data-act="card-move" data-id="' + slot.id +
                   '" data-dir="-1"' + (i <= 0 ? ' disabled' : '') + ' title="往前挪一位">↑</button>' +
-                '<button type="button" class="csb" data-act="card-move" data-id="' + h.id +
+                '<button type="button" class="csb" data-act="card-move" data-id="' + slot.id +
                   '" data-dir="1"' + (i >= pinned.length - 1 ? ' disabled' : '') + ' title="往后挪一位">↓</button>' +
               '</div>' +
               card.slice(at);
@@ -5642,7 +5940,7 @@
         (others.length ? (pinned.length ? ' · ' : '') + others.length + ' 项其他' : '');
       habitMeta += cardSortMode
         ? ' · 用 ↑↓ 调整顺序'
-        : (visibleHabits.length ? ' · 点击打卡' : '');
+        : (pinned.length || others.length ? ' · 点击打卡' : '');
     }
 
     /* 待办列表：逾期单独成组置顶，今天到期超过 TODAY_REST_LIMIT 条折叠。
@@ -6170,10 +6468,9 @@
      时段分布只数「抽了」——「想抽但忍住」的那个时段其实不是危险时段，
      混进去会把真正容易破防的点位稀释掉。 */
   function quitPanelBody(range) {
-    const h = (state.habits || []).find(function (x) {
-      return x && !x.archivedAt && isSmoke(x);
-    });
-    if (!h) return '';
+    const qmod = state.modules && state.modules.quit;
+    if (!qmod || qmod.on === false) return '';
+    const h = quitHabit();
     const streak = quitStreak(h), total = quitTotal(h), best = quitBest(h);
     const q = quitRange(h, range);
     const bins = craveHours(h.id);
@@ -6245,7 +6542,9 @@
       }
     }
 
-    const rows = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
+    /* 「最稳 / 待加强」只排普通习惯——四个健康模块在统计页各自成块（喝水 / 运动 / 478 / 戒烟），
+       不混进这里，与「近 N 天」分布（hstats）口径一致。 */
+    const rows = activeHabits(todayStr()).filter(h => !h.med).map(h => {
       let hit = 0, total = 0, lapse = 0;
       const isQuit = isQuitLike(h);
       for (let day = 1; day <= days; day++) {
@@ -6456,8 +6755,9 @@
       });
     });
 
-    /* 习惯：跳过用药占位卡；按通知频率决定这天要不要出现 */
-    activeHabits(ds).forEach(h => {
+    /* 习惯：跳过用药占位卡；按通知频率决定这天要不要出现。
+       v170 起用 assessmentHabits —— 四个模块也要在日历里能按天回看 */
+    assessmentHabits(ds).forEach(h => {
       if (h.med) return;
       const st = String(h.suggestTime || '');
       if (hhmmMin(st) < 0) return;
@@ -7199,10 +7499,11 @@
     });
 
     const habits = [];
-    state.habits.filter(h => !h.optional && !isArchived(h)).forEach(h => {
+    /* 习惯表 = 普通习惯 + 四个模块；冻结锚点与用药占位不进这张表 */
+    const pushHabit = function (h, isMed) {
       let done = 0, n = 0, acc = 0;
       days.forEach(d => {
-        if (h.med && medScheduledCount(d) === 0) return;   /* 那天没药，这个习惯不计分母 */
+        if (isMed && medScheduledCount(d) === 0) return;   /* 那天没药，这个习惯不计分母 */
         n++;
         if (met(h, d)) done++;
         acc += habitDayAcc(h, d);
@@ -7217,7 +7518,10 @@
         pct: Math.round(acc / n * 100),
         hit: Math.round(done / n * 100)
       });
-    });
+    };
+    state.habits.filter(h => !h.optional && !isArchived(h) && !isModuleAnchor(h))
+      .forEach(h => pushHabit(h, h.med));
+    moduleHabits().forEach(h => pushHabit(h, false));
     habits.sort((a, b) => a.pct - b.pct);
 
     /* 「有记录的日子里的平均完成度」。
@@ -7227,7 +7531,7 @@
     let accSum = 0, accN = 0;
     days.forEach(d => {
       if (!hasRecords(d)) return;
-      const hs = activeHabits(d);
+      const hs = assessmentHabits(d);
       if (!hs.length) return;
       let s2 = 0;
       hs.forEach(h => { s2 += habitDayAcc(h, d); });
@@ -7331,9 +7635,9 @@
      戒烟页：宽卡 + 月历 + 汇总 + 买烟记录
      ============================================================ */
   function quitHabit() {
-    return (state.habits || []).find(function (x) {
-      return x && !x.archivedAt && isSmoke(x);
-    });
+    /* 戒烟已是独立模块（v170）。这里返回适配后的 habit 视图，
+       戒烟页、统计页、买烟记录、补记弹窗都不必改。 */
+    return moduleAsHabit('quit');
   }
 
   /* 戒烟页标题：跟用药/待办页一样的 page-head。
@@ -7352,6 +7656,7 @@
     return '<div class="page-head">' +
       '<div><h2>戒烟</h2><p>' + sub + '</p></div>' +
       '<div class="head-actions">' +
+        '<button class="btn" data-act="module-edit" data-key="quit">设置</button>' +
         '<button class="btn danger-red" data-act="crave-clear">清空记录</button>' +
         '<button class="btn new" data-act="pack-new">记一笔买烟</button>' +
       '</div>' +
@@ -7365,13 +7670,299 @@
     }
     return '<div class="quit-page">' +
       quitPageHead(h) +
-      quitSumPanel(h) +
       '<div class="quit-top">' +
         '<div class="quit-hero">' + quitCard(h, todayStr(), true) + '</div>' +
         quitCalPanel(h) +
       '</div>' +
       quitPacksPanel(h) +
+      quitSumPanel(h) +
       quitTrendPanel(h) +
+    '</div>';
+  }
+
+  /* ============================================================
+     健康模块独立页（v170）：喝水 / 运动 / 478呼吸法
+     戒烟页 = viewQuit（上）；这里只有另外三个。
+     页面 = 页头 + 今日卡 + 坚持小结。卡片沿用 vitalCard，
+     交互（habit-inc / habit-dec / breathing-start）仍写旧记录键。
+     ============================================================ */
+  function modulePageHead(key, sub) {
+    const label = MODULE_LABEL[key] || '模块';
+    return '<div class="page-head">' +
+      '<div><h2>' + esc(label) + '</h2><p>' + sub + '</p></div>' +
+      '<div class="head-actions">' +
+        '<button class="btn" data-act="module-edit" data-key="' + key + '">设置</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function moduleSummary(key, h) {
+    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
+    const ym = todayStr().slice(0, 7);
+    let month = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+    });
+    let total, totalLabel;
+    if (key === 'water') {
+      let ml = 0;
+      Object.keys(state.checks || {}).forEach(function (ds) {
+        ml += waterMlOf(h, countOf(ds, h.id));
+      });
+      total = Math.round(ml);
+      totalLabel = '累计毫升';
+    } else {
+      total = habitTotalCount(h);
+      totalLabel = '累计 ' + (h.unit || '次');
+    }
+    return '<div class="panel"><h3>坚持小结</h3>' +
+      '<div class="module-sum">' +
+        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
+        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
+        '<div class="ms-box"><b>' + total + '</b><span>' + totalLabel + '</span></div>' +
+      '</div></div>';
+  }
+
+  function modulePage(key) {
+    const h = moduleAsHabit(key);
+    const d = todayStr();
+    let sub;
+    if (key === 'water') {
+      sub = '每天 ' + waterTimesN(h) + ' 杯 · 每次 ' + waterPerMl(h) + ' ml · 共 ' + waterGoalMl(h) + ' ml';
+    } else if (key === 'move') {
+      sub = '每天 ' + (Number(h.target) || 1) + ' 次';
+    } else {
+      sub = '每天 ' + (Number(h.target) || 1) + ' 组 · 每组 ' + (Number(h.breatheCycles) || 4) + ' 次循环';
+    }
+    return '<div class="module-page">' +
+      modulePageHead(key, sub) +
+      vitalCard(h, d) +
+      moduleSummary(key, h) +
+    '</div>';
+  }
+
+  /* ============ 喝水页改版（v173） ============ */
+  function waterHead(m) {
+    return '<div class="page-head">' +
+      '<div><h2>喝水</h2><p class="sub">喝水小助手 · 每次 <b>' + esc(m.perMl || 250) + '</b> ml · 每天 <b>' + esc(m.goalMl || 2300) + '</b> ml</p></div>' +
+    '</div>';
+  }
+
+  function waterBenefitsHtml() {
+    const items = [
+      ['⚡', '保持精力', '缺水 2% 就会乏力、注意力下降，及时补水让你整天在线。'],
+      ['🧠', '提神醒脑', '大脑约 75% 是水，缺水容易头痛、反应变慢。'],
+      ['🔥', '帮助控重', '饭前一杯水增加饱腹感，还能小幅提升代谢。'],
+      ['🫀', '呵护关节与皮肤', '软骨与皮肤都靠水分润滑和保湿。'],
+      ['🛡️', '帮助排毒', '肾脏需要足够水分排出代谢废物。'],
+      ['💧', '促进代谢', '帮助身体消化吸收、运输营养到全身。']
+    ].map(function (it) {
+      return '<div class="w-benefit"><span class="ico">' + it[0] + '</span><b>' + it[1] + '</b><p>' + it[2] + '</p></div>';
+    }).join('');
+    return '<section class="panel"><h3 class="w-sec-title">喝水的好处</h3>' +
+      '<p class="w-sec-lead">为什么每天要喝够水？参考主流喝水应用的科普，帮你养成习惯。</p>' +
+      '<div class="w-benefit-grid">' + items + '</div>' +
+      '<div class="w-sci"><b>科学建议</b>　《中国居民膳食指南》建议成年人每天饮水 1500–1700 ml，运动或高温天可增至 2300 ml 以上；少量多次，别等口渴才喝。</div>' +
+    '</section>';
+  }
+
+  function waterSettingsHtml(m) {
+    const goal = Math.round(Number(m.goalMl) || 2300);
+    const per = Math.round(Number(m.perMl) || 250);
+    const cups = Math.round(Number(m.cups) || 9);
+    return '<section class="panel"><h3 class="w-sec-title">喝水设置</h3>' +
+      '<p class="w-sec-lead">设置直接在本页完成，不再跳出对话框。</p>' +
+      '<div class="w-locked"><span class="ico">💧</span><b>喝水</b><span class="lock">🔒 图标与名称由系统固定，不可修改</span></div>' +
+      '<form id="water-settings-form">' +
+        '<div class="w-fields">' +
+          '<div class="w-field"><span class="f-label">每天总量 <span class="unit">(ml)</span></span>' +
+            '<input name="goalMl" type="number" min="200" max="8000" step="50" value="' + goal + '"><small>建议 1500–2500 ml</small></div>' +
+          '<div class="w-field"><span class="f-label">每次喝多少 <span class="unit">(ml)</span></span>' +
+            '<input name="perMl" type="number" min="50" max="1000" step="10" value="' + per + '"><small>一杯约 200–300 ml</small></div>' +
+          '<div class="w-field"><span class="f-label">每天几杯 <span class="unit">(次)</span></span>' +
+            '<input name="cups" type="number" min="1" max="24" value="' + cups + '"><small>= 总量 ÷ 每次，自动联动</small></div>' +
+        '</div>' +
+        '<p class="w-link-hint" id="water-link-hint"></p>' +
+        '<div class="w-save"><button type="submit" class="btn primary">保存设置</button></div>' +
+      '</form>' +
+    '</section>';
+  }
+
+  /* 近 7 天喝水时刻，按 6 个时段分桶（从 events 的 at 时刻取） */
+  function waterHourBuckets(h) {
+    const buckets = [0, 0, 0, 0, 0, 0];
+    const today = todayStr();
+    const from = fmt(addDays(new Date(), -6));
+    (Array.isArray(state.events) ? state.events : []).forEach(function (e) {
+      if (!e || e.id !== h.id || Number(e.delta) <= 0) return;
+      const ds = String(e.d || '');
+      if (ds < from || ds > today) return;
+      const at = new Date(e.at);
+      if (isNaN(at.getTime())) return;
+      const hh = at.getHours();
+      let idx;
+      if (hh >= 6 && hh < 9) idx = 0;
+      else if (hh >= 9 && hh < 12) idx = 1;
+      else if (hh >= 12 && hh < 14) idx = 2;
+      else if (hh >= 14 && hh < 17) idx = 3;
+      else if (hh >= 17 && hh < 20) idx = 4;
+      else if (hh >= 20 && hh < 23) idx = 5;
+      else return;
+      buckets[idx] += Math.round(Number(e.delta));
+    });
+    return buckets;
+  }
+
+  function waterStatsHtml(h) {
+    const d = todayStr();
+    const goal = waterGoalMl(h) || 1;
+    const todayMl = Math.round(waterMlOf(h, countOf(d, h.id)));
+    const pct = function (ml) { return Math.max(0, Math.min(100, Math.round(ml / goal * 100))); };
+    function avgPct(n) {
+      let sum = 0;
+      for (let i = n - 1; i >= 0; i--) {
+        sum += waterMlOf(h, countOf(fmt(addDays(new Date(), -i)), h.id)) / goal;
+      }
+      return Math.round(sum / n * 100);
+    }
+    const p7 = avgPct(7), p30 = avgPct(30);
+    const streak = streakOn(h, d);
+    let totalMl = 0, met30 = 0, sum7 = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) { totalMl += waterMlOf(h, countOf(ds, h.id)); });
+    for (let i = 0; i < 30; i++) { if (met(h, fmt(addDays(new Date(), -i)))) met30++; }
+    for (let i = 1; i <= 7; i++) { sum7 += waterMlOf(h, countOf(fmt(addDays(new Date(), -i)), h.id)); }
+    const avg7 = Math.round(sum7 / 7);
+    const buckets = waterHourBuckets(h);
+    const maxB = Math.max.apply(null, buckets.concat([1]));
+    const LABELS = ['6–9 时', '9–12 时', '12–14 时', '14–17 时', '17–20 时', '20–23 时'];
+    const bars = buckets.map(function (n, i) {
+      return '<div class="w-hour"><span>' + n + '</span><i style="height:' + Math.round(n / maxB * 72) + 'px"></i><span>' + LABELS[i] + '</span></div>';
+    }).join('');
+    return '<section class="panel"><h3 class="w-sec-title">数据统计</h3>' +
+      '<p class="w-sec-lead">达标 = 当天喝水量 ≥ 目标总量；完成度按天平均。</p>' +
+      '<div class="w-kpi-grid">' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + pct(todayMl) + ';--rc:#dc2626"><b>' + pct(todayMl) + '%</b></div><span class="k-label">今日完成度</span><span class="k-sub">已喝 ' + todayMl + ' / ' + goal + ' ml</span></div>' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + p7 + ';--rc:#8a6a3a"><b>' + p7 + '%</b></div><span class="k-label">7 天完成度</span><span class="k-sub">近 7 天平均</span></div>' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + p30 + ';--rc:#75644e"><b>' + p30 + '%</b></div><span class="k-label">30 天完成度</span><span class="k-sub">近 30 天平均</span></div>' +
+      '</div>' +
+      '<div class="w-mini-grid">' +
+        '<div class="w-mini"><b>' + streak + '</b><span>连续达标（天）</span></div>' +
+        '<div class="w-mini"><b>' + Math.round(totalMl).toLocaleString() + '</b><span>累计喝水（ml）</span></div>' +
+        '<div class="w-mini"><b>' + met30 + '</b><span>近 30 天达标（天）</span></div>' +
+        '<div class="w-mini"><b>' + avg7.toLocaleString() + '</b><span>近 7 天日均（ml）</span></div>' +
+      '</div>' +
+      '<div class="w-hours"><p style="font-size:12.5px;font-weight:600;margin:0 0 10px">喝水时段分布 · 近 7 天（杯）</p><div class="w-hour-bars">' + bars + '</div></div>' +
+      '<div class="w-algo"><b>达标算法</b>：当天喝水量 ≥ 目标总量（默认 2300 ml）即达标；今日完成度 = 今日已喝 ÷ 目标；7 天 / 30 天完成度 = 对应周期内每天完成度的平均值。</div>' +
+    '</section>';
+  }
+
+  function waterNotifyHtml(m) {
+    const notify = m.notify !== false;
+    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
+    const mode = m.notifyMode === 'daily' ? 'daily' : 'each';
+    const dailyCount = [1, 2, 3].indexOf(Number(m.notifyDailyCount)) >= 0 ? Number(m.notifyDailyCount) : 2;
+    const dt = isPlainObject(m.notifyDailyTimes) ? m.notifyDailyTimes : {};
+    const CHAN_ITEMS = [['browser', '🔔', '浏览器通知'], ['wecom', '💬', '企业微信群'], ['mail', '✉️', '邮件通知']];
+    const chanHtml = CHAN_ITEMS.map(function (c) {
+      const on = chans.indexOf(c[0]) >= 0;
+      return '<label class="w-chan' + (on ? ' on' : '') + '"><span class="ci">' + c[1] + '</span>' + c[2] +
+        '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
+    }).join('');
+    return '<section class="panel"><h3 class="w-sec-title">喝水提醒</h3>' +
+      '<p class="w-sec-lead">按时提醒你喝水，渠道与频率都可自定义。</p>' +
+      '<form id="water-notify-form">' +
+        '<div class="w-toggle-row"><div><b>开启喝水提醒</b><small>关闭后不推送任何喝水通知</small></div>' +
+          '<label class="w-switch"><input type="checkbox" name="notify"' + (notify ? ' checked' : '') + '><i></i></label></div>' +
+        '<div id="water-notify-body"' + (notify ? '' : ' class="w-notify-off"') + '>' +
+          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
+          '<div class="w-chan-grid">' + chanHtml + '</div>' +
+          '<div style="margin-top:18px">' +
+            '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
+            '<div class="w-mode-grid">' +
+              '<label class="w-mode' + (mode === 'each' ? ' on' : '') + '"><span>每次喝水提醒</span><span>按杯数均分到一天</span><input type="radio" name="mode" value="each"' + (mode === 'each' ? ' checked' : '') + '></label>' +
+              '<label class="w-mode' + (mode === 'daily' ? ' on' : '') + '"><span>每天喝水提醒</span><span>固定每天 1–3 次</span><input type="radio" name="mode" value="daily"' + (mode === 'daily' ? ' checked' : '') + '></label>' +
+            '</div>' +
+            '<div id="water-mode-each"' + (mode === 'each' ? '' : ' style="display:none"') + '>' +
+              '<div class="w-freq-row">' +
+                '<div class="w-field"><span class="f-label">从</span><input type="time" name="notifyStart" value="' + esc(m.notifyStart || '08:00') + '"></div>' +
+                '<div class="w-field"><span class="f-label">到</span><input type="time" name="notifyEnd" value="' + esc(m.notifyEnd || '21:00') + '"></div>' +
+              '</div>' +
+              '<p class="w-freq-note">根据「每天 <b>' + Math.round(Number(m.cups) || 9) + '</b> 杯」在起止时间之间均分提醒，最后一杯标红。</p>' +
+              '<div class="w-slots" id="water-slots"></div>' +
+            '</div>' +
+            '<div id="water-mode-daily"' + (mode === 'daily' ? '' : ' style="display:none"') + '>' +
+              '<div class="w-freq-row"><span class="f-label">每天提醒次数</span>' +
+                '<div class="w-seg" id="water-daily-count">' +
+                  [1, 2, 3].map(function (n) { return '<button type="button" data-n="' + n + '"' + (n === dailyCount ? ' class="on"' : '') + '>' + n + ' 次</button>'; }).join('') +
+                '</div></div>' +
+              '<div class="w-daily-times" id="water-daily-times"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="w-save"><button type="submit" class="btn primary">保存提醒设置</button></div>' +
+      '</form>' +
+    '</section>';
+  }
+
+  function viewWater() {
+    const h = moduleAsHabit('water');
+    const m = (state.modules && state.modules.water) ? state.modules.water : moduleDefaults('water');
+    return '<div class="water-page" style="--hc:' + esc(m.color || '#4c7f96') + '">' +
+      waterHead(m) +
+      vitalCard(h, todayStr()) +
+      waterBenefitsHtml() +
+      waterSettingsHtml(m) +
+      waterStatsHtml(h) +
+      waterNotifyHtml(m) +
+    '</div>';
+  }
+  function viewMove() { return modulePage('move'); }
+  function viewBreathe() { return modulePage('breathe'); }
+
+  /* 统计页：喝火 / 运动 / 478 各成一块（v172）。
+     原来塞在一个「健康模块」合并面板里，按陛下要求拆开，与「用药」一样独立成块。
+     戒烟不在这里——统计页已有专属「戒烟」块（qhSum），不再重复。
+     每块 = 今日进度一行 + 坚持小结（本周达标 / 本月达标 / 累计）。 */
+  function moduleStatPanel(key) {
+    const h = moduleAsHabit(key);
+    const d = todayStr();
+    const label = MODULE_LABEL[key] || '模块';
+    const ok = met(h, d);
+    let todayVal;
+    if (key === 'water') {
+      todayVal = Math.round(waterMlOf(h, countOf(d, h.id))) + ' / ' + waterGoalMl(h) + ' ml';
+    } else {
+      todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
+    }
+    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
+    const ym = d.slice(0, 7);
+    let month = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+    });
+    let total, totalLabel;
+    if (key === 'water') {
+      let ml = 0;
+      Object.keys(state.checks || {}).forEach(function (ds) { ml += waterMlOf(h, countOf(ds, h.id)); });
+      total = Math.round(ml);
+      totalLabel = '累计毫升';
+    } else {
+      total = habitTotalCount(h);
+      totalLabel = '累计 ' + (h.unit || '次');
+    }
+    return '<div class="panel">' +
+      '<div class="shead"><h3>' + esc(label) + ' <span class="muted-sm">（今日 · 计入完成率）</span></h3></div>' +
+      '<div class="module-rows">' +
+        '<div class="ms-row' + (ok ? ' ok' : '') + '">' +
+          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '') + '</span>今日</span>' +
+          '<span class="ms-val">' + todayVal + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="module-sum" style="margin-top:12px">' +
+        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
+        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
+        '<div class="ms-box"><b>' + total + '</b><span>' + totalLabel + '</span></div>' +
+      '</div>' +
     '</div>';
   }
 
@@ -7998,7 +8589,8 @@
         '</table>' +
 
         '<h4 class="algo-h">二、当天的完成率</h4>' +
-        '<p class="algo-p">先算「今天该做几个」。<b>应做习惯</b> = 所有未归档、且没被标记成「非必做」的习惯。' +
+        '<p class="algo-p">先算「今天该做几个」。<b>应做</b> = 所有未归档、且没被标记成「非必做」的普通习惯，' +
+          '再加四个<b>健康模块</b>（喝水、运动、478呼吸法、戒烟）。' +
           '用药习惯如果当天没有排期（比如这个疗程结束了），就不算进应做里。</p>' +
         '<p class="algo-formula">完成率 = 今天做到的习惯数 ÷ 今天应做的习惯数</p>' +
         '<p class="algo-p">例：今天应做 5 个，做到 3 个 → 60%。做 0 个就是 0%，不会因为「昨天做得好」而加分。</p>' +
@@ -9567,7 +10159,7 @@
       '</div>';
     }).join('');
 
-    const hstats = state.habits.filter(h => !h.optional && !isArchived(h)).map(h => {
+    const hstats = state.habits.filter(h => !h.optional && !isArchived(h) && !isModuleAnchor(h)).map(h => {
       const isQuit = isQuitLike(h);
       /* 戒烟的点阵按事件算：有「抽了」= miss，只有「忍住了」= ok，
          一条都没有 = 空（没记录 ≠ 成功，不能混为一谈）。 */
@@ -9684,7 +10276,7 @@
     const logHidden = logList.length - logShown.length;
     const todayS = todayStr();
     const logRows = logShown.map(e => {
-      const h = state.habits.find(x => x.id === e.id);
+      const h = habitById(e.id);
       const md = h ? null : medById(e.id);
       const at = e.at;
       const opDate = fmt(at);
@@ -9780,6 +10372,9 @@
         '</div>' +
         medBody +
       '</div>' +
+
+      /* 喝水 / 运动 / 478：各自独立成块（戒烟下方已有专属「戒烟」块） */
+      ['water', 'move', 'breathe'].map(function (k) { return moduleStatPanel(k); }).join('') +
 
       /* 戒烟：8 张卡常显，分析（勋章 + 时段图）默认折起来 */
       (qhSum
@@ -10084,7 +10679,7 @@
   }
 
   function habitManageRows() {
-    const base = state.habits.filter(h => !h.med && !isArchived(h));
+    const base = state.habits.filter(h => !h.med && !isArchived(h) && !isModuleAnchor(h));
     const d = todayStr();
     const ratioOf = h => {
       /* 戒烟不写 checks，countOf 恒为 0，只能看 met（当天有没有「点一根」） */
@@ -10143,7 +10738,7 @@
   }
 
   function archivedHabitRows() {
-    return state.habits.filter(h => !h.med && isArchived(h)).map(h => {
+    return state.habits.filter(h => !h.med && isArchived(h) && !isModuleAnchor(h)).map(h => {
       return '<div class="habit-row archived" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
         '<span class="habit-icon sm" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-row-info"><b>' + esc(h.name) + '</b><small>已归档 · 历史打卡保留，不计入今日和统计</small></div>' +
@@ -10395,7 +10990,7 @@
     const y = now.getFullYear(), m = now.getMonth();
     const upto = now.getDate();
     const list = (state.habits || [])
-      .filter(h => h && !isArchived(h) && !h.optional)
+      .filter(h => h && !isArchived(h) && !h.optional && !isModuleAnchor(h))
       .map(h => habitMonthRow(h, y, m, upto))
       .filter(r => r.due > 0);
     if (!list.length) return '';
@@ -10425,7 +11020,7 @@
     const pmLast = new Date(pmY, pmM + 1, 0).getDate();
     const pmUpto = Math.min(upto, pmLast);
     let pmHit = 0;
-    (state.habits || []).filter(h => h && !isArchived(h) && !h.optional)
+    (state.habits || []).filter(h => h && !isArchived(h) && !h.optional && !isModuleAnchor(h))
       .forEach(function (h) { pmHit += habitMonthRow(h, pmY, pmM, pmUpto).hit; });
     const delta = hitSum - pmHit;
     const deltaText = delta === 0 ? '持平' : (delta > 0 ? '↑ ' + delta + ' 天' : '↓ ' + (-delta) + ' 天');
@@ -10473,14 +11068,14 @@
     const rows = habitManageRows();
     const archivedRows = archivedHabitRows();
     return '' +
-      '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯与常驻卡。用药在「用药」页单独管理。</p></div>' +
+      '<div class="page-head"><div><h2>习惯</h2><p>管理每日习惯。喝水、运动、478呼吸法、戒烟已移到左侧独立页面，用药在「用药」页单独管理。</p></div>' +
         '<button class="btn new" data-act="habit-new">＋ 添加习惯</button></div>' +
       habitMonthOverview() +
       /* 有归档才分两栏：平时归档为空时左栏占满，不留一块常年空着的板 */
       '<div class="habits-wrap' + (archivedRows ? ' has-arch' : '') + '">' +
       '<div class="panel habits-main"><div class="panel-head"><h3>我的习惯</h3>' + habitSortHtml() + '</div>' +
         (rows || '<div class="empty-box">还没有习惯，点右上角添加一个。</div>') +
-        '<p class="hint">带「常驻」标记的习惯不能删除或归档；归档后不计入今日、日历和统计，但历史打卡保留。</p>' +
+        '<p class="hint">归档后不计入今日、日历和统计，但历史打卡保留。</p>' +
       '</div>' +
       (archivedRows ? '<div class="panel habits-arch"><h3>已归档</h3>' + archivedRows +
         '<p class="hint">恢复后会重新出现在今日、日历和统计里；永久删除才会移除历史打卡。</p></div>' : '') +
@@ -11773,13 +12368,16 @@
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
+  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, water: viewWater, move: viewMove, breathe: viewBreathe, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
   const NAV = [
     /* 今日改名「仪表盘」，group 用不在 NAV_GROUPS 里的 '顶'：orderedNav 的 indexOf 返回 -1，
        天然排最前、且不落进任何分组（设置页排序里也不参与拖拽）。 */
     { key: 'today', label: '仪表盘', icon: 'today', group: '顶', wideLabel: '仪表盘' },
     { key: 'meds', label: '用药', icon: 'pill', group: '记录', wideLabel: '用药管理' },
     { key: 'quit', label: '戒烟', icon: 'quit', group: '记录', wideLabel: '戒烟' },
+    { key: 'water', label: '喝水', icon: 'water', group: '记录', wideLabel: '喝水' },
+    { key: 'move', label: '运动', icon: 'move', group: '记录', wideLabel: '运动' },
+    { key: 'breathe', label: '478呼吸法', icon: 'breathe', group: '记录', wideLabel: '478呼吸法' },
     { key: 'board', label: '待办', icon: 'board', group: '记录', wideLabel: '待办看板' },
     { key: 'money', label: '清债', icon: 'money', group: '记录', wideLabel: '清债' },
     { key: 'habits', label: '习惯', icon: 'habits', group: '记录', wideLabel: '习惯' },
@@ -11805,6 +12403,9 @@
   const MORE_PAGES = [
     { key: 'money', label: '清债', icon: 'money', desc: '债务与还款计划' },
     { key: 'quit', label: '戒烟', icon: 'quit', desc: '戒烟打卡与买烟记录' },
+    { key: 'water', label: '喝水', icon: 'water', desc: '每天喝水量与补水记录' },
+    { key: 'move', label: '运动', icon: 'move', desc: '每日运动打卡与周月统计' },
+    { key: 'breathe', label: '478呼吸法', icon: 'breathe', desc: '呼吸练习与每日组数' },
     { key: 'habits', label: '习惯', icon: 'habits', desc: '每日习惯与常驻卡' },
     { key: 'essays', label: '随笔', icon: 'essay', desc: '随手记录文字和片段' },
     { key: 'weight', label: '体重', icon: 'weight', desc: '身体档案、BMI 和趋势' },
@@ -12424,6 +13025,7 @@
     document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
       el.addEventListener('change', notifySyncSummary);
     });
+    if (view === 'water') bindWaterPage();
     if (view === 'board') {
       bindBoard();
       bindBoardContext();
@@ -12699,7 +13301,7 @@
 
   function openBreathingModal() {
     stopBreathing();
-    const hb = state.habits.find(x => x.id === 'h_breathe');
+    const hb = moduleAsHabit('breathe');
     const n = Math.max(1, Math.min(8, Number(hb && hb.breatheCycles) || 4));
     openModal('' +
       '<div class="modal-card breathing-modal" id="breathing-modal">' +
@@ -12730,7 +13332,7 @@
     const timer = $('#breathing-timer');
     const btn = $('#breathing-start-btn');
     if (!orb || !phase || !timer) return;
-    const hb = state.habits.find(x => x.id === 'h_breathe');
+    const hb = moduleAsHabit('breathe');
     const totalCycles = Math.max(1, Math.min(8, Number(hb && hb.breatheCycles) || 4));
     if (btn) {
       btn.textContent = '进行中';
@@ -12755,7 +13357,7 @@
         btn.textContent = '再来一组';
         btn.disabled = false;
       }
-      const h = state.habits.find(x => x.id === 'h_breathe');
+      const h = moduleAsHabit('breathe');
       if (h) {
         logHabit(h.id, 1);
         setCount(selectedDate, h.id, countOf(selectedDate, h.id) + 1);
@@ -12815,6 +13417,7 @@
     bindTaskForm();
     bindMedForm();
     bindWeightForm();
+    bindModuleForm();
     const first = root.querySelector('input:not([type="hidden"]), textarea, select');
     if (first) setTimeout(() => { try { first.focus(); } catch (e) {} }, 40);
   }
@@ -13548,7 +14151,7 @@
      动作
      ============================================================ */
   function currentHabit(id) {
-    return state.habits.find(h => h.id === id);
+    return habitById(id);
   }
 
   function saveTaskForm(form) {
@@ -13698,6 +14301,255 @@
     closeModal();
     render();
     toast(id ? '习惯已更新' : '习惯已添加');
+  }
+
+  /* ============================================================
+     健康模块设置表单（v170）。没有「类型」字段——退化问题从根上消失。
+     water：总量/每次/杯数 三值联动；move：每天几次；breathe：每天几组+每组循环；
+     quit：开始日期/每天几支/包价/包支数。通知字段只给非戒烟模块。
+     ============================================================ */
+  function moduleModal(key) {
+    if (MODULE_KEYS.indexOf(key) < 0) return;
+    const m = (state.modules && state.modules[key]) ? state.modules[key] : moduleDefaults(key);
+    const label = MODULE_LABEL[key] || '模块';
+    let body = '';
+    if (key === 'quit') {
+      body =
+        '<label class="field"><span>开始日期</span><input type="date" name="startDate" value="' + esc(m.startDate || '') + '"></label>' +
+        '<label class="field"><span>原来每天几支</span><input name="perDay" type="number" min="0" max="100" value="' + (Number(m.perDay) || '') + '" placeholder="留空则不折算省钱"></label>' +
+        '<label class="field"><span>一包多少钱（元）</span><input name="packPrice" type="number" min="0" step="0.5" value="' + (Number(m.packPrice) || '') + '" placeholder="例如 25"></label>' +
+        '<label class="field"><span>一包几支</span><input name="packSize" type="number" min="1" max="50" value="' + (Number(m.packSize) || 20) + '"></label>';
+    } else if (key === 'water') {
+      body =
+        '<label class="field"><span>每天总量（ml）</span><input name="goalMl" type="number" min="200" max="8000" step="50" value="' + (Number(m.goalMl) || 2300) + '"></label>' +
+        '<label class="field"><span>每次喝多少（ml）</span><input name="perMl" type="number" min="50" max="1000" step="10" value="' + (Number(m.perMl) || 250) + '"></label>' +
+        '<label class="field"><span>每天几杯</span><input name="cups" type="number" min="1" max="24" value="' + (Number(m.cups) || 9) + '"></label>' +
+        '<p class="hint" id="water-link-hint"></p>';
+    } else if (key === 'move') {
+      body =
+        '<label class="field"><span>每天几次</span><input name="times" type="number" min="1" max="99" value="' + (Number(m.times) || 1) + '"></label>';
+    } else {
+      body =
+        '<label class="field"><span>每天几组</span><input name="groups" type="number" min="1" max="99" value="' + (Number(m.groups) || 1) + '"></label>' +
+        '<label class="field"><span>每组循环数</span><input name="cycles" type="number" min="1" max="8" value="' + (Number(m.cycles) || 4) + '"></label>';
+    }
+    const notify = key === 'quit' ? '' :
+      '<div class="form-grid notify-grid">' +
+        '<label class="field"><span>通知提醒</span><select name="notify">' +
+          '<option value="1"' + (m.notify !== false ? ' selected' : '') + '>通知</option>' +
+          '<option value="0"' + (m.notify === false ? ' selected' : '') + '>不通知</option>' +
+        '</select></label>' +
+        '<label class="field"><span>通知时间</span><input type="time" name="suggestTime" value="' + esc(m.suggestTime || '15:00') + '"></label>' +
+      '</div>';
+    openModal(
+      '<form class="modal-card" id="module-form" data-key="' + key + '">' +
+        '<h3>设置 · ' + esc(label) + '</h3>' +
+        '<div class="form-grid">' +
+          '<label class="field"><span>图标（emoji）</span><input name="icon" maxlength="4" value="' + esc(m.icon || '') + '" placeholder="💧"></label>' +
+          '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(m.name || '') + '"></label>' +
+          body +
+          '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(m.color || '#2f6f5e') + '"></label>' +
+          '<label class="field wide"><span>备注</span><input name="note" maxlength="40" value="' + esc(m.note || '') + '" placeholder="可选"></label>' +
+        '</div>' +
+        notify +
+        '<div class="modal-actions">' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+          '<button type="submit" class="btn primary">保存</button>' +
+        '</div>' +
+      '</form>');
+  }
+
+  function bindModuleForm() {
+    const form = $('#module-form');
+    if (!form) return;
+    if (form.dataset.key !== 'water') return;
+    const g = form.querySelector('[name="goalMl"]');
+    const p = form.querySelector('[name="perMl"]');
+    const c = form.querySelector('[name="cups"]');
+    const hint = $('#water-link-hint');
+    if (!g || !p || !c) return;
+    const num = function (el, lo, hi) {
+      return Math.max(lo, Math.min(hi, Math.round(Number(el.value) || 0)));
+    };
+    const syncHint = function () {
+      const goal = num(g, 200, 8000);
+      const per = num(p, 50, 1000);
+      const cups = num(c, 1, 24);
+      const lastMl = Math.max(0, goal - (cups - 1) * per);
+      if (hint) hint.innerHTML = '每天 <b>' + cups + '</b> 杯 · 每杯 <b>' + per + '</b> ml · 最后一杯 <b>' + lastMl + '</b> ml';
+    };
+    /* 改总量或每次 → 杯数自动重算；改杯数 → 总量倒推。初始只显示不重算，保留既有 9 杯/2300ml 这类非整倍配置。 */
+    g.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
+    p.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
+    c.addEventListener('input', function () { g.value = Math.max(200, num(c, 1, 24) * num(p, 50, 1000)); syncHint(); });
+    syncHint();
+  }
+
+  function saveModuleForm(form) {
+    const key = form.dataset.key || '';
+    if (MODULE_KEYS.indexOf(key) < 0) return;
+    const get = function (n) {
+      const el = form.querySelector('[name="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    if (!state.modules) state.modules = {};
+    const prev = state.modules[key] || moduleDefaults(key);
+    const next = {
+      on: prev.on !== false,
+      name: (get('name') || MODULE_LABEL[key]).slice(0, 20),
+      icon: (get('icon') || prev.icon || '✅').slice(0, 4),
+      color: /^#[0-9a-f]{6}$/i.test(get('color')) ? get('color') : (prev.color || '#2f6f5e'),
+      note: get('note').slice(0, 40),
+      createdAt: prev.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    if (key === 'water') {
+      const per = clamp(Math.round(Number(get('perMl')) || 250), 50, 1000);
+      const cups = clamp(Math.round(Number(get('cups')) || 9), 1, 24);
+      const goal = Math.max(clamp(Math.round(Number(get('goalMl')) || 2300), 200, 8000), cups * per);
+      next.unit = '杯';
+      next.perMl = per;
+      next.cups = cups;
+      next.goalMl = goal;
+    } else if (key === 'move') {
+      next.unit = '次';
+      next.times = clamp(Math.round(Number(get('times')) || 1), 1, 99);
+    } else if (key === 'breathe') {
+      next.unit = '组';
+      next.groups = clamp(Math.round(Number(get('groups')) || 1), 1, 99);
+      next.cycles = clamp(Math.round(Number(get('cycles')) || 4), 1, 8);
+    } else {
+      const s = get('startDate');
+      next.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+      next.perDay = clamp(Math.round(Number(get('perDay')) || 0), 0, 100);
+      next.packPrice = Math.max(0, Math.min(9999, Number(get('packPrice')) || 0));
+      next.packSize = clamp(Math.round(Number(get('packSize')) || 20), 1, 50);
+    }
+    if (key !== 'quit') {
+      next.notify = get('notify') !== '0';
+      const st = get('suggestTime');
+      next.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : '15:00';
+      next.notifyFreq = 'daily';
+      next.notifyWeekday = 1;
+      next.notifyMonthday = 1;
+      next.notifyNote = '';
+    }
+    state.modules[key] = next;
+    state.modulesAt = Date.now();
+    save();
+    closeModal();
+    render();
+    toast('已保存 · ' + (next.name || MODULE_LABEL[key]));
+  }
+
+  /* ============ 喝水页改版（v173）：内联表单交互与保存 ============ */
+  function bindWaterPage() {
+    const sf = $('#water-settings-form');
+    if (sf) {
+      const g = sf.querySelector('[name="goalMl"]');
+      const p = sf.querySelector('[name="perMl"]');
+      const c = sf.querySelector('[name="cups"]');
+      const hint = $('#water-link-hint');
+      const num = function (el, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(Number(el.value) || 0))); };
+      const syncHint = function () {
+        const goal = num(g, 200, 8000), per = num(p, 50, 1000), cups = num(c, 1, 24);
+        const last = Math.max(0, goal - (cups - 1) * per);
+        if (hint) hint.innerHTML = '每天 <b>' + cups + '</b> 杯 · 每杯 <b>' + per + '</b> ml' + (last > 0 ? ' · 最后一杯 <b>' + last + '</b> ml' : '');
+      };
+      if (g && p && c) {
+        g.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
+        p.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
+        c.addEventListener('input', function () { g.value = Math.max(200, num(c, 1, 24) * num(p, 50, 1000)); syncHint(); });
+        syncHint();
+      }
+    }
+
+    const nf = $('#water-notify-form');
+    if (nf) {
+      const sw = nf.querySelector('[name="notify"]');
+      if (sw) sw.addEventListener('change', function () {
+        const body = $('#water-notify-body');
+        if (body) body.classList.toggle('w-notify-off', !sw.checked);
+      });
+      nf.querySelectorAll('[name="channels"]').forEach(function (box) {
+        box.addEventListener('change', function () { box.closest('.w-chan').classList.toggle('on', box.checked); });
+      });
+      nf.querySelectorAll('[name="mode"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+          nf.querySelectorAll('.w-mode').forEach(function (x) { x.classList.remove('on'); });
+          r.closest('.w-mode').classList.add('on');
+          const each = r.value === 'each';
+          const e = $('#water-mode-each'), d = $('#water-mode-daily');
+          if (e) e.style.display = each ? '' : 'none';
+          if (d) d.style.display = each ? 'none' : '';
+        });
+      });
+      const seg = $('#water-daily-count');
+      const timesBox = $('#water-daily-times');
+      const water = (state.modules && state.modules.water) ? state.modules.water : null;
+      const dt = (water && isPlainObject(water.notifyDailyTimes)) ? water.notifyDailyTimes : {};
+      const renderDaily = function (n) {
+        if (seg) seg.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.n) === n); });
+        const names = ['早上', '中午', '下午'];
+        const flds = ['dailyMorning', 'dailyNoon', 'dailyAfternoon'];
+        const defaults = [dt.morning || '08:00', dt.noon || '12:30', dt.afternoon || '15:00'];
+        let html = '';
+        for (let i = 0; i < n; i++) {
+          html += '<div class="w-dt-row"><span>' + names[i] + '</span><input type="time" name="' + flds[i] + '" value="' + defaults[i] + '"></div>';
+        }
+        if (timesBox) timesBox.innerHTML = html;
+      };
+      if (seg) seg.addEventListener('click', function (ev) {
+        const b = ev.target.closest('button'); if (!b) return;
+        renderDaily(Number(b.dataset.n));
+      });
+      const cur = seg ? Number((seg.querySelector('button.on') || seg.querySelector('button')).dataset.n) : 2;
+      renderDaily(cur);
+    }
+  }
+
+  function saveWaterSettings(form) {
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    if (!state.modules) state.modules = {};
+    const m = state.modules.water || moduleDefaults('water');
+    const per = clamp(Math.round(Number(get('perMl')) || 250), 50, 1000);
+    const cups = clamp(Math.round(Number(get('cups')) || 9), 1, 24);
+    const goal = Math.max(clamp(Math.round(Number(get('goalMl')) || 2300), 200, 8000), cups * per);
+    m.perMl = per; m.cups = cups; m.goalMl = goal;
+    m.updatedAt = new Date().toISOString();
+    state.modules.water = m;
+    state.modulesAt = Date.now();
+    save(); render();
+    toast('喝水设置已保存');
+  }
+
+  function saveWaterNotify(form) {
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    if (!state.modules) state.modules = {};
+    const m = state.modules.water || moduleDefaults('water');
+    m.notify = !!form.querySelector('[name="notify"]').checked;
+    const ch = [];
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
+    m.notifyChannels = ch.length ? ch : ['browser'];
+    const modeEl = form.querySelector('[name="mode"]:checked');
+    m.notifyMode = modeEl && modeEl.value === 'daily' ? 'daily' : 'each';
+    const segOn = form.querySelector('#water-daily-count button.on');
+    m.notifyDailyCount = segOn ? clamp(Number(segOn.dataset.n) || 2, 1, 3) : 2;
+    const TIME_OK = function (s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(s); };
+    const dt = isPlainObject(m.notifyDailyTimes) ? m.notifyDailyTimes : {};
+    m.notifyDailyTimes = {
+      morning: TIME_OK(get('dailyMorning')) ? get('dailyMorning') : (dt.morning || '08:00'),
+      noon: TIME_OK(get('dailyNoon')) ? get('dailyNoon') : (dt.noon || '12:30'),
+      afternoon: TIME_OK(get('dailyAfternoon')) ? get('dailyAfternoon') : (dt.afternoon || '15:00')
+    };
+    m.notifyStart = TIME_OK(get('notifyStart')) ? get('notifyStart') : '08:00';
+    m.notifyEnd = TIME_OK(get('notifyEnd')) ? get('notifyEnd') : '21:00';
+    m.updatedAt = new Date().toISOString();
+    state.modules.water = m;
+    state.modulesAt = Date.now();
+    save(); render();
+    toast('提醒设置已保存');
   }
 
   function saveMedForm(form) {
@@ -13934,6 +14786,9 @@
       schemaVersion: SCHEMA_VERSION,
       view: 'today',
       habits: habits,
+      /* 模块配置：导入旧备份时 habits 里还有四条锚点，normalizeModules 会从它们提取 */
+      modules: normalizeModules(data.modules, habits),
+      modulesAt: Math.max(0, Math.round(Number(data.modulesAt) || 0)),
       checks: cleanChecks,
       notes: obj(data.notes),
       moods: cleanMoods,
@@ -14243,9 +15098,10 @@
       count++;
     });
 
-    /* 习惯：只导出填了建议时间的（没有时间的打卡没法排进日历） */
+    /* 习惯：只导出填了建议时间的（没有时间的打卡没法排进日历）。
+       四个健康模块的锚点不在这里导出——它们由下面的模块循环接管。 */
     (state.habits || []).forEach(h => {
-      if (!h || h.archivedAt || h.med || h.optional || h.type === 'quit') return;
+      if (!h || h.archivedAt || h.med || h.optional || h.type === 'quit' || isModuleAnchor(h)) return;
       if (h.notify === false) return;            /* 通知开关：默认开 */
       const st = String(h.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st)) return;
@@ -14266,6 +15122,77 @@
       }
       out.push(icsEvent('habit-' + h.id, start, new Date(start.getTime() + 15 * 60000),
         String(h.icon || '🔔') + ' ' + String(h.name || '习惯'), h.note || '', rrule));
+      count++;
+    });
+
+    /* 喝水模块的提醒时间点（v173）：与 api/ics.php 的 lb_water_slots 口径一致 */
+    function waterNotifySlots(m, cups) {
+      const TIME_OK = function (s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || '')); };
+      const mode = m.notifyMode === 'daily' ? 'daily' : 'each';
+      if (mode === 'daily') {
+        const n = [1, 2, 3].indexOf(Number(m.notifyDailyCount)) >= 0 ? Number(m.notifyDailyCount) : 2;
+        const dt = isPlainObject(m.notifyDailyTimes) ? m.notifyDailyTimes : {};
+        const names = ['morning', 'noon', 'afternoon'];
+        const slots = [];
+        for (let i = 0; i < n; i++) {
+          const t = dt[names[i]];
+          if (TIME_OK(t)) slots.push(t);
+        }
+        return slots;
+      }
+      const s = m.notifyStart || '08:00', e = m.notifyEnd || '21:00';
+      if (!TIME_OK(s) || !TIME_OK(e)) return [];
+      const sm = s.split(':').map(Number), em = e.split(':').map(Number);
+      const sMin = sm[0] * 60 + sm[1], eMin = em[0] * 60 + em[1];
+      const total = eMin > sMin ? eMin - sMin : eMin - sMin + 1440;
+      const step = cups > 1 ? total / (cups - 1) : 0;
+      const slots = [];
+      for (let i = 0; i < cups; i++) {
+        const mm = (sMin + Math.round(step * i)) % 1440;
+        slots.push(pad2(Math.floor(mm / 60)) + ':' + pad2(mm % 60));
+      }
+      return slots;
+    }
+
+    /* 健康模块（水/运动/478）：喝水按 notifyMode 拆多时间点（v173），运动/478 仍单条。 */
+    ['water', 'move', 'breathe'].forEach(function (key) {
+      const m = state.modules && state.modules[key];
+      if (!m || m.on === false || m.notify === false) return;
+      const icon = String(m.icon || '🔔');
+      const name = String(m.name || MODULE_LABEL[key]);
+
+      if (key === 'water') {
+        const cups = Math.max(1, Math.round(Number(m.cups) || 9));
+        waterNotifySlots(m, cups).forEach(function (t, i) {
+          const hm = t.split(':').map(Number);
+          let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
+          if (start <= now) start = icsAddDays(start, 1);
+          out.push(icsEvent('habit-' + RECORD_IDS[key] + '-' + (i + 1), start, new Date(start.getTime() + 15 * 60000),
+            icon + ' ' + name + ' · 第 ' + (i + 1) + ' 杯', m.note || '', 'FREQ=DAILY'));
+          count++;
+        });
+        return;
+      }
+
+      const st = String(m.suggestTime || '');
+      if (!/^\d{2}:\d{2}$/.test(st)) return;
+      const hm = st.split(':').map(Number);
+      let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
+      const freq = ['daily', 'weekly', 'monthly'].indexOf(m.notifyFreq) >= 0 ? m.notifyFreq : 'daily';
+      let rrule = 'FREQ=DAILY';
+      if (freq === 'weekly') {
+        const wd = clamp(Number(m.notifyWeekday) || 1, 0, 6);
+        rrule = 'FREQ=WEEKLY;BYDAY=' + ICS_WEEK[wd];
+        while (start <= now) start = icsAddDays(start, 7);
+      } else if (freq === 'monthly') {
+        const md = clamp(Number(m.notifyMonthday) || 1, 1, 31);
+        rrule = 'FREQ=MONTHLY;BYMONTHDAY=' + md;
+        while (start <= now) start = new Date(start.getFullYear(), start.getMonth() + 1, start.getDate(), hm[0], hm[1]);
+      } else {
+        while (start <= now) start = icsAddDays(start, 1);
+      }
+      out.push(icsEvent('habit-' + RECORD_IDS[key], start, new Date(start.getTime() + 15 * 60000),
+        icon + ' ' + name, m.note || '', rrule));
       count++;
     });
 
@@ -15098,6 +16025,7 @@
       toast('已清理');
     },
     'habit-new': () => habitModal(null),
+    'module-edit': el => moduleModal(el.dataset.key),
     'breathing-start': () => {
       if ($('#breathing-modal')) breathingStart();
       else openBreathingModal();
@@ -15665,6 +16593,15 @@
     } else if (form.id === 'med-form') {
       e.preventDefault();
       saveMedForm(form);
+    } else if (form.id === 'module-form') {
+      e.preventDefault();
+      saveModuleForm(form);
+    } else if (form.id === 'water-settings-form') {
+      e.preventDefault();
+      saveWaterSettings(form);
+    } else if (form.id === 'water-notify-form') {
+      e.preventDefault();
+      saveWaterNotify(form);
     } else if (form.id === 'body-profile-form') {
       e.preventDefault();
       saveBodyProfileForm(form);
@@ -15875,7 +16812,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=169', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=174', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
