@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=176">
+<link rel="stylesheet" href="assets/app.css?v=177">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=176">
+<link rel="stylesheet" href="assets/theme-v2.css?v=177">
 </head>
 <body>
 <div class="app landing">
@@ -211,7 +211,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v176';
+  const APP_VERSION = 'v177';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -737,6 +737,19 @@
       /* 运动 2.0（v175）：sports（运动实例）与 records（运动记录）白名单收敛 */
       out.sports = Array.isArray(m.sports) ? m.sports.map(normalizeMoveSport) : [];
       out.records = Array.isArray(m.records) ? m.records.map(normalizeMoveRecord) : [];
+      /* v177 修：notifyChannels / notifyScenes 原本没进白名单，每次 normalize 都被丢掉，
+         结果弹窗里选好的渠道一保存就没了。这里补上（渠道多选 + 三个提醒场景）。 */
+      const CH2 = ['browser', 'wecom', 'mail'];
+      const ch2 = Array.isArray(m.notifyChannels)
+        ? m.notifyChannels.filter(function (x) { return CH2.indexOf(x) >= 0; })
+        : [];
+      out.notifyChannels = ch2.length ? ch2 : ['browser'];
+      const sc2 = isPlainObject(m.notifyScenes) ? m.notifyScenes : {};
+      out.notifyScenes = {
+        steps: sc2.steps !== false,
+        plan: sc2.plan !== false,
+        week: sc2.week !== false
+      };
     } else if (key === 'breathe') {
       out.unit = '组';
       out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, 99);
@@ -8511,22 +8524,17 @@
   }
 
   function moveNotifyHtml(m) {
-    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
     const scenes = isPlainObject(m.notifyScenes) ? m.notifyScenes : { steps: true, plan: true, week: true };
-    const chanHtml = MOVE_CHANS.map(function (c) {
-      const on = chans.indexOf(c[0]) >= 0;
-      return '<label class="mv-chan' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
-        '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
-    }).join('');
+    /* v177：渠道选择不再放这里（新建 / 编辑运动弹窗里已经选过，页面重复）。
+       这里只留总开关与提醒场景；渠道到底能不能收到，取决于「配置」页里的真实配置，
+       勾选时弹窗会当场检测并提示。 */
     return '<section class="panel"><h3 class="mv-sec-title">运动提醒</h3>' +
-      '<p class="mv-sec-lead">按运动类型提醒，渠道可多选。</p>' +
+      '<p class="mv-sec-lead">提醒渠道在「新建 / 编辑运动」里选择，这里只设置提醒场景。</p>' +
       '<form id="move-notify-form">' +
         '<div class="mv-toggle-row"><div><b>开启运动提醒</b><small>关闭后不推送任何运动通知</small></div>' +
           '<label class="w-switch"><input type="checkbox" name="notify"' + (m.notify !== false ? ' checked' : '') + '><i></i></label></div>' +
         '<div id="move-notify-body"' + (m.notify !== false ? '' : ' class="w-notify-off"') + '>' +
-          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
-          '<div class="mv-chan-grid">' + chanHtml + '</div>' +
-          '<p style="font-size:12.5px;font-weight:600;margin:18px 0 10px">提醒场景</p>' +
+          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒场景</p>' +
           '<div class="mv-scenes">' +
             '<label class="mv-scene"><input type="checkbox" name="sceneSteps"' + (scenes.steps !== false ? ' checked' : '') + '><div><b>步数目标提醒</b><small>傍晚未达标才提醒</small></div></label>' +
             '<label class="mv-scene"><input type="checkbox" name="scenePlan"' + (scenes.plan !== false ? ' checked' : '') + '><div><b>计划类到点提醒</b><small>跑步/骑行按计划时间</small></div></label>' +
@@ -15222,7 +15230,91 @@
   }
 
   /* ============ 运动 2.0（v175）：新建/编辑弹窗、打卡、记录、提醒保存 ============ */
+
+  /* 渠道能力检测（v177）：勾选渠道时如实告诉用户「这个渠道现在能不能真的收到」。
+     浏览器通知看 Notification.permission；企业微信看 push_status；邮件看 mail_status。
+     缓存只在打开弹窗时刷新，避免每次都打两个接口。 */
+  let moveChanCfg = null;        // null = 还没拿到；{ push, mail, offline }
+  let moveChanLoading = false;
+  let moveChanTipRefresher = null;  // 弹窗打开时挂上「重算渠道提示」的函数，异步拿到配置后回刷
+
+  async function moveLoadChanCfg() {
+    if (moveChanLoading || moveChanCfg) return;
+    if (mode === 'landing' || !cloud.available || !cloud.user) {
+      moveChanCfg = { push: null, mail: null, offline: true };
+      return;
+    }
+    moveChanLoading = true;
+    const out = { push: null, mail: null, offline: false };
+    try {
+      const r = await cloudApi('push_status');
+      out.push = {
+        enabled: !!(r && r.enabled),
+        webhook: (r && typeof r.webhook === 'string') ? r.webhook : ''
+      };
+    } catch (e) { out.push = null; }
+    try {
+      const r = await cloudApi('mail_status');
+      const c = (r && r.config && typeof r.config === 'object') ? r.config : {};
+      out.mail = {
+        enabled: !!c.enabled,
+        host: String(c.host || ''),
+        user: String(c.user || ''),
+        hasSecret: !!c.hasSecret
+      };
+    } catch (e) { out.mail = null; }
+    moveChanCfg = out;
+    moveChanLoading = false;
+    /* 配置拿到后，把弹窗里的渠道提示就地刷新一遍（用户可能已经看到「正在检测」） */
+    if (moveChanTipRefresher) moveChanTipRefresher();
+  }
+
+  /* 返回 { ok, pending?, msg }：msg 一律说清「能用」或「去哪儿配」 */
+  function moveChanState(key) {
+    if (key === 'browser') {
+      if (typeof Notification === 'undefined') {
+        return { ok: false, msg: '这个浏览器不支持系统通知，换 Chrome / Edge 试试' };
+      }
+      const p = Notification.permission;
+      if (p === 'granted') return { ok: true, msg: '浏览器通知已开启，服务正常' };
+      if (p === 'denied') return { ok: false, msg: '浏览器通知被系统拦截了，请到浏览器设置里允许本站通知' };
+      return { ok: false, msg: '你还没有开启浏览器通知，请在「配置」页的通知配置里开启' };
+    }
+    if (!moveChanCfg) return { ok: false, pending: true, msg: '正在检测这条渠道的配置，稍等一下再点一次' };
+    const name = key === 'wecom' ? '企业微信' : '邮箱';
+    if (moveChanCfg.offline) {
+      return { ok: false, msg: '现在是本地模式，' + name + '推送要登录账号后才能用' };
+    }
+    if (key === 'wecom') {
+      const p = moveChanCfg.push;
+      if (!p) return { ok: false, msg: '拿不到企业微信配置，请先到「配置」页保存一次机器人地址' };
+      if (p.enabled && p.webhook) return { ok: true, msg: '企业微信推送已开启，服务正常' };
+      return { ok: false, msg: '你还没有配置企业微信推送，请在「配置」页的通知配置里填机器人地址' };
+    }
+    if (key === 'mail') {
+      const c = moveChanCfg.mail;
+      if (!c) return { ok: false, msg: '拿不到邮箱配置，请先到「配置」页保存一次邮箱设置' };
+      if (c.enabled && c.host && c.user && c.hasSecret) return { ok: true, msg: '邮箱推送已开启，服务正常' };
+      return { ok: false, msg: '你还没有配置邮箱推送，请在「配置」页的通知配置里填邮箱与授权码' };
+    }
+    return { ok: true, msg: '' };
+  }
+
+  /* 把检测结果显示在弹窗里那行提示上（toast 只有 2.2 秒，长句子看不完） */
+  function moveChanTell(key) {
+    const el = document.getElementById('sp-chan-tip');
+    const st = moveChanState(key);
+    if (st.pending) moveLoadChanCfg();
+    if (!el) { toast(st.msg); return; }
+    el.dataset.chan = key;
+    el.className = 'sp-chan-tip ' + (st.ok ? 'ok' : 'bad');
+    el.textContent = st.msg;
+  }
+
   function moveSportModal(id) {
+    /* 每次打开都重新探一次：用户可能刚在配置页开通过渠道 */
+    moveChanCfg = null;
+    moveLoadChanCfg();
     const editing = moveSportById(id);
     const key = editing ? editing.key : 'steps';
     const grid = Object.keys(MOVE_TYPES).map(function (k) {
@@ -15330,14 +15422,46 @@
         h += '<div class="sp-desc">该模式只需记录时长，无需额外字段。</div>';
       }
       h += '<span class="f-label">提醒渠道（可多选）</span>';
+      h += '<p class="sp-hint">勾选时会当场检测这条渠道是否已配置：能收到会提示「服务正常」，没配置会告诉你先去「配置」页开通。</p>';
       h += '<div class="sp-chan">' + MOVE_CHANS.map(function (c) {
         const on = chanSel.indexOf(c[0]) >= 0;
         return '<label class="sp-chan-opt' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
           '<input type="checkbox" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
       }).join('') + '</div>';
+      h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
       box.innerHTML = h;
       bindBody();
+      checkSelected();
     }
+
+    /* 预检已选渠道的整体状态：一打开弹窗就能看到「都配好了」还是「哪条还没配」。
+       之所以要预检：浏览器通知默认就是勾上的，用户点它其实是取消，
+       单靠点击检测会漏掉「默认渠道其实没开」这种情况。 */
+    function checkSelected() {
+      const el = document.getElementById('sp-chan-tip');
+      if (!el) return;
+      const bad = [];
+      let pending = false;
+      chanSel.forEach(function (k) {
+        const st = moveChanState(k);
+        if (st.pending) pending = true;
+        else if (!st.ok) bad.push({ k: k, msg: st.msg });
+      });
+      if (bad.length) {
+        el.dataset.chan = '';
+        el.className = 'sp-chan-tip bad';
+        el.textContent = bad[0].msg;
+      } else if (pending) {
+        el.dataset.chan = '';
+        el.className = 'sp-chan-tip';
+        el.textContent = '正在检测渠道配置…';
+      } else {
+        el.dataset.chan = '';
+        el.className = 'sp-chan-tip ok';
+        el.textContent = '已选渠道都已配置好，服务正常';
+      }
+    }
+    moveChanTipRefresher = checkSelected;
 
     function bindBody() {
       const sel = $('#sp-target');
@@ -15379,8 +15503,15 @@
         const cb = ch.querySelector('input');
         cb.onchange = function () {
           const v = cb.value;
-          if (cb.checked) { if (chanSel.indexOf(v) < 0) chanSel.push(v); }
-          else chanSel = chanSel.filter(function (x) { return x !== v; });
+          if (cb.checked) {
+            if (chanSel.indexOf(v) < 0) chanSel.push(v);
+            /* v177：勾上的同时检测这个渠道到底能不能用 */
+            moveChanTell(v);
+          } else {
+            chanSel = chanSel.filter(function (x) { return x !== v; });
+            /* 取消一条后回到「整体状态」，而不是留着一句过时的话 */
+            checkSelected();
+          }
           if (!chanSel.length) { cb.checked = true; chanSel = ['browser']; }
           ch.classList.toggle('on', cb.checked);
         };
@@ -15628,9 +15759,8 @@
     if (!state.modules) state.modules = {};
     const m = moveModule();
     m.notify = !!form.querySelector('[name="notify"]').checked;
-    const ch = [];
-    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
-    m.notifyChannels = ch.length ? ch : ['browser'];
+    /* v177：渠道改由「新建 / 编辑运动」弹窗管理，这里不再读写，免得把已选渠道冲成默认值 */
+    if (!Array.isArray(m.notifyChannels) || !m.notifyChannels.length) m.notifyChannels = ['browser'];
     m.notifyScenes = {
       steps: !!form.querySelector('[name="sceneSteps"]').checked,
       plan: !!form.querySelector('[name="scenePlan"]').checked,
@@ -18031,7 +18161,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=176', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=177', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

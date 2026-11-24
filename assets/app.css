@@ -3539,6 +3539,14 @@ body.modal-open{overflow:hidden;}
 .sp-chan-opt .ci{font-size:18px}
 .sp-chan-opt input{position:absolute;opacity:0}
 .sp-chan-opt.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+/* 渠道能力检测结果（v177）：勾选后当场告诉用户「能用」还是「去哪儿配」。
+   未配置用正文色 + ⚠ 前缀，避免 --bad 在 11.5px 小字上对比度不够。 */
+.sp-chan-tip{font-size:11.5px;line-height:1.65;margin:8px 0 0}
+.sp-chan-tip:empty{display:none}
+.sp-chan-tip.ok{color:var(--good)}
+.sp-chan-tip.bad{color:var(--text)}
+.sp-chan-tip.ok::before{content:'✅ '}
+.sp-chan-tip.bad::before{content:'⚠ '}
 @media (max-width:900px){.mv-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:600px){.mv-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
 
