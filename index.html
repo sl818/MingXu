@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=174">
+<link rel="stylesheet" href="assets/app.css?v=175">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=174">
+<link rel="stylesheet" href="assets/theme-v2.css?v=175">
 </head>
 <body>
 <div class="app landing">
@@ -149,6 +149,33 @@
   const RECORD_IDS = { water: 'h_water', move: 'h_move', breathe: 'h_breathe', quit: 'h_drink' };
   const MODULE_KEYS = ['water', 'move', 'breathe', 'quit'];
   const MODULE_LABEL = { water: '喝水', move: '运动', breathe: '478呼吸法', quit: '戒烟' };
+  /* 运动 2.0（v175）：运动类型库。每种类型自带「是否适配配速/心率/泳姿/技法」。
+     extras = 进阶记录字段；steps（每日步数）是纯日常记录，只有记录方式三选，无配速/心率。 */
+  const MOVE_TYPES = {
+    steps: { name: '每日步数', icon: '👟', unit: '步', goal: 10000, goalLabel: '目标步数',
+      recordMode: true, extras: [], desc: '日常计步，无需配速与心率，只需记录走了多少步' },
+    run: { name: '跑步', icon: '🏃', unit: '公里', goal: 5, goalLabel: '目标距离（公里）',
+      extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '步频' }],
+      desc: '记录配速、心率与步频' },
+    walk: { name: '健走', icon: '🚶', unit: '公里', goal: 3, goalLabel: '目标距离（公里）',
+      extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }], desc: '记录配速与心率' },
+    ride: { name: '骑行', icon: '🚴', unit: '公里', goal: 10, goalLabel: '目标距离（公里）',
+      extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '踏频' }],
+      desc: '记录配速、心率与踏频' },
+    rope: { name: '跳绳', icon: '🪢', unit: '次', goal: 500, goalLabel: '目标次数',
+      extras: [], desc: '记录跳绳次数' },
+    swim: { name: '游泳', icon: '🏊', unit: '米', goal: 800, goalLabel: '目标距离（米）',
+      extras: [{ k: 'stroke', n: '泳姿', opts: ['自由泳', '蛙泳', '仰泳', '蝶泳'] }, { k: 'pace', n: '配速' }],
+      desc: '记录泳姿与配速' },
+    yoga: { name: '瑜伽', icon: '🧘', unit: '分钟', goal: 30, goalLabel: '目标时长（分钟）',
+      extras: [], desc: '记录练习时长' },
+    strength: { name: '力量训练', icon: '🏋️', unit: '分钟', goal: 30, goalLabel: '目标时长（分钟）',
+      extras: [], desc: '记录训练时长' },
+    ball: { name: '球类', icon: '🏀', unit: '分钟', goal: 60, goalLabel: '目标时长（分钟）',
+      extras: [], desc: '记录运动时长' }
+  };
+  const MOVE_FREQ = [['daily', '每天 N 次'], ['weekly_days', '每周 N 天'], ['weekly_times', '每周 N 次'], ['free', '自由']];
+  const MOVE_CHANS = [['browser', '浏览器通知'], ['wecom', '企业微信群'], ['mail', '邮件通知']];
 
   const KEY = 'lifeboard.v1';
   const CLOUD_KEY = 'lifeboard.cloud';
@@ -156,7 +183,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v174';
+  const APP_VERSION = 'v175';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -469,7 +496,9 @@
       return Object.assign(base, {
         name: '运动', icon: '🏃', color: '#b5733f', note: '30 分钟以上', unit: '次',
         times: 1, notify: true, suggestTime: '', notifyFreq: 'daily',
-        notifyWeekday: 1, notifyMonthday: 1, notifyNote: ''
+        notifyWeekday: 1, notifyMonthday: 1, notifyNote: '',
+        /* 运动 2.0（v175）：默认关闭所有运动类型，用户点「新建运动」自己添加 */
+        sports: [], records: []
       });
     }
     if (key === 'breathe') {
@@ -513,6 +542,8 @@
       m.goalMl = Math.max(goal, m.cups * per);
     } else if (key === 'move') {
       m.times = clamp(parseInt(h.target, 10) || 1, 1, 99);
+      m.sports = [];
+      m.records = [];
     } else if (key === 'breathe') {
       m.groups = clamp(parseInt(h.target, 10) || 1, 1, 99);
       m.cycles = clamp(parseInt(h.breatheCycles, 10) || 4, 1, 8);
@@ -535,6 +566,51 @@
       m.notifyNote = String(h.notifyNote || '').slice(0, 60);
     }
     return m;
+  }
+
+  /* 运动 2.0（v175）：单个运动实例的字段白名单 + 范围收敛 */
+  function normalizeMoveSport(raw) {
+    const s = isPlainObject(raw) ? raw : {};
+    const key = MOVE_TYPES[s.key] ? s.key : 'steps';
+    const T = MOVE_TYPES[key];
+    const fields = Array.isArray(s.fields) ? s.fields.filter(function (k) {
+      return T.extras.some(function (e) { return e.k === k; });
+    }) : [];
+    return {
+      id: String(s.id || uid()),
+      key: key,
+      name: String(s.name || T.name).trim().slice(0, 20) || T.name,
+      icon: String(s.icon || T.icon).slice(0, 4),
+      unit: T.unit,
+      goal: clamp(Math.round(Number(s.goal) || T.goal), 1, 999999),
+      freq: ['daily', 'weekly_days', 'weekly_times', 'free'].indexOf(s.freq) >= 0 ? s.freq : 'daily',
+      n: clamp(Math.round(Number(s.n) || 1), 1, 99),
+      fields: fields,
+      recMode: ['manual', 'once', 'multi'].indexOf(s.recMode) >= 0 ? s.recMode : 'manual',
+      stroke: String(s.stroke || '').slice(0, 10),
+      createdAt: String(s.createdAt || new Date().toISOString()),
+      updatedAt: String(s.updatedAt || s.createdAt || new Date().toISOString())
+    };
+  }
+
+  /* 运动 2.0（v175）：单条运动记录的白名单收敛 */
+  function normalizeMoveRecord(raw) {
+    const r = isPlainObject(raw) ? raw : {};
+    const num = function (v) { return isFinite(Number(v)) ? Math.max(0, Number(v)) : 0; };
+    return {
+      id: String(r.id || uid()),
+      sportId: String(r.sportId || ''),
+      key: MOVE_TYPES[r.key] ? r.key : '',
+      d: /^\d{4}-\d{2}-\d{2}$/.test(String(r.d || '')) ? String(r.d) : todayStr(),
+      at: String(r.at || new Date().toISOString()),
+      steps: num(r.steps),
+      dur: num(r.dur),
+      dist: num(r.dist),
+      kcal: num(r.kcal),
+      pace: String(r.pace || '').slice(0, 12),
+      heart: num(r.heart),
+      stroke: String(r.stroke || '').slice(0, 10)
+    };
   }
 
   /* 单个模块的字段白名单 + 范围收敛。已有的合法值不覆盖，只补缺失与纠非法。 */
@@ -573,6 +649,9 @@
     } else if (key === 'move') {
       out.unit = '次';
       out.times = clamp(Math.round(Number(m.times) || d.times), 1, 99);
+      /* 运动 2.0（v175）：sports（运动实例）与 records（运动记录）白名单收敛 */
+      out.sports = Array.isArray(m.sports) ? m.sports.map(normalizeMoveSport) : [];
+      out.records = Array.isArray(m.records) ? m.records.map(normalizeMoveRecord) : [];
     } else if (key === 'breathe') {
       out.unit = '组';
       out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, 99);
@@ -1098,6 +1177,8 @@
   let view = state.view || 'today';
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
+  /* 运动页统计周期（今日/7/30/90/全部），纯视图状态，不进 state */
+  let moveStatRange = '7d';
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 常驻卡排序模式：纯视图状态，不进 state。退出页面就结束，
      不需要记「上次停在排序模式」。 */
@@ -3471,12 +3552,18 @@
       });
       if (hasVisibleCheck) return true;
     }
+    /* 运动 2.0：运动记录存 records 而非 checks，这里补一条「当天有运动记录」也算有记录 */
+    if (moveRecords().some(function (r) { return r && r.d === d; })) return true;
     return hasMedDoses(d);
   }
   function met(h, d) {
     if (h.med) {
       const sched = medScheduledCount(d);
       return sched > 0 && medTakenCount(d) >= sched;
+    }
+    /* 运动 2.0（v175）：达标看「当天有任意运动完成」，见 moveMet()（含老数据回退） */
+    if (h.id === 'h_move') {
+      return moveMet(d);
     }
     /* 戒烟看事件不看计数：今天只要有一条「抽了」就不算达标。
        老数据里 checks 的残值不再参与判断（v5 迁移时已转成事件）。 */
@@ -5120,16 +5207,21 @@
     const out = [];
     for (let i = 0; i < 7; i++) {
       const ds = fmt(addDays(monday, i));
-      out.push({ ds, done: countOf(ds, h.id) > 0, today: ds === today, future: ds > today });
+      /* 运动模块按 moveMet 判定；其余按 checks 计数 */
+      const done = h.id === 'h_move' ? moveMet(ds) : countOf(ds, h.id) > 0;
+      out.push({ ds, done: done, today: ds === today, future: ds > today });
     }
     return out;
   }
 
   function moveMonthCount(h) {
     const ym = todayStr().slice(0, 7);
+    const days = {};
+    Object.keys(state.checks || {}).forEach(ds => { days[ds] = 1; });
+    moveRecords().forEach(function (r) { if (r && r.d) days[r.d] = 1; });
     let n = 0;
-    Object.keys(state.checks || {}).forEach(ds => {
-      if (ds.slice(0, 7) === ym && countOf(ds, h.id) > 0) n++;
+    Object.keys(days).forEach(function (ds) {
+      if (ds.slice(0, 7) === ym && moveMet(ds)) n++;
     });
     return n;
   }
@@ -5194,44 +5286,42 @@
   }
 
   function moveCardHtml(h, d) {
-    const c = countOf(d, h.id);
-    const target = Math.max(1, Number(h.target) || 1);
-    const done = c >= target;
     const today = d === todayStr();
     const color = esc(h.color || '#b5733f');
+    /* 运动 2.0（v175）：达标看 moveMet（有实例看 records、无实例回退旧 checks），
+       今日页常驻卡只读状态，打卡进运动页选类型。 */
+    const sports = moveSports();
+    const doneToday = sports.filter(function (s) { return moveSportDone(s, d); }).length;
+    const done = moveMet(d);
     const week = weekDaysOf(h);
     const doneN = week.filter(w => w.done).length;
     const streak = habitStreak(h);
-    const usual = moveUsualTime(h);
-    const last = moveLastText(h);
     const monthN = moveMonthCount(h);
     const remainDays = week.filter(w => w.future).length;
-    const gapWeek = moveLastWeekCount(h) - doneN;
 
     let status, sub, foot;
     if (done) {
       status = '<span class="mv-status ok">' + (today ? '今天已完成' : '这一天完成了') + '</span>';
-      sub = '这 10,000 步已经记上了' + (streak ? ' · 连续 ' + streak + ' 天' : '');
+      sub = (sports.length ? '完成了 ' + doneToday + ' 项运动' : '今天动过了') + (streak ? ' · 连续 ' + streak + ' 天' : '');
       foot = '本周已达 ' + doneN + ' / 7 天' + (remainDays ? ' · 还有 ' + remainDays + ' 天' : '');
     } else {
       status = '<span class="mv-status">还没开始</span>';
-      sub = (today ? '今天还没动' : '这一天没有记录') +
-        (today && usual ? '，你通常在 ' + usual + ' 左右动起来' : '');
+      sub = (sports.length ? '今天还没动，去运动页选一项动起来' : '还没有运动，去运动页添加一项吧');
       if (remainDays) {
-        foot = '距本周结束还有 ' + remainDays + ' 天' + (gapWeek > 0 ? ' · 再动 ' + gapWeek + ' 次就追平上周' : '');
+        foot = '距本周结束还有 ' + remainDays + ' 天';
       } else {
-        foot = '本周还剩今天' + (gapWeek > 0 ? ' · 比上周少 ' + gapWeek + ' 天' : '');
+        foot = '本周还剩今天';
       }
     }
 
     const lines = [];
     lines.push('<span><i' + (streak ? '' : ' class="dim"') + '></i>连续 ' + streak + ' 天 · 本月 ' + monthN + ' 天</span>');
-    if (last) lines.push('<span><i class="dim"></i>上次 ' + last + '</span>');
+    if (sports.length) lines.push('<span><i class="dim"></i>' + sports.length + ' 项运动</span>');
 
     return '<article class="vital-card move-card' + (done ? ' is-done' : '') + '" style="--hc:' + color + '">' +
       '<div class="vital-top">' +
         '<span class="habit-icon">' + esc(h.icon || '🏃') + '</span>' +
-        '<div class="vital-title"><b>' + esc(h.name) + '</b><small>每天 ' + target + ' 次 · 目标 10,000 步</small></div>' +
+        '<div class="vital-title"><b>' + esc(h.name) + '</b><small>' + (sports.length ? sports.length + ' 项运动' : '添加你的运动') + '</small></div>' +
         '<span class="pin-tag">常驻</span>' +
       '</div>' +
       '<div class="move-body">' +
@@ -5244,10 +5334,7 @@
       '</div>' +
       '<div class="move-foot">' + foot + '</div>' +
       '<div class="vital-actions">' +
-        (done
-          ? '<button class="vital-btn done" data-act="habit-dec" data-id="' + h.id + '">已完成 · 点击可撤销</button>'
-          : '<button class="vital-btn primary" data-act="habit-inc" data-id="' + h.id + '">完成运动</button>' +
-            '<button class="vital-btn ghost" data-act="habit-dec" data-id="' + h.id + '"' + (c <= 0 ? ' disabled' : '') + '>撤销</button>') +
+        '<button class="vital-btn primary" data-act="move-goto">去运动</button>' +
       '</div>' +
     '</article>';
   }
@@ -7916,7 +8003,207 @@
       waterNotifyHtml(m) +
     '</div>';
   }
-  function viewMove() { return modulePage('move'); }
+  /* ============ 运动页 2.0（v175） ============ */
+  function moveModule() {
+    return (state.modules && state.modules.move) ? state.modules.move : moduleDefaults('move');
+  }
+  function moveSports() {
+    const m = moveModule();
+    return Array.isArray(m.sports) ? m.sports : [];
+  }
+  function moveRecords() {
+    const m = moveModule();
+    return Array.isArray(m.records) ? m.records : [];
+  }
+  function moveSportById(id) {
+    return moveSports().find(function (s) { return s.id === id; }) || null;
+  }
+  /* 某运动在日期 d 是否完成：步数看当日 steps 总和 >= goal；其余看当天有没有记录 */
+  function moveSportDone(s, d) {
+    if (!s) return false;
+    const recs = moveRecords().filter(function (r) { return r && r.sportId === s.id && r.d === d; });
+    if (s.key === 'steps') {
+      const steps = recs.reduce(function (sum, r) { return sum + (Number(r.steps) || 0); }, 0);
+      return steps >= Math.max(1, Number(s.goal) || 1);
+    }
+    return recs.length >= 1;
+  }
+  /* 运动模块整体达标：有运动实例时看 records（任一实例完成即达标）；
+     没有实例时回退旧口径（h_move 的 checks 计数），老数据不被清零。 */
+  function moveMet(d) {
+    const sports = moveSports();
+    if (sports.length) {
+      return sports.some(function (s) { return moveSportDone(s, d); });
+    }
+    return countOf(d, 'h_move') >= 1;
+  }
+  function moveFreqText(s) {
+    if (s.freq === 'daily') return '每天 ' + s.n + ' 次';
+    if (s.freq === 'weekly_days') return '每周 ' + s.n + ' 天';
+    if (s.freq === 'weekly_times') return '每周 ' + s.n + ' 次';
+    return '自由（不限）';
+  }
+
+  function moveHead(m) {
+    const n = moveSports().length;
+    return '<div class="page-head">' +
+      '<div><h2>运动</h2><p>' + (n ? '我的运动 · 共 ' + n + ' 项' : '我的运动 · 记录每一次出汗') + '</p></div>' +
+      '<div class="head-actions">' +
+        '<button class="btn new" data-act="move-new">＋ 新建运动</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function moveSportRingHtml(pct) {
+    const R = 42, C = 2 * Math.PI * R;
+    const dash = Math.max(0, Math.min(100, pct)) / 100 * C;
+    return '<svg viewBox="0 0 96 96" aria-hidden="true">' +
+      '<circle cx="48" cy="48" r="' + R + '" fill="none" stroke="var(--track)" stroke-width="8"/>' +
+      '<circle cx="48" cy="48" r="' + R + '" fill="none" stroke="var(--sport, #b5733f)" stroke-width="8" stroke-linecap="round"' +
+      ' stroke-dasharray="' + dash.toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 48 48)"/>' +
+      '</svg>';
+  }
+
+  function moveSportCardHtml(s, m) {
+    const T = MOVE_TYPES[s.key] || MOVE_TYPES.steps;
+    const d = todayStr();
+    const done = moveSportDone(s, d);
+    let ringVal, ringLbl, pct;
+    if (s.key === 'steps') {
+      const recs = moveRecords().filter(function (r) { return r && r.sportId === s.id && r.d === d; });
+      const steps = recs.reduce(function (sum, r) { return sum + (Number(r.steps) || 0); }, 0);
+      pct = Math.min(100, Math.round(steps / Math.max(1, Number(s.goal) || 1) * 100));
+      ringVal = Math.round(pct) + '%';
+      ringLbl = '完成率';
+    } else {
+      pct = done ? 100 : 0;
+      ringVal = done ? '✓' : '0/1';
+      ringLbl = '完成';
+    }
+    /* 类型适配字段标签 */
+    let fhtml;
+    if (s.key === 'steps') {
+      fhtml = '<span class="mv-ft"><b>记录方式</b>' + ({ manual: '手动输入', once: '一键完成', multi: '多次打卡' })[s.recMode] + '</span>';
+    } else if (s.fields.length) {
+      fhtml = s.fields.map(function (k) {
+        const e = T.extras.find(function (x) { return x.k === k; });
+        if (!e) return '';
+        const lbl = k === 'stroke' ? ('泳姿 · ' + (s.stroke || '')) : e.n;
+        return '<span class="mv-ft"><b>' + lbl + '</b></span>';
+      }).join('');
+    } else {
+      fhtml = '<span class="mv-ft"><b>时长</b>记录练习时长</span>';
+    }
+    return '<article class="mv-card" data-id="' + s.id + '">' +
+      '<div class="mv-top">' +
+        '<span class="mv-ico">' + esc(T.icon) + '</span>' +
+        '<div class="mv-title"><b>' + esc(s.name || T.name) + '</b><small>' + moveFreqText(s) + ' · 目标 ' + s.goal + ' ' + T.unit + '</small></div>' +
+        '<span class="mv-tag">我的运动</span>' +
+      '</div>' +
+      '<div class="mv-main">' +
+        '<div class="mv-left">' +
+          '<div class="mv-st' + (done ? ' ok' : '') + '">' + (done ? '今天已完成' : '还没开始') + '</div>' +
+          '<div class="mv-note">' + (done ? '今天已达标，可补充运动数据' : '动起来，' + T.desc) + '</div>' +
+          '<div class="mv-fields">' + fhtml + '</div>' +
+        '</div>' +
+        '<div class="mv-ring">' + moveSportRingHtml(pct) + '<div class="mv-rc"><b>' + ringVal + '</b><span>' + ringLbl + '</span></div></div>' +
+      '</div>' +
+      '<div class="mv-actions">' +
+        (done
+          ? '<button class="mv-btn done" data-act="move-undo" data-id="' + s.id + '">已完成 · 点击撤销</button>'
+          : '<button class="mv-btn go" data-act="move-do" data-id="' + s.id + '">' + (s.key === 'steps' ? '记录步数' : '去运动') + '</button>') +
+        '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>' +
+        '<button class="mv-btn ghost" data-act="move-edit" data-id="' + s.id + '">编辑</button>' +
+        '<button class="mv-btn ghost danger" data-act="move-del" data-id="' + s.id + '">删除</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function moveSportsHtml(m) {
+    const sports = moveSports();
+    if (!sports.length) {
+      return '<section class="panel"><div class="mv-empty">' +
+        '<span class="e-ico">🏃</span>' +
+        '<b>还没有运动</b><p>点右上角「＋ 新建运动」，添加你想坚持的项目，比如每日步数、跑步、游泳…</p>' +
+        '<button class="btn new" data-act="move-new">＋ 新建运动</button>' +
+      '</div></section>';
+    }
+    return sports.map(function (s) { return moveSportCardHtml(s, m); }).join('');
+  }
+
+  function moveStatsHtml(m) {
+    const sports = moveSports();
+    const recs = moveRecords();
+    const ranges = [['today', '今日'], ['7d', '7 天'], ['30d', '30 天'], ['90d', '90 天'], ['all', '全部']];
+    const cur = moveStatRange;
+    const tabs = ranges.map(function (r) {
+      return '<button class="mv-tab' + (cur === r[0] ? ' on' : '') + '" data-act="move-stat-range" data-v="' + r[0] + '">' + r[1] + '</button>';
+    }).join('');
+    const now = todayStr();
+    const from = cur === 'today' ? now : cur === '7d' ? fmt(addDays(new Date(), -6)) : cur === '30d' ? fmt(addDays(new Date(), -29)) : cur === '90d' ? fmt(addDays(new Date(), -89)) : '';
+    const inRange = function (r) { return !from || r.d >= from; };
+    const list = recs.filter(inRange);
+    const times = list.length;
+    const dur = Math.round(list.reduce(function (s, r) { return s + (Number(r.dur) || 0); }, 0));
+    const dist = Math.round(list.reduce(function (s, r) { return s + (Number(r.dist) || 0); }, 0) * 10) / 10;
+    const kcal = Math.round(list.reduce(function (s, r) { return s + (Number(r.kcal) || 0); }, 0));
+    const steps = Math.round(list.reduce(function (s, r) { return s + (Number(r.steps) || 0); }, 0));
+    /* 达标天数：有记录的天数（步数按是否达标） */
+    const daySet = {};
+    list.forEach(function (r) { daySet[r.d] = 1; });
+    const days = Object.keys(daySet).length;
+    return '<section class="panel"><h3 class="mv-sec-title">数据统计</h3>' +
+      '<p class="mv-sec-lead">统计已记录的运动数据，可按周期查看。</p>' +
+      '<div class="mv-tabs">' + tabs + '</div>' +
+      '<div class="mv-kpi-grid">' +
+        '<div class="mv-kpi"><b>' + times + '</b><span>运动次数</span></div>' +
+        '<div class="mv-kpi"><b>' + dur + '</b><span>总时长（分）</span></div>' +
+        '<div class="mv-kpi"><b>' + dist + '</b><span>总距离（公里）</span></div>' +
+        '<div class="mv-kpi"><b>' + kcal + '</b><span>消耗（千卡）</span></div>' +
+        '<div class="mv-kpi"><b>' + steps + '</b><span>累计步数</span></div>' +
+        '<div class="mv-kpi"><b>' + days + '</b><span>运动天数</span></div>' +
+      '</div>' +
+      (sports.length === 0 ? '<p class="mv-sec-lead" style="margin-top:12px">添加运动并记录后，这里会汇总你的运动数据。</p>' : '') +
+    '</section>';
+  }
+
+  function moveNotifyHtml(m) {
+    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
+    const scenes = isPlainObject(m.notifyScenes) ? m.notifyScenes : { steps: true, plan: true, week: true };
+    const chanHtml = MOVE_CHANS.map(function (c) {
+      const on = chans.indexOf(c[0]) >= 0;
+      return '<label class="mv-chan' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
+        '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
+    }).join('');
+    return '<section class="panel"><h3 class="mv-sec-title">运动提醒</h3>' +
+      '<p class="mv-sec-lead">按运动类型提醒，渠道可多选。</p>' +
+      '<form id="move-notify-form">' +
+        '<div class="mv-toggle-row"><div><b>开启运动提醒</b><small>关闭后不推送任何运动通知</small></div>' +
+          '<label class="w-switch"><input type="checkbox" name="notify"' + (m.notify !== false ? ' checked' : '') + '><i></i></label></div>' +
+        '<div id="move-notify-body"' + (m.notify !== false ? '' : ' class="w-notify-off"') + '>' +
+          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
+          '<div class="mv-chan-grid">' + chanHtml + '</div>' +
+          '<p style="font-size:12.5px;font-weight:600;margin:18px 0 10px">提醒场景</p>' +
+          '<div class="mv-scenes">' +
+            '<label class="mv-scene"><input type="checkbox" name="sceneSteps"' + (scenes.steps !== false ? ' checked' : '') + '><div><b>步数目标提醒</b><small>傍晚未达标才提醒</small></div></label>' +
+            '<label class="mv-scene"><input type="checkbox" name="scenePlan"' + (scenes.plan !== false ? ' checked' : '') + '><div><b>计划类到点提醒</b><small>跑步/骑行按计划时间</small></div></label>' +
+            '<label class="mv-scene"><input type="checkbox" name="sceneWeek"' + (scenes.week !== false ? ' checked' : '') + '><div><b>每周达标周报</b><small>周日晚推送</small></div></label>' +
+          '</div>' +
+        '</div>' +
+        '<div class="w-save"><button type="submit" class="btn primary">保存提醒设置</button></div>' +
+      '</form>' +
+    '</section>';
+  }
+
+  function viewMove() {
+    const m = moveModule();
+    return '<div class="move-page">' +
+      moveHead(m) +
+      moveSportsHtml(m) +
+      moveStatsHtml(m) +
+      moveNotifyHtml(m) +
+    '</div>';
+  }
   function viewBreathe() { return modulePage('breathe'); }
 
   /* 统计页：喝火 / 运动 / 478 各成一块（v172）。
@@ -7931,21 +8218,37 @@
     let todayVal;
     if (key === 'water') {
       todayVal = Math.round(waterMlOf(h, countOf(d, h.id))) + ' / ' + waterGoalMl(h) + ' ml';
+    } else if (key === 'move') {
+      const doneN = moveSports().filter(function (s) { return moveSportDone(s, d); }).length;
+      todayVal = doneN > 0 ? '完成 ' + doneN + ' 项' : (moveMet(d) ? '已达标' : '还没运动');
     } else {
       todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
     }
     const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
     const ym = d.slice(0, 7);
     let month = 0;
-    Object.keys(state.checks || {}).forEach(function (ds) {
-      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
-    });
+    if (key === 'move') {
+      /* 运动记录存 records，日期集合 = checks 并集 + records 日期 */
+      const days = {};
+      Object.keys(state.checks || {}).forEach(function (ds) { days[ds] = 1; });
+      moveRecords().forEach(function (r) { if (r && r.d) days[r.d] = 1; });
+      Object.keys(days).forEach(function (ds) {
+        if (ds.slice(0, 7) === ym && moveMet(ds)) month++;
+      });
+    } else {
+      Object.keys(state.checks || {}).forEach(function (ds) {
+        if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+      });
+    }
     let total, totalLabel;
     if (key === 'water') {
       let ml = 0;
       Object.keys(state.checks || {}).forEach(function (ds) { ml += waterMlOf(h, countOf(ds, h.id)); });
       total = Math.round(ml);
       totalLabel = '累计毫升';
+    } else if (key === 'move') {
+      total = moveRecords().length;
+      totalLabel = '累计运动次数';
     } else {
       total = habitTotalCount(h);
       totalLabel = '累计 ' + (h.unit || '次');
@@ -13026,6 +13329,7 @@
       el.addEventListener('change', notifySyncSummary);
     });
     if (view === 'water') bindWaterPage();
+    if (view === 'move') bindMovePage();
     if (view === 'board') {
       bindBoard();
       bindBoardContext();
@@ -14444,6 +14748,20 @@
   }
 
   /* ============ 喝水页改版（v173）：内联表单交互与保存 ============ */
+  function bindMovePage() {
+    const nf = $('#move-notify-form');
+    if (nf) {
+      const sw = nf.querySelector('[name="notify"]');
+      if (sw) sw.addEventListener('change', function () {
+        const body = $('#move-notify-body');
+        if (body) body.classList.toggle('w-notify-off', !sw.checked);
+      });
+      nf.querySelectorAll('[name="channels"]').forEach(function (box) {
+        box.addEventListener('change', function () { box.closest('.mv-chan').classList.toggle('on', box.checked); });
+      });
+    }
+  }
+
   function bindWaterPage() {
     const sf = $('#water-settings-form');
     if (sf) {
@@ -14550,6 +14868,335 @@
     state.modulesAt = Date.now();
     save(); render();
     toast('提醒设置已保存');
+  }
+
+  /* ============ 运动 2.0（v175）：新建/编辑弹窗、打卡、记录、提醒保存 ============ */
+  function moveSportModal(id) {
+    const editing = moveSportById(id);
+    const key = editing ? editing.key : 'steps';
+    const s = editing || { key: 'steps', name: '', icon: '', goal: 0, freq: 'daily', n: 1, fields: [], recMode: 'manual', stroke: '' };
+    const body = MOVE_TYPES;
+    /* 类型网格 */
+    const grid = Object.keys(body).map(function (k) {
+      const T = body[k];
+      return '<div class="sp-opt' + (key === k ? ' on' : '') + '" data-k="' + k + '"><span class="ci">' + T.icon + '</span>' + T.name + '</div>';
+    }).join('');
+    openModal(
+      '<form class="modal-card" id="move-sport-form" data-id="' + (editing ? editing.id : '') + '">' +
+        '<h3>' + (editing ? '编辑运动' : '新建运动') + '</h3>' +
+        '<span class="f-label">选择运动类型</span>' +
+        '<div class="sp-grid">' + grid + '</div>' +
+        '<div id="move-sport-body"></div>' +
+        '<div class="modal-actions">' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+          '<button type="submit" class="btn primary">' + (editing ? '保存修改' : '添加运动') + '</button>' +
+        '</div>' +
+      '</form>');
+    bindMoveSportForm(s, editing);
+  }
+
+  function bindMoveSportForm(init, editing) {
+    const form = $('#move-sport-form');
+    if (!form) return;
+    const grid = form.querySelector('.sp-grid');
+    let curKey = init.key || 'steps';
+    let curFreq = init.freq || 'daily';
+    let curRecMode = init.recMode || 'manual';
+    const selFields = (init.fields || []).slice();
+    const selStroke = init.stroke || '';
+
+    function renderBody() {
+      const T = MOVE_TYPES[curKey];
+      const box = $('#move-sport-body');
+      let h = '';
+      /* 类型说明 */
+      h += '<span class="f-label">类型说明</span>';
+      h += '<p class="sp-desc">' + T.icon + ' ' + T.name + ' · ' + T.desc + '</p>';
+      /* 名称（锁定为类型名，不可改，与喝水一致） */
+      h += '<span class="f-label">名称</span>';
+      h += '<div class="sp-locked">' + T.icon + ' <b>' + T.name + '</b><span class="lock">由运动类型固定</span></div>';
+      /* 目标 */
+      h += '<span class="f-label">目标</span>';
+      h += '<div class="field"><input type="number" name="goal" min="1" value="' + (Number(init.goal) || T.goal) + '"><small>' + T.goalLabel + '</small></div>';
+      /* 频率 */
+      h += '<span class="f-label">运动频率</span>';
+      h += '<div class="sp-freq">' + MOVE_FREQ.map(function (f) {
+        return '<div class="sp-freq-opt' + (curFreq === f[0] ? ' on' : '') + '" data-f="' + f[0] + '">' + f[1].replace('N', '') + '<small>' + (f[0] === 'free' ? '不限目标' : '按周期') + '</small></div>';
+      }).join('') + '</div>';
+      h += '<div id="sp-freq-n"></div>';
+      /* 记录方式（仅步数） */
+      if (T.recordMode) {
+        h += '<span class="f-label">记录方式（步数专属）</span>';
+        h += '<div class="seg" id="sp-recmode">' +
+          '<button type="button" data-m="manual" class="' + (curRecMode === 'manual' ? 'on' : '') + '">手动输入步数</button>' +
+          '<button type="button" data-m="once" class="' + (curRecMode === 'once' ? 'on' : '') + '">一键完成</button>' +
+          '<button type="button" data-m="multi" class="' + (curRecMode === 'multi' ? 'on' : '') + '">多次打卡</button>' +
+        '</div>';
+      }
+      /* 类型适配字段 */
+      if (T.extras.length) {
+        h += '<span class="f-label">记录字段（按类型适配）</span>';
+        T.extras.forEach(function (e) {
+          if (e.opts) {
+            /* 泳姿 */
+            h += '<span class="f-label" style="margin-top:4px">泳姿</span>';
+            h += '<div class="seg" id="sp-stroke">' + e.opts.map(function (o) {
+              return '<button type="button" data-s="' + o + '" class="' + ((selStroke || o) === o ? 'on' : '') + '">' + o + '</button>';
+            }).join('') + '</div>';
+          } else {
+            const on = selFields.indexOf(e.k) >= 0;
+            h += '<label class="sp-field-chk"><div><b>' + e.n + '</b><small>' + (e.k === 'pace' ? '记录平均配速' : e.k === 'heart' ? '记录平均心率' : e.k === 'cadence' ? (curKey === 'ride' ? '记录踏频' : '记录步频') : '记录' + e.n) + '</small></div>' +
+              '<span class="switch"><input type="checkbox" data-fk="' + e.k + '"' + (on ? ' checked' : '') + '><i></i></span></label>';
+          }
+        });
+      } else {
+        h += '<span class="f-label">记录字段</span>';
+        h += '<p class="sp-desc">' + (curKey === 'steps' ? '每日步数是日常记录，不需要配速、心率等运动数据。' : '该类型只需记录时长，无需额外字段。') + '</p>';
+      }
+      /* 提醒渠道 */
+      h += '<span class="f-label">提醒渠道（可多选）</span>';
+      h += '<div class="sp-chan">' + MOVE_CHANS.map(function (c, i) {
+        return '<label class="sp-chan-opt' + (i === 0 ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
+          '<input type="checkbox" name="channels" value="' + c[0] + '"' + (i === 0 ? ' checked' : '') + '></label>';
+      }).join('') + '</div>';
+      box.innerHTML = h;
+
+      /* 频率数量 */
+      if (curFreq !== 'free') {
+        const nb = $('#sp-freq-n');
+        if (nb) nb.innerHTML = '<div class="field"><input type="number" name="freqN" min="1" max="99" value="' + (Number(init.n) || 1) + '"><small>' + (curFreq === 'daily' ? '每天几次' : '每周几天/几次') + '</small></div>';
+      }
+      /* 绑定频率 */
+      form.querySelectorAll('.sp-freq-opt').forEach(function (o) {
+        o.onclick = function () { curFreq = o.dataset.f; renderBody(); };
+      });
+      /* 记录方式 */
+      const rm = $('#sp-recmode');
+      if (rm) rm.querySelectorAll('button').forEach(function (b) {
+        b.onclick = function () { curRecMode = b.dataset.m; rm.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); };
+      });
+      /* 泳姿 */
+      const st = $('#sp-stroke');
+      if (st) st.querySelectorAll('button').forEach(function (b) {
+        b.onclick = function () { st.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); };
+      });
+      /* 渠道 */
+      form.querySelectorAll('.sp-chan-opt').forEach(function (ch) {
+        const cb = ch.querySelector('input');
+        cb.addEventListener('change', function () { ch.classList.toggle('on', cb.checked); });
+      });
+    }
+
+    /* 类型切换 */
+    grid.querySelectorAll('.sp-opt').forEach(function (o) {
+      o.onclick = function () {
+        curKey = o.dataset.k;
+        grid.querySelectorAll('.sp-opt').forEach(function (x) { x.classList.toggle('on', x === o); });
+        renderBody();
+      };
+    });
+    renderBody();
+  }
+
+  function saveMoveSportForm(form) {
+    const id = form.dataset.id || '';
+    const editing = id ? moveSportById(id) : null;
+    const gridOn = form.querySelector('.sp-grid .sp-opt.on');
+    const key = gridOn ? gridOn.dataset.k : 'steps';
+    const T = MOVE_TYPES[key] || MOVE_TYPES.steps;
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    const goal = clamp(Math.round(Number(get('goal')) || T.goal), 1, 999999);
+    const freq = form.querySelector('.sp-freq-opt.on');
+    const freqKind = freq ? freq.dataset.f : 'daily';
+    const n = clamp(Math.round(Number(get('freqN')) || 1), 1, 99);
+    /* 记录方式 */
+    let recMode = 'manual';
+    const rmOn = form.querySelector('#sp-recmode button.on');
+    if (rmOn) recMode = rmOn.dataset.m;
+    /* 字段 */
+    const fields = [];
+    form.querySelectorAll('[data-fk]:checked').forEach(function (cb) { fields.push(cb.dataset.fk); });
+    /* 泳姿 */
+    let stroke = '';
+    const strokeOn = form.querySelector('#sp-stroke button.on');
+    if (strokeOn) {
+      stroke = strokeOn.dataset.s;
+      if (fields.indexOf('stroke') < 0) fields.push('stroke');
+    }
+    /* 渠道 */
+    const ch = [];
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
+
+    if (!state.modules) state.modules = {};
+    const m = moveModule();
+    const now = new Date().toISOString();
+    if (editing) {
+      editing.key = key;
+      editing.name = T.name;
+      editing.icon = T.icon;
+      editing.unit = T.unit;
+      editing.goal = goal;
+      editing.freq = freqKind;
+      editing.n = n;
+      editing.fields = fields;
+      editing.recMode = recMode;
+      editing.stroke = stroke;
+      editing.updatedAt = now;
+    } else {
+      const sport = normalizeMoveSport({
+        key: key, name: T.name, icon: T.icon, unit: T.unit, goal: goal,
+        freq: freqKind, n: n, fields: fields, recMode: recMode, stroke: stroke,
+        createdAt: now, updatedAt: now
+      });
+      if (!Array.isArray(m.sports)) m.sports = [];
+      m.sports.push(sport);
+    }
+    /* 渠道存到模块级（单个运动渠道暂存到模块，供提醒用） */
+    m.notifyChannels = ch.length ? ch : ['browser'];
+    m.updatedAt = now;
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    closeModal();
+    render();
+    toast(editing ? '已保存修改' : '已添加 ' + T.name);
+  }
+
+  /* 补数据：打卡后填写运动数据（时长/距离/千卡/配速/心率/泳姿） */
+  function moveRecordModal(id) {
+    const s = moveSportById(id);
+    if (!s) return;
+    const T = MOVE_TYPES[s.key] || MOVE_TYPES.steps;
+    const isSteps = s.key === 'steps';
+    let h = '';
+    if (isSteps) {
+      h += '<div class="field"><span>本次步数</span><input name="steps" type="number" min="1" value=""></div>';
+    } else {
+      h += '<div class="form-grid">' +
+        '<div class="field"><span>时长（分钟）</span><input name="dur" type="number" min="0" value=""></div>' +
+        '<div class="field"><span>距离（' + T.unit + '）</span><input name="dist" type="number" min="0" step="0.1" value=""></div>' +
+        '<div class="field"><span>消耗（千卡）</span><input name="kcal" type="number" min="0" value=""></div>' +
+        (s.fields.indexOf('pace') >= 0 ? '<div class="field"><span>配速</span><input name="pace" placeholder="如 6:30"></div>' : '') +
+        (s.fields.indexOf('heart') >= 0 ? '<div class="field"><span>心率（次/分）</span><input name="heart" type="number" min="0" value=""></div>' : '') +
+      '</div>';
+    }
+    openModal(
+      '<form class="modal-card" id="move-record-form" data-id="' + id + '">' +
+        '<h3>补充运动数据 · ' + esc(T.name) + '</h3>' +
+        '<div class="field"><span>日期</span><input name="d" type="date" value="' + todayStr() + '"></div>' +
+        h +
+        '<div class="modal-actions">' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+          '<button type="submit" class="btn primary">保存</button>' +
+        '</div>' +
+      '</form>');
+  }
+
+  function saveMoveRecordForm(form) {
+    const id = form.dataset.id || '';
+    const s = moveSportById(id);
+    if (!s) return;
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(get('d')) ? get('d') : todayStr();
+    const num = function (v) { return isFinite(Number(v)) ? Math.max(0, Number(v)) : 0; };
+    const rec = {
+      id: uid(), sportId: s.id, key: s.key, d: d, at: new Date().toISOString(),
+      steps: num(get('steps')),
+      dur: num(get('dur')),
+      dist: num(get('dist')),
+      kcal: num(get('kcal')),
+      pace: get('pace').slice(0, 12),
+      heart: num(get('heart')),
+      stroke: ''
+    };
+    if (!state.modules) state.modules = {};
+    const m = moveModule();
+    if (!Array.isArray(m.records)) m.records = [];
+    m.records.push(rec);
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    closeModal();
+    render();
+    toast('已保存运动数据');
+  }
+
+  function saveMoveNotify(form) {
+    if (!state.modules) state.modules = {};
+    const m = moveModule();
+    m.notify = !!form.querySelector('[name="notify"]').checked;
+    const ch = [];
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
+    m.notifyChannels = ch.length ? ch : ['browser'];
+    m.notifyScenes = {
+      steps: !!form.querySelector('[name="sceneSteps"]').checked,
+      plan: !!form.querySelector('[name="scenePlan"]').checked,
+      week: !!form.querySelector('[name="sceneWeek"]').checked
+    };
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save(); render();
+    toast('提醒设置已保存');
+  }
+
+  function moveDoSport(id) {
+    const s = moveSportById(id);
+    if (!s) return;
+    if (s.key === 'steps') {
+      moveRecordModal(id);
+      return;
+    }
+    /* 非步数：打卡即完成一次，先补一条空记录 */
+    if (!state.modules) state.modules = {};
+    const m = moveModule();
+    if (!Array.isArray(m.records)) m.records = [];
+    m.records.push(normalizeMoveRecord({ sportId: s.id, key: s.key, d: todayStr(), at: new Date().toISOString() }));
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    render();
+    toast('已完成 ' + s.name + '，可点「补数据」填详细数据');
+  }
+
+  function moveUndoSport(id) {
+    const s = moveSportById(id);
+    if (!s) return;
+    const m = moveModule();
+    const d = todayStr();
+    if (s.key === 'steps') {
+      /* 删除当天该运动的所有记录 */
+      m.records = m.records.filter(function (r) { return !(r && r.sportId === id && r.d === d); });
+    } else {
+      /* 删除当天最后一条该运动的记录 */
+      const idx = m.records.map(function (r) { return r && r.sportId === id && r.d === d; }).lastIndexOf(true);
+      if (idx >= 0) m.records.splice(idx, 1);
+    }
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    render();
+    toast('已撤销');
+  }
+
+  function moveDelSport(id) {
+    const s = moveSportById(id);
+    if (!s) return;
+    if (!confirm('删除「' + s.name + '」？\n它的运动记录会一起删除，不能恢复。')) return;
+    const m = moveModule();
+    m.sports = m.sports.filter(function (x) { return x.id !== id; });
+    m.records = m.records.filter(function (r) { return !(r && r.sportId === id); });
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    render();
+    toast('已删除 ' + s.name);
   }
 
   function saveMedForm(form) {
@@ -16026,6 +16673,17 @@
     },
     'habit-new': () => habitModal(null),
     'module-edit': el => moduleModal(el.dataset.key),
+    'move-new': () => moveSportModal(''),
+    'move-goto': () => goView('move'),
+    'move-do': el => moveDoSport(el.dataset.id),
+    'move-undo': el => moveUndoSport(el.dataset.id),
+    'move-rec': el => moveRecordModal(el.dataset.id),
+    'move-edit': el => moveSportModal(el.dataset.id),
+    'move-del': el => moveDelSport(el.dataset.id),
+    'move-stat-range': el => {
+      moveStatRange = el.dataset.v || '7d';
+      render();
+    },
     'breathing-start': () => {
       if ($('#breathing-modal')) breathingStart();
       else openBreathingModal();
@@ -16602,6 +17260,15 @@
     } else if (form.id === 'water-notify-form') {
       e.preventDefault();
       saveWaterNotify(form);
+    } else if (form.id === 'move-sport-form') {
+      e.preventDefault();
+      saveMoveSportForm(form);
+    } else if (form.id === 'move-record-form') {
+      e.preventDefault();
+      saveMoveRecordForm(form);
+    } else if (form.id === 'move-notify-form') {
+      e.preventDefault();
+      saveMoveNotify(form);
     } else if (form.id === 'body-profile-form') {
       e.preventDefault();
       saveBodyProfileForm(form);
@@ -16812,7 +17479,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=174', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=175', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
