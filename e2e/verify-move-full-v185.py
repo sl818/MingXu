@@ -243,11 +243,29 @@ def fill_rec(pg, vals):
     pg.wait_for_timeout(900)
 
 
-def rec_text(pg, sid):
+def open_log(pg, sid):
     card_of(pg, sid).locator('[data-act="move-log"]').click()
     pg.wait_for_timeout(700)
-    t = pg.inner_text('#modal-root')
-    return t
+
+
+def fold_open(pg):
+    """两个折叠区当前是否展开（v186 起默认都收起）"""
+    return pg.eval_on_selector_all('#modal-root .sp-fold', 'e => e.map(x => x.open)')
+
+
+def expand_folds(pg):
+    """把「运动日志」「运动后数据」都展开（已展开的不动，避免点成收起）"""
+    for i in range(pg.locator('#modal-root .sp-fold').count()):
+        box = pg.locator('#modal-root .sp-fold').nth(i)
+        if not box.evaluate('e => e.open'):
+            box.locator('summary').click()
+            pg.wait_for_timeout(280)
+
+
+def rec_text(pg, sid):
+    open_log(pg, sid)
+    expand_folds(pg)
+    return pg.inner_text('#modal-root')
 
 
 with sync_playwright() as pw:
@@ -379,7 +397,7 @@ with sync_playwright() as pw:
         str([r.get('distM') for r in srecs]))
 
     # ============================================================
-    print('\n===== 7. 需求2：每天 2 次的记录逐字段展开 =====')
+    print('\n===== 7. 需求2：两个折叠区（运动日志 / 运动后数据，默认收起）=====')
     open_new(pg, 'run')
     pg.fill('#sp-tval', '3')
     pg.fill('#sp-freqn', '2')
@@ -391,27 +409,34 @@ with sync_playwright() as pw:
                   'kcal': 765, 'stride': 120})
     do_sport(pg, run['id'])
     fill_rec(pg, {'dur': 36, 'dist': 5.2, 'pace': '6:25'})
-    t = rec_text(pg, run['id'])
-    chk('出现「第一次运动：」', '第一次运动：' in t, t[:120])
-    chk('出现「第二次运动：」', '第二次运动：' in t, t[:120])
-    chk('字段行带字段名与单位', '· 运动时长（分钟）' in t and '· 距离（公里）' in t, t[:200])
+    open_log(pg, run['id'])
+    chk('默认两个折叠区都收起', fold_open(pg) == [False, False], str(fold_open(pg)))
+    titles = pg.eval_on_selector_all('#modal-root .sp-fold-t', 'e => e.map(x => x.textContent)')
+    chk('分「运动日志」「运动后数据」两块', titles == ['运动日志', '运动后数据'], str(titles))
+    expand_folds(pg)
+    t = pg.inner_text('#modal-root')
+    chk('日志里出现「第 1 次」「第 2 次」', '第 1 次' in t and '第 2 次' in t, t[:160])
+    chk('日志区只放日志（不塞运动后数据）',
+        not any('运动时长（分钟）' in x for x in
+                pg.eval_on_selector_all('#modal-root .sp-logitem', 'e => e.map(x => x.innerText)')),
+        pg.eval_on_selector_all('#modal-root .sp-logitem', 'e => e.map(x => x.innerText)'))
+    chk('数据区字段行带字段名与单位', '· 运动时长（分钟）' in t and '· 距离（公里）' in t, t[:200])
     chk('值原样显示（50 分钟 / 3 公里）', '50 分钟' in t and '3 公里' in t, t[:200])
     chk('配速整串显示（5:20）', '5:20' in t, t[:200])
-    lines = pg.eval_on_selector_all('#modal-root .sp-recfield', 'e => e.map(x => x.innerText)')
-    chk('第一条 7 个字段各一行', len([x for x in lines if '步幅（厘米）' in x or '热量消耗' in x]) >= 2, str(len(lines)))
-    chk('字段行总数 = 7 + 3', len(lines) == 10, 'lines=%d' % len(lines))
+    lines = pg.eval_on_selector_all('#modal-root .sp-dataitem .sp-recfield', 'e => e.map(x => x.innerText)')
+    chk('数据区字段行总数 = 7 + 3', len(lines) == 10, 'lines=%d' % len(lines))
     clip = pg.eval_on_selector_all('#modal-root .sp-recfield .v', 'e => e.map(x => x.scrollWidth <= x.clientWidth + 1)')
     chk('字段值没有被截断', all(clip), str(clip))
-    chk('组标题带日期时间', pg.locator('#modal-root .sp-recgroup-h .rtime').count() == 2,
-        str(pg.locator('#modal-root .sp-recgroup-h .rtime').count()))
+    chk('数据区每条带序号与时间', pg.locator('#modal-root .sp-dataitem-h').count() == 2,
+        str(pg.locator('#modal-root .sp-dataitem-h').count()))
     close_modal(pg)
 
-    print('\n===== 8. 需求2：每天 1 次没有组标题 =====')
+    print('\n===== 8. 需求2：只有一条记录时不编号 =====')
     do_sport(pg, rope['id'])
     fill_rec(pg, {'count': 300, 'heart': 130, 'kcal': 200})
     t = rec_text(pg, rope['id'])
-    chk('每天 1 次不出组标题', '第一次运动：' not in t, t[:120])
-    chk('直接列出字段行', '· 总次数（次）' in t and '· 心率（bpm）' in t, t[:200])
+    chk('单条记录不编号', '第 1 次' not in t, t[:120])
+    chk('数据区列出字段行', '· 总次数（次）' in t and '· 心率（bpm）' in t, t[:200])
     chk('没勾的字段不显示', '· 运动时长（分钟）' not in t, t[:200])
     close_modal(pg)
 
@@ -479,8 +504,8 @@ with sync_playwright() as pw:
 
     print('\n===== 13. C 记录改 / 删（列表 DOM 重构后仍可点）=====')
     t = rec_text(pg, run['id'])
-    chk('列表里两条记录', pg.locator('#modal-root .sp-recgroup').count() == 2,
-        str(pg.locator('#modal-root .sp-recgroup').count()))
+    chk('日志里两条记录', pg.locator('#modal-root .sp-logitem').count() == 2,
+        str(pg.locator('#modal-root .sp-logitem').count()))
     pg.locator('#modal-root [data-rec-edit]').first.click()
     pg.wait_for_timeout(700)
     chk('点「修改」打开这条记录', pg.locator('#move-record-form').count() == 1)
@@ -488,18 +513,19 @@ with sync_playwright() as pw:
     pg.click('#move-record-form button[type="submit"]')
     pg.wait_for_timeout(1000)
     t = rec_text(pg, run['id'])
-    chk('改完值同步到列表（45 分钟）', '45 分钟' in t, t[:160])
-    chk('改完仍是两条记录', pg.locator('#modal-root .sp-recgroup').count() == 2,
-        str(pg.locator('#modal-root .sp-recgroup').count()))
+    chk('改完值同步到数据区（45 分钟）', '45 分钟' in t, t[:160])
+    chk('改完日志仍是两条', pg.locator('#modal-root .sp-logitem').count() == 2,
+        str(pg.locator('#modal-root .sp-logitem').count()))
     n_before = len(recs())
     pg.locator('#modal-root [data-rec-del]').first.click()
-    pg.wait_for_timeout(900)
+    # save() 有 600ms 防抖，等 1500ms 再读存档，否则可能读到删除前的快照
+    pg.wait_for_timeout(1500)
     chk('删除要二次确认', dlg['n'] >= 1, 'dialogs=%d' % dlg['n'])
     chk('删完少了一条', len(recs()) == n_before - 1, '%d -> %d' % (n_before, len(recs())))
-    # 删完 moveDelRecord(keepOpen=true) 会把列表弹窗重开一次，直接数当前弹窗里的组
+    # 删完会重开这个列表（v185 修的行为），直接数当前弹窗里的日志条
     pg.wait_for_timeout(700)
-    chk('删完列表只剩一组', pg.locator('#modal-root .sp-recgroup').count() == 1,
-        str(pg.locator('#modal-root .sp-recgroup').count()))
+    chk('删完日志只剩一条', pg.locator('#modal-root .sp-logitem').count() == 1,
+        str(pg.locator('#modal-root .sp-logitem').count()))
     close_modal(pg)
 
     print('\n===== 14. E 跨天：昨天的记录不进今日任务记录 =====')
@@ -514,7 +540,7 @@ with sync_playwright() as pw:
     old = [r for r in recs() if r.get('d') == YDAY]
     chk('昨天那条已进存档', len(old) == 1, str([r.get('d') for r in recs()]))
     t = rec_text(pg, ball['id'])
-    groups = pg.locator('#modal-root .sp-recgroup').count()
+    groups = pg.locator('#modal-root .sp-logitem').count()
     chk('今日任务记录只算今天（1 条）', groups == 1, 'groups=%d' % groups)
     chk('没有出现昨天的日期', '10-23' not in t, t[:160])
     close_modal(pg)

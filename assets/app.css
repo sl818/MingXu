@@ -3649,22 +3649,49 @@ body.modal-open{overflow:hidden;}
 .sp-recrow .rt{flex:1;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sp-recrow .rtime{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
 .sp-recrow .ra{flex:none;display:flex;gap:10px}
-/* v185：今日任务记录——组标题行 + 逐字段行（不再截断） */
-.sp-recgroup+.sp-recgroup{border-top:1px solid var(--line)}
-.sp-recgroup .sp-recrow{border-top:none;padding-bottom:2px;flex-wrap:wrap;row-gap:2px}
-.sp-recgroup-h .rt{flex:1;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;font-weight:700;color:var(--text)}
-.sp-recgroup-h .rtime{align-self:flex-start}
-.sp-recfields{padding:0 12px 10px}
+/* v185：今日任务记录——字段行（不再截断；行距/命名仍被 v186 的数据区复用） */
 .sp-recfield{display:flex;gap:8px;padding:2px 0;font-size:12.5px;line-height:1.7}
 .sp-recfield .k{flex:none;min-width:104px;color:var(--muted)}
 .sp-recfield .v{flex:1;min-width:0;color:var(--text);white-space:normal;overflow-wrap:anywhere}
 .sp-recfield.is-empty{color:var(--muted)}
+/* v186：今日任务记录拆成两个折叠区（运动日志 / 运动后数据），默认都收起 */
+.sp-fold{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.sp-fold+.sp-fold{margin-top:10px}
+.sp-fold>summary{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;
+  list-style:none;background:var(--surface-2);font-size:13px;font-weight:700;color:var(--text);
+  -webkit-tap-highlight-color:transparent}
+.sp-fold>summary::-webkit-details-marker{display:none}
+.sp-fold>summary::after{content:"";flex:none;margin-left:auto;width:7px;height:7px;
+  border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);
+  transform:rotate(45deg) translate(-2px,-2px);transition:transform .18s}
+.sp-fold[open]>summary::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.sp-fold-t{flex:none}
+.sp-fold-n{flex:none;font-size:11.5px;font-weight:600;color:var(--muted)}
+.sp-fold-b{border-top:1px solid var(--line)}
+/* 运动日志：方案 C 的浅底条 + 分隔线；每条 = 头行 + 打卡数据（步数/记录方式） */
+.sp-logitem{background:var(--surface-2);border-top:1px solid #f7eddd}
+.sp-logitem:first-child{border-top:none}
+.sp-loglist .sp-recrow{flex-wrap:wrap;row-gap:4px;padding:9px 12px 0;border-top:none;background:transparent}
+.sp-logbody{padding:2px 12px 9px;background:transparent}
+.sp-logrow .idx{flex:none;font-size:12.5px;font-weight:700;color:var(--text)}
+.sp-logrow .st{flex:none;font-size:11.5px;color:var(--muted)}
+.sp-logrow .st.bad{color:var(--accent-2)}
+/* 时间 + 操作合成一块推到右侧；手机换行时整块右对齐 */
+.sp-logrow .rtail{display:flex;align-items:center;gap:10px;margin-left:auto;flex:none}
+.sp-logrow .tm{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* 运动后数据：每条一组字段 */
+.sp-dataitem{padding:9px 12px 10px;border-top:1px solid var(--line)}
+.sp-dataitem:first-child{border-top:none}
+.sp-dataitem-h{display:flex;align-items:center;gap:8px;margin-bottom:3px;font-size:11.5px;color:var(--muted)}
+.sp-dataitem-h b{font-size:12px;color:var(--text)}
 @media (max-width:520px){
   /* 手机窄屏也不改成上下两行：字段名与值并排更紧凑，长值照样自动换行 */
-  .sp-recfields{padding:0 10px 9px}
   .sp-recfield{font-size:12px;line-height:1.65}
   .sp-recfield .k{min-width:88px}
-  .sp-recgroup-h .rtime{font-size:11.5px}
+  .sp-fold>summary{padding:10px 11px;font-size:12.5px}
+  .sp-dataitem{padding:8px 11px 9px}
+  .sp-loglist .sp-recrow{padding:8px 11px 0}
+  .sp-logbody{padding:2px 11px 8px}
 }
 
 /* 统计：8 项总览 */

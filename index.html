@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=185">
+<link rel="stylesheet" href="assets/app.css?v=186">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=185">
+<link rel="stylesheet" href="assets/theme-v2.css?v=186">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v185';
+  const APP_VERSION = 'v186';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8499,21 +8499,32 @@
     return pad2(t.getHours()) + ':' + pad2(t.getMinutes());
   }
 
-  /* v185：「今日任务记录」里一条记录的详细字段行（每组标题下面那几行）。
-     · 只显示值、不显示字段名时，用户看不出「50」是时长还是次数，也看不出自己勾了哪些项；
-     · 字段名与单位取自模式库定义（与弹窗里的标签同一份），值取记录里存的数，不四舍五入；
-     · 只列这个运动**勾选过**的字段：取消勾选后旧值仍留在存档里，只是不再显示；
-     · 步数记录额外补「步数」「记录方式」两行 —— 这两项不在 fields 里。
+  /* v185/v186：「今日任务记录」里的字段行渲染，v186 起分成**两套**：
+     · moveRecLogFields  → 「运动日志」框里、打卡那一刻产生的数据（步数 / 记录方式）；
+     · moveRecFieldLines → 「运动后数据」框里、达标后补录的数据（距离 / 时长 / 配速…）。
+     字段名与单位取自模式库定义（与弹窗里的标签同一份），值取记录里存的数，不四舍五入；
+     只列这个运动**勾选过**的字段：取消勾选后旧值仍留在存档里，只是不再显示。
      注意：卡片与统计页用的是 moveRecSummary（要短），别把这里换成那边。 */
+
+  /* 打卡日志里的数据行：只有每日步数有（打卡时填的步数 + 记录方式） */
+  function moveRecLogFields(r) {
+    if (!r || r.key !== 'steps') return '';
+    if (r.pending) return '<div class="sp-recfield is-empty">· 待填数据</div>';
+    const rows = [
+      ['步数（步）', (Number(r.steps) || 0).toLocaleString() + ' 步'],
+      ['记录方式', r.recMode === 'fixed' ? '每次记录固定步数' : '手动输入今日步数']
+    ];
+    return rows.map(function (x) {
+      return '<div class="sp-recfield"><span class="k">· ' + esc(x[0]) + '</span><span class="v">' + esc(x[1]) + '</span></div>';
+    }).join('');
+  }
+
+  /* 运动后数据（达标后补录的那些字段） */
   function moveRecFieldLines(s, r, T) {
-    if (r.skipped) return '<div class="sp-recfield is-empty">· 未记录详细数据</div>';
+    if (r.skipped) return '<div class="sp-recfield is-empty">· 未记录运动后数据</div>';
     if (r.pending) return '<div class="sp-recfield is-empty">· 待填数据</div>';
     const keys = Array.isArray(s.fields) ? s.fields : (T.fields || []).map(function (f) { return f.k; });
     const rows = [];
-    if (r.key === 'steps') {
-      rows.push(['步数（步）', (Number(r.steps) || 0).toLocaleString() + ' 步']);
-      rows.push(['记录方式', r.recMode === 'fixed' ? '每次记录固定步数' : '手动输入今日步数']);
-    }
     keys.forEach(function (k) {
       const f = (T.fields || []).find(function (x) { return x.k === k; });
       if (!f) return;
@@ -8531,13 +8542,11 @@
         rows.push([label, String(n) + (f.unit ? ' ' + f.unit : '')]);
       }
     });
-    if (!rows.length) return '<div class="sp-recfield is-empty">· 未填写详细数据</div>';
+    if (!rows.length) return '<div class="sp-recfield is-empty">· 未记录运动后数据</div>';
     return rows.map(function (x) {
       return '<div class="sp-recfield"><span class="k">· ' + esc(x[0]) + '</span><span class="v">' + esc(x[1]) + '</span></div>';
     }).join('');
   }
-  /* 组标题的中文序号：第一次运动 / 第二次运动 …（超过十次就直接写数字） */
-  const MOVE_CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 
   function moveStatsHtml(m) {
     const sports = moveSports();
@@ -16075,33 +16084,56 @@
       ? '<h3>补数据 · ' + esc(T.name) + '</h3>' +
         '<p class="sp-hint">下面是当时跳过了记录数据的几次。点「补填」把数据补上，补完这条就不在列表里了。</p>'
       : '<h3>今日任务记录 · ' + esc(T.name) + '</h3>' +
-        '<p class="sp-hint">今天这项运动的任务记录。点「修改」可以改数据，点「删除」可以删掉。</p>';
-    /* v185：今天的记录改成「组标题行 + 逐字段行」：
-       · 只有这个运动设了「每天 2 次及以上」才出现「第一次运动：」这种编号标题，
-         每天 1 次的直接列字段行，不编号（编号反而多余）；
-       · 日期时间与「修改 / 删除」放在组标题行右侧，始终可点；
-       · 不再截断 —— 之前一行塞不下就把后面的字段吃掉，用户以为没记上。 */
-    const per = Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1);
-    const numbered = s.key !== 'steps' && per >= 2;
+        '<p class="sp-hint">分成两块、默认收起：「运动日志」看每次打卡（步数 / 记录方式 / 时间）；「运动后数据」看达标之后补录的数据（比如距离）。</p>';
+    /* v186：今日任务记录拆成**两个折叠区**（默认都收起）——
+       「运动日志」只回答「今天做了几次、哪次还没记数据」；
+       「运动后数据」只回答「每次填了什么」。
+       两块分工明确，一天十几次也不会糊成一片。日志行沿用方案 C：浅底条 + 分隔线。 */
+    const numbered = recs.length > 1;   /* 多条才编号；步数也一样，否则同时刻的十几条分不出先后 */
+    function logRowsHtml() {
+      return '<div class="sp-loglist">' + recs.map(function (r, i) {
+        const stTxt = r.pending ? '待填数据' : (r.skipped ? '未记录详细数据' : '已记录');
+        /* 日志条目 = 头行（序号 / 状态 / 时间 / 操作）+ 打卡时填的数据（每日步数才有） */
+        const logBody = moveRecLogFields(r);
+        return '<div class="sp-logitem">' +
+          '<div class="sp-recrow sp-logrow">' +
+          '<span class="idx">' + (numbered ? ('第 ' + (i + 1) + ' 次') : '') + '</span>' +
+          '<span class="st' + (r.skipped ? ' bad' : '') + '">' + stTxt + '</span>' +
+          /* 时间与操作包一个尾部容器：手机换行时整块右对齐落下去，不会甩到左边 */
+          '<span class="rtail"><span class="tm">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
+          '<span class="ra">' +
+            (r.skipped ? '<button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button>' : '') +
+            '<button type="button" class="lnk" data-rec-edit="' + r.id + '">修改</button>' +
+            '<button type="button" class="lnk danger" data-rec-del="' + r.id + '">删除</button>' +
+          '</span></span>' +
+          '</div>' +
+          (logBody ? '<div class="sp-logbody">' + logBody + '</div>' : '') +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    function dataItemsHtml() {
+      return '<div class="sp-datalist">' + recs.map(function (r, i) {
+        return '<div class="sp-dataitem">' +
+          '<div class="sp-dataitem-h">' + (numbered ? ('<b>第 ' + (i + 1) + ' 次</b>') : '') +
+            '<span>' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span></div>' +
+          moveRecFieldLines(s, r, T) + '</div>';
+      }).join('') + '</div>';
+    }
+    const foldHtml = function (title, count, inner) {
+      return '<details class="sp-fold">' +
+        '<summary><span class="sp-fold-t">' + title + '</span>' +
+        '<span class="sp-fold-n">' + count + '</span></summary>' +
+        '<div class="sp-fold-b">' + inner + '</div></details>';
+    };
     const body = recs.length
-      ? '<div class="sp-reclist">' + recs.map(function (r, i) {
-        if (mode === 'fill') {
+      ? (mode === 'fill'
+        ? '<div class="sp-reclist">' + recs.map(function (r, i) {
           return '<div class="sp-recrow"><span class="rt">' + esc(moveRecSummary(r)) + '</span>' +
             '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
             '<span class="ra"><button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button></span></div>';
-        }
-        return '<div class="sp-recgroup">' +
-          '<div class="sp-recrow sp-recgroup-h">' +
-            '<span class="rt">' + (numbered ? ('第' + (MOVE_CN_NUM[i] || (i + 1)) + '次运动：') : '') + '</span>' +
-            '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
-            '<span class="ra">' +
-              '<button type="button" class="lnk" data-rec-edit="' + r.id + '">修改</button>' +
-              '<button type="button" class="lnk danger" data-rec-del="' + r.id + '">删除</button>' +
-            '</span>' +
-          '</div>' +
-          '<div class="sp-recfields">' + moveRecFieldLines(s, r, T) + '</div>' +
-        '</div>';
-      }).join('') + '</div>'
+        }).join('') + '</div>'
+        : foldHtml('运动日志', recs.length + ' 次', logRowsHtml()) +
+          foldHtml('运动后数据', recs.length + ' 条', dataItemsHtml()))
       : '<p class="sp-desc">' + (mode === 'fill'
         ? '没有需要补录的记录 —— 之前填过的都填好了。'
         : '今天这项运动还没有记录。') + '</p>';
@@ -18952,7 +18984,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=185', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=186', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

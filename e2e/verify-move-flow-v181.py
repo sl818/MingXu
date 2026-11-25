@@ -244,8 +244,14 @@ with sync_playwright() as pw:
     chk('跳过后冒出「补数据」按钮', c.locator('[data-act="move-rec"]').count() == 1,
         c.locator('.mv-btn').all_inner_texts())
     # v184：明细改到卡片里的「今日任务记录」入口，页面底部的总表已撤
+    # v186：记录拆成「运动日志 / 运动后数据」两个折叠区，默认收起 —— 先展开再断言
     c.locator('[data-act="move-log"]').click()
     pg.wait_for_timeout(800)
+    for i in range(pg.locator('#modal-root .sp-fold').count()):
+        box = pg.locator('#modal-root .sp-fold').nth(i)
+        if not box.evaluate('e => e.open'):
+            box.locator('summary').click()
+            pg.wait_for_timeout(250)
     chk('任务记录里显示未记录详细数据',
         '未记录详细数据' in pg.inner_text('#modal-root'), pg.inner_text('#modal-root')[:160])
     pg.click('#modal-root [data-act="close-modal"]')

@@ -273,6 +273,12 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(1500)
     card.locator('[data-act="move-log"]').click()
     pg.wait_for_timeout(700)
+    # v186：记录拆成「运动日志 / 运动后数据」两个折叠区，默认收起 —— 先展开再断言
+    for i in range(pg.locator('#modal-root .sp-fold').count()):
+        box = pg.locator('#modal-root .sp-fold').nth(i)
+        if not box.evaluate('e => e.open'):
+            box.locator('summary').click()
+            pg.wait_for_timeout(250)
     dv = pg.inner_text('#modal-root')
     chk('明细摘要含「30 分钟」', '30 分钟' in dv, dv[:160])
     chk('明细摘要含「3 组」', '3 组' in dv, dv[:160])
