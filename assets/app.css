@@ -1170,6 +1170,8 @@ body.is-dragging .arch-zone b,body.is-dragging .arch-zone .az-ico{color:var(--ac
 .modal-card{width:min(540px,100%);max-height:88vh;overflow:auto;animation:popIn .18s cubic-bezier(.2,.8,.3,1);background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:var(--shadow-lg);}
 .modal-card h3{font-size:18px;font-weight:650;letter-spacing:-.01em;margin-bottom:20px;}
 .field{display:flex;flex-direction:column;gap:6px;font-size:10.5px;letter-spacing:.05em;color:var(--muted);margin-bottom:14px;}
+/* v184：字段下方的说明小字（这个输入框是干什么用的） */
+.field .f-sub{font-size:11.5px;line-height:1.5;letter-spacing:0;color:var(--muted);margin-top:-2px}
 .field input,.field select,.field textarea{width:100%;transition:border-color .15s,box-shadow .15s;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none;}
 .field input[type="color"]{cursor:pointer;height:42px;padding:4px;}

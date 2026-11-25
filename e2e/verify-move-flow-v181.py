@@ -241,8 +241,15 @@ with sync_playwright() as pw:
         json.dumps(recs(), ensure_ascii=False)[:200])
     chk('主按钮回到「去运动」', c.locator('[data-act="move-do"]').count() == 1,
         c.locator('.mv-btn').all_inner_texts())
-    chk('明细显示未记录详细数据',
-        '未记录详细数据' in pg.inner_text('.dv-list'), pg.inner_text('.dv-list')[:160])
+    chk('跳过后冒出「补数据」按钮', c.locator('[data-act="move-rec"]').count() == 1,
+        c.locator('.mv-btn').all_inner_texts())
+    # v184：明细改到卡片里的「今日任务记录」入口，页面底部的总表已撤
+    c.locator('[data-act="move-log"]').click()
+    pg.wait_for_timeout(800)
+    chk('任务记录里显示未记录详细数据',
+        '未记录详细数据' in pg.inner_text('#modal-root'), pg.inner_text('#modal-root')[:160])
+    pg.click('#modal-root [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
 
     print('\n===== 4. 统计页把跳过的次数标出来 =====')
     stats = pg.inner_text('.move-page')

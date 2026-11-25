@@ -256,8 +256,14 @@ with sync_playwright() as pw:
     nav(pg, 'move')
     t2 = pg.inner_text('.move-page')
     chk('数据统计仍在', '数据统计' in t2)
-    chk('运动明细列出 3 条', pg.locator('.dv-row').count() == 3,
-        'rows=%d' % pg.locator('.dv-row').count())
+    # v184：底部明细总表撤了，明细改到卡片里的「今日任务记录」
+    chk('底部不再有明细总表', pg.locator('.dv-list').count() == 0)
+    pg.locator('.mv-card [data-act="move-log"]').first.click()
+    pg.wait_for_timeout(800)
+    chk('任务记录里能查到记录', pg.locator('#modal-root .sp-recrow').count() >= 1,
+        'rows=%d' % pg.locator('#modal-root .sp-recrow').count())
+    pg.click('#modal-root [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
     chk('重置后三张卡仍在', pg.locator('.mv-card').count() == 3)
     chk('全流程无 JS 异常', not errs, str(errs[:2]))
 

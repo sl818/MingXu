@@ -492,6 +492,56 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             continue;
         }
 
+        /* v184：运动实例级提醒 —— 每个运动有自己的「运动开始时间」，
+           按它自己的频率生成日历事件；有实例时间就不再用模块级那条。 */
+        if ($mkey === 'move') {
+            $sports = isset($m['sports']) && is_array($m['sports']) ? $m['sports'] : [];
+            $instCount = 0;
+            foreach ($sports as $sp) {
+                if (!is_array($sp)) {
+                    continue;
+                }
+                $st = (string)($sp['startTime'] ?? '');
+                if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {
+                    continue;
+                }
+                $spid = (string)($sp['id'] ?? '');
+                $rrule = 'FREQ=DAILY';
+                $step = '+1 day';
+                if ((string)($sp['freqKind'] ?? 'daily') === 'weekly') {
+                    $sel = [];
+                    foreach ((array)($sp['weekSel'] ?? []) as $w) {
+                        $sel[] = (int)$w;
+                    }
+                    if (!count($sel)) {
+                        continue;
+                    }
+                    $days = [];
+                    foreach ($sel as $w) {
+                        $days[] = LB_ICS_WEEK[max(0, min(6, $w))];
+                    }
+                    $rrule = 'FREQ=WEEKLY;BYDAY=' . implode(',', $days);
+                    $step = '+7 days';
+                }
+                $start = (clone $todayDate)->setTime((int)$mm[1], (int)$mm[2]);
+                while ($start <= $now) {
+                    $start = $start->modify($step);
+                }
+                $spname = trim((string)($sp['name'] ?? '')) ?: '运动';
+                $spicon = (string)($sp['icon'] ?? '');
+                $out[] = lb_ics_event(
+                    'sport-' . ($spid !== '' ? $spid : $hid),
+                    $start, $start->modify('+15 minutes'),
+                    ($spicon !== '' ? $spicon . ' ' : '') . $spname, $note, $rrule
+                );
+                $count++;
+                $instCount++;
+            }
+            if ($instCount > 0) {
+                continue;
+            }
+        }
+
         /* 运动 / 478：原单条 suggestTime */
         $st = (string)($m['suggestTime'] ?? '');
         if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {

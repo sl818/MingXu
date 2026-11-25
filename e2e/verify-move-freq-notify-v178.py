@@ -258,8 +258,13 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(1200)
     c3 = pg.inner_text('.mv-card')
     chk('跳过也算完成（2 / 2）', '今天已完成' in c3, c3[:140])
-    dv = pg.inner_text('.dv-list')
-    chk('明细里这条标「未记录详细数据」', '未记录详细数据' in dv, dv[:200])
+    # v184：页面底部的明细总表已撤，改到卡片里的「今日任务记录」看
+    pg.click('.mv-card [data-act="move-log"]')
+    pg.wait_for_timeout(800)
+    dv = pg.inner_text('#modal-root')
+    chk('任务记录里这条标「未记录详细数据」', '未记录详细数据' in dv, dv[:200])
+    pg.click('#modal-root [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
 
     print('\n===== 5. 三个渠道可以全部取消，且不会被塞回一个 =====')
     pg.click('.mv-card [data-act="move-edit"]')

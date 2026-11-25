@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=183">
+<link rel="stylesheet" href="assets/app.css?v=184">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=183">
+<link rel="stylesheet" href="assets/theme-v2.css?v=184">
 </head>
 <body>
 <div class="app landing">
@@ -160,14 +160,14 @@
       goalLabel: '每日步数（步）', recordMode: true,
       desc: '每日步数，全天走路的步数，支持两种记录方式',
       targets: [{ k: 'steps', label: '每日步数（步）', unit: '步', def: 10000 }],
-      fields: [{ k: 'distM', n: '今日距离', unit: '米' }] },
+      fields: [{ k: 'distM', n: '距离', unit: '米' }] },
     run: { name: '跑步', icon: '🏃', color: '#b5733f', unit: '公里', goal: 5,
       goalLabel: '每次距离（公里）',
       desc: '记录每次跑步的时长、距离、配速、步频与心率',
       targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 5 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'dist', n: '距离', unit: '公里', step: 0.01 },
         { k: 'pace', n: '配速', type: 'text', ph: '如 6:30' },
         { k: 'cadence', n: '步频', unit: '步/分' },
@@ -181,7 +181,7 @@
       targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 3 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'dist', n: '距离', unit: '公里', step: 0.01 },
         { k: 'pace', n: '配速', type: 'text', ph: '如 9:30' },
         { k: 'cadence', n: '步频', unit: '步/分' },
@@ -195,7 +195,7 @@
       targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 10 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'dist', n: '骑行里程', unit: '公里', step: 0.01 },
         { k: 'cadence', n: '踏频', unit: 'rpm' },
         { k: 'heart', n: '心率', unit: 'bpm' },
@@ -207,7 +207,7 @@
       desc: '记录每次跳绳的时长、次数与跳频',
       targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 15 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'count', n: '总次数', unit: '次' },
         { k: 'ropeRate', n: '每分钟跳频', unit: '次/分' },
         { k: 'heart', n: '心率', unit: 'bpm' },
@@ -218,7 +218,7 @@
       desc: '记录每次力量训练的时长、组数、次数与负重',
       targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'sets', n: '组数', unit: '组' },
         { k: 'reps', n: '次数', unit: '次' },
         { k: 'weight', n: '负重重量', unit: '公斤', step: 0.5 },
@@ -231,7 +231,7 @@
       desc: '记录每次球类运动的时长与心率',
       targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }],
       fields: [
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'hrZone', n: '心率区间', type: 'text', ph: '如 120-150' },
         { k: 'heartAvg', n: '平均心率', unit: 'bpm' },
         { k: 'kcal', n: '热量消耗', unit: '千卡' }
@@ -245,7 +245,7 @@
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
       fields: [
         { k: 'dist', n: '距离', unit: '米' },
-        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dur', n: '运动时长', unit: '分钟' },
         { k: 'stroke', n: '泳姿', type: 'select', opts: ['自由泳', '蛙泳', '仰泳', '蝶泳'] },
         { k: 'pace', n: '配速', type: 'text', ph: '如 3:20' }
       ] },
@@ -253,7 +253,7 @@
       goalLabel: '每次时长（分钟）',
       desc: '（已下线）记录每次瑜伽的练习时长',
       targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
-      fields: [{ k: 'dur', n: '时长', unit: '分钟' }] }
+      fields: [{ k: 'dur', n: '运动时长', unit: '分钟' }] }
   };
   /* 新建运动时可选的模式（跳过已下线的） */
   const MOVE_PICKABLE = Object.keys(MOVE_TYPES).filter(function (k) { return !MOVE_TYPES[k].retired; });
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v183';
+  const APP_VERSION = 'v184';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -693,12 +693,25 @@
     let freqN = clamp(Math.round(Number(s.freqN != null ? s.freqN : s.n) || 1), 1, 99);
     if (freqKind === 'weekly') freqN = weekSel.length;
 
+    /* v184：每日步数是独立的运动类型 —— 不允许「今天要完成两次」这种设置。
+       频率只剩「每天运动 / 每周选天运动」，每个执行日就是 1 次；
+       完成度只看累计步数 ÷ 目标步数，跟点几次无关。 */
+    const isSteps = key === 'steps';
+    if (isSteps) freqN = 1;
+
     /* v178：单日多次。原来只有「每天运动」能设一天几次，「每周选日运动」设不了。
        perDay = 每个执行日要完成几次；老数据没有这个字段时，daily 取 freqN、weekly 取 1，
        所以既有用户的行为完全不变（默认 1 次）。 */
     let perDay = Math.round(Number(s.perDay));
     if (!(perDay >= 1)) perDay = freqKind === 'daily' ? freqN : 1;
     perDay = clamp(perDay, 1, 99);
+    /* 每日步数同样固定为每个执行日 1 次（见上） */
+    if (isSteps) perDay = 1;
+
+    /* v184：运动开始时间（HH:MM）。每日步数是全天持续统计，不需要这一项；
+       其余 6 种填了才到点提醒，默认留空。 */
+    const startRaw = String(s.startTime || '');
+    const startTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(startRaw) && !isSteps ? startRaw : '';
 
     /* v178：每个运动自己的通知开与渠道（之前渠道只有模块级一份，弹窗里关不掉）。
        channels 显式给了空数组就保留空 —— 表示「这个运动不要任何渠道」，
@@ -734,6 +747,7 @@
       weekSel: weekSel,
       recMode: recMode,
       fixedSteps: fixedSteps,
+      startTime: startTime,
       fields: fields,
       strokePick: strokePick,
       notifyOn: notifyOn,
@@ -8287,13 +8301,15 @@
   }
   function moveFreqText(s) {
     const per = Math.max(1, Number(s.perDay) || 1);
+    /* v184：每日步数没有「每天几次」的概念（每个执行日就是 1 次），别显示次数 */
+    const isSteps = s.key === 'steps';
     if (s.freqKind === 'weekly') {
       const sel = Array.isArray(s.weekSel) ? s.weekSel : [];
       const days = MOVE_WEEK.filter(function (w) { return sel.indexOf(w[0]) >= 0; })
         .map(function (w) { return w[1]; }).join('、');
-      return '每周 ' + sel.length + ' 天' + (per > 1 ? ' · 每天 ' + per + ' 次' : '') + '（' + days + '）';
+      return '每周 ' + sel.length + ' 天' + (!isSteps && per > 1 ? ' · 每天 ' + per + ' 次' : '') + '（' + days + '）';
     }
-    return '每天 ' + (Number(s.freqN) || 1) + ' 次';
+    return isSteps ? '每天' : ('每天 ' + (Number(s.freqN) || 1) + ' 次');
   }
 
   function moveHead(m) {
@@ -8301,6 +8317,7 @@
     return '<div class="page-head">' +
       '<div><h2>运动</h2><p>' + (n ? '我的运动 · 共 ' + n + ' 项' : '我的运动 · 记录每一次出汗') + '</p></div>' +
       '<div class="head-actions">' +
+        '<button class="btn" data-act="move-add-rec">＋ 添加记录</button>' +
         '<button class="btn new" data-act="move-new">＋ 新建运动</button>' +
       '</div>' +
     '</div>';
@@ -8344,14 +8361,21 @@
       /* v179：字段最多 7 项，全铺在卡上会挤成一团，这里只报项数，具体去「补数据」看 */
       fhtml += '<span class="mv-ft"><b>记录数据</b>' + s.fields.length + ' 项</span>';
     }
+    /* v184：运动开始时间（每日步数全天统计，没有这一项） */
+    if (s.key !== 'steps' && s.startTime) {
+      fhtml += '<span class="mv-ft"><b>开始时间</b>' + esc(s.startTime) + '</span>';
+    }
     /* 状态行 */
     const pend = movePendingRec(s);
+    /* v184：跳过了记录数据的那些次 —— 决定「补数据」按钮出不出现 */
+    const skips = moveSkippedRecs(s);
     let st, note;
     if (done) {
       st = '<div class="mv-st ok">今天已完成</div>';
       note = p.isSteps
         ? ('今天已记 ' + p.val + ' / ' + p.target + ' ' + tf.unit + '，达标了')
-        : ('今天已完成 ' + p.val + ' / ' + p.target + ' 次，可点「补数据」补详细数据');
+        : ('今天已完成 ' + p.val + ' / ' + p.target + ' 次' +
+          (skips.length ? '，有 ' + skips.length + ' 次跳过了记录数据，点「补数据」补上' : ''));
     } else if (rest) {
       st = '<div class="mv-st rest">今日无需运动</div>';
       note = '今天按计划休息 · ' + moveFreqText(s);
@@ -8402,10 +8426,15 @@
       '</div>' +
       '<div class="mv-actions">' +
         mainBtn +
-        /* 有待填记录时不给「补数据」入口，避免又加一次把任务刷完成 —— 改成撤销这一次 */
+        /* v184：「补数据」只在跳过没记录时才出现 —— 填过数据的记录没得补。
+           以前常驻一个「补数据」按钮，用户会以为还能再加一次，把任务刷完成。 */
         (pend
           ? '<button class="mv-btn ghost" data-act="move-undo" data-id="' + s.id + '">撤销这一次</button>'
-          : '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>') +
+          : (skips.length
+            ? '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>'
+            : '')) +
+        /* v184：卡片内的统一记录入口，替代原来页面底部那个混着补数据的总日志 */
+        '<button class="mv-btn ghost" data-act="move-log" data-id="' + s.id + '">今日任务记录</button>' +
         '<button class="mv-btn ghost" data-act="move-edit" data-id="' + s.id + '">编辑</button>' +
         '<button class="mv-btn ghost danger" data-act="move-del" data-id="' + s.id + '">删除</button>' +
       '</div>' +
@@ -8556,7 +8585,7 @@
 
     const kpi = function (v, l) { return '<div class="mv-kpi"><b>' + v + '</b><span>' + l + '</span></div>'; };
     let h = '<section class="panel"><h3 class="mv-sec-title">数据统计</h3>' +
-      '<p class="mv-sec-lead">按周期汇总所有运动记录，改一条记录这里立刻重算。</p>' +
+      '<p class="mv-sec-lead">按周期汇总所有运动记录，卡片里改一条这里立刻重算。</p>' +
       (skipN ? '<p class="mv-sec-lead">其中 <b>' + skipN + '</b> 次跳过了数据记录：只计次数，不计入时长、距离、心率等详细数据。</p>' : '') +
       '<div class="mv-tabs">' + tabs + '</div>' +
       '<div class="st-kpi">' +
@@ -8656,31 +8685,9 @@
   }
 
   /* 运动明细：全部记录，可改可删（改完卡片与统计一起重算） */
-  function moveDetailHtml() {
-    const recs = moveRecords().slice().sort(function (a, b) {
-      const ka = String(a.d) + String(a.at);
-      const kb = String(b.d) + String(b.at);
-      return ka < kb ? 1 : ka > kb ? -1 : 0;
-    });
-    const rows = recs.length ? recs.map(function (r) {
-      const T = MOVE_TYPES[r.key];
-      if (!T) return '';
-      return '<div class="dv-row">' +
-        '<span class="ic">' + esc(T.icon) + '</span>' +
-        '<span class="dt">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
-        '<span class="nm">' + esc(T.name) + '</span>' +
-        '<span class="val">' + esc(moveRecSummary(r)) + '</span>' +
-        '<span class="ops">' +
-          '<button type="button" class="lnk" data-act="move-edit-rec" data-id="' + r.id + '">改</button>' +
-          '<button type="button" class="lnk danger" data-act="move-del-rec" data-id="' + r.id + '">删</button>' +
-        '</span></div>';
-    }).join('') : '<div class="dv-empty">还没有任何运动记录。</div>';
-    return '<section class="panel"><div class="dv-head">' +
-      '<div><h3 class="mv-sec-title">运动明细</h3><p class="mv-sec-lead" style="margin:4px 0 0">共 ' + recs.length + ' 条 · 点「改 / 删」修改或删除，上方卡片和统计会一起更新。</p></div>' +
-      '<button class="btn" data-act="move-add-rec">＋ 添加记录</button>' +
-    '</div><div class="dv-list">' + rows + '</div></section>';
-  }
-
+  /* v184：页面底部的「运动明细」总表撤掉了 —— 记录改为在每张卡片里看
+     （【今日任务记录】），补数据也从卡片进，两件事不再混在一个区块里。
+     要手动补录一条历史记录，用页头的「＋ 添加记录」。 */
   function moveNotifyHtml(m) {
     const scenes = isPlainObject(m.notifyScenes) ? m.notifyScenes : { steps: true, plan: true, week: true };
     /* v177：渠道选择不再放这里（新建 / 编辑运动弹窗里已经选过，页面重复）。
@@ -8710,7 +8717,6 @@
       moveHead(m) +
       moveSportsHtml(m) +
       moveStatsHtml(m) +
-      moveDetailHtml() +
       moveNotifyHtml(m) +
     '</div>';
   }
@@ -15511,6 +15517,8 @@
     let weekSel = init ? (init.weekSel || []).slice() : [new Date().getDay()];
     let recMode = init ? (init.recMode || 'manual') : 'manual';
     let fixedSteps = init ? (init.fixedSteps || 1000) : 1000;
+    /* v184：运动开始时间（HH:MM），默认留空；每日步数不用 */
+    let startTime = init ? (init.startTime || '') : '';
     const fieldOn = {};
     (init ? (init.fields || []) : MOVE_TYPES[curKey].fields.map(function (f) { return f.k; }))
       .forEach(function (k) { fieldOn[k] = true; });
@@ -15525,6 +15533,7 @@
     function renderBody() {
       const T = MOVE_TYPES[curKey];
       const TGT = T.targets;
+      const isSteps = curKey === 'steps';
       if (!(tIdx >= 0 && tIdx < TGT.length)) tIdx = 0;
       const tf = TGT[tIdx];
       const box = $('#move-sport-body');
@@ -15545,14 +15554,28 @@
       h += '<div class="sp-freq">' + MOVE_FREQ.map(function (f) {
         return '<div class="sp-freq-opt' + (freqKind === f[0] ? ' on' : '') + '" data-fk2="' + f[0] + '">' + f[1] + '</div>';
       }).join('') + '</div>';
+      /* v184：每日步数是独立的运动类型，不设「每天做几次」——
+         它的完成度只看累计步数 ÷ 目标步数，点几次都不影响判定。 */
       if (freqKind === 'daily') {
-        h += '<div class="sp-nrow"><span class="lbl">每天</span><input type="number" id="sp-freqn" min="1" max="99" value="' + freqN + '"><span class="u">次</span></div>';
+        if (!isSteps) {
+          h += '<div class="sp-nrow"><span class="lbl">每天</span><input type="number" id="sp-freqn" min="1" max="99" value="' + freqN + '"><span class="u">次</span></div>';
+        }
       } else {
         h += '<div class="sp-week" id="sp-week">' + MOVE_WEEK.map(function (w) {
           return '<button type="button" data-d="' + w[0] + '" class="' + (weekSel.indexOf(w[0]) >= 0 ? 'on' : '') + '">' + w[1] + '</button>';
-        }).join('') + '</div>' +
-          '<div class="sp-nrow"><span class="lbl">每个选中的日子做</span><input type="number" id="sp-perday" min="1" max="99" value="' + perDay + '"><span class="u">次</span></div>' +
-          '<p class="sp-hint">勾选哪几天就是每周哪几天运动；再填每个执行日要做几次。没勾的日子算按计划休息，不计入未达标。</p>';
+        }).join('') + '</div>';
+        if (!isSteps) {
+          h += '<div class="sp-nrow"><span class="lbl">每个选中的日子做</span><input type="number" id="sp-perday" min="1" max="99" value="' + perDay + '"><span class="u">次</span></div>';
+        }
+        h += '<p class="sp-hint">' + (isSteps
+          ? '勾选哪几天就只在这些天记步数；没勾的日子算按计划休息，不计入未达标。'
+          : '勾选哪几天就是每周哪几天运动；再填每个执行日要做几次。没勾的日子算按计划休息，不计入未达标。') + '</p>';
+      }
+      /* v184：运动开始时间（每日步数是全天持续统计，不需要） */
+      if (!isSteps) {
+        h += '<span class="f-label">运动开始时间</span>' +
+          '<div class="sp-trow"><input type="time" id="sp-starttime" value="' + esc(startTime) + '"></div>' +
+          '<p class="sp-hint">填了到这个点会提醒你来运动；留空就只打卡、不提醒。</p>';
       }
       if (T.recordMode) {
         h += '<span class="f-label">记录方式</span>';
@@ -15574,7 +15597,8 @@
               : f.k === 'heart' ? '记录平均心率'
                 : f.k === 'hrZone' ? '记录运动时的心率区间'
                   : f.k === 'distM' ? '记录今天走了多少米'
-                    : '记录本次' + f.n;
+                    : f.k === 'dur' ? '本次运动消耗的时长'
+                      : '记录本次' + f.n;
           h += '<div class="sp-field-chk"><div><b>' + esc(f.n) + unitTxt + '</b><small>' + esc(sub) + '</small></div>' +
             '<span class="switch"><input type="checkbox" data-fld="' + f.k + '"' + (fieldOn[f.k] !== false ? ' checked' : '') + '><i></i></span></div>';
           /* 泳姿这类带选项的字段，勾着的时候把选项也放出来（历史数据的游泳模式用） */
@@ -15672,6 +15696,9 @@
       });
       const fx = $('#sp-fixed');
       if (fx) fx.oninput = function () { fixedSteps = clamp(Math.round(Number(fx.value) || 1), 1, 999999); };
+      /* v184：运动开始时间 */
+      const stm = $('#sp-starttime');
+      if (stm) stm.oninput = function () { startTime = stm.value || ''; };
       document.querySelectorAll('#move-sport-body [data-fld]').forEach(function (cb) {
         cb.onchange = function () { fieldOn[cb.dataset.fld] = cb.checked; renderBody(); };
       });
@@ -15721,6 +15748,7 @@
         key: curKey, tIdx: tIdx, tVal: tVal,
         freqKind: freqKind, freqN: freqN, perDay: perDay, weekSel: weekSel.slice(),
         recMode: recMode, fixedSteps: fixedSteps,
+        startTime: startTime,
         fields: Object.keys(fieldOn).filter(function (k) { return fieldOn[k]; }),
         strokePick: strokePick,
         notifyOn: notifyOn, notifyChannels: chanSel.slice()
@@ -15748,6 +15776,7 @@
       weekSel: weekSel,
       recMode: st.key === 'steps' ? st.recMode : 'manual',
       fixedSteps: st.fixedSteps,
+      startTime: st.key === 'steps' ? '' : (st.startTime || ''),
       fields: st.fields,
       strokePick: st.strokePick,
       notifyOn: st.notifyOn,
@@ -15800,6 +15829,61 @@
   /* opts.sportId  → 某个运动的「补数据」（带今日已记录明细）
      opts.recordId → 修改某一条记录
      opts.add      → 顶部「＋ 添加记录」，可选模式与日期 */
+  /* v184：跳过了记录数据的那些次（最近 7 天内的都算数，等着用户补填） */
+  function moveSkippedRecs(s) {
+    if (!s) return [];
+    const from = fmt(addDays(new Date(), -6));
+    return moveRecords().filter(function (r) {
+      if (!r || !r.skipped) return false;
+      if (r.d < from) return false;
+      if (r.sportId) return r.sportId === s.id;
+      return r.key === s.key;
+    });
+  }
+  /* v184：补数据列表 / 今日任务记录，两个弹窗共用一套行渲染 */
+  function moveRecListModal(s, mode) {
+    const T = MOVE_TYPES[s.key] || MOVE_TYPES.steps;
+    const recs = mode === 'fill'
+      ? moveSkippedRecs(s)
+      : moveRecsOfSport(s, todayStr());
+    const head = mode === 'fill'
+      ? '<h3>补数据 · ' + esc(T.name) + '</h3>' +
+        '<p class="sp-hint">下面是当时跳过了记录数据的几次。点「补填」把数据补上，补完这条就不在列表里了。</p>'
+      : '<h3>今日任务记录 · ' + esc(T.name) + '</h3>' +
+        '<p class="sp-hint">今天这项运动的任务记录。点「修改」可以改数据，点「删除」可以删掉。</p>';
+    const body = recs.length
+      ? '<div class="sp-reclist">' + recs.map(function (r) {
+        return '<div class="sp-recrow"><span class="rt">' + esc(moveRecSummary(r)) + '</span>' +
+          '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
+          '<span class="ra">' +
+          (mode === 'fill'
+            ? '<button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button>'
+            : '<button type="button" class="lnk" data-rec-edit="' + r.id + '">修改</button>' +
+              '<button type="button" class="lnk danger" data-rec-del="' + r.id + '">删除</button>') +
+          '</span></div>';
+      }).join('') + '</div>'
+      : '<p class="sp-desc">' + (mode === 'fill'
+        ? '没有需要补录的记录 —— 之前填过的都填好了。'
+        : '今天这项运动还没有记录。') + '</p>';
+    openModal(
+      '<div class="modal-card">' + head + body +
+      '<div class="modal-actions"><span class="spacer"></span>' +
+      '<button type="button" class="btn ghost" data-act="close-modal">关闭</button></div></div>');
+    const box = $('#modal-root');
+    box.querySelectorAll('[data-rec-edit]').forEach(function (b) {
+      b.onclick = function (e) { e.preventDefault(); moveRecordModal({ recordId: b.dataset.recEdit }); };
+    });
+    box.querySelectorAll('[data-rec-del]').forEach(function (b) {
+      b.onclick = function (e) { e.preventDefault(); moveDelRecord(b.dataset.recDel, true); };
+    });
+    box.querySelectorAll('[data-act="move-fill"]').forEach(function (b) {
+      b.onclick = function (e) {
+        e.preventDefault();
+        moveRecordModal({ sportId: s.id, recordId: b.dataset.rec, mode: 'after' });
+      };
+    });
+  }
+
   function moveRecordModal(opts) {
     opts = opts || {};
     const rec = opts.recordId ? moveRecords().find(function (r) { return r.id === opts.recordId; }) : null;
@@ -15811,42 +15895,52 @@
     const dfltD = rec ? rec.d : todayStr();
     const dfltT = rec ? moveRecHM(rec) : (pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()));
 
-    function fieldsHtml(k, r) {
-      /* v179：按「这个运动勾了哪些运动数据」动态生成输入框。
-         步数额外带记录方式；泳姿这类 select 用下拉。 */
+    function fieldsHtml(k, r, mode) {
+      /* v184：只渲染这个运动**勾选**的数据项 —— 补数据不是把字段全搬上来。
+         mode='after' 是「运动后数据」弹窗：步数已经记好了，这里只补运动后数据。 */
       const T = MOVE_TYPES[k] || MOVE_TYPES.steps;
+      const after = mode === 'after';
       const lines = [];
-      if (k === 'steps') {
+      if (!after && k === 'steps') {
         lines.push('<div class="field"><span>步数（步）</span><input name="steps" type="number" min="1" value="' + (r ? (r.steps || '') : '') + '"></div>');
         lines.push('<div class="field"><span>记录方式</span><select name="recMode">' +
           '<option value="manual"' + (r && r.recMode === 'manual' ? ' selected' : '') + '>手动输入</option>' +
           '<option value="fixed"' + (r && r.recMode === 'fixed' ? ' selected' : '') + '>每次固定步数</option>' +
           '</select></div>');
       }
-      /* 只渲染已勾选的数据项；编辑旧记录时，有值的项也补进来，免得看不全已填内容 */
+      /* 只出勾选过的项。没勾的不显示 —— 补数据就只补这些。 */
       const chosen = T.fields.filter(function (f) {
-        if (sport && Array.isArray(sport.fields) && sport.fields.length) {
-          return sport.fields.indexOf(f.k) >= 0 || (r && r[f.k]);
-        }
+        if (sport && Array.isArray(sport.fields)) return sport.fields.indexOf(f.k) >= 0;
         return true;
       });
       chosen.forEach(function (f) {
         const raw = r ? r[f.k] : '';
         const val = (raw === 0 || raw) ? raw : '';
+        const sub = f.k === 'pace' ? '记录本次平均配速'
+          : f.k === 'cadence' ? (k === 'ride' ? '记录平均踏频' : '记录平均步频')
+            : f.k === 'heart' ? '记录平均心率'
+              : f.k === 'hrZone' ? '记录运动时的心率区间'
+                : f.k === 'distM' ? '记录今天走了多少米'
+                  : f.k === 'dur' ? '本次运动消耗的时长'
+                    : '记录本次' + f.n;
         if (f.type === 'select') {
           const opts = (f.opts || []).slice();
           const cur = String(val || (sport && sport.strokePick) || opts[0] || '');
           lines.push('<div class="field"><span>' + esc(f.n) + '</span><select name="' + f.k + '">' +
             opts.map(function (o) { return '<option' + (cur === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') +
-            '</select></div>');
+            '</select><small class="f-sub">' + esc(sub) + '</small></div>');
         } else if (f.type === 'text') {
-          lines.push('<div class="field"><span>' + esc(f.n) + '</span><input name="' + f.k + '" placeholder="' + esc(f.ph || '') + '" value="' + esc(val) + '"></div>');
+          lines.push('<div class="field"><span>' + esc(f.n) + '</span><input name="' + f.k + '" placeholder="' + esc(f.ph || '') + '" value="' + esc(val) + '"><small class="f-sub">' + esc(sub) + '</small></div>');
         } else {
           lines.push('<div class="field"><span>' + esc(f.n) + (f.unit ? '（' + esc(f.unit) + '）' : '') + '</span>' +
-            '<input name="' + f.k + '" type="number" min="0" step="' + (f.step || 1) + '" value="' + esc(val) + '"></div>');
+            '<input name="' + f.k + '" type="number" min="0" step="' + (f.step || 1) + '" value="' + esc(val) + '"><small class="f-sub">' + esc(sub) + '</small></div>');
         }
       });
-      if (!lines.length) return '<p class="sp-desc">这个运动没有勾选要记录的数据，可以直接保存。</p>';
+      if (!lines.length) {
+        return '<p class="sp-desc">' + (after
+          ? '这个运动没有勾选要记录的数据，可以直接「跳过不记录」。'
+          : '这个运动没有勾选要记录的数据，可以直接保存。') + '</p>';
+      }
       return '<div class="form-grid">' + lines.join('') + '</div>';
     }
 
@@ -15874,15 +15968,29 @@
       return '<option value="' + k + '"' + (key === k ? ' selected' : '') + '>' + MOVE_TYPES[k].icon + ' ' + esc(MOVE_TYPES[k].name) +
         (MOVE_TYPES[k].retired ? '（已下线）' : '') + '</option>';
     }).join('');
-    /* v181：刚打完卡的记录（pending）要写清「这是第几次」，并给一个「跳过不记录」的出口 */
-    const isPending = !!(rec && rec.pending);
+    /* v184：mode='after' = 「运动后数据」弹窗（打卡后填、或补数据时填） */
+    const mode = opts.mode || '';
+    const isAfter = mode === 'after';
+    const isPending = isAfter || !!(rec && rec.pending);
     const nth = (isPending && sport) ? moveRecsOfSport(sport, todayStr()).length : 0;
-    const title = isPending
-      ? ('记录第 ' + nth + ' 次运动数据 · ' + MOVE_TYPES[key].name)
-      : (editing ? '修改记录' : (sport ? ('补充运动数据 · ' + MOVE_TYPES[key].name) : '添加记录'));
+    const title = isAfter
+      ? (key === 'steps'
+        ? ('补充运动数据 · ' + MOVE_TYPES[key].name)
+        : (rec && rec.pending
+          ? ('记录第 ' + nth + ' 次运动数据 · ' + MOVE_TYPES[key].name)
+          : ('补填运动数据 · ' + MOVE_TYPES[key].name)))
+      : (editing ? '修改记录'
+        : (key === 'steps' ? ('记录步数 · ' + MOVE_TYPES[key].name)
+          : (sport ? ('补充运动数据 · ' + MOVE_TYPES[key].name) : '添加记录')));
 
     let head = '<h3>' + esc(title) + '</h3>';
-    if (isPending) {
+    if (isAfter) {
+      head += '<p class="sp-hint">' + (key === 'steps'
+        ? '今天的步数已经达标。下面补一条这次运动的运动后数据；填完就收工，不填可以选「跳过不记录」，之后用卡片上的「补数据」补上。'
+        : (rec && rec.pending
+          ? '这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。跳过后可以用卡片上的「补数据」补填。'
+          : '这次当时跳过了记录数据。补上运动后数据就好；现在不想补可以点「取消」，它还留在「补数据」列表里。')) + '</p>';
+    } else if (isPending) {
       head += '<p class="sp-hint">这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。</p>';
     }
     if (sport || editing) {
@@ -15895,12 +16003,12 @@
         '<div class="field"><span>日期</span><input name="d" type="date" value="' + esc(dfltD) + '"></div>' +
         '</div>';
     }
-    head += '<div class="field"><span>时间</span><input name="t" type="time" value="' + esc(dfltT) + '"></div>';
+    head += '<div class="field"><span>任务完成时间</span><input name="t" type="time" value="' + esc(dfltT) + '"><small class="f-sub">记录本次运动结束的时间</small></div>';
 
     openModal(
-      '<form class="modal-card" id="move-record-form" data-sport="' + (sportId || '') + '" data-rec="' + (rec ? rec.id : '') + '" data-for="' + (sport ? 'sport' : '') + '">' +
+      '<form class="modal-card" id="move-record-form" data-sport="' + (sportId || '') + '" data-rec="' + (rec ? rec.id : '') + '" data-for="' + (sport ? 'sport' : '') + '" data-mode="' + esc(mode) + '">' +
         head +
-        '<div id="move-record-body">' + fieldsHtml(key, rec) + '</div>' +
+        '<div id="move-record-body">' + fieldsHtml(key, rec, mode) + '</div>' +
         listHtml +
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
@@ -15914,7 +16022,7 @@
     const ksel = f.querySelector('[name="key"]');
     if (ksel && !editing) {
       ksel.onchange = function () {
-        $('#move-record-body').innerHTML = fieldsHtml(ksel.value, null);
+        $('#move-record-body').innerHTML = fieldsHtml(ksel.value, null, mode);
       };
     }
     f.querySelectorAll('[data-rec-edit]').forEach(function (b) {
@@ -15931,9 +16039,46 @@
     });
   }
 
+  /* v184：这个运动「运动后数据」要填的字段清单。
+     有 sport 就只认它勾选的；没有 sport（顶部＋添加记录）就按模式的全集。 */
+  function moveDataFields(sport, key) {
+    const T = MOVE_TYPES[key];
+    if (!T) return [];
+    if (sport && Array.isArray(sport.fields)) return sport.fields.slice();
+    return T.fields.map(function (f) { return f.k; });
+  }
+  /* 这条记录在指定字段里有没有填上有效数据（0 与空串都算没填） */
+  function moveFieldsFilled(rec, keys) {
+    const T = MOVE_TYPES[rec.key];
+    if (!T) return false;
+    return keys.some(function (k) {
+      const f = T.fields.find(function (x) { return x.k === k; });
+      if (!f) return false;
+      const v = rec[k];
+      if (f.type === 'text' || f.type === 'select') return !!String(v == null ? '' : v).trim();
+      return Number(v) > 0;
+    });
+  }
+  /* 给某条记录打上「待填运动后数据」的标记 */
+  function markMovePending(recId) {
+    const m = moveModule();
+    if (!Array.isArray(m.records)) return;
+    m.records = m.records.map(function (r) {
+      return r.id === recId ? Object.assign({}, r, { pending: true }) : r;
+    });
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+  }
+
   function saveMoveRecordForm(form) {
     const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    const isAfter = form.dataset.mode === 'after';
     const recId = form.dataset.rec || '';
+    /* v184：补「运动后数据」时表单里没有步数/记录方式，
+       要以原记录为基底，别把已有的步数冲成 0。 */
+    const prev = recId ? (moveRecords().find(function (r) { return r.id === recId; }) || null) : null;
     const sportId = form.dataset.sport || '';
     const sport = sportId ? moveSportById(sportId) : null;
     const key = get('key') || (sport ? sport.key : 'steps');
@@ -15950,19 +16095,43 @@
       d: d,
       at: at,
       hour: Number(t.slice(0, 2)),
-      steps: key === 'steps' ? num(get('steps')) : 0,
-      recMode: key === 'steps' ? (get('recMode') === 'fixed' ? 'fixed' : 'manual') : ''
+      steps: key === 'steps'
+        ? (isAfter ? (prev ? (Number(prev.steps) || 0) : 0) : num(get('steps')))
+        : 0,
+      recMode: key === 'steps'
+        ? (isAfter
+          ? (prev ? (prev.recMode || 'manual') : 'manual')
+          : (get('recMode') === 'fixed' ? 'fixed' : 'manual'))
+        : ''
     };
     /* v179：这个模式定义了哪些数据项，就按类型读哪些，不再写死字段 */
     (MOVE_TYPES[key].fields || []).forEach(function (f) {
       const raw = get(f.k);
+      /* 补数据时没填的项保留原值，别把已有数据抹掉 */
+      if (isAfter && raw === '') {
+        if (prev && prev[f.k] !== undefined) rec[f.k] = prev[f.k];
+        return;
+      }
       if (f.type === 'text' || f.type === 'select') {
         if (raw) rec[f.k] = raw.slice(0, 16);
       } else if (raw !== '') {
         rec[f.k] = num(raw);
       }
     });
-    if (key === 'steps' && !rec.steps) { toast('请填写步数'); return; }
+    if (key === 'steps' && !rec.steps && !isAfter) { toast('请填写步数'); return; }
+    /* v184：空数据不许提交 —— 至少要有一项有效数据。
+       运动后数据弹窗看的是「勾选的那些项」；步数本身已经有数了，
+       不算作运动后数据，所以补距离时必须真的填一个数。 */
+    if (isAfter) {
+      const keys = moveDataFields(sport, key);
+      if (!moveFieldsFilled(rec, keys)) {
+        toast(keys.length ? '至少填写一项有效数据' : '这个运动没有勾选要记录的数据，请点「跳过不记录」');
+        return;
+      }
+    } else if (key !== 'steps') {
+      const keys = moveDataFields(sport, key);
+      if (!moveFieldsFilled(rec, keys)) { toast('至少填写一项有效数据'); return; }
+    }
     /* v181：存了数据就说明这一次处理完了，清掉待填/跳过标记 */
     rec.pending = false;
     rec.skipped = false;
@@ -15980,6 +16149,20 @@
     save();
     closeModal();
     render();
+    /* v184：每日步数达标 → 紧接着弹「补充运动数据（距离）」。
+       距离写在**同一条**步数记录上，不另开记录，免得统计里次数翻倍。 */
+    if (key === 'steps' && !isAfter && sport) {
+      const p = moveProgress(sport, d);
+      if (p.val >= p.target) {
+        /* 已经在「记录步数」里顺手填了运动后数据（比如距离），就不用再弹一次 */
+        if (!moveFieldsFilled(rec, moveDataFields(sport, key))) {
+          markMovePending(rec.id);
+          moveRecordModal({ sportId: sport.id, recordId: rec.id, mode: 'after' });
+        }
+        toast('步数达标了 · ' + p.val + ' / ' + p.target + ' 步');
+        return;
+      }
+    }
     toast(recId ? '已更新这条记录' : '已记录');
   }
 
@@ -16016,6 +16199,16 @@
     save();
     render();
     const p = moveProgress(s, todayStr());
+    /* v184：固定步数也一样 —— 达标后紧接着补「运动后数据（距离）」 */
+    if (p.val >= p.target) {
+      const last = m.records[m.records.length - 1];
+      if (last) {
+        markMovePending(last.id);
+        moveRecordModal({ sportId: s.id, recordId: last.id, mode: 'after' });
+        toast('步数达标了 · ' + p.val + ' / ' + p.target + ' 步');
+        return;
+      }
+    }
     toast(p.val >= p.target
       ? ('已记录 +' + s.fixedSteps + ' 步 · 今日达标 ' + p.val + ' / ' + p.target)
       : ('已记录 +' + s.fixedSteps + ' 步 · 累计 ' + p.val + ' / ' + p.target + ' 步'));
@@ -16049,7 +16242,7 @@
     state.modulesAt = Date.now();
     save();
     render();
-    moveRecordModal({ sportId: id, recordId: rec.id });
+    moveRecordModal({ sportId: id, recordId: rec.id, mode: 'after' });
   }
 
   /* v181：跳过记录这次的详细数据 —— 仍算完成，但统计里看不到时长/距离等，先讲清楚再跳 */
@@ -16768,6 +16961,38 @@
           count++;
         });
         return;
+      }
+
+      /* v184：运动实例级提醒 —— 每个运动有自己的「运动开始时间」，
+         按它自己的频率生成日历事件。有实例时间就不再出模块级那条。
+         口径必须和 api/ics.php / api/schedule.php 一致。 */
+      if (key === 'move') {
+        const sports = Array.isArray(m.sports) ? m.sports : [];
+        let instCount = 0;
+        sports.forEach(function (sp) {
+          if (!sp) return;
+          const stt = String(sp.startTime || '');
+          if (!/^\d{2}:\d{2}$/.test(stt)) return;
+          const hm2 = stt.split(':').map(Number);
+          let start2 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm2[0], hm2[1]);
+          let rrule2 = 'FREQ=DAILY';
+          if (String(sp.freqKind || 'daily') === 'weekly') {
+            const sel = (Array.isArray(sp.weekSel) ? sp.weekSel : []).map(function (x) { return clamp(Number(x) || 0, 0, 6); });
+            if (!sel.length) return;
+            rrule2 = 'FREQ=WEEKLY;BYDAY=' + sel.map(function (d) { return ICS_WEEK[d]; }).join(',');
+            while (start2 <= now) start2 = icsAddDays(start2, 7);
+          } else {
+            while (start2 <= now) start2 = icsAddDays(start2, 1);
+          }
+          const spname = String(sp.name || '运动');
+          const spicon = String(sp.icon || '');
+          out.push(icsEvent('sport-' + (sp.id || RECORD_IDS[key]), start2,
+            new Date(start2.getTime() + 15 * 60000),
+            (spicon ? spicon + ' ' : '') + spname, m.note || '', rrule2));
+          count++;
+          instCount++;
+        });
+        if (instCount) return;
       }
 
       const st = String(m.suggestTime || '');
@@ -17625,15 +17850,19 @@
     'move-new': () => moveSportModal(''),
     'move-goto': () => goView('move'),
     'move-do': el => moveDoSport(el.dataset.id),
-    'move-fill': el => moveRecordModal({ sportId: el.dataset.id, recordId: el.dataset.rec }),
+    'move-fill': el => moveRecordModal({ sportId: el.dataset.id, recordId: el.dataset.rec, mode: 'after' }),
     'move-skip': el => moveSkipConfirm(el.dataset.rec),
     'move-skip-ok': el => moveSkipRec(el.dataset.rec),
     'move-undo': el => moveUndoSport(el.dataset.id),
+    /* v184：补数据 = 补录当时跳过没填的那些次（列表里逐条补） */
     'move-rec': el => {
-      /* v181：如果今天还有待填的记录，补数据就直接打开那一条，避免又加一次把任务刷完成 */
       const sp = moveSportById(el.dataset.id);
-      const pend = sp ? movePendingRec(sp) : null;
-      moveRecordModal(pend ? { sportId: el.dataset.id, recordId: pend.id } : { sportId: el.dataset.id });
+      if (sp) moveRecListModal(sp, 'fill');
+    },
+    /* v184：卡片内的统一记录入口，看今天这项运动的任务记录 */
+    'move-log': el => {
+      const sp = moveSportById(el.dataset.id);
+      if (sp) moveRecListModal(sp, 'log');
     },
     'move-add-rec': () => moveRecordModal({ add: true }),
     'move-edit-rec': el => moveEditRecord(el.dataset.id),
@@ -18439,7 +18668,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=183', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=184', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

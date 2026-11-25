@@ -167,13 +167,13 @@ def nav(pg, v):
 
 # 陛下表格：模式 -> (目标类型, 可记录数据)
 SPEC = {
-    'steps': (['每日步数（步）'], ['今日距离']),
-    'run': (['每次距离（公里）', '每次时长（分钟）'], ['时长', '距离', '配速', '步频', '心率', '热量消耗', '步幅']),
-    'walk': (['每次距离（公里）', '每次时长（分钟）'], ['时长', '距离', '配速', '步频', '心率', '热量消耗', '步幅']),
-    'ride': (['每次距离（公里）', '每次时长（分钟）'], ['时长', '骑行里程', '踏频', '心率', '热量消耗', '平均速度']),
-    'rope': (['每次时长（分钟）'], ['时长', '总次数', '每分钟跳频', '心率', '热量消耗']),
-    'strength': (['每次时长（分钟）'], ['时长', '组数', '次数', '负重重量', '组间休息', '心率', '热量消耗']),
-    'ball': (['每次时长（分钟）'], ['时长', '心率区间', '平均心率', '热量消耗']),
+    'steps': (['每日步数（步）'], ['距离']),
+    'run': (['每次距离（公里）', '每次时长（分钟）'], ['运动时长', '距离', '配速', '步频', '心率', '热量消耗', '步幅']),
+    'walk': (['每次距离（公里）', '每次时长（分钟）'], ['运动时长', '距离', '配速', '步频', '心率', '热量消耗', '步幅']),
+    'ride': (['每次距离（公里）', '每次时长（分钟）'], ['运动时长', '骑行里程', '踏频', '心率', '热量消耗', '平均速度']),
+    'rope': (['每次时长（分钟）'], ['运动时长', '总次数', '每分钟跳频', '心率', '热量消耗']),
+    'strength': (['每次时长（分钟）'], ['运动时长', '组数', '次数', '负重重量', '组间休息', '心率', '热量消耗']),
+    'ball': (['每次时长（分钟）'], ['运动时长', '心率区间', '平均心率', '热量消耗']),
 }
 ORDER = ['steps', 'run', 'walk', 'ride', 'rope', 'strength', 'ball']
 
@@ -259,21 +259,25 @@ with sync_playwright() as pw:
     chk('力量训练保存成功', len(st) == 1, str(len(st)))
     chk('存档里的 fields 只有 dur/sets', sorted(st[0].get('fields') or []) == ['dur', 'sets'], str(st[0].get('fields')))
 
-    # 打开补数据，检查表单字段
+    # 打卡后弹「运动后数据」弹窗，检查表单字段（v184：补数据入口只在跳过后出现）
     card = pg.locator('.mv-card', has_text='力量训练').first
-    card.locator('[data-act="move-rec"]').click()
-    pg.wait_for_timeout(600)
+    card.locator('[data-act="move-do"]').click()
+    pg.wait_for_timeout(900)
     names_in_form = pg.eval_on_selector_all('#move-record-body [name]', 'e => e.map(x => x.name)')
-    chk('补数据表单只有 时长 / 组数', sorted([n for n in names_in_form if n not in ('d', 't')]) == ['dur', 'sets'],
+    chk('运动后数据表单只有 时长 / 组数', sorted([n for n in names_in_form if n not in ('d', 't')]) == ['dur', 'sets'],
         str(names_in_form))
     chk('表单里没有「负重重量」', pg.locator('#move-record-body [name="weight"]').count() == 0)
     pg.fill('#move-record-body [name="dur"]', '30')
     pg.fill('#move-record-body [name="sets"]', '3')
     pg.click('#move-record-form button[type="submit"]')
     pg.wait_for_timeout(1500)
-    dv = pg.inner_text('.dv-list')
+    card.locator('[data-act="move-log"]').click()
+    pg.wait_for_timeout(700)
+    dv = pg.inner_text('#modal-root')
     chk('明细摘要含「30 分钟」', '30 分钟' in dv, dv[:160])
     chk('明细摘要含「3 组」', '3 组' in dv, dv[:160])
+    pg.click('#modal-root [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
     chk('卡片显示记录数据 2 项', '记录数据' in pg.locator('.mv-card', has_text='力量训练').first.inner_text())
 
     chk('全流程无 JS 异常', not errs, str(errs[:2]))

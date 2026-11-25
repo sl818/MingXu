@@ -190,6 +190,8 @@ with sync_playwright() as pw:
     # 打一次卡，产生一条记录
     pg.locator('.mv-card [data-act="move-do"]').first.click()
     pg.wait_for_timeout(900)
+    # v184：打卡后弹的是「运动后数据」表单，至少填一项才能提交
+    pg.fill('#move-record-body [name="dur"]', '30')
     pg.click('#move-record-form button[type="submit"]')
     pg.wait_for_timeout(1400)
     chk('有 1 条记录', len(recs()) == 1, str(len(recs())))

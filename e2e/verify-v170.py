@@ -156,10 +156,17 @@ with sync_playwright() as p:
     move_txt = pg.inner_text('.move-page')
     chk('卡片累计到 2000 步', '2000' in move_txt)
     chk('有「数据统计」板块', '数据统计' in move_txt)
-    chk('有「运动明细」板块', '运动明细' in move_txt)
-    chk('明细里有 1 条记录', pg.locator('.dv-row').count() == 1)
-    chk('明细每条带「改 / 删」', pg.locator('.dv-row [data-act="move-edit-rec"]').count() >= 1
-        and pg.locator('.dv-row [data-act="move-del-rec"]').count() >= 1)
+    # v184：页面底部的「运动明细」总表撤了，记录改到卡片里的【今日任务记录】
+    chk('底部不再有运动明细板块', '运动明细' not in move_txt)
+    chk('卡片有「今日任务记录」入口', pg.locator('.mv-card [data-act="move-log"]').count() >= 1)
+    pg.click('.mv-card [data-act="move-log"]')
+    pg.wait_for_timeout(800)
+    chk('任务记录里有 1 条记录', pg.locator('#modal-root .sp-recrow').count() == 1,
+        'rows=%d' % pg.locator('#modal-root .sp-recrow').count())
+    chk('每条带「修改 / 删除」', pg.locator('#modal-root [data-rec-edit]').count() >= 1
+        and pg.locator('#modal-root [data-rec-del]').count() >= 1)
+    pg.click('#modal-root [data-act="close-modal"]')
+    pg.wait_for_timeout(400)
 
     print('\n===== 6. 习惯页不含常驻卡 =====')
     nav(pg, 'habits')

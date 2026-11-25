@@ -276,6 +276,69 @@ function lb_schedule_day(array $state, string $date): array
             continue;
         }
 
+        /* v184：运动实例级提醒 —— 每个运动有自己的「运动开始时间」，
+           按它自己的频率排（每周选日运动的只在选中的星期提醒）；
+           今天已经记录过的运动不再催。
+           只要有实例设了开始时间，就不再用模块级那条，免得提醒两遍。 */
+        if ($mkey === 'move') {
+            $sports = isset($m['sports']) && is_array($m['sports']) ? $m['sports'] : [];
+            $records = isset($m['records']) && is_array($m['records']) ? $m['records'] : [];
+            $instSlots = [];
+            foreach ($sports as $sp) {
+                if (!is_array($sp)) {
+                    continue;
+                }
+                $st = (string)($sp['startTime'] ?? '');
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $st)) {
+                    continue;
+                }
+                $spid = (string)($sp['id'] ?? '');
+                $spkey = (string)($sp['key'] ?? 'steps');
+                if ((string)($sp['freqKind'] ?? 'daily') === 'weekly') {
+                    $sel = [];
+                    foreach ((array)($sp['weekSel'] ?? []) as $w) {
+                        $sel[] = (int)$w;
+                    }
+                    if (!in_array((int)date('w', strtotime($date)), $sel, true)) {
+                        continue;
+                    }
+                }
+                $done = false;
+                foreach ($records as $r) {
+                    if (!is_array($r) || (string)($r['d'] ?? '') !== $date) {
+                        continue;
+                    }
+                    $rid = (string)($r['sportId'] ?? '');
+                    $mine = $rid !== '' ? ($rid === $spid) : ((string)($r['key'] ?? '') === $spkey);
+                    if ($mine) {
+                        $done = true;
+                        break;
+                    }
+                }
+                if ($done) {
+                    continue;
+                }
+                $instSlots[] = [
+                    'time' => $st,
+                    'name' => trim((string)($sp['name'] ?? '')) ?: '运动',
+                    'icon' => (string)($sp['icon'] ?? ''),
+                    'id' => $spid !== '' ? ('sport-' . $spid) : $hid,
+                ];
+            }
+            if ($instSlots) {
+                foreach ($instSlots as $is) {
+                    $out[] = [
+                        'time' => $is['time'],
+                        'kind' => 'habit',
+                        'id' => $is['id'],
+                        'title' => ($is['icon'] !== '' ? $is['icon'] . ' ' : '') . $is['name'],
+                        'body' => '该开始运动了',
+                    ];
+                }
+                continue;
+            }
+        }
+
         /* 运动 / 478：沿用原 suggestTime 单条逻辑 */
         $slot = (string)($m['suggestTime'] ?? '');
         if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
