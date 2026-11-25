@@ -18,6 +18,7 @@
 | [CHANGE-MAP.md](CHANGE-MAP.md)         | **改动地图**：改某个功能要动哪几处、跑哪个测试                | 每次改动前          |
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
+| [MOVE-OPTIMIZATION.md](MOVE-OPTIMIZATION.md) | **运动模块本轮优化计划**：五条反馈怎么改 + 「真人走一遍」的全面回归矩阵 | 改运动模块前        |
 
 ## 设计文档（2026-11-23 起集中在 `design/`）
 

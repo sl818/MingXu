@@ -157,8 +157,8 @@
 | 规则 | 说明 |
 | --- | --- |
 | 皮肤**只改变量** | `--bg / --surface / --text / --accent / --line`；不要在皮肤里重绘组件 |
-| 参考标准 | `themes/themes.css`（冷雾矩阵）：143 条规则里 119 条是变量，只有 24 条非变量，所以最不容易被新组件撞坏 |
-| 反面案例 | `themes/custom.css` 76 条重绘组件的规则；`skin-cloud.css` 57 条 |
+| 参考标准 | 已删除的 `themes/themes.css`（冷雾矩阵）：143 条规则里 119 条是变量，只有 24 条非变量，所以最不容易被新组件撞坏 |
+| 反面案例 | 已删除的 `themes/custom.css` 76 条重绘组件的规则；`skin-cloud.css` 57 条 |
 | 焦点轮廓 | **只在 `app.css` 定义一次**，皮肤不得各自复制 |
 | 新增组件 | 样式只写 `app.css`；改完跑 `e2e/shots-skins.py` 看六套皮肤 |
 

@@ -269,7 +269,7 @@
    整个空月份变成一片米色。空格子也要给 `--surface`。
 3. **行尾不满 7 格时露底色**。容器底色只在有格子的轨道上被盖住，最后一行只剩 1 格时，
    其余 6 条空轨道就是一条米色横带。必须在 `viewMonth` 里补末尾空格子。
-4. **`grid-auto-rows` 也会露底色**。`app.css` 在 ≤1180 写死 `minmax(92px,auto)`，比 72–84 的格子高，
+4. **`grid-auto-rows` 也会露底色**。`app.css` 在 ≤1180 写死 minmax(92px,auto)（已删除的写法），比 72–84 的格子高，
    多出来的 8–20px 又是一条横带。主题层必须覆盖回 `auto`。
 5. **手机月份导航溢出**。`.month-nav` 不换行，390px 下「本月」被顶出面板右边缘；加 `flex-wrap`。
 6. **深色下 `--surface-2` 比卡面更暗**，`.rv-cell` 读成「洞」；深色改用 `--surface-3`。
@@ -337,11 +337,11 @@
 - `verify-stats-v80.py`：原「统计页不该有重复面板（v85）」改为「待办独立成块」，
   新增「五格与看板一致」「达成率一致」「总览只剩三个考核格」「切到全部后看板同步」四项。
   38 项全过。
-- `verify-archive.py`：取数从 `.tk-grid .rv-cell` 换到 `.task-stat .ts-cell`；
+- `verify-archive.py`：取数从 `.tk-grid .rv-cell` 换到已删除的 `.task-stat .ts-cell`；
   另外修掉一处**早已失效**的步骤——它靠「双击卡片 → `.is-open` → 点归档」，
   而 `openTaskIds` 只读不写、inline 详情早已废弃，改成直接点卡片内 `.task-detail` 的归档按钮。52 项全过。
 - `verify-calendar-v47.py`：面板顺序加入「待办」。48 项全过。
-- `audit-contrast-v33.py`：取样从 `.tk-grid` 换到 `.task-stat`/`.ts-*`，共 173 个元素；
+- `audit-contrast-v33.py`：取样从 `.tk-grid` 换到已删除的 `.task-stat`/`.ts-*`，共 173 个元素；
   依然只有 `dark .bmi-pill 3.81`（体重页，P2）。
 
 ## 6. 执行顺序

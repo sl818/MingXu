@@ -68,8 +68,12 @@ for _i in range(3):
 board['data']['cravings'] = _cr
 
 # 随笔页（v167 起补审计）：给两条带标签的随笔，否则 .essay-tag 取不到样本。
+# v185：第一条带 Markdown，全文弹窗里的标题/引用/代码/链接才有样本可取。
 board['data']['essays'] = [
-    {'id': 'e_audit1', 'date': '2026-10-25', 'title': '今日备忘', 'text': '审计用的随笔正文，含标签与字数。', 'tags': ['想法', '生活'], 'updatedAt': 1},
+    {'id': 'e_audit1', 'date': '2026-10-25', 'title': '今日备忘', 'updatedAt': 1,
+     'text': '# 今日备忘\n\n审计用的随笔正文，含 **粗体**、*斜体* 与 `code`。\n\n'
+             '> 一句引用。\n\n- 列表项一\n- 列表项二\n\n外链：[明序](https://todo.csl88.top/)',
+     'tags': ['想法', '生活']},
     {'id': 'e_audit2', 'date': '2026-10-24', 'title': '', 'text': '第二条，短一点。', 'tags': ['片段'], 'updatedAt': 2},
 ]
 
@@ -187,6 +191,10 @@ SELS_SETTINGS = ['.layout-name', '.layout-desc', '.theme-name', '.theme-desc',
 # v167 补：随笔页此前没被审计覆盖（长期遗漏）。标签是分类、无红；取样标题/正文/日期/标签。
 SELS_ESSAY = ['.essay-meta', '.essay-title', '.essay-text', '.essay-tag',
               '.essay-tag-filter .tag-chip', '.essay-tag-filter .tag-chip.active']
+# v185：随笔全文弹窗（Markdown 渲染）。引用与代码各自带自己的底色，要单独算。
+SELS_ESSAY_VIEW = ['.essay-view h3', '.essay-view .essay-meta', '.essay-view .essay-tag',
+                    '.essay-body p', '.essay-body h1', '.essay-body li',
+                    '.essay-body blockquote', '.essay-body code', '.essay-body a']
 SELS_TODAY = ['.install-tip .it-body b', '.install-tip .it-body small', '.remind-more', '.it-go',
               # 「其他习惯」目标 1 次的打卡按钮（v74）。mock 里 h_run 已打卡、h_plan 没打，
               # 两种状态各取一次；用 :not(.on) 区分，否则第一个匹配到的永远是 on 态。
@@ -363,6 +371,12 @@ with sync_playwright() as p:
             nav(pg, 'essays')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_ESSAY)
+            # v185：全文弹窗（Markdown 渲染）单独取样
+            pg.evaluate("() => { const c=document.querySelector('.essay-card'); if(c) c.click(); }")
+            pg.wait_for_timeout(800)
+            res += pg.evaluate(JS, SELS_ESSAY_VIEW)
+            pg.evaluate("() => { const b=document.querySelector('#modal-root [data-act=\"close-modal\"]'); if(b) b.click(); }")
+            pg.wait_for_timeout(500)
             nav(pg, 'habits')
             pg.wait_for_timeout(800)
             res += pg.evaluate(JS, SELS_HABITS_PAGE)

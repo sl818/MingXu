@@ -1344,6 +1344,17 @@ body{
 .essay-title{font-size:15.5px;font-weight:700;}
 .essay-text{font-size:12.5px;}
 .essay-meta{font-size:10.5px;letter-spacing:.02em;}
+/* v185：全文弹窗的正文排版（字号与层级，跟纸面阅读的节奏对齐） */
+.essay-body{font-size:14.5px;line-height:1.95;}
+.essay-body h1{font-size:19.5px;}
+.essay-body h2{font-size:17.5px;}
+.essay-body h3{font-size:16px;}
+.essay-body h4{font-size:15px;}
+.essay-body h1:first-child,.essay-body h2:first-child{margin-top:0;}
+.essay-body p:last-child{margin-bottom:0;}
+.essay-body blockquote{background:var(--surface-3);border-left-color:var(--line-strong);}
+.essay-view{width:min(720px,100%);}
+.md-preview{background:var(--surface);}
 
 /* ============================================================
    P2 · 第十页：配置

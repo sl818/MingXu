@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=184">
+<link rel="stylesheet" href="assets/app.css?v=185">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=184">
+<link rel="stylesheet" href="assets/theme-v2.css?v=185">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v184';
+  const APP_VERSION = 'v185';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -4505,6 +4505,11 @@
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el.classList.add('is-focus');
       setTimeout(() => el.classList.remove('is-focus'), 1800);
+      /* 随笔：搜到了就直接把全文打开，省得再点一次卡片 */
+      if (it.kind === 'essay') {
+        const e = (state.essays || []).find(x => x.id === it.id);
+        if (e) essayViewModal(e);
+      }
     });
   }
 
@@ -12015,6 +12020,132 @@
     return s.length > 180 ? s.slice(0, 180) + '…' : s;
   }
 
+  /* ============================================================
+     随笔正文的轻量 Markdown 渲染
+     ------------------------------------------------------------
+     项目没有构建、也不引 CDN，所以自己写一套。
+     铁律：**先 esc() 转义，再解析语法**——
+     转义之后正文里已经没有 < > & " '，解析器吐出来的标签
+     只可能是下面这几种我们自己写的，XSS 进不来。
+     支持：# 标题（1-4 级）、**粗体**、*斜体*、`代码`、
+           - 列表、> 引用、[文字](链接)、空行分段、单换行软换行。
+     ============================================================ */
+  const MD_CODE_MARK = '\u0001mdc';
+
+  /* 链接地址只放行 http / https / mailto；
+     javascript:、data:、vbscript: 一律丢掉（否则点一下就跑脚本）。
+     地址里的 & 之前被 esc() 转义过，这里先还原再校验。 */
+  function mdSafeUrl(u) {
+    const s = String(u == null ? '' : u).trim().replace(/&amp;/g, '&');
+    if (!/^(https?:\/\/|mailto:)/i.test(s)) return '';
+    return s;
+  }
+
+  /* 行内语法：代码 → 粗体 → 斜体 → 链接。
+     代码先摘出来占位，免得 ** 落在反引号里被当成粗体。 */
+  function mdInline(text) {
+    const codes = [];
+    let s = String(text == null ? '' : text);
+    s = s.replace(/`([^`\n]+)`/g, function (_, c) {
+      codes.push(c);
+      return MD_CODE_MARK + (codes.length - 1) + '\u0002';
+    });
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g, '$1<em>$2</em>');
+    s = s.replace(/\[([^\]\n]*)\]\(([^)\s]+)\)/g, function (_, t, u) {
+      const url = mdSafeUrl(u);
+      if (!url) return t;
+      return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>';
+    });
+    s = s.replace(new RegExp(MD_CODE_MARK + '(\\d+)\\u0002', 'g'), function (_, i) {
+      return '<code>' + codes[Number(i)] + '</code>';
+    });
+    return s;
+  }
+
+  /* 块级语法：按行切，标题 / 列表 / 引用 / 段落。
+     先按原文判断这一行是标题还是列表还是引用，再把行内内容交给 esc()——
+     这样「> 引用」不会被转义成 &gt; 之后认不出来。 */
+  function mdRender(src) {
+    const lines = String(src == null ? '' : src).replace(/\r\n?/g, '\n').split('\n');
+    let html = '';
+    let para = [];
+    let list = null;
+    let quote = null;
+    function flushPara() { if (para.length) { html += '<p>' + para.join('<br>') + '</p>'; para = []; } }
+    function flushList() { if (list) { html += '<ul>' + list.map(i => '<li>' + i + '</li>').join('') + '</ul>'; list = null; } }
+    function flushQuote() { if (quote) { html += '<blockquote>' + quote.join('<br>') + '</blockquote>'; quote = null; } }
+    function flushAll() { flushPara(); flushList(); flushQuote(); }
+    lines.forEach(function (line) {
+      const t = line.trim();
+      if (!t) { flushAll(); return; }
+      const h = /^(#{1,4})\s+(.*)$/.exec(t);
+      if (h) {
+        flushAll();
+        const lv = h[1].length;
+        html += '<h' + lv + '>' + mdInline(esc(h[2])) + '</h' + lv + '>';
+        return;
+      }
+      const li = /^[-*+]\s+(.+)$/.exec(t);
+      if (li) {
+        flushPara(); flushQuote();
+        if (!list) list = [];
+        list.push(mdInline(esc(li[1])));
+        return;
+      }
+      const q = /^>\s?(.*)$/.exec(t);
+      if (q) {
+        flushPara(); flushList();
+        if (!quote) quote = [];
+        quote.push(mdInline(esc(q[1])));
+        return;
+      }
+      flushList(); flushQuote();
+      para.push(mdInline(esc(t)));
+    });
+    flushAll();
+    return html;
+  }
+
+  /* 卡片摘要用：只出行内标签（段落用 <br> 隔开），
+     这样 .essay-text 的四行截断还能按原来的样子工作。 */
+  function mdInlineAll(src) {
+    const lines = String(src == null ? '' : src).replace(/\r\n?/g, '\n').split('\n');
+    const out = [];
+    lines.forEach(function (line) {
+      const t = line.trim();
+      if (!t) return;
+      const h = /^(#{1,4})\s+(.*)$/.exec(t);
+      if (h) { out.push('<strong class="md-h">' + mdInline(esc(h[2])) + '</strong>'); return; }
+      const li = /^[-*+]\s+(.+)$/.exec(t);
+      if (li) { out.push('<span class="md-li">' + mdInline(esc(li[1])) + '</span>'); return; }
+      const q = /^>\s?(.*)$/.exec(t);
+      if (q) { out.push('<span class="md-quote">' + mdInline(esc(q[1])) + '</span>'); return; }
+      out.push(mdInline(esc(t)));
+    });
+    return out.join('<br>');
+  }
+
+  /* 摘要截断：尽量切在换行处，并把被切断的行内标记补齐，
+     不然会渲染出半截语法（比如一个孤零零的 **）。 */
+  function mdClip(text, max) {
+    let s = String(text == null ? '' : text);
+    if (s.length <= max) return { text: s, cut: false };
+    s = s.slice(0, max);
+    const br = s.lastIndexOf('\n');
+    if (br > max * 0.55) s = s.slice(0, br);
+    s = s.replace(/\[[^\]\n]*\]\([^)\n]*$/, '').replace(/\[[^\]\n]*$/, '');
+    if ((s.match(/\*\*/g) || []).length % 2) s += '**';
+    if ((s.match(/`/g) || []).length % 2) s += '`';
+    if ((s.replace(/\*\*/g, '').match(/\*/g) || []).length % 2) s += '*';
+    return { text: s, cut: true };
+  }
+
+  function essayPreviewHtml(text) {
+    const c = mdClip(text, 180);
+    return mdInlineAll(c.text) + (c.cut ? '…' : '');
+  }
+
   function viewEssays() {
     const all = essayAll();
     const allTags = [];
@@ -12027,14 +12158,15 @@
       const tags = (e.tags || []).map(tag =>
         '<button type="button" class="essay-tag" data-act="essay-tag-filter" data-tag="' + esc(tag) + '">#' + esc(tag) + '</button>'
       ).join('');
-      return '<article class="essay-card">' +
+      return '<article class="essay-card" data-act="essay-view" data-id="' + esc(e.id) + '">' +
         '<div class="essay-meta"><span>' + esc(e.date) + '</span><span>' + count + ' 字</span></div>' +
         '<h3 class="essay-title">' + esc(title) + '</h3>' +
-        '<p class="essay-text">' + esc(essayExcerpt(e.text)) + '</p>' +
+        '<p class="essay-text">' + essayPreviewHtml(e.text) + '</p>' +
         (tags ? '<div class="essay-tags">' + tags + '</div>' : '') +
         '<div class="essay-actions">' +
-          '<button type="button" class="mini-btn" data-act="essay-edit" data-id="' + e.id + '">编辑</button>' +
-          '<button type="button" class="mini-btn ghost" data-act="essay-del" data-id="' + e.id + '">删除</button>' +
+          '<button type="button" class="mini-btn" data-act="essay-view" data-id="' + esc(e.id) + '">全文</button>' +
+          '<button type="button" class="mini-btn" data-act="essay-edit" data-id="' + esc(e.id) + '">编辑</button>' +
+          '<button type="button" class="mini-btn ghost" data-act="essay-del" data-id="' + esc(e.id) + '">删除</button>' +
         '</div>' +
       '</article>';
     }).join('');
@@ -14893,6 +15025,27 @@
     toast(isUpdate ? '体重已更新' : '体重已记录');
   }
 
+  /* 随笔全文弹窗：只读，正文按 Markdown 渲染。
+     底部留「编辑」入口——看完可以直接改。 */
+  function essayViewModal(essay) {
+    const e = essay || {};
+    const count = String(e.text || '').replace(/\s/g, '').length;
+    const tags = (e.tags || []).map(tag => '<span class="essay-tag">#' + esc(tag) + '</span>').join('');
+    openModal('' +
+      '<div class="modal-card essay-view">' +
+        '<h3>' + esc(e.title || '无标题') + '</h3>' +
+        '<div class="essay-meta essay-view-meta"><span>' + esc(e.date || '') + '</span><span>' + count + ' 字</span></div>' +
+        (tags ? '<div class="essay-tags">' + tags + '</div>' : '') +
+        '<div class="essay-body">' + mdRender(e.text) + '</div>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn danger" data-act="essay-del" data-id="' + esc(e.id || '') + '">删除</button>' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">关闭</button>' +
+          '<button type="button" class="btn" data-act="essay-edit" data-id="' + esc(e.id || '') + '">编辑</button>' +
+        '</div>' +
+      '</div>');
+  }
+
   function essayModal(essay) {
     const base = essay || { date: todayStr(), title: '', text: '', tags: [] };
     const tagValue = (Array.isArray(base.tags) ? base.tags : []).join('，');
@@ -14905,11 +15058,13 @@
         '</div>' +
         '<label class="field"><span>标签（可选，最多 5 个，用逗号分隔）</span><input name="tags" maxlength="80" value="' + esc(tagValue) + '" placeholder="例如：健康，生活"></label>' +
         '<label class="field"><span>内容</span><textarea name="text" rows="10" maxlength="5000" required placeholder="随便写点什么……">' + esc(base.text || '') + '</textarea></label>' +
-        '<p class="hint">随笔会跟着账号同步；最多 5000 字。</p>' +
+        '<div class="md-preview" id="essay-md-preview" hidden></div>' +
+        '<p class="hint">支持 Markdown：# 标题、**粗体**、*斜体*、`代码`、- 列表、&gt; 引用、[文字](链接)。随笔会跟着账号同步；最多 5000 字。</p>' +
         '<div class="form-error"></div>' +
         '<div class="modal-actions">' +
           (essay ? '<button type="button" class="btn danger" data-act="essay-del" data-id="' + essay.id + '">删除</button>' : '') +
           '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="essay-md-toggle">预览</button>' +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
           '<button type="submit" class="btn primary">保存</button>' +
         '</div>' +
@@ -17962,9 +18117,35 @@
       essayTag = el.dataset.tag || '';
       render();
     },
+    'essay-view': el => {
+      const e = (state.essays || []).find(x => x.id === el.dataset.id);
+      if (!e) return;
+      /* 正在划词的时候别弹窗——否则复制文字会被弹窗打断 */
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel && String(sel.toString() || '').trim()) return;
+      essayViewModal(e);
+    },
     'essay-edit': el => {
       const e = (state.essays || []).find(x => x.id === el.dataset.id);
       if (e) essayModal(e);
+    },
+    'essay-md-toggle': el => {
+      const form = document.getElementById('essay-form');
+      if (!form) return;
+      const ta = form.querySelector('[name="text"]');
+      const pv = form.querySelector('#essay-md-preview');
+      if (!ta || !pv) return;
+      if (pv.hasAttribute('hidden')) {
+        pv.innerHTML = mdRender(ta.value);
+        pv.removeAttribute('hidden');
+        ta.setAttribute('hidden', 'hidden');
+        el.textContent = '继续编辑';
+      } else {
+        pv.setAttribute('hidden', 'hidden');
+        ta.removeAttribute('hidden');
+        el.textContent = '预览';
+        try { ta.focus(); } catch (e) {}
+      }
     },
     'essay-del': el => {
       const e = (state.essays || []).find(x => x.id === el.dataset.id);
@@ -18668,7 +18849,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=184', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=185', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

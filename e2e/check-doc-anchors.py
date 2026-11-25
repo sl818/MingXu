@@ -23,6 +23,7 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/DEPLOY.md',
         'docs/REFACTOR-PLAN.md', 'docs/CHANGE-MAP.md',
         'docs/RENAME-PLAN.md',
+        'docs/MOVE-OPTIMIZATION.md',
         'docs/SMTP.md', 'README.md',
         # 待办技术债（P0）2026-11-24 起
         'docs/P0-喝水模块通知渠道路由.md',

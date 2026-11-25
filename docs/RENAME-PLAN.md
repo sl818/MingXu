@@ -69,8 +69,8 @@ L187 `<title>… · 晚风Todo安装`、L204 品牌块 `晚风Todo <small>INSTAL
 
 ### 2.6 `themes/*.css` — 6 处
 
-6 个主题文件的第 2 行头注释（`custom.css` / `skin-cloud.css` / `skin-neu.css` /
-`skin-retro.css` / `themes.css` / `_template.css`）。只改注释，不影响样式。
+6 个主题文件（现已删除）的第 2 行头注释（`custom.css` / `skin-cloud.css` / `skin-neu.css` /
+`skin-retro.css` / `themes.css` / `_template.css`，现已删除）。只改注释，不影响样式。
 
 ---
 

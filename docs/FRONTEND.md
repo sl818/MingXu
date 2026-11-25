@@ -319,7 +319,7 @@ document.addEventListener('click', e => {
 | 管理员 | `admin-panel` `admin-reset` `admin-toggle` |
 | 数据导出 | `export-json` `export-csv` `import-json` `reset` |
 | 版本历史 | `history-open` `history-preview` `history-restore` |
-| 外观 | `theme` `set-mode` `set-skin` `set-layout` |
+| 外观 | `theme` `set-mode` `set-layout`（`set-skin` 已删除） |
 | PWA | `app-install` `install-skip` |
 | 移动端 | `more-open` `more-go` `quick-add` |
 | 其他 | `set-mood` `help` `close-modal` |
