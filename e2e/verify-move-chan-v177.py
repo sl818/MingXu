@@ -223,11 +223,15 @@ with sync_playwright() as pw:
     open_modal(pg)
     t_pre = pg.inner_text('#move-sport-body #sp-chan-tip').strip()
     chk('一打开就预检浏览器渠道状态',
-        ('浏览器通知' in t_pre) and ('没有开启' in t_pre or '拦截' in t_pre or '不支持' in t_pre), t_pre)
+        ('浏览器通知' in t_pre) and ('还没开启' in t_pre or '拦截' in t_pre or '不支持' in t_pre), t_pre)
     t_wecom = click_chan(pg, 'wecom')
-    chk('企微未配置 → 提示去配置页', ('没有配置企业微信推送' in t_wecom and '配置' in t_wecom), t_wecom)
+    chk('企微未配置 → 逐条提示里出现企微', ('企业微信群' in t_wecom and '还没配置' in t_wecom and '配置' in t_wecom), t_wecom)
     t_mail = click_chan(pg, 'mail')
-    chk('邮箱未配置 → 提示去配置页', ('没有配置邮箱推送' in t_mail and '配置' in t_mail), t_mail)
+    chk('邮箱未配置 → 逐条提示里出现邮件', ('邮件通知' in t_mail and '还没配置' in t_mail), t_mail)
+    # v180 核心：三个都勾、都未配置时，必须三条都列出来，不能只报一条
+    all_tip = pg.inner_text('#move-sport-body #sp-chan-tip')
+    chk('三条渠道状态逐个列出', ('浏览器通知' in all_tip and '企业微信群' in all_tip and '邮件通知' in all_tip), all_tip)
+    chk('正好 3 行状态', len([l for l in all_tip.split('\n') if l.strip()]) == 3, all_tip)
     close_modal(pg)
 
     print('\n===== 3. 已配置时勾选 → 提示服务正常 =====')
@@ -253,7 +257,7 @@ with sync_playwright() as pw:
     CFG.update({'mail_secret': False})
     open_modal(pg)
     t_mail3 = click_chan(pg, 'mail')
-    chk('邮箱缺授权码 → 未配置', '没有配置邮箱推送' in t_mail3, t_mail3)
+    chk('邮箱缺授权码 → 未配置', '还没配置邮箱与授权码' in t_mail3, t_mail3)
     close_modal(pg)
 
     print('\n===== 6. 弹窗选的渠道不会被页面保存冲掉 =====')

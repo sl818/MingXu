@@ -3541,14 +3541,19 @@ body.modal-open{overflow:hidden;}
 .sp-chan-opt .ci{font-size:18px}
 .sp-chan-opt input{position:absolute;opacity:0}
 .sp-chan-opt.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-/* 渠道能力检测结果（v177）：勾选后当场告诉用户「能用」还是「去哪儿配」。
+/* 渠道能力检测结果（v180）：已选渠道逐条列出，每条一行。
    未配置用正文色 + ⚠ 前缀，避免 --bad 在 11.5px 小字上对比度不够。 */
-.sp-chan-tip{font-size:11.5px;line-height:1.65;margin:8px 0 0}
+.sp-chan-tip{font-size:11.5px;line-height:1.7;margin:8px 0 0;display:flex;flex-direction:column;gap:3px}
 .sp-chan-tip:empty{display:none}
-.sp-chan-tip.ok{color:var(--good)}
-.sp-chan-tip.bad{color:var(--text)}
-.sp-chan-tip.ok::before{content:'✅ '}
-.sp-chan-tip.bad::before{content:'⚠ '}
+.sp-chan-line.ok{color:var(--good)}
+.sp-chan-line.bad{color:var(--text)}
+.sp-chan-line.wait{color:var(--muted)}
+/* 渠道卡片右上角状态点：绿=已配置、黄=未配置、灰=检测中 */
+.sp-chan-opt{position:relative}
+.ch-dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--line-strong)}
+.ch-dot.ok{background:var(--good)}
+.ch-dot.bad{background:var(--warn)}
+.ch-dot.wait{background:var(--line)}
 @media (max-width:900px){.mv-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:600px){.mv-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
 

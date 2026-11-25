@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=179">
+<link rel="stylesheet" href="assets/app.css?v=180">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=179">
+<link rel="stylesheet" href="assets/theme-v2.css?v=180">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v179';
+  const APP_VERSION = 'v180';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -15380,47 +15380,37 @@
     if (moveChanTipRefresher) moveChanTipRefresher();
   }
 
-  /* 返回 { ok, pending?, msg }：msg 一律说清「能用」或「去哪儿配」 */
+  /* 单个渠道的能力状态：{ ok, pending?, reason }
+     reason 只说原因、不带渠道名 —— 多条一起列的时候才不会重复啰嗦。 */
   function moveChanState(key) {
     if (key === 'browser') {
       if (typeof Notification === 'undefined') {
-        return { ok: false, msg: '这个浏览器不支持系统通知，换 Chrome / Edge 试试' };
+        return { ok: false, reason: '这个浏览器不支持系统通知，换 Chrome / Edge 试试' };
       }
       const p = Notification.permission;
-      if (p === 'granted') return { ok: true, msg: '浏览器通知已开启，服务正常' };
-      if (p === 'denied') return { ok: false, msg: '浏览器通知被系统拦截了，请到浏览器设置里允许本站通知' };
-      return { ok: false, msg: '你还没有开启浏览器通知，请在「配置」页的通知配置里开启' };
+      if (p === 'granted') return { ok: true };
+      if (p === 'denied') return { ok: false, reason: '被系统拦截了，请到浏览器设置里允许本站通知' };
+      return { ok: false, reason: '还没开启，请到「配置」页的通知配置里开启' };
     }
-    if (!moveChanCfg) return { ok: false, pending: true, msg: '正在检测这条渠道的配置，稍等一下再点一次' };
-    const name = key === 'wecom' ? '企业微信' : '邮箱';
-    if (moveChanCfg.offline) {
-      return { ok: false, msg: '现在是本地模式，' + name + '推送要登录账号后才能用' };
-    }
+    if (!moveChanCfg) return { ok: false, pending: true, reason: '正在检测配置…' };
+    if (moveChanCfg.offline) return { ok: false, reason: '现在是本地模式，登录账号后才可用' };
     if (key === 'wecom') {
       const p = moveChanCfg.push;
-      if (!p) return { ok: false, msg: '拿不到企业微信配置，请先到「配置」页保存一次机器人地址' };
-      if (p.enabled && p.webhook) return { ok: true, msg: '企业微信推送已开启，服务正常' };
-      return { ok: false, msg: '你还没有配置企业微信推送，请在「配置」页的通知配置里填机器人地址' };
+      if (!p) return { ok: false, reason: '拿不到配置，请到「配置」页保存一次机器人地址' };
+      if (p.enabled && p.webhook) return { ok: true };
+      return { ok: false, reason: '还没配置机器人地址，请到「配置」页的通知配置里填写' };
     }
     if (key === 'mail') {
       const c = moveChanCfg.mail;
-      if (!c) return { ok: false, msg: '拿不到邮箱配置，请先到「配置」页保存一次邮箱设置' };
-      if (c.enabled && c.host && c.user && c.hasSecret) return { ok: true, msg: '邮箱推送已开启，服务正常' };
-      return { ok: false, msg: '你还没有配置邮箱推送，请在「配置」页的通知配置里填邮箱与授权码' };
+      if (!c) return { ok: false, reason: '拿不到配置，请到「配置」页保存一次邮箱设置' };
+      if (c.enabled && c.host && c.user && c.hasSecret) return { ok: true };
+      return { ok: false, reason: '还没配置邮箱与授权码，请到「配置」页的通知配置里填写' };
     }
-    return { ok: true, msg: '' };
+    return { ok: true };
   }
+  const MOVE_CHAN_NAME = { browser: '浏览器通知', wecom: '企业微信群', mail: '邮件通知' };
 
-  /* 把检测结果显示在弹窗里那行提示上（toast 只有 2.2 秒，长句子看不完） */
-  function moveChanTell(key) {
-    const el = document.getElementById('sp-chan-tip');
-    const st = moveChanState(key);
-    if (st.pending) moveLoadChanCfg();
-    if (!el) { toast(st.msg); return; }
-    el.dataset.chan = key;
-    el.className = 'sp-chan-tip ' + (st.ok ? 'ok' : 'bad');
-    el.textContent = st.msg;
-  }
+  /* 渠道提示的渲染放在弹窗里（要读 chanSel 闭包），这里只留能力判断 */
 
   function moveSportModal(id) {
     /* 每次打开都重新探一次：用户可能刚在配置页开通过渠道 */
@@ -15557,7 +15547,7 @@
         h += '<p class="sp-hint">勾选时会当场检测这条渠道是否已配置：能收到会提示「服务正常」，没配置会告诉你先去「配置」页开通。三个都不选，就等同于不提醒。</p>';
         h += '<div class="sp-chan">' + MOVE_CHANS.map(function (c) {
           const on = chanSel.indexOf(c[0]) >= 0;
-          return '<label class="sp-chan-opt' + (on ? ' on' : '') + '"><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
+          return '<label class="sp-chan-opt' + (on ? ' on' : '') + '"><span class="ch-dot" data-k="' + c[0] + '"></span><span class="ci">' + ({ browser: '🔔', wecom: '💬', mail: '✉️' })[c[0]] + '</span>' + c[1] +
             '<input type="checkbox" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
         }).join('') + '</div>';
         h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
@@ -15567,39 +15557,32 @@
       checkSelected();
     }
 
-    /* 预检已选渠道的整体状态：一打开弹窗就能看到「都配好了」还是「哪条还没配」。
-       之所以要预检：浏览器通知默认就是勾上的，用户点它其实是取消，
-       单靠点击检测会漏掉「默认渠道其实没开」这种情况。 */
+    /* v180：把已选渠道**逐条**列出来。
+       之前只显示一条（第一个未配置的 / 刚点的那条），勾三个都没配时用户会以为另外两个是好的。
+       同时给每张渠道卡片刷一个状态点：绿=已配置、黄=未配置、灰=检测中。 */
     function checkSelected() {
-      const el = document.getElementById('sp-chan-tip');
-      if (!el) return;
-      /* 三个渠道都取消掉是允许的，只要说清楚后果 */
+      const box = document.getElementById('sp-chan-tip');
+      /* 卡片上的状态点 */
+      document.querySelectorAll('#move-sport-body .ch-dot').forEach(function (d) {
+        const st = moveChanState(d.dataset.k);
+        d.className = 'ch-dot ' + (st.pending ? 'wait' : st.ok ? 'ok' : 'bad');
+        d.title = st.ok ? '已配置' : (st.pending ? '正在检测' : '未配置');
+      });
+      if (!box) return;
       if (!chanSel.length) {
-        el.dataset.chan = '';
-        el.className = 'sp-chan-tip bad';
-        el.textContent = '还没选任何渠道，保存后这个运动不会有提醒（要彻底关掉可以打开上面的总开关）';
+        box.className = 'sp-chan-tip';
+        box.innerHTML = '<div class="sp-chan-line bad">⚠ 还没选任何渠道，保存后这个运动不会有提醒（要彻底关掉可以打开上面的总开关）</div>';
         return;
       }
-      const bad = [];
-      let pending = false;
-      chanSel.forEach(function (k) {
+      const lines = chanSel.map(function (k) {
         const st = moveChanState(k);
-        if (st.pending) pending = true;
-        else if (!st.ok) bad.push({ k: k, msg: st.msg });
+        const nm = esc(MOVE_CHAN_NAME[k] || k);
+        if (st.pending) return '<div class="sp-chan-line wait">· ' + nm + '：正在检测配置…</div>';
+        if (st.ok) return '<div class="sp-chan-line ok">✓ ' + nm + '：已配置，服务正常</div>';
+        return '<div class="sp-chan-line bad">⚠ ' + nm + '：' + esc(st.reason || '未配置') + '</div>';
       });
-      if (bad.length) {
-        el.dataset.chan = '';
-        el.className = 'sp-chan-tip bad';
-        el.textContent = bad[0].msg;
-      } else if (pending) {
-        el.dataset.chan = '';
-        el.className = 'sp-chan-tip';
-        el.textContent = '正在检测渠道配置…';
-      } else {
-        el.dataset.chan = '';
-        el.className = 'sp-chan-tip ok';
-        el.textContent = '已选渠道都已配置好，服务正常';
-      }
+      box.className = 'sp-chan-tip';
+      box.innerHTML = lines.join('');
     }
     moveChanTipRefresher = checkSelected;
 
@@ -15651,15 +15634,12 @@
           const v = cb.value;
           if (cb.checked) {
             if (chanSel.indexOf(v) < 0) chanSel.push(v);
-            /* v177：勾上的同时检测这个渠道到底能不能用 */
-            moveChanTell(v);
           } else {
             chanSel = chanSel.filter(function (x) { return x !== v; });
-            /* 取消一条后回到「整体状态」，而不是留着一句过时的话 */
-            checkSelected();
           }
-          /* v178：不再强行保留一个渠道 —— 三个都能点掉，靠上面的总开关兜底 */
+          /* v180：勾/取消都重列一遍「已选渠道」的状态，不再只报刚点的那一条 */
           ch.classList.toggle('on', cb.checked);
+          checkSelected();
         };
       });
     }
@@ -18320,7 +18300,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=179', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=180', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

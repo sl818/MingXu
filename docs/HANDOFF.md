@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v179（2026-11-25）
+最后更新：v180（2026-11-25）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v179（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v179'`） |
+| 代码版本 | v180（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v180'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -209,6 +209,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v177 | 11-24 | **运动提醒：去掉重复渠道区 + 勾选时检测渠道能力**（陛下点名）：①**页面不再放渠道选择**——`moveNotifyHtml` 删掉「提醒渠道（可多选）」整块（新建/编辑运动弹窗里已经选过，重复了），只留总开关 + 三个提醒场景 + 保存；说明文案改为「提醒渠道在『新建 / 编辑运动』里选择」；`saveMoveNotify` 不再读写 `channels`，避免把弹窗选好的渠道冲成默认值；②**勾选时真检测**——新增 `moveChanState(key)`：浏览器通知看 `Notification.permission`（granted→服务正常 / denied→被系统拦截 / default→没开启），企业微信看 `push_status` 的 `enabled`+`webhook`，邮件看 `mail_status` 的 `enabled`+`host`+`user`+`hasSecret`；能收到提示「xx已开启，服务正常」，没配置提示「你还没有配置xx，请在『配置』页的通知配置里…」；③**打开弹窗即预检**——`checkSelected()` 汇总「已选渠道」的整体状态（因为浏览器默认就勾上，用户点它是取消，单靠点击检测会漏掉「默认渠道其实没开」）；异步拿到配置后由 `moveChanTipRefresher` 回刷，不会停在「正在检测」；④提示放在弹窗内一行 `.sp-chan-tip`（toast 只有 2.2 秒，长句子看不完），未配置用正文色 + ⚠ 前缀，避免 `--bad` 在 11.5px 小字上对比度不足；⑤**同时修掉 v175 遗留 bug**——`normalizeModule('move')` 的白名单里没有 `notifyChannels`/`notifyScenes`，导致弹窗里选好的渠道一保存就被 normalize 丢掉（页面渠道「看起来不生效」的根因），已在 move 分支补上。测试：新增 `e2e/verify-move-chan-v177.py` 14/14（页面无渠道区、未配置提示、已配置提示、授权后提示、缺授权码算未配置、渠道不被冲掉）；`verify-v170` 59/59、`verify-move-compat-v176` 24/24、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch4` 20/20、`verify-batch3` 59/60（既有疗程测试时序问题，v175 基线同样失败）。SW → v177 |
 | v178 | 11-24 | **运动频率文案 + 单日多次 + 通知总开关**（陛下逐条点名）：①**频率按钮改文案**——`MOVE_FREQ` 从「每天 1 次 / 每周 1 天」（容易被读成「一天一次」）改成 **「每天运动 / 每周选日运动」**，不再在按钮上拼数值；②**「每周选日运动」支持单日多次**——新增 `sport.perDay`（每个执行日做几次），每周模式在星期多选下方多一个「每个选中的日子做 [N] 次」；`normalizeMoveSport` 里 `perDay` 缺省按 `daily→freqN / weekly→1` 回填，**既有用户默认仍是 1 次、行为不变**；③**达标改按次数**——`moveProgress` 非步数分支原来写死 `target: 1`（设了每天 3 次也只要打一次卡），改成 `target = freqKind==='weekly' ? perDay : freqN`，卡片环形显示 `1/2`、未达标提示「还差 N 次」；④**加通知总开关**——弹窗新增「接收这个运动的提醒」开关（`sport.notifyOn`），关掉后渠道区整体收起、保存 `channels=[]`；⑤**渠道可以全部取消**——删掉 `if (!chanSel.length) chanSel=['browser']` 这条「强制留一个」的兜底（正是「怎么点都关不掉、重进又冒出来」的根源），三个都不选时给出明确提示「还没选任何渠道，保存后这个运动不会有提醒」；⑥**渠道改为按运动存**——`normalizeMoveSport` 新增 `notifyOn` / `channels`（显式空数组保留空，不再回填 browser），`saveMoveSportForm` 不再把单运动渠道反向写到模块级。测试：新增 `e2e/verify-move-freq-notify-v178.py` 25/25（文案、perDay 存取、打 1 次不算完成打 2 次才算、关通知后渠道收起、三个渠道全取消且刷新后仍空）；`verify-v177` 14/14（第 6 节断言改为读 `sports[].channels`）、`verify-v170` 59/59、`verify-move-compat-v176` 24/24、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch4` 20/20。SW → v178 |
 | v179 | 11-25 | **运动模式精简 + 运动数据记录重定义**（陛下给表逐项落地）：①**下线「游泳」「瑜伽」**——新建列表只剩 7 种（每日步数、跑步、健走、骑行、跳绳、力量训练、球类运动）；`MOVE_TYPES` 里两者标 `retired: true` 保留定义，**历史数据不被删、卡片照常显示**，编辑老运动时网格里仍出现并标「已下线」，新增 `MOVE_PICKABLE` 控制可选列表；「球类」正式名改「球类运动」；②**「记录字段」改名「运动数据记录」**，并按表格为每种模式精确定义可记录项：步数=今日距离(米)；跑步/健走=时长·距离·配速·步频·心率·热量消耗·步幅；骑行=时长·骑行里程·踏频·心率·热量消耗·平均速度；跳绳=时长·总次数·每分钟跳频·心率·热量消耗；力量训练=时长·组数·次数·负重重量·组间休息·心率·热量消耗；球类=时长·心率区间·平均心率·热量消耗；③**目标类型调整**——跑步新增「每次时长」第二档；跳绳从「次数↔时长」改为单档时长（老数据目标值 >300 视为旧次数，回落默认 15 分钟）；力量/球类维持单档时长（原表两行都写「每次时长」，按单档实现）；④**补数据表单动态化**——`fieldsHtml` 不再写死字段，按该运动勾选的 `sport.fields` 生成输入框（number/text/select 三类），没勾的不显示；`saveMoveRecordForm` 同样按字段定义读值；⑤**摘要与统计同步**——`moveRecSummary` 按字段定义拼「30 分钟 · 3 组」这类摘要；卡片把 7 个字段标签压成「记录数据 N 项」避免拥挤；专项数据里骑行改用「平均速度」、跳绳单位改「次」，**游泳块改为仅有历史记录时才显示**；`normalizeMoveRecord` 白名单扩到 distM/stride/speed/ropeRate/sets/reps/weight/rest/hrZone/heartAvg。**线上影响评估**：解析线上 `boards.data` 后确认仅 1 个用户建过运动（steps+run），游泳/瑜伽/跳绳零使用，本次调整对存量数据无影响。测试：新增 `e2e/verify-move-modes-v179.py` 33/33（7 模式、逐模式目标与数据项、改名、补数据动态字段、已下线运动可编辑）；`verify-v170` 63/63、`verify-move-compat-v176` 24/24、`verify-move-chan-v177` 14/14、`verify-move-freq-notify-v178` 25/25、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch4` 20/20。SW → v179 |
+| v180 | 11-25 | **渠道检测提示改为逐条列出**（陛下指出：勾 3 个渠道、都没配时只显示一条，会误以为另外两个可用）：①`moveChanState(key)` 的返回从 `{ok,msg}` 改为 `{ok,pending,reason}`——**reason 只说原因不带渠道名**，多条并列时才不啰嗦；②`checkSelected()` 整体重写：遍历 `chanSel` 里**每一个**已选渠道，各渲染一行 `.sp-chan-line`（✓ 已配置，服务正常 / ⚠ 渠道名：原因 / · 正在检测），零渠道时单独提示；③**渠道卡片加状态点** `.ch-dot`（绿=已配置、黄=未配置、灰=检测中，`title` 带说明），不用读文字也能一眼看出哪些不可用；④勾选与取消都调同一个 `checkSelected()`（原 `moveChanTell` 删掉，那条路径只报刚点的一项）；⑤CSS 由单行 `::before` 前缀改为 `.sp-chan-tip` flex 列 + `.sp-chan-line.ok/.bad/.wait`。测试：`verify-move-chan-v177` 16/16（新增「三条逐个列出」「正好 3 行」两条断言，旧文案断言同步）；`verify-move-freq-notify-v178` 25/25、`verify-move-modes-v179` 33/33、`regression-v3` 28/28。SW → v180 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
