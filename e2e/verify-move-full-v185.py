@@ -274,8 +274,14 @@ with sync_playwright() as pw:
     pg = ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
-    dlg = {'n': 0}
-    pg.on('dialog', lambda d: (dlg.__setitem__('n', dlg['n'] + 1), d.accept()))
+    dlg = {'n': 0, 'msg': ''}
+
+    def on_dlg(d):
+        dlg['n'] += 1
+        dlg['msg'] = d.message
+        d.accept()
+
+    pg.on('dialog', on_dlg)
 
     pg.clock.install(time=datetime(2026, 10, 24, 20, 0, 0))
     pg.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
@@ -405,6 +411,44 @@ with sync_playwright() as pw:
         str([r.get('steps') for r in srecs]))
     chk('距离存下来了', any(int(r.get('distM') or 0) == 1500 for r in srecs),
         str([r.get('distM') for r in srecs]))
+
+    # ============================================================
+    print('\n===== 6b. v187：步数的运动后数据「一天一份」+ 达标标记 + 补过即锁 =====')
+    open_log(pg, step1['id'])
+    expand_folds(pg)
+    t = pg.inner_text('#modal-root')
+    fold_n = pg.eval_on_selector_all('#modal-root .sp-fold-n', 'e => e.map(x => x.textContent.trim())')
+    chk('数据框标题写「今天」', len(fold_n) == 2 and fold_n[1] == '今天', str(fold_n))
+    chk('数据框只有一条（不是 4 条空的）', pg.locator('#modal-root .sp-dataitem').count() == 1,
+        str(pg.locator('#modal-root .sp-dataitem').count()))
+    chk('不再出现「未记录运动后数据」', '未记录运动后数据' not in t, t[:200])
+    chk('数据框显示距离 1500 米', '1500 米' in t, t[:200])
+    chk('日志里达标那次带「达标」标记', pg.locator('#modal-root .oktag').count() == 1,
+        str(pg.locator('#modal-root .oktag').count()))
+    # 距离补过就锁定：修改那条记录时距离只读
+    pg.locator('#modal-root [data-rec-edit]').last.click()
+    pg.wait_for_timeout(700)
+    chk('修改达标记录时距离没有输入框', pg.locator('#move-record-form input[name="distM"]').count() == 0,
+        str(pg.locator('#move-record-form input[name="distM"]').count()))
+    ro2 = pg.eval_on_selector_all('#move-record-form .f-ro', 'e => e.map(x => x.textContent.trim())')
+    chk('编辑时距离不可改（没有输入框、也不在表单里）',
+        not any('1500' in x for x in ro2)
+        and pg.locator('#move-record-form input[name="distM"]').count() == 0, str(ro2))
+    chk('但明确告诉用户已记录距离', '1500' in pg.inner_text('#move-record-form'), 
+        pg.inner_text('#move-record-form')[:200])
+    pg.click('#move-record-form button[type="submit"]')
+    pg.wait_for_timeout(1500)
+    chk('保存后距离没被冲掉', any(int(r.get('distM') or 0) == 1500
+                            for r in recs() if r.get('sportId') == step1['id']),
+        str([r.get('distM') for r in recs() if r.get('sportId') == step1['id']]))
+    # 删除带距离的记录要有提示
+    open_log(pg, step1['id'])
+    expand_folds(pg)
+    pg.locator('#modal-root [data-rec-del]').last.click()
+    pg.wait_for_timeout(900)
+    chk('删除带距离的记录有提示', '距离也一起消失' in dlg['msg'], dlg['msg'][:140])
+    pg.wait_for_timeout(600)
+    close_modal(pg)
 
     # ============================================================
     print('\n===== 7. 需求2：两个折叠区（运动日志 / 运动后数据，默认收起）=====')
@@ -555,7 +599,40 @@ with sync_playwright() as pw:
     chk('没有出现昨天的日期', '10-23' not in t, t[:160])
     close_modal(pg)
 
-    print('\n===== 15. 无 JS 报错 =====')
+    print('\n===== 15. v187：未达标提示 + 补数据列表带「第 N 次」=====')
+    open_new(pg, 'steps')
+    pg.fill('#sp-tval', '10000')
+    submit_sport(pg)
+    st3 = [s for s in sports() if s.get('key') == 'steps'][-1]
+    do_sport(pg, st3['id'])
+    fill_rec(pg, {'steps': 1000})
+    open_log(pg, st3['id'])
+    expand_folds(pg)
+    t = pg.inner_text('#modal-root')
+    chk('未达标：数据框只给一句说明',
+        pg.locator('#modal-root .sp-dataitem').count() == 0 and '还没达标' in t, t[:200])
+    chk('未达标时不写「未记录运动后数据」', '未记录运动后数据' not in t, t[:200])
+    close_modal(pg)
+
+    open_new(pg, 'ride')
+    pg.fill('#sp-tval', '10')
+    pg.fill('#sp-freqn', '2')
+    submit_sport(pg)
+    ride = sport_by_key('ride')
+    for _ in range(2):
+        do_sport(pg, ride['id'])
+        pg.click('#move-record-form [data-act="move-skip"]')
+        pg.wait_for_timeout(350)
+        pg.click('[data-act="move-skip-ok"]')
+        pg.wait_for_timeout(800)
+    card_of(pg, ride['id']).locator('[data-act="move-rec"]').click()
+    pg.wait_for_timeout(700)
+    rows = pg.eval_on_selector_all('#modal-root .sp-reclist .rt', 'e => e.map(x => x.textContent)')
+    chk('补数据列表带「第 1 次」「第 2 次」',
+        any('第 1 次' in x for x in rows) and any('第 2 次' in x for x in rows), str(rows))
+    close_modal(pg)
+
+    print('\n===== 16. 无 JS 报错 =====')
     chk('没有 JS 错误', not errs, '; '.join(errs[:3]))
 
     br.close()

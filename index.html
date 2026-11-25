@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=186">
+<link rel="stylesheet" href="assets/app.css?v=187">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=186">
+<link rel="stylesheet" href="assets/theme-v2.css?v=187">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v186';
+  const APP_VERSION = 'v187';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -16074,6 +16074,14 @@
       return r.key === s.key;
     });
   }
+  /* v187：这条记录是「当天第几次」（补数据列表跨天，序号要按各自那天算） */
+  function moveRecDayIndexOf(s, r) {
+    const list = moveRecords().filter(function (x) {
+      if (!x || x.d !== r.d) return false;
+      return x.sportId ? x.sportId === s.id : x.key === s.key;
+    });
+    return { nth: list.findIndex(function (x) { return x.id === r.id; }) + 1, total: list.length };
+  }
   /* v184：补数据列表 / 今日任务记录，两个弹窗共用一套行渲染 */
   function moveRecListModal(s, mode) {
     const T = MOVE_TYPES[s.key] || MOVE_TYPES.steps;
@@ -16090,6 +16098,21 @@
        「运动后数据」只回答「每次填了什么」。
        两块分工明确，一天十几次也不会糊成一片。日志行沿用方案 C：浅底条 + 分隔线。 */
     const numbered = recs.length > 1;   /* 多条才编号；步数也一样，否则同时刻的十几条分不出先后 */
+    /* v187：每日步数是**全天型**运动 —— 累计达标才算这一天结束。
+       找出「达标那一刻」是哪一条：步数看累计步数第一次跨过目标，其余按次数。 */
+    const isStepsSport = s.key === 'steps';
+    const goalAt = (function () {
+      if (isStepsSport) {
+        let acc = 0;
+        for (let i = 0; i < recs.length; i++) {
+          acc += Number(recs[i].steps) || 0;
+          if (acc >= (Number(s.tVal) || 1)) return i;
+        }
+        return -1;
+      }
+      const per = Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1);
+      return recs.length >= per ? per - 1 : -1;
+    })();
     function logRowsHtml() {
       return '<div class="sp-loglist">' + recs.map(function (r, i) {
         const stTxt = r.pending ? '待填数据' : (r.skipped ? '未记录详细数据' : '已记录');
@@ -16099,6 +16122,8 @@
           '<div class="sp-recrow sp-logrow">' +
           '<span class="idx">' + (numbered ? ('第 ' + (i + 1) + ' 次') : '') + '</span>' +
           '<span class="st' + (r.skipped ? ' bad' : '') + '">' + stTxt + '</span>' +
+          /* v187：让「运动是哪一次结束的」一眼可见 —— 达标那一刻标一个徽标 */
+          (i === goalAt ? '<span class="oktag">达标</span>' : '') +
           /* 时间与操作包一个尾部容器：手机换行时整块右对齐落下去，不会甩到左边 */
           '<span class="rtail"><span class="tm">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
           '<span class="ra">' +
@@ -16112,6 +16137,25 @@
       }).join('') + '</div>';
     }
     function dataItemsHtml() {
+      /* v187：每日步数的「运动后数据」是**一天一份**，不属于某一次打卡。
+         前几次打卡时这一天还没结束，根本谈不上运动后数据 —— 所以不逐条列「未记录」。 */
+      if (isStepsSport) {
+        const p = moveProgress(s, todayStr());
+        if (p.val < p.target) {
+          return '<div class="sp-dataempty">今天还没达标（' + p.val.toLocaleString() + ' / ' +
+            p.target.toLocaleString() + ' 步），达标之后才需要补运动后数据。' +
+            '<b>这一天还没结束，不算漏记。</b></div>';
+        }
+        const withDist = recs.find(function (r) { return Number(r.distM) > 0; });
+        if (!withDist) {
+          return '<div class="sp-dataempty">达标时选择了「跳过不记录」。之后可以用卡片上的「补充运动后详细数据」补一次；' +
+            '<b>补过就锁定，不能再改。</b></div>';
+        }
+        return '<div class="sp-dataitem">' +
+          '<div class="sp-dataitem-h"><b>今天</b><span>' + esc(moveRecHM(withDist)) + ' 达标</span></div>' +
+          moveRecFieldLines(s, withDist, T) +
+          '<div class="sp-datafoot">运动结束后补录，补过即锁定</div></div>';
+      }
       return '<div class="sp-datalist">' + recs.map(function (r, i) {
         return '<div class="sp-dataitem">' +
           '<div class="sp-dataitem-h">' + (numbered ? ('<b>第 ' + (i + 1) + ' 次</b>') : '') +
@@ -16128,12 +16172,17 @@
     const body = recs.length
       ? (mode === 'fill'
         ? '<div class="sp-reclist">' + recs.map(function (r, i) {
-          return '<div class="sp-recrow"><span class="rt">' + esc(moveRecSummary(r)) + '</span>' +
+          /* v187：补数据列表加「第 N 次」—— 同一天多次时，两条都写「未记录详细数据」分不出先后 */
+          const di = moveRecDayIndexOf(s, r);
+          const pre = di.total > 1 ? ('第 ' + di.nth + ' 次 · ') : '';
+          return '<div class="sp-recrow"><span class="rt">' + esc(pre + moveRecSummary(r)) + '</span>' +
             '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
             '<span class="ra"><button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button></span></div>';
         }).join('') + '</div>'
         : foldHtml('运动日志', recs.length + ' 次', logRowsHtml()) +
-          foldHtml('运动后数据', recs.length + ' 条', dataItemsHtml()))
+          foldHtml('运动后数据',
+            isStepsSport ? (goalAt >= 0 ? '今天' : '未达标') : recs.length + ' 条',
+            dataItemsHtml()))
       : '<p class="sp-desc">' + (mode === 'fill'
         ? '没有需要补录的记录 —— 之前填过的都填好了。'
         : '今天这项运动还没有记录。') + '</p>';
@@ -16191,6 +16240,12 @@
         lines.push('<div class="field"><span>记录方式</span>' +
           '<div class="f-ro">' + esc(modeTxt) + '</div>' +
           '<small class="f-sub">建运动时设定，这里不能改</small></div>');
+        /* v187：这次已经补过运动后数据（距离）—— 补过即锁定，表单里不给改，
+           但要说明一句，否则用户会以为距离丢了。 */
+        if (r && Number(r.distM) > 0) {
+          lines.push('<p class="sp-hint">这次已记录运动后数据：<b>距离 ' + Number(r.distM) +
+            ' 米</b>。补过即锁定，不在这里修改。</p>');
+        }
       }
       /* 只出勾选过的项。没勾的不显示 —— 补数据就只补这些。
          v185：每日步数的**打卡**表单只出步数与记录方式。距离属于「运动后数据」
@@ -16202,6 +16257,14 @@
       chosen.forEach(function (f) {
         const raw = r ? r[f.k] : '';
         const val = (raw === 0 || raw) ? raw : '';
+        /* v187：运动后数据补过就锁定（陛下定：达标即封板，不允许再更新）。
+           目前只有每日步数的「距离（米）」属于这一类，所以直接按 distM 判。 */
+        if (f.k === 'distM' && r && Number(r.distM) > 0) {
+          lines.push('<div class="field"><span>' + esc(f.n) + (f.unit ? '（' + esc(f.unit) + '）' : '') + '</span>' +
+            '<div class="f-ro">' + esc(String(r.distM)) + (f.unit ? ' ' + esc(f.unit) : '') + '</div>' +
+            '<small class="f-sub">已记录 · 运动后数据补过就锁定，不能再改</small></div>');
+          return;
+        }
         const sub = f.k === 'pace' ? '记录本次平均配速'
           : f.k === 'cadence' ? (k === 'ride' ? '记录平均踏频' : '记录平均步频')
             : f.k === 'heart' ? '记录平均心率'
@@ -16396,9 +16459,11 @@
     /* v179：这个模式定义了哪些数据项，就按类型读哪些，不再写死字段 */
     (MOVE_TYPES[key].fields || []).forEach(function (f) {
       const raw = get(f.k);
-      /* 补数据时没填的项保留原值，别把已有数据抹掉 */
-      if (isAfter && raw === '') {
-        if (prev && prev[f.k] !== undefined) rec[f.k] = prev[f.k];
+      /* 补数据时没填的项保留原值，别把已有数据抹掉。
+         v187：锁定的运动后数据（distM）在编辑表单里是只读的、没有 input，
+         这里也必须保留原值，否则一保存就把距离冲成 0。 */
+      if (raw === '' && prev && prev[f.k] !== undefined && (isAfter || f.k === 'distM')) {
+        rec[f.k] = prev[f.k];
         return;
       }
       if (f.type === 'text' || f.type === 'select') {
@@ -16619,7 +16684,13 @@
   function moveDelRecord(rid, keepOpen) {
     const rec = moveRecords().find(function (r) { return r.id === rid; });
     if (!rec) return;
-    if (!confirm('删除这条记录？\n' + moveRecSummary(rec))) return;
+    /* v187：这条记录带着当天的运动后数据（距离）时，删除会把距离一起带走 —— 先说清楚 */
+    let ask = '删除这条记录？\n' + moveRecSummary(rec);
+    if (rec.key === 'steps' && Number(rec.distM) > 0) {
+      ask += '\n\n注意：这条带着今天的运动后数据（距离 ' + rec.distM + ' 米）。' +
+        '删掉它，今天的距离也一起消失，而且运动后数据补过就锁定、不能再补。';
+    }
+    if (!confirm(ask)) return;
     const m = moveModule();
     const sportId = rec.sportId;
     m.records = (m.records || []).filter(function (r) { return r.id !== rid; });
@@ -18990,7 +19061,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=186', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=187', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
