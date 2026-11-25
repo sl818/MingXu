@@ -3481,6 +3481,8 @@ body.modal-open{overflow:hidden;}
 .mv-left{flex:1;min-width:0}
 .mv-st{display:block;font-size:19px;font-weight:650}
 .mv-st.ok{color:var(--good)}
+/* v181：打完卡但还没记录数据 —— 用警示色提醒「这一步还没做完」 */
+.mv-st.pend{color:var(--warn)}
 .mv-note{font-size:11px;color:var(--muted);margin-top:3px}
 .mv-fields{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .mv-ft{background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:2px 9px;font-size:10.5px;color:var(--muted)}
@@ -3548,11 +3550,11 @@ body.modal-open{overflow:hidden;}
 .sp-chan-line.ok{color:var(--good)}
 .sp-chan-line.bad{color:var(--text)}
 .sp-chan-line.wait{color:var(--muted)}
-/* 渠道卡片右上角状态点：绿=已配置、黄=未配置、灰=检测中 */
+/* 渠道卡片右上角状态灯：绿=已配置可用、红=未配置、灰=检测中 */
 .sp-chan-opt{position:relative}
 .ch-dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--line-strong)}
 .ch-dot.ok{background:var(--good)}
-.ch-dot.bad{background:var(--warn)}
+.ch-dot.bad{background:var(--bad)}
 .ch-dot.wait{background:var(--line)}
 @media (max-width:900px){.mv-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:600px){.mv-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
@@ -3613,6 +3615,10 @@ body.modal-open{overflow:hidden;}
 .st-barrow .tr{flex:1;height:9px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:block}
 .st-barrow .fl{display:block;height:100%;border-radius:99px}
 .st-barrow .vl{flex:none;color:var(--muted)}
+/* v181：跳过了数据记录的次数，在次数旁边挂个小标记（悬停有说明） */
+.st-barrow .sk-chip{display:inline-block;margin-left:5px;padding:0 5px;border-radius:99px;font-style:normal;
+  font-size:10.5px;line-height:16px;color:var(--text);background:var(--surface-3);border:1px solid var(--line);
+  cursor:default;white-space:nowrap}
 /* 记录方式双栏 */
 .st-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
 .st-split .box{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}

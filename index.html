@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=180">
+<link rel="stylesheet" href="assets/app.css?v=181">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=180">
+<link rel="stylesheet" href="assets/theme-v2.css?v=181">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v180';
+  const APP_VERSION = 'v181';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -786,7 +786,11 @@
       pace: String(r.pace || '').slice(0, 12),
       heart: num(r.heart),
       stroke: String(r.stroke || '').slice(0, 10),
-      recMode: (r.recMode === 'fixed' || r.recMode === 'manual') ? r.recMode : ''
+      recMode: (r.recMode === 'fixed' || r.recMode === 'manual') ? r.recMode : '',
+      /* v181：打卡后先记一条「待填数据」的记录（pending），填完或明确跳过才置 false。
+         老数据没有这两个字段，默认 false —— 不能反过来要求老用户去补。 */
+      pending: r.pending === true,
+      skipped: r.skipped === true
     };
   }
 
@@ -8246,6 +8250,16 @@
     const p = moveProgress(s, d);
     return p.val >= p.target;
   }
+  /* v181：今天还没填数据的那条打卡记录（打卡时置 pending，填完或跳过才清）。
+     有它的时候主按钮必须变成「记录数据」，不能允许再打一次。 */
+  function movePendingRec(s) {
+    if (!s) return null;
+    const recs = moveRecsOfSport(s, todayStr());
+    for (let i = recs.length - 1; i >= 0; i--) {
+      if (recs[i].pending) return recs[i];
+    }
+    return null;
+  }
   /* 某运动在指定日期是否「按计划休息」：只有「每周 N 天」且当天不在勾选里才成立 */
   function moveIsRestOn(s, ds) {
     if (!s || s.freqKind !== 'weekly') return false;
@@ -8315,8 +8329,10 @@
       ringVal = pct + '%';
       ringLbl = '完成率';
     } else {
-      pct = done ? 100 : 0;
-      ringVal = done ? '✓' : '0/1';
+      /* v181：原来写死「0/1」，用户设了「每天 2 次」也看不出来；
+         改成真实的 val/target，几次就写几次，待填数据的那一次也计入。 */
+      pct = done ? 100 : Math.min(100, Math.round(p.val / p.target * 100));
+      ringVal = done ? '✓' : (p.val + '/' + p.target);
       ringLbl = '完成';
     }
     /* 记录字段标签：目标 + 频率 + 记录方式 / 进阶字段 */
@@ -8329,6 +8345,7 @@
       fhtml += '<span class="mv-ft"><b>记录数据</b>' + s.fields.length + ' 项</span>';
     }
     /* 状态行 */
+    const pend = movePendingRec(s);
     let st, note;
     if (done) {
       st = '<div class="mv-st ok">今天已完成</div>';
@@ -8348,9 +8365,18 @@
       st = '<div class="mv-st">还没开始</div>';
       note = '动起来，' + T.desc;
     }
-    /* 主按钮：休息日禁用 */
+    /* v181：这一次打完卡还没填数据 —— 先让它显眼，并说清后果 */
+    if (pend) {
+      st = '<div class="mv-st pend">等记录这一次的数据</div>';
+      note = done
+        ? '今天的目标已经达成，但第 ' + p.val + ' 次的数据还没填：点「记录数据」填写，或进去选「跳过不记录」。'
+        : '这一次已经算完成，填完数据（或跳过）才能开始第 ' + Math.min(p.val + 1, p.target) + ' 次。';
+    }
+    /* 主按钮：pending 优先级最高 —— 达成次数后也要先把这一次的数据处理掉 */
     let mainBtn;
-    if (done) {
+    if (pend) {
+      mainBtn = '<button class="mv-btn go" data-act="move-fill" data-id="' + s.id + '" data-rec="' + pend.id + '">记录数据</button>';
+    } else if (done) {
       mainBtn = '<button class="mv-btn done" data-act="move-undo" data-id="' + s.id + '">已完成 · 点击撤销</button>';
     } else if (rest) {
       mainBtn = '<button class="mv-btn go" disabled>今日无需运动</button>';
@@ -8376,7 +8402,10 @@
       '</div>' +
       '<div class="mv-actions">' +
         mainBtn +
-        '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>' +
+        /* 有待填记录时不给「补数据」入口，避免又加一次把任务刷完成 —— 改成撤销这一次 */
+        (pend
+          ? '<button class="mv-btn ghost" data-act="move-undo" data-id="' + s.id + '">撤销这一次</button>'
+          : '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>') +
         '<button class="mv-btn ghost" data-act="move-edit" data-id="' + s.id + '">编辑</button>' +
         '<button class="mv-btn ghost danger" data-act="move-del" data-id="' + s.id + '">删除</button>' +
       '</div>' +
@@ -8399,6 +8428,9 @@
   function moveRecSummary(r) {
     const T = MOVE_TYPES[r.key];
     if (!T) return '—';
+    /* v181：用户明确跳过记录的那一次 / 还没填的那一次 */
+    if (r.skipped) return '未记录详细数据';
+    if (r.pending) return '待填数据';
     if (r.key === 'steps') {
       let s = (Number(r.steps) || 0).toLocaleString() + ' 步 · ' + (r.recMode === 'fixed' ? '固定' : '手动');
       if (Number(r.distM)) s += ' · ' + r.distM + ' 米';
@@ -8443,6 +8475,15 @@
         : cur === '30d' ? fmt(addDays(new Date(), -29))
           : cur === '90d' ? fmt(addDays(new Date(), -89)) : '';
     const list = moveRecords().filter(function (r) { return !from || r.d >= from; });
+    /* v181：用户点了「跳过不记录」的那些次 —— 仍算完成，但详细数据是空的。
+       统计里要能看见它们，否则用户会以为记录丢了。 */
+    const skipByKey = {};
+    let skipN = 0;
+    list.forEach(function (r) {
+      if (!r.skipped) return;
+      skipN++;
+      skipByKey[r.key] = (skipByKey[r.key] || 0) + 1;
+    });
 
     /* —— 汇总 —— */
     let dur = 0, dist = 0, kcal = 0, steps = 0, ropeCount = 0;
@@ -8516,9 +8557,11 @@
     const kpi = function (v, l) { return '<div class="mv-kpi"><b>' + v + '</b><span>' + l + '</span></div>'; };
     let h = '<section class="panel"><h3 class="mv-sec-title">数据统计</h3>' +
       '<p class="mv-sec-lead">按周期汇总所有运动记录，改一条记录这里立刻重算。</p>' +
+      (skipN ? '<p class="mv-sec-lead">其中 <b>' + skipN + '</b> 次跳过了数据记录：只计次数，不计入时长、距离、心率等详细数据。</p>' : '') +
       '<div class="mv-tabs">' + tabs + '</div>' +
       '<div class="st-kpi">' +
         kpi(list.length, '运动次数') +
+        (skipN ? kpi(skipN, '次未记录数据') : '') +
         kpi(Math.round(dur), '总时长（分）') +
         kpi(Math.round(dist * 10) / 10, '总距离（公里）') +
         kpi(kcal, '消耗（千卡）') +
@@ -8532,12 +8575,16 @@
     const typeKeys = Object.keys(byType).sort(function (a, b) { return byType[b].n - byType[a].n; });
     const maxN = Math.max.apply(null, typeKeys.map(function (k) { return byType[k].n; }).concat([1]));
     h += '<div class="st-grid2">';
-    h += '<section class="panel"><h3 class="mv-sec-title">按运动模式</h3><p class="mv-sec-lead">各模式记录次数。</p><div class="st-bars">' +
+    h += '<section class="panel"><h3 class="mv-sec-title">按运动模式</h3><p class="mv-sec-lead">各模式记录次数。' +
+      (skipN ? '<br>「跳 N」表示这个模式里有 N 次跳过了数据记录，没有详细数据。' : '') + '</p><div class="st-bars">' +
       (typeKeys.length ? typeKeys.map(function (k) {
         const o = byType[k], T = MOVE_TYPES[k];
+        const sk = skipByKey[k] || 0;
         return '<div class="st-barrow"><span class="nm"><span class="dot" style="background:' + esc(T.color) + '"></span>' + esc(T.name) + '</span>' +
           '<span class="tr"><span class="fl" style="width:' + Math.round(o.n / maxN * 100) + '%;background:' + esc(T.color) + '"></span></span>' +
-          '<span class="vl">' + o.n + ' 次</span></div>';
+          '<span class="vl">' + o.n + ' 次' +
+          (sk ? '<i class="sk-chip" title="其中 ' + sk + ' 次跳过了数据记录，没有时长/距离等详细数据">跳 ' + sk + '</i>' : '') +
+          '</span></div>';
       }).join('') : '<p class="st-none">这个周期还没有记录。</p>') + '</div></section>';
     h += '<section class="panel"><h3 class="mv-sec-title">记录方式</h3><p class="mv-sec-lead">步数两种方式 + 其他记录类型。</p><div class="st-split">' +
       '<div class="box"><h4>👟 每日步数</h4>' +
@@ -15797,9 +15844,17 @@
       return '<option value="' + k + '"' + (key === k ? ' selected' : '') + '>' + MOVE_TYPES[k].icon + ' ' + esc(MOVE_TYPES[k].name) +
         (MOVE_TYPES[k].retired ? '（已下线）' : '') + '</option>';
     }).join('');
-    const title = editing ? '修改记录' : (sport ? ('补充运动数据 · ' + MOVE_TYPES[key].name) : '添加记录');
+    /* v181：刚打完卡的记录（pending）要写清「这是第几次」，并给一个「跳过不记录」的出口 */
+    const isPending = !!(rec && rec.pending);
+    const nth = (isPending && sport) ? moveRecsOfSport(sport, todayStr()).length : 0;
+    const title = isPending
+      ? ('记录第 ' + nth + ' 次运动数据 · ' + MOVE_TYPES[key].name)
+      : (editing ? '修改记录' : (sport ? ('补充运动数据 · ' + MOVE_TYPES[key].name) : '添加记录'));
 
     let head = '<h3>' + esc(title) + '</h3>';
+    if (isPending) {
+      head += '<p class="sp-hint">这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。</p>';
+    }
     if (sport || editing) {
       head += '<div class="form-grid">' +
         '<div class="field"><span>日期</span><input name="d" type="date" value="' + esc(dfltD) + '"' + (editing ? '' : '') + '></div>' +
@@ -15819,6 +15874,7 @@
         listHtml +
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
+          (isPending ? '<button type="button" class="btn ghost" data-act="move-skip" data-rec="' + rec.id + '">跳过不记录</button>' : '') +
           '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
           '<button type="submit" class="btn primary">' + (editing ? '更新这条' : '保存') + '</button>' +
         '</div>' +
@@ -15877,6 +15933,9 @@
       }
     });
     if (key === 'steps' && !rec.steps) { toast('请填写步数'); return; }
+    /* v181：存了数据就说明这一次处理完了，清掉待填/跳过标记 */
+    rec.pending = false;
+    rec.skipped = false;
     if (!state.modules) state.modules = {};
     const m = moveModule();
     if (!Array.isArray(m.records)) m.records = [];
@@ -15936,25 +15995,67 @@
     const s = moveSportById(id);
     if (!s) return;
     if (moveIsRest(s)) { toast('今天是这项运动的休息日，按计划休息'); return; }
+    /* v181：上一次还没记录数据时，「去运动」直接转成「记录数据」，绝不加次数 */
+    const pend = movePendingRec(s);
+    if (pend) { moveRecordModal({ sportId: id, recordId: pend.id }); return; }
     if (moveSportDone(s, todayStr())) { moveUndoSport(id); return; }
     if (s.key === 'steps') {
       if (s.recMode === 'fixed') { movePushFixed(s); return; }
       moveRecordModal({ sportId: id });
       return;
     }
-    /* 非步数：打卡即记一次，详细数据可点「补数据」 */
+    /* 非步数（v181）：先记一条「待填数据」的记录 —— 算这次运动已完成，
+       然后立刻打开数据表单；填完或明确跳过，主按钮才回到「去运动」。 */
     const m = moveModule();
     if (!Array.isArray(m.records)) m.records = [];
     const now = new Date();
-    m.records.push(normalizeMoveRecord({
-      sportId: s.id, key: s.key, d: todayStr(), at: now.toISOString(), hour: now.getHours()
-    }));
+    const rec = normalizeMoveRecord({
+      sportId: s.id, key: s.key, d: todayStr(), at: now.toISOString(),
+      hour: now.getHours(), pending: true
+    });
+    m.records.push(rec);
     m.updatedAt = now.toISOString();
     state.modules.move = m;
     state.modulesAt = Date.now();
     save();
     render();
-    toast('已完成 ' + s.name + '，可点「补数据」填详细数据');
+    moveRecordModal({ sportId: id, recordId: rec.id });
+  }
+
+  /* v181：跳过记录这次的详细数据 —— 仍算完成，但统计里看不到时长/距离等，先讲清楚再跳 */
+  function moveSkipConfirm(recId) {
+    openModal(
+      '<div class="modal-card" style="max-width:440px">' +
+        '<h3>跳过不记录这次的数据？</h3>' +
+        '<p class="sp-hint" style="margin:12px 0 0;font-size:12.5px">' +
+          '跳过之后，这一次运动仍然算完成；但<b>数据统计页不会显示它的详细数据</b>' +
+          '（时长、距离、配速、心率等）。之后也可以在「补数据」里补录。' +
+        '</p>' +
+        '<div class="modal-actions">' +
+          '<span class="spacer"></span>' +
+          '<button type="button" class="btn ghost" data-act="close-modal">回去填写</button>' +
+          '<button type="button" class="btn primary" data-act="move-skip-ok" data-rec="' + esc(recId) + '">确定跳过</button>' +
+        '</div>' +
+      '</div>');
+  }
+
+  function moveSkipRec(recId) {
+    const m = moveModule();
+    if (!Array.isArray(m.records)) return;
+    let hit = false;
+    m.records = m.records.map(function (r) {
+      if (r.id !== recId) return r;
+      hit = true;
+      return Object.assign({}, r, { pending: false, skipped: true });
+    });
+    if (!hit) { closeModal(); render(); return; }
+    m.updatedAt = new Date().toISOString();
+    state.modules.move = m;
+    state.modulesAt = Date.now();
+    save();
+    closeModal();
+    render();
+    toast('已跳过：这次算完成，统计里没有它的详细数据');
   }
 
   /* 撤销：删当天这条运动的最后一条记录（多次记录时逐条退，不会一次清空整天） */
@@ -17494,8 +17595,16 @@
     'move-new': () => moveSportModal(''),
     'move-goto': () => goView('move'),
     'move-do': el => moveDoSport(el.dataset.id),
+    'move-fill': el => moveRecordModal({ sportId: el.dataset.id, recordId: el.dataset.rec }),
+    'move-skip': el => moveSkipConfirm(el.dataset.rec),
+    'move-skip-ok': el => moveSkipRec(el.dataset.rec),
     'move-undo': el => moveUndoSport(el.dataset.id),
-    'move-rec': el => moveRecordModal({ sportId: el.dataset.id }),
+    'move-rec': el => {
+      /* v181：如果今天还有待填的记录，补数据就直接打开那一条，避免又加一次把任务刷完成 */
+      const sp = moveSportById(el.dataset.id);
+      const pend = sp ? movePendingRec(sp) : null;
+      moveRecordModal(pend ? { sportId: el.dataset.id, recordId: pend.id } : { sportId: el.dataset.id });
+    },
     'move-add-rec': () => moveRecordModal({ add: true }),
     'move-edit-rec': el => moveEditRecord(el.dataset.id),
     'move-del-rec': el => moveDelRecord(el.dataset.id, false),
@@ -18300,7 +18409,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=180', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=181', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

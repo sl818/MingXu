@@ -210,8 +210,12 @@ with sync_playwright() as p:
             json.dumps(order, ensure_ascii=False))
 
         # 边界：只剩一种疗程时不应该出现小标题（避免少量药品被切碎）
+        # 注意：先让页面把待保存的内容推完，再改服务端数据 ——
+        # 否则自动保存会把手上的旧数据再推回去，把这里的改动顶掉（2026-11-25 修）
+        pg.wait_for_timeout(1800)
         saved = list(board['data']['meds'])
         board['data']['meds'] = [m for m in saved if m['courseType'] == 'long']
+        board['rev'] += 1
         pg2 = ctx.new_page()
         pg2.clock.install(time=datetime(2026, 10, 25, 10, 0, 0))
         pg2.goto('http://127.0.0.1:%d/index.html' % port, wait_until='networkidle')
