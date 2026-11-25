@@ -379,8 +379,18 @@ with sync_playwright() as pw:
     chk('打卡弹窗有「记录方式」', any('记录方式' in x for x in labels), str(labels))
     chk('打卡弹窗没有「距离」', not any('距离' in x for x in labels), str(labels))
     chk('打卡弹窗没有距离输入框', pg.locator('#move-record-form input[name="distM"]').count() == 0)
+    # v187：打卡时记录方式只读 —— 不能再从下拉切手动/固定
+    chk('打卡弹窗没有记录方式下拉', pg.locator('#move-record-form select[name="recMode"]').count() == 0,
+        str(pg.locator('#move-record-form select[name="recMode"]').count()))
+    ro = pg.locator('#move-record-form .f-ro')
+    chk('记录方式只读展示且与运动设置一致',
+        ro.count() == 1 and '手动输入今日步数' in ro.inner_text(),
+        ro.inner_text() if ro.count() else 'none')
     fill_rec(pg, {'steps': 600})
     chk('600/1000 还没达标', '还没达标' in card_of(pg, step1['id']).inner_text())
+    chk('打卡不会改写记录的记录方式', all((r.get('recMode') or 'manual') == 'manual'
+                                   for r in recs() if r.get('sportId') == step1['id']),
+        str([r.get('recMode') for r in recs() if r.get('sportId') == step1['id']]))
     do_sport(pg, step1['id'])
     fill_rec(pg, {'steps': 600})
     chk('达标后弹补充运动数据', '补充运动数据' in pg.inner_text('#move-record-form h3'),

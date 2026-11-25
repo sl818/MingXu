@@ -16184,10 +16184,13 @@
       const lines = [];
       if (!after && k === 'steps') {
         lines.push('<div class="field"><span>步数（步）</span><input name="steps" type="number" min="1" value="' + (r ? (r.steps || '') : '') + '"></div>');
-        lines.push('<div class="field"><span>记录方式</span><select name="recMode">' +
-          '<option value="manual"' + (r && r.recMode === 'manual' ? ' selected' : '') + '>手动输入</option>' +
-          '<option value="fixed"' + (r && r.recMode === 'fixed' ? ' selected' : '') + '>每次固定步数</option>' +
-          '</select></div>');
+        /* v187：记录方式只读 —— 它在「新建 / 编辑运动」里定死（v185 已锁），打卡时不能再换。
+           原来这里是个下拉，等于给锁定开了个后门（陛下实测抓到的）。 */
+        const modeTxt = (sport ? sport.recMode : (r ? r.recMode : '')) === 'fixed'
+          ? '每次记录固定步数' : '手动输入今日步数';
+        lines.push('<div class="field"><span>记录方式</span>' +
+          '<div class="f-ro">' + esc(modeTxt) + '</div>' +
+          '<small class="f-sub">建运动时设定，这里不能改</small></div>');
       }
       /* 只出勾选过的项。没勾的不显示 —— 补数据就只补这些。
          v185：每日步数的**打卡**表单只出步数与记录方式。距离属于「运动后数据」
@@ -16384,7 +16387,10 @@
       recMode: key === 'steps'
         ? (isAfter
           ? (prev ? (prev.recMode || 'manual') : 'manual')
-          : (get('recMode') === 'fixed' ? 'fixed' : 'manual'))
+          /* v187：打卡表单里已经没有记录方式控件 —— 跟运动自己的设置走，
+             别再回落到 manual（固定步数的运动点了「添加记录」也不会被改标签） */
+          : (sport ? (sport.recMode === 'fixed' ? 'fixed' : 'manual')
+            : (get('recMode') === 'fixed' ? 'fixed' : 'manual')))
         : ''
     };
     /* v179：这个模式定义了哪些数据项，就按类型读哪些，不再写死字段 */
