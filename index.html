@@ -8380,7 +8380,7 @@
       note = p.isSteps
         ? ('今天已记 ' + p.val + ' / ' + p.target + ' ' + tf.unit + '，达标了')
         : ('今天已完成 ' + p.val + ' / ' + p.target + ' 次' +
-          (skips.length ? '，有 ' + skips.length + ' 次跳过了记录数据，点「补数据」补上' : ''));
+          (skips.length ? '，有 ' + skips.length + ' 次跳过了记录数据，点「补充运动后详细数据」补上' : ''));
     } else if (rest) {
       st = '<div class="mv-st rest">今日无需运动</div>';
       note = '今天按计划休息 · ' + moveFreqText(s);
@@ -8432,11 +8432,13 @@
       '<div class="mv-actions">' +
         mainBtn +
         /* v184：「补数据」只在跳过没记录时才出现 —— 填过数据的记录没得补。
-           以前常驻一个「补数据」按钮，用户会以为还能再加一次，把任务刷完成。 */
+           以前常驻一个「补数据」按钮，用户会以为还能再加一次，把任务刷完成。
+           v185：文案改成「补充运动后详细数据」，红底白字 —— 这是「还没了结」的事，
+           红色按项目配色约定正给这类，蓝色只给「开启一件事」。 */
         (pend
           ? '<button class="mv-btn ghost" data-act="move-undo" data-id="' + s.id + '">撤销这一次</button>'
           : (skips.length
-            ? '<button class="mv-btn ghost" data-act="move-rec" data-id="' + s.id + '">补数据</button>'
+            ? '<button class="mv-btn need" data-act="move-rec" data-id="' + s.id + '">补充运动后详细数据</button>'
             : '')) +
         /* v184：卡片内的统一记录入口，替代原来页面底部那个混着补数据的总日志 */
         '<button class="mv-btn ghost" data-act="move-log" data-id="' + s.id + '">今日任务记录</button>' +
@@ -8496,6 +8498,46 @@
     if (isNaN(t.getTime())) return '';
     return pad2(t.getHours()) + ':' + pad2(t.getMinutes());
   }
+
+  /* v185：「今日任务记录」里一条记录的详细字段行（每组标题下面那几行）。
+     · 只显示值、不显示字段名时，用户看不出「50」是时长还是次数，也看不出自己勾了哪些项；
+     · 字段名与单位取自模式库定义（与弹窗里的标签同一份），值取记录里存的数，不四舍五入；
+     · 只列这个运动**勾选过**的字段：取消勾选后旧值仍留在存档里，只是不再显示；
+     · 步数记录额外补「步数」「记录方式」两行 —— 这两项不在 fields 里。
+     注意：卡片与统计页用的是 moveRecSummary（要短），别把这里换成那边。 */
+  function moveRecFieldLines(s, r, T) {
+    if (r.skipped) return '<div class="sp-recfield is-empty">· 未记录详细数据</div>';
+    if (r.pending) return '<div class="sp-recfield is-empty">· 待填数据</div>';
+    const keys = Array.isArray(s.fields) ? s.fields : (T.fields || []).map(function (f) { return f.k; });
+    const rows = [];
+    if (r.key === 'steps') {
+      rows.push(['步数（步）', (Number(r.steps) || 0).toLocaleString() + ' 步']);
+      rows.push(['记录方式', r.recMode === 'fixed' ? '每次记录固定步数' : '手动输入今日步数']);
+    }
+    keys.forEach(function (k) {
+      const f = (T.fields || []).find(function (x) { return x.k === k; });
+      if (!f) return;
+      const v = r[f.k];
+      const label = f.n + (f.unit ? '（' + f.unit + '）' : '');
+      if (f.type === 'text' || f.type === 'select') {
+        const str = String(v == null ? '' : v).trim();
+        if (!str) return;
+        /* 配速、心率区间这类没有单位的字段：字段名 + 空格 + 值 */
+        rows.push([label, str]);
+      } else {
+        const n = Number(v);
+        if (!(n > 0)) return;
+        /* 有单位的字段：值自带单位（3 公里 / 50 分钟） */
+        rows.push([label, String(n) + (f.unit ? ' ' + f.unit : '')]);
+      }
+    });
+    if (!rows.length) return '<div class="sp-recfield is-empty">· 未填写详细数据</div>';
+    return rows.map(function (x) {
+      return '<div class="sp-recfield"><span class="k">· ' + esc(x[0]) + '</span><span class="v">' + esc(x[1]) + '</span></div>';
+    }).join('');
+  }
+  /* 组标题的中文序号：第一次运动 / 第二次运动 …（超过十次就直接写数字） */
+  const MOVE_CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 
   function moveStatsHtml(m) {
     const sports = moveSports();
@@ -15674,9 +15716,20 @@
     let fixedSteps = init ? (init.fixedSteps || 1000) : 1000;
     /* v184：运动开始时间（HH:MM），默认留空；每日步数不用 */
     let startTime = init ? (init.startTime || '') : '';
+    /* v185：勾选状态改成严格判断 —— 先把该模式的全部字段置为「未勾」，
+       再把存档里明确勾上的置回 true。
+       原来只往 fieldOn 里塞 true、渲染时用「不等于 false 就算勾上」，
+       编辑老运动时存档里没出现的字段（undefined）就被当成勾中了：
+       表现为「全部取消 → 保存 → 重开又全勾上」。 */
     const fieldOn = {};
-    (init ? (init.fields || []) : MOVE_TYPES[curKey].fields.map(function (f) { return f.k; }))
-      .forEach(function (k) { fieldOn[k] = true; });
+    MOVE_TYPES[curKey].fields.forEach(function (f) { fieldOn[f.k] = false; });
+    if (init) {
+      (Array.isArray(init.fields) ? init.fields : []).forEach(function (k) {
+        if (k in fieldOn) fieldOn[k] = true;
+      });
+    } else {
+      MOVE_TYPES[curKey].fields.forEach(function (f) { fieldOn[f.k] = true; });
+    }
     let strokePick = (init && init.strokePick) || '自由泳';
     /* v178：通知开关与渠道都按「这个运动」自己存。
        编辑老运动（还没有 channels 字段）时，回落到模块级渠道。 */
@@ -15733,18 +15786,27 @@
           '<p class="sp-hint">填了到这个点会提醒你来运动；留空就只打卡、不提醒。</p>';
       }
       if (T.recordMode) {
-        h += '<span class="f-label">记录方式</span>';
+        /* v185：记录方式建好后锁定 —— 与 v183 的运动类型同款手法。
+           编辑时把「另一种」置灰不可点，误点只给提示不切换；
+           锁的是「选哪一种」，固定步数的数值仍可改。 */
+        const lockMode = !!init;
+        h += '<span class="f-label">记录方式' + (lockMode ? ' 🔒' : '') + '</span>';
         h += '<div class="sp-rec">' +
-          '<div class="sp-rec-opt' + (recMode === 'manual' ? ' on' : '') + '" data-rm="manual"><div class="t"><span class="dot"></span>手动输入今日步数</div><div class="d">打卡时填今天走了多少步</div></div>' +
-          '<div class="sp-rec-opt' + (recMode === 'fixed' ? ' on' : '') + '" data-rm="fixed"><div class="t"><span class="dot"></span>每次记录固定步数</div><div class="d">点一次按固定步数累加</div></div>' +
+          '<div class="sp-rec-opt' + (recMode === 'manual' ? ' on' : '') + (lockMode && recMode !== 'manual' ? ' locked' : '') + '" data-rm="manual"' +
+            (lockMode && recMode !== 'manual' ? ' aria-disabled="true"' : '') + '><div class="t"><span class="dot"></span>手动输入今日步数</div><div class="d">打卡时填今天走了多少步</div></div>' +
+          '<div class="sp-rec-opt' + (recMode === 'fixed' ? ' on' : '') + (lockMode && recMode !== 'fixed' ? ' locked' : '') + '" data-rm="fixed"' +
+            (lockMode && recMode !== 'fixed' ? ' aria-disabled="true"' : '') + '><div class="t"><span class="dot"></span>每次记录固定步数</div><div class="d">点一次按固定步数累加</div></div>' +
           '</div>';
+        if (lockMode) {
+          h += '<p class="sp-hint sp-locked">🔒 记录方式建好后不能修改。如果想换一种，请新建一个运动。</p>';
+        }
         if (recMode === 'fixed') {
           h += '<div class="sp-fixed"><span class="lbl">每次记录</span><input type="number" id="sp-fixed" min="1" value="' + fixedSteps + '"><span class="u">步</span></div>';
         }
       }
       h += '<span class="f-label">运动数据记录</span>';
       if (T.fields.length) {
-        h += '<p class="sp-hint">勾选这次运动要记录的数据。打勾的项目会出现在「补数据」表单里，不勾的不显示。</p>';
+        h += '<p class="sp-hint">勾选这次运动要记录的数据。打勾的项目会出现在「补充运动后详细数据」表单里，不勾的不显示。</p>';
         T.fields.forEach(function (f) {
           const unitTxt = f.unit ? ('（' + f.unit + '）') : '';
           const sub = f.k === 'pace' ? '记录本次平均配速'
@@ -15755,9 +15817,9 @@
                     : f.k === 'dur' ? '本次运动消耗的时长'
                       : '记录本次' + f.n;
           h += '<div class="sp-field-chk"><div><b>' + esc(f.n) + unitTxt + '</b><small>' + esc(sub) + '</small></div>' +
-            '<span class="switch"><input type="checkbox" data-fld="' + f.k + '"' + (fieldOn[f.k] !== false ? ' checked' : '') + '><i></i></span></div>';
+            '<span class="switch"><input type="checkbox" data-fld="' + f.k + '"' + (fieldOn[f.k] === true ? ' checked' : '') + '><i></i></span></div>';
           /* 泳姿这类带选项的字段，勾着的时候把选项也放出来（历史数据的游泳模式用） */
-          if (f.type === 'select' && f.opts && fieldOn[f.k] !== false) {
+          if (f.type === 'select' && f.opts && fieldOn[f.k] === true) {
             h += '<div class="sp-stroke" id="sp-stroke">' + f.opts.map(function (o) {
               return '<button type="button" data-s="' + esc(o) + '" class="' + (strokePick === o ? 'on' : '') + '">' + esc(o) + '</button>';
             }).join('') + '</div>';
@@ -15847,7 +15909,14 @@
         };
       });
       document.querySelectorAll('#move-sport-body .sp-rec-opt').forEach(function (o) {
-        o.onclick = function () { recMode = o.dataset.rm; renderBody(); };
+        o.onclick = function () {
+          /* v185：编辑时记录方式锁定 —— 点另一种只提示，不切换 */
+          if (init && o.dataset.rm !== recMode) {
+            toast('记录方式建好后不能修改。如果想换一种，请新建一个运动。');
+            return;
+          }
+          recMode = o.dataset.rm; renderBody();
+        };
       });
       const fx = $('#sp-fixed');
       if (fx) fx.oninput = function () { fixedSteps = clamp(Math.round(Number(fx.value) || 1), 1, 999999); };
@@ -15889,6 +15958,7 @@
           curKey = o.dataset.k;
           tIdx = 0;
           tVal = MOVE_TYPES[curKey].targets[0].def;
+          /* v185：换模式时按新模式的字段全集重建勾选状态（默认全勾，用户再自己取消） */
           Object.keys(fieldOn).forEach(function (k) { delete fieldOn[k]; });
           MOVE_TYPES[curKey].fields.forEach(function (f) { fieldOn[f.k] = true; });
           strokePick = '自由泳';
@@ -16006,16 +16076,31 @@
         '<p class="sp-hint">下面是当时跳过了记录数据的几次。点「补填」把数据补上，补完这条就不在列表里了。</p>'
       : '<h3>今日任务记录 · ' + esc(T.name) + '</h3>' +
         '<p class="sp-hint">今天这项运动的任务记录。点「修改」可以改数据，点「删除」可以删掉。</p>';
+    /* v185：今天的记录改成「组标题行 + 逐字段行」：
+       · 只有这个运动设了「每天 2 次及以上」才出现「第一次运动：」这种编号标题，
+         每天 1 次的直接列字段行，不编号（编号反而多余）；
+       · 日期时间与「修改 / 删除」放在组标题行右侧，始终可点；
+       · 不再截断 —— 之前一行塞不下就把后面的字段吃掉，用户以为没记上。 */
+    const per = Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1);
+    const numbered = s.key !== 'steps' && per >= 2;
     const body = recs.length
-      ? '<div class="sp-reclist">' + recs.map(function (r) {
-        return '<div class="sp-recrow"><span class="rt">' + esc(moveRecSummary(r)) + '</span>' +
-          '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
-          '<span class="ra">' +
-          (mode === 'fill'
-            ? '<button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button>'
-            : '<button type="button" class="lnk" data-rec-edit="' + r.id + '">修改</button>' +
-              '<button type="button" class="lnk danger" data-rec-del="' + r.id + '">删除</button>') +
-          '</span></div>';
+      ? '<div class="sp-reclist">' + recs.map(function (r, i) {
+        if (mode === 'fill') {
+          return '<div class="sp-recrow"><span class="rt">' + esc(moveRecSummary(r)) + '</span>' +
+            '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
+            '<span class="ra"><button type="button" class="lnk" data-act="move-fill" data-rec="' + r.id + '">补填</button></span></div>';
+        }
+        return '<div class="sp-recgroup">' +
+          '<div class="sp-recrow sp-recgroup-h">' +
+            '<span class="rt">' + (numbered ? ('第' + (MOVE_CN_NUM[i] || (i + 1)) + '次运动：') : '') + '</span>' +
+            '<span class="rtime">' + esc(String(r.d).slice(5)) + ' ' + esc(moveRecHM(r)) + '</span>' +
+            '<span class="ra">' +
+              '<button type="button" class="lnk" data-rec-edit="' + r.id + '">修改</button>' +
+              '<button type="button" class="lnk danger" data-rec-del="' + r.id + '">删除</button>' +
+            '</span>' +
+          '</div>' +
+          '<div class="sp-recfields">' + moveRecFieldLines(s, r, T) + '</div>' +
+        '</div>';
       }).join('') + '</div>'
       : '<p class="sp-desc">' + (mode === 'fill'
         ? '没有需要补录的记录 —— 之前填过的都填好了。'
@@ -16029,7 +16114,16 @@
       b.onclick = function (e) { e.preventDefault(); moveRecordModal({ recordId: b.dataset.recEdit }); };
     });
     box.querySelectorAll('[data-rec-del]').forEach(function (b) {
-      b.onclick = function (e) { e.preventDefault(); moveDelRecord(b.dataset.recDel, true); };
+      b.onclick = function (e) {
+        e.preventDefault();
+        const rid = b.dataset.recDel;
+        /* v185：删完回到**这个列表**。原来 moveDelRecord(keepOpen=true) 会重开
+           「补充运动数据」表单，用户在「今日任务记录」里点删除，却掉进一个新记录表单。 */
+        moveDelRecord(rid, false);
+        if (!moveRecords().some(function (r) { return r.id === rid; })) {
+          moveRecListModal(s, mode);
+        }
+      };
     });
     box.querySelectorAll('[data-act="move-fill"]').forEach(function (b) {
       b.onclick = function (e) {
@@ -16063,8 +16157,10 @@
           '<option value="fixed"' + (r && r.recMode === 'fixed' ? ' selected' : '') + '>每次固定步数</option>' +
           '</select></div>');
       }
-      /* 只出勾选过的项。没勾的不显示 —— 补数据就只补这些。 */
-      const chosen = T.fields.filter(function (f) {
+      /* 只出勾选过的项。没勾的不显示 —— 补数据就只补这些。
+         v185：每日步数的**打卡**表单只出步数与记录方式。距离属于「运动后数据」
+         （达标之后才记），不该混在打卡弹窗里；达标后的 mode='after' 才渲染它。 */
+      const chosen = (!after && k === 'steps') ? [] : T.fields.filter(function (f) {
         if (sport && Array.isArray(sport.fields)) return sport.fields.indexOf(f.k) >= 0;
         return true;
       });
@@ -16141,9 +16237,9 @@
     let head = '<h3>' + esc(title) + '</h3>';
     if (isAfter) {
       head += '<p class="sp-hint">' + (key === 'steps'
-        ? '今天的步数已经达标。下面补一条这次运动的运动后数据；填完就收工，不填可以选「跳过不记录」，之后用卡片上的「补数据」补上。'
+        ? '今天的步数已经达标。下面补一条这次运动的运动后数据；填完就收工，不填可以选「跳过不记录」，之后用卡片上的「补充运动后详细数据」补上。'
         : (rec && rec.pending
-          ? '这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。跳过后可以用卡片上的「补数据」补填。'
+          ? '这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。跳过后可以用卡片上的「补充运动后详细数据」补填。'
           : '这次当时跳过了记录数据。补上运动后数据就好；现在不想补可以点「取消」，它还留在「补数据」列表里。')) + '</p>';
     } else if (isPending) {
       head += '<p class="sp-hint">这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。</p>';
@@ -16309,8 +16405,15 @@
     if (key === 'steps' && !isAfter && sport) {
       const p = moveProgress(sport, d);
       if (p.val >= p.target) {
+        const dkeys = moveDataFields(sport, key);
+        /* v185：这个运动一个运动后数据都没勾选时，不弹空白补充弹窗
+           （否则用户只能点「跳过不记录」，等于白弹一次） */
+        if (!dkeys.length) {
+          toast('步数达标了 · ' + p.val + ' / ' + p.target + ' 步');
+          return;
+        }
         /* 已经在「记录步数」里顺手填了运动后数据（比如距离），就不用再弹一次 */
-        if (!moveFieldsFilled(rec, moveDataFields(sport, key))) {
+        if (!moveFieldsFilled(rec, dkeys)) {
           markMovePending(rec.id);
           moveRecordModal({ sportId: sport.id, recordId: rec.id, mode: 'after' });
         }
@@ -16355,7 +16458,7 @@
     render();
     const p = moveProgress(s, todayStr());
     /* v184：固定步数也一样 —— 达标后紧接着补「运动后数据（距离）」 */
-    if (p.val >= p.target) {
+    if (p.val >= p.target && moveDataFields(s, s.key).length) {
       const last = m.records[m.records.length - 1];
       if (last) {
         markMovePending(last.id);
@@ -16407,7 +16510,7 @@
         '<h3>跳过不记录这次的数据？</h3>' +
         '<p class="sp-hint" style="margin:12px 0 0;font-size:12.5px">' +
           '跳过之后，这一次运动仍然算完成；但<b>数据统计页不会显示它的详细数据</b>' +
-          '（时长、距离、配速、心率等）。之后也可以在「补数据」里补录。' +
+          '（时长、距离、配速、心率等）。之后也可以用卡片上的「补充运动后详细数据」补录。' +
         '</p>' +
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
