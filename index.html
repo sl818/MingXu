@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=178">
+<link rel="stylesheet" href="assets/app.css?v=179">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=178">
+<link rel="stylesheet" href="assets/theme-v2.css?v=179">
 </head>
 <body>
 <div class="app landing">
@@ -149,57 +149,114 @@
   const RECORD_IDS = { water: 'h_water', move: 'h_move', breathe: 'h_breathe', quit: 'h_drink' };
   const MODULE_KEYS = ['water', 'move', 'breathe', 'quit'];
   const MODULE_LABEL = { water: '喝水', move: '运动', breathe: '478呼吸法', quit: '戒烟' };
-  /* 运动 2.1（v176）：运动模式库（原来叫「运动类型」，陛下要求统一改称「模式」）。
-     每个模式自带 targets（目标档，可选 1~2 个：距离↔时长、次数↔时长）、
-     fields（进阶记录字段）、recordMode（只有每日步数有「手动输入 / 每次固定步数」两种方式）。
-     旧字段 unit / goal / goalLabel / extras 保留：v175 的数据和别处的老代码还在读它们，
-     新代码一律用 targets / fields。 */
+  /* 运动 2.2（v179）：模式库按陛下 2026-11-25 的表重做。
+     · 下线「游泳」「瑜伽」：不再出现在新建列表里，但**历史数据要能照常显示**，
+       所以定义保留并标 retired，不允许新建、不影响已建的卡片与记录。
+     · targets = 运动目标类型（可在下拉里切换的档位）
+     · fields  = 可记录的运动数据（新建时勾选，补数据时按勾选项生成输入框）
+     字段统一结构：{ k 键名, n 名称, unit 单位, type: number|text|select, step, ph, opts } */
   const MOVE_TYPES = {
     steps: { name: '每日步数', icon: '👟', color: '#4c7f96', unit: '步', goal: 10000,
-      goalLabel: '每日步数（步）', recordMode: true, extras: [],
+      goalLabel: '每日步数（步）', recordMode: true,
       desc: '每日步数，全天走路的步数，支持两种记录方式',
-      targets: [{ k: 'steps', label: '每日步数（步）', unit: '步', def: 10000 }], fields: [] },
+      targets: [{ k: 'steps', label: '每日步数（步）', unit: '步', def: 10000 }],
+      fields: [{ k: 'distM', n: '今日距离', unit: '米' }] },
     run: { name: '跑步', icon: '🏃', color: '#b5733f', unit: '公里', goal: 5,
-      goalLabel: '每次距离（公里）', extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '步频' }],
-      desc: '记录每次跑步的距离、配速与心率',
-      targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 5 }],
-      fields: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '步频' }] },
+      goalLabel: '每次距离（公里）',
+      desc: '记录每次跑步的时长、距离、配速、步频与心率',
+      targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 5 },
+        { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dist', n: '距离', unit: '公里', step: 0.01 },
+        { k: 'pace', n: '配速', type: 'text', ph: '如 6:30' },
+        { k: 'cadence', n: '步频', unit: '步/分' },
+        { k: 'heart', n: '心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' },
+        { k: 'stride', n: '步幅', unit: '厘米' }
+      ] },
     walk: { name: '健走', icon: '🚶', color: '#7a9d6b', unit: '公里', goal: 3,
-      goalLabel: '每次距离（公里）', extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }],
-      desc: '记录每次健走的距离或时长、配速与心率',
+      goalLabel: '每次距离（公里）',
+      desc: '记录每次健走的时长、距离、配速、步频与心率',
       targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 3 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
-      fields: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }] },
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dist', n: '距离', unit: '公里', step: 0.01 },
+        { k: 'pace', n: '配速', type: 'text', ph: '如 9:30' },
+        { k: 'cadence', n: '步频', unit: '步/分' },
+        { k: 'heart', n: '心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' },
+        { k: 'stride', n: '步幅', unit: '厘米' }
+      ] },
     ride: { name: '骑行', icon: '🚴', color: '#5b7fb3', unit: '公里', goal: 10,
-      goalLabel: '每次距离（公里）', extras: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '踏频' }],
-      desc: '记录每次骑行的距离或时长、配速、心率与踏频',
+      goalLabel: '每次距离（公里）',
+      desc: '记录每次骑行的时长、里程、踏频与平均速度',
       targets: [{ k: 'dist', label: '每次距离（公里）', unit: '公里', def: 10 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }],
-      fields: [{ k: 'pace', n: '配速' }, { k: 'heart', n: '心率' }, { k: 'cadence', n: '踏频' }] },
-    rope: { name: '跳绳', icon: '🪢', color: '#c07a9a', unit: '下', goal: 500,
-      goalLabel: '每次（下）', extras: [],
-      desc: '记录每次跳绳的次数或时长',
-      targets: [{ k: 'count', label: '每次（下）', unit: '下', def: 500 },
-        { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 15 }], fields: [] },
-    swim: { name: '游泳', icon: '🏊', color: '#4a90a4', unit: '米', goal: 800,
-      goalLabel: '每次距离（米）', extras: [{ k: 'stroke', n: '泳姿', opts: ['自由泳', '蛙泳', '仰泳', '蝶泳'] }, { k: 'pace', n: '配速' }],
-      desc: '记录每次游泳的距离或时长、泳姿与配速',
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'dist', n: '骑行里程', unit: '公里', step: 0.01 },
+        { k: 'cadence', n: '踏频', unit: 'rpm' },
+        { k: 'heart', n: '心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' },
+        { k: 'speed', n: '平均速度', unit: '公里/时', step: 0.1 }
+      ] },
+    rope: { name: '跳绳', icon: '🪢', color: '#c07a9a', unit: '分钟', goal: 15,
+      goalLabel: '每次时长（分钟）',
+      desc: '记录每次跳绳的时长、次数与跳频',
+      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 15 }],
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'count', n: '总次数', unit: '次' },
+        { k: 'ropeRate', n: '每分钟跳频', unit: '次/分' },
+        { k: 'heart', n: '心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' }
+      ] },
+    strength: { name: '力量训练', icon: '🏋️', color: '#a06b4a', unit: '分钟', goal: 30,
+      goalLabel: '每次时长（分钟）',
+      desc: '记录每次力量训练的时长、组数、次数与负重',
+      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'sets', n: '组数', unit: '组' },
+        { k: 'reps', n: '次数', unit: '次' },
+        { k: 'weight', n: '负重重量', unit: '公斤', step: 0.5 },
+        { k: 'rest', n: '组间休息', unit: '秒' },
+        { k: 'heart', n: '心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' }
+      ] },
+    ball: { name: '球类运动', icon: '🏀', color: '#c99a3f', unit: '分钟', goal: 60,
+      goalLabel: '每次时长（分钟）',
+      desc: '记录每次球类运动的时长与心率',
+      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }],
+      fields: [
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'hrZone', n: '心率区间', type: 'text', ph: '如 120-150' },
+        { k: 'heartAvg', n: '平均心率', unit: 'bpm' },
+        { k: 'kcal', n: '热量消耗', unit: '千卡' }
+      ] },
+
+    /* —— 以下两种已下线：只在历史数据里出现，新建列表不显示 —— */
+    swim: { retired: true, name: '游泳', icon: '🏊', color: '#4a90a4', unit: '米', goal: 800,
+      goalLabel: '每次距离（米）',
+      desc: '（已下线）记录每次游泳的距离、泳姿与配速',
       targets: [{ k: 'dist', label: '每次距离（米）', unit: '米', def: 800 },
         { k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
-      fields: [{ k: 'stroke', n: '泳姿', opts: ['自由泳', '蛙泳', '仰泳', '蝶泳'] }, { k: 'pace', n: '配速' }] },
-    yoga: { name: '瑜伽', icon: '🧘', color: '#a07ab3', unit: '分钟', goal: 30,
-      goalLabel: '每次时长（分钟）', extras: [],
-      desc: '记录每次瑜伽的练习时长',
-      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }], fields: [] },
-    strength: { name: '力量训练', icon: '🏋️', color: '#a06b4a', unit: '分钟', goal: 30,
-      goalLabel: '每次时长（分钟）', extras: [],
-      desc: '记录每次力量训练的时长',
-      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }], fields: [] },
-    ball: { name: '球类', icon: '🏀', color: '#c99a3f', unit: '分钟', goal: 60,
-      goalLabel: '每次时长（分钟）', extras: [],
-      desc: '记录每次球类运动的时长',
-      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 60 }], fields: [] }
+      fields: [
+        { k: 'dist', n: '距离', unit: '米' },
+        { k: 'dur', n: '时长', unit: '分钟' },
+        { k: 'stroke', n: '泳姿', type: 'select', opts: ['自由泳', '蛙泳', '仰泳', '蝶泳'] },
+        { k: 'pace', n: '配速', type: 'text', ph: '如 3:20' }
+      ] },
+    yoga: { retired: true, name: '瑜伽', icon: '🧘', color: '#a07ab3', unit: '分钟', goal: 30,
+      goalLabel: '每次时长（分钟）',
+      desc: '（已下线）记录每次瑜伽的练习时长',
+      targets: [{ k: 'dur', label: '每次时长（分钟）', unit: '分钟', def: 30 }],
+      fields: [{ k: 'dur', n: '时长', unit: '分钟' }] }
   };
+  /* 新建运动时可选的模式（跳过已下线的） */
+  const MOVE_PICKABLE = Object.keys(MOVE_TYPES).filter(function (k) { return !MOVE_TYPES[k].retired; });
   /* v176：频率只留两档。旧的 weekly_times / free 在 normalizeMoveSport 里迁移过来。 */
   /* v178：文案改成「每天运动 / 每周选日运动」——原来的「每天 1 次」「每周 1 天」
      会被读成「一天一次」「一周一次」，歧义太大。 */
@@ -213,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v178';
+  const APP_VERSION = 'v179';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -615,6 +672,9 @@
       tVal = oldGoal > 0 ? oldGoal : TGT[tIdx].def;
     }
     tVal = clamp(tVal, 1, 999999);
+    /* v179：跳绳的目标从「次数」改成「时长」。老数据若目标是次数（值明显偏大，
+       比如 500 下），直接沿用会变成「500 分钟」，这里退回默认时长。 */
+    if (key === 'rope' && tVal > 300) tVal = TGT[0].def;
 
     /* 频率：v176 只留 daily / weekly。
        v175 的 weekly_times（每周 N 次）和 free（自由）没有「哪几天」的信息，
@@ -689,8 +749,8 @@
     };
   }
 
-  /* 运动 2.1（v176）：单条运动记录的白名单收敛。
-     新增 count（跳绳次数）、hour（记录时段）、recMode（手动/固定，仅步数有意义）。 */
+  /* 运动 2.2（v179）：单条运动记录的白名单收敛。
+     v179 按新字段表扩容：步幅/平均速度/跳频/组数/次数/负重/组间休息/心率区间/平均心率/步数距离。 */
   function normalizeMoveRecord(raw) {
     const r = isPlainObject(raw) ? raw : {};
     const num = function (v) { return isFinite(Number(v)) ? Math.max(0, Number(v)) : 0; };
@@ -710,8 +770,19 @@
       steps: num(r.steps),
       dur: num(r.dur),
       dist: num(r.dist),
+      distM: num(r.distM),
       kcal: num(r.kcal),
       count: num(r.count),
+      ropeRate: num(r.ropeRate),
+      cadence: num(r.cadence),
+      stride: num(r.stride),
+      speed: num(r.speed),
+      sets: num(r.sets),
+      reps: num(r.reps),
+      weight: num(r.weight),
+      rest: num(r.rest),
+      hrZone: String(r.hrZone || '').slice(0, 16),
+      heartAvg: num(r.heartAvg),
       pace: String(r.pace || '').slice(0, 12),
       heart: num(r.heart),
       stroke: String(r.stroke || '').slice(0, 10),
@@ -8254,12 +8325,8 @@
     if (s.key === 'steps') {
       fhtml += '<span class="mv-ft"><b>记录方式</b>' + (s.recMode === 'fixed' ? ('每次 +' + s.fixedSteps + ' 步') : '手动输入') + '</span>';
     } else if (s.fields.length) {
-      s.fields.forEach(function (k) {
-        const e = T.fields.find(function (x) { return x.k === k; });
-        if (!e) return;
-        const lbl = k === 'stroke' ? ('泳姿 · ' + (s.strokePick || '')) : e.n;
-        fhtml += '<span class="mv-ft"><b>' + esc(lbl) + '</b></span>';
-      });
+      /* v179：字段最多 7 项，全铺在卡上会挤成一团，这里只报项数，具体去「补数据」看 */
+      fhtml += '<span class="mv-ft"><b>记录数据</b>' + s.fields.length + ' 项</span>';
     }
     /* 状态行 */
     let st, note;
@@ -8333,15 +8400,28 @@
     const T = MOVE_TYPES[r.key];
     if (!T) return '—';
     if (r.key === 'steps') {
-      return (Number(r.steps) || 0).toLocaleString() + ' 步 · ' + (r.recMode === 'fixed' ? '固定' : '手动');
+      let s = (Number(r.steps) || 0).toLocaleString() + ' 步 · ' + (r.recMode === 'fixed' ? '固定' : '手动');
+      if (Number(r.distM)) s += ' · ' + r.distM + ' 米';
+      return s;
     }
+    /* v179：按该模式定义的数据项拼摘要，不再写死字段 */
     const p = [];
-    if (Number(r.dist)) p.push(r.dist + ' ' + T.targets[0].unit);
-    if (Number(r.count)) p.push(r.count + ' 下');
-    if (Number(r.dur)) p.push(r.dur + ' 分钟');
-    if (r.pace) p.push('配速 ' + r.pace);
-    if (Number(r.heart)) p.push(r.heart + ' bpm');
-    if (r.stroke) p.push(r.stroke);
+    (T.fields || []).forEach(function (f) {
+      const v = r[f.k];
+      if (v === undefined || v === null || v === '' || v === 0) return;
+      if (f.type === 'text' || f.type === 'select') {
+        p.push(f.k === 'pace' ? ('配速 ' + v) : f.k === 'hrZone' ? ('心率 ' + v) : String(v));
+      } else {
+        p.push(v + (f.unit ? ' ' + f.unit : ''));
+      }
+    });
+    /* 兜底：字段已不在新定义里，但记录里还有值（老数据） */
+    if (!p.length) {
+      if (Number(r.dist)) p.push(r.dist + ' 公里');
+      if (Number(r.dur)) p.push(r.dur + ' 分钟');
+      if (Number(r.heart)) p.push(r.heart + ' bpm');
+      if (r.pace) p.push('配速 ' + r.pace);
+    }
     return p.join(' · ') || '一次记录';
   }
   /* 记录的 HH:MM（用于明细与今日已记录，陛下要求「记录日志要带时间」） */
@@ -8367,7 +8447,7 @@
     /* —— 汇总 —— */
     let dur = 0, dist = 0, kcal = 0, steps = 0, ropeCount = 0;
     let manualN = 0, fixedN = 0, distN = 0, countN = 0, durN = 0;
-    let heartSum = 0, heartN = 0, runDist = 0, rideDist = 0;
+    let heartSum = 0, heartN = 0, runDist = 0, rideDist = 0, speedSum = 0, speedN = 0;
     const byType = {}, strokeMap = {}, buckets = [0, 0, 0, 0, 0, 0];
     const paceAgg = { run: [0, 0], ride: [0, 0] };
     const BUCKET_LAB = ['6–9 时', '9–12 时', '12–14 时', '14–17 时', '17–20 时', '20–23 时'];
@@ -8391,6 +8471,9 @@
       if (k === 'rope') ropeCount += Number(r.count) || 0;
       if (k === 'swim' && r.stroke) strokeMap[r.stroke] = (strokeMap[r.stroke] || 0) + 1;
       if (Number(r.heart)) { heartSum += Number(r.heart); heartN++; }
+      /* v179：球类用「平均心率」字段，一并计入心率统计 */
+      if (Number(r.heartAvg)) { heartSum += Number(r.heartAvg); heartN++; }
+      if (Number(r.speed)) { speedSum += Number(r.speed); speedN++; }
       if (k === 'run' || k === 'ride') {
         if (k === 'run') runDist += Number(r.dist) || 0; else rideDist += Number(r.dist) || 0;
         const pm = /^(\d+):([0-5]\d)$/.exec(String(r.pace || ''));
@@ -8492,14 +8575,15 @@
     const maxStroke = Math.max.apply(null, strokeKeys.map(function (k) { return strokeMap[k]; }).concat([1]));
     h += '<section class="panel"><h3 class="mv-sec-title">专项数据</h3><p class="mv-sec-lead">按运动模式的专项指标。</p><div class="st-spec">' +
       '<div class="sp"><h4>🏃 跑步</h4><div class="row"><span>总距离</span><b>' + (Math.round(runDist * 10) / 10) + ' 公里</b></div><div class="row"><span>平均配速</span><b>' + avgPace('run') + ' /公里</b></div></div>' +
-      '<div class="sp"><h4>🚴 骑行</h4><div class="row"><span>总距离</span><b>' + (Math.round(rideDist * 10) / 10) + ' 公里</b></div><div class="row"><span>平均配速</span><b>' + avgPace('ride') + ' /公里</b></div></div>' +
+      '<div class="sp"><h4>🚴 骑行</h4><div class="row"><span>总距离</span><b>' + (Math.round(rideDist * 10) / 10) + ' 公里</b></div>' +
+        '<div class="row"><span>平均速度</span><b>' + (speedN ? (Math.round(speedSum / speedN * 10) / 10) + ' 公里/时' : '—') + '</b></div></div>' +
       '<div class="sp"><h4>❤️ 心率</h4><div class="row"><span>平均心率</span><b>' + (heartN ? Math.round(heartSum / heartN) : '—') + ' 次/分</b></div><div class="row"><span>含心率记录</span><b>' + heartN + ' 次</b></div></div>' +
-      '<div class="sp"><h4>🏊 游泳</h4><div class="st-strokes">' +
-        (strokeKeys.length ? strokeKeys.map(function (k) {
+      /* 游泳已下线（v179），只有历史记录还在时才显示这一块 */
+      (strokeKeys.length ? '<div class="sp"><h4>🏊 游泳</h4><div class="st-strokes">' +
+        strokeKeys.map(function (k) {
           return '<div class="s"><span class="sn">' + esc(k) + '</span><span class="tr"><span class="fl" style="width:' + Math.round(strokeMap[k] / maxStroke * 100) + '%"></span></span><b>' + strokeMap[k] + '</b></div>';
-        }).join('') : '<div class="row"><span>这个周期没有游泳记录</span></div>') +
-      '</div></div>' +
-      '<div class="sp"><h4>🪢 跳绳</h4><div class="row"><span>累计次数</span><b>' + ropeCount.toLocaleString() + ' 下</b></div><div class="row"><span>记录次数</span><b>' + (byType.rope ? byType.rope.n : 0) + ' 次</b></div></div>' +
+        }).join('') + '</div></div>' : '') +
+      '<div class="sp"><h4>🪢 跳绳</h4><div class="row"><span>累计次数</span><b>' + ropeCount.toLocaleString() + ' 次</b></div><div class="row"><span>记录次数</span><b>' + (byType.rope ? byType.rope.n : 0) + ' 次</b></div></div>' +
       '<div class="sp"><h4>👟 步数</h4><div class="row"><span>日均步数</span><b>' + (stepDayN ? Math.round(steps / stepDayN).toLocaleString() : '0') + '</b></div><div class="row"><span>达标天数</span><b>' + stepMet + ' / ' + stepDayN + ' 天</b></div></div>' +
       '</div></section>';
 
@@ -15344,9 +15428,17 @@
     moveLoadChanCfg();
     const editing = moveSportById(id);
     const key = editing ? editing.key : 'steps';
-    const grid = Object.keys(MOVE_TYPES).map(function (k) {
+    /* v179：只列可用的 7 种模式。若在编辑一条已下线的历史运动（游泳/瑜伽），
+       把它补进网格并标「已下线」，否则当前选中项会看不见。 */
+    const pick = MOVE_PICKABLE.slice();
+    if (editing && MOVE_TYPES[editing.key] && MOVE_TYPES[editing.key].retired && pick.indexOf(editing.key) < 0) {
+      pick.push(editing.key);
+    }
+    const grid = pick.map(function (k) {
       const T = MOVE_TYPES[k];
-      return '<div class="sp-opt' + (key === k ? ' on' : '') + '" data-k="' + k + '"><span class="ci">' + T.icon + '</span>' + esc(T.name) + '</div>';
+      return '<div class="sp-opt' + (key === k ? ' on' : '') + '" data-k="' + k + '">' +
+        '<span class="ci">' + T.icon + '</span>' + esc(T.name) +
+        (T.retired ? '<small class="sp-retired">已下线</small>' : '') + '</div>';
     }).join('');
     openModal(
       '<form class="modal-card" id="move-sport-form" data-id="' + (editing ? editing.id : '') + '">' +
@@ -15431,26 +15523,28 @@
           h += '<div class="sp-fixed"><span class="lbl">每次记录</span><input type="number" id="sp-fixed" min="1" value="' + fixedSteps + '"><span class="u">步</span></div>';
         }
       }
-      h += '<span class="f-label">记录字段</span>';
-      if (curKey === 'steps') {
-        h += '<div class="sp-desc">每日步数是日常记录，不需要配速、心率等运动数据。</div>';
-      } else if (T.fields.length) {
+      h += '<span class="f-label">运动数据记录</span>';
+      if (T.fields.length) {
+        h += '<p class="sp-hint">勾选这次运动要记录的数据。打勾的项目会出现在「补数据」表单里，不勾的不显示。</p>';
         T.fields.forEach(function (f) {
-          if (f.opts) {
-            h += '<div class="sp-field-chk"><div><b>泳姿</b><small>记录本次游泳的泳姿</small></div>' +
-              '<span class="switch"><input type="checkbox" data-fld="stroke"' + (fieldOn.stroke !== false ? ' checked' : '') + '><i></i></span></div>';
+          const unitTxt = f.unit ? ('（' + f.unit + '）') : '';
+          const sub = f.k === 'pace' ? '记录本次平均配速'
+            : f.k === 'cadence' ? (curKey === 'ride' ? '记录平均踏频' : '记录平均步频')
+              : f.k === 'heart' ? '记录平均心率'
+                : f.k === 'hrZone' ? '记录运动时的心率区间'
+                  : f.k === 'distM' ? '记录今天走了多少米'
+                    : '记录本次' + f.n;
+          h += '<div class="sp-field-chk"><div><b>' + esc(f.n) + unitTxt + '</b><small>' + esc(sub) + '</small></div>' +
+            '<span class="switch"><input type="checkbox" data-fld="' + f.k + '"' + (fieldOn[f.k] !== false ? ' checked' : '') + '><i></i></span></div>';
+          /* 泳姿这类带选项的字段，勾着的时候把选项也放出来（历史数据的游泳模式用） */
+          if (f.type === 'select' && f.opts && fieldOn[f.k] !== false) {
             h += '<div class="sp-stroke" id="sp-stroke">' + f.opts.map(function (o) {
               return '<button type="button" data-s="' + esc(o) + '" class="' + (strokePick === o ? 'on' : '') + '">' + esc(o) + '</button>';
             }).join('') + '</div>';
-          } else {
-            const sub = f.k === 'pace' ? '记录平均配速' : f.k === 'heart' ? '记录平均心率'
-              : f.k === 'cadence' ? (curKey === 'ride' ? '记录踏频' : '记录步频') : '记录' + f.n;
-            h += '<div class="sp-field-chk"><div><b>' + esc(f.n) + '</b><small>' + esc(sub) + '</small></div>' +
-              '<span class="switch"><input type="checkbox" data-fld="' + f.k + '"' + (fieldOn[f.k] !== false ? ' checked' : '') + '><i></i></span></div>';
           }
         });
       } else {
-        h += '<div class="sp-desc">该模式只需记录时长，无需额外字段。</div>';
+        h += '<div class="sp-desc">该模式没有可记录的运动数据。</div>';
       }
       /* v178：先给一个总开关。关掉就不用管渠道，三个渠道也能全不选。 */
       h += '<span class="f-label">通知提醒</span>';
@@ -15617,8 +15711,8 @@
       weekSel: weekSel,
       recMode: st.key === 'steps' ? st.recMode : 'manual',
       fixedSteps: st.fixedSteps,
-      fields: st.key === 'steps' ? [] : st.fields,
-      strokePick: st.key === 'steps' ? '' : st.strokePick,
+      fields: st.fields,
+      strokePick: st.strokePick,
       notifyOn: st.notifyOn,
       /* 关掉通知就清空渠道；开着但三个都没选，就存空数组（等于不提醒），
          绝不再强行塞回 browser —— 那正是「点不掉」的根源。 */
@@ -15661,42 +15755,42 @@
     const dfltT = rec ? moveRecHM(rec) : (pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()));
 
     function fieldsHtml(k, r) {
-      if (k === 'steps') {
-        return '<div class="form-grid">' +
-          '<div class="field"><span>步数</span><input name="steps" type="number" min="1" value="' + (r ? (r.steps || '') : '') + '"></div>' +
-          '<div class="field"><span>记录方式</span><select name="recMode">' +
-            '<option value="manual"' + (r && r.recMode === 'manual' ? ' selected' : '') + '>手动输入</option>' +
-            '<option value="fixed"' + (r && r.recMode === 'fixed' ? ' selected' : '') + '>每次固定步数</option>' +
-          '</select></div></div>';
-      }
+      /* v179：按「这个运动勾了哪些运动数据」动态生成输入框。
+         步数额外带记录方式；泳姿这类 select 用下拉。 */
       const T = MOVE_TYPES[k] || MOVE_TYPES.steps;
-      const unit = T.targets[0].unit;
-      let f = '<div class="form-grid">';
-      if (T.fields.some(function (x) { return x.k !== 'stroke'; }) || T.targets[0].k === 'dist' || T.targets[0].k === 'count') {
-        if (T.targets[0].k === 'dist' || T.fields.length) {
-          f += '<div class="field"><span>距离（' + esc(unit) + '）</span><input name="dist" type="number" min="0" step="0.1" value="' + (r && r.dist || '') + '"></div>';
+      const lines = [];
+      if (k === 'steps') {
+        lines.push('<div class="field"><span>步数（步）</span><input name="steps" type="number" min="1" value="' + (r ? (r.steps || '') : '') + '"></div>');
+        lines.push('<div class="field"><span>记录方式</span><select name="recMode">' +
+          '<option value="manual"' + (r && r.recMode === 'manual' ? ' selected' : '') + '>手动输入</option>' +
+          '<option value="fixed"' + (r && r.recMode === 'fixed' ? ' selected' : '') + '>每次固定步数</option>' +
+          '</select></div>');
+      }
+      /* 只渲染已勾选的数据项；编辑旧记录时，有值的项也补进来，免得看不全已填内容 */
+      const chosen = T.fields.filter(function (f) {
+        if (sport && Array.isArray(sport.fields) && sport.fields.length) {
+          return sport.fields.indexOf(f.k) >= 0 || (r && r[f.k]);
         }
-      }
-      if (k === 'rope') {
-        f += '<div class="field"><span>次数（下）</span><input name="count" type="number" min="0" value="' + (r && r.count || '') + '"></div>';
-      }
-      f += '<div class="field"><span>时长（分钟）</span><input name="dur" type="number" min="0" value="' + (r && r.dur || '') + '"></div>';
-      f += '<div class="field"><span>消耗（千卡）</span><input name="kcal" type="number" min="0" value="' + (r && r.kcal || '') + '"></div>';
-      if (T.fields.some(function (x) { return x.k === 'pace'; })) {
-        f += '<div class="field"><span>配速</span><input name="pace" placeholder="如 6:30" value="' + (r && r.pace || '') + '"></div>';
-      }
-      if (T.fields.some(function (x) { return x.k === 'heart'; })) {
-        f += '<div class="field"><span>心率（次/分）</span><input name="heart" type="number" min="0" value="' + (r && r.heart || '') + '"></div>';
-      }
-      f += '</div>';
-      if (T.fields.some(function (x) { return x.k === 'stroke'; })) {
-        const pick = (r && r.stroke) || (sport && sport.strokePick) || '自由泳';
-        f += '<div class="field"><span>泳姿</span><select name="stroke">' +
-          ['自由泳', '蛙泳', '仰泳', '蝶泳'].map(function (o) {
-            return '<option' + (pick === o ? ' selected' : '') + '>' + o + '</option>';
-          }).join('') + '</select></div>';
-      }
-      return f;
+        return true;
+      });
+      chosen.forEach(function (f) {
+        const raw = r ? r[f.k] : '';
+        const val = (raw === 0 || raw) ? raw : '';
+        if (f.type === 'select') {
+          const opts = (f.opts || []).slice();
+          const cur = String(val || (sport && sport.strokePick) || opts[0] || '');
+          lines.push('<div class="field"><span>' + esc(f.n) + '</span><select name="' + f.k + '">' +
+            opts.map(function (o) { return '<option' + (cur === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') +
+            '</select></div>');
+        } else if (f.type === 'text') {
+          lines.push('<div class="field"><span>' + esc(f.n) + '</span><input name="' + f.k + '" placeholder="' + esc(f.ph || '') + '" value="' + esc(val) + '"></div>');
+        } else {
+          lines.push('<div class="field"><span>' + esc(f.n) + (f.unit ? '（' + esc(f.unit) + '）' : '') + '</span>' +
+            '<input name="' + f.k + '" type="number" min="0" step="' + (f.step || 1) + '" value="' + esc(val) + '"></div>');
+        }
+      });
+      if (!lines.length) return '<p class="sp-desc">这个运动没有勾选要记录的数据，可以直接保存。</p>';
+      return '<div class="form-grid">' + lines.join('') + '</div>';
     }
 
     /* 今日已记录明细（只有从某个运动点「补数据」时才有意义） */
@@ -15716,8 +15810,12 @@
         }).join('') + '</div>';
     }
 
-    const typeOpts = Object.keys(MOVE_TYPES).map(function (k) {
-      return '<option value="' + k + '"' + (key === k ? ' selected' : '') + '>' + MOVE_TYPES[k].icon + ' ' + esc(MOVE_TYPES[k].name) + '</option>';
+    /* v179：新建记录只列可用模式；编辑一条历史记录时，把它自己的模式补进来 */
+    const typeKeys = MOVE_PICKABLE.slice();
+    if (MOVE_TYPES[key] && MOVE_TYPES[key].retired && typeKeys.indexOf(key) < 0) typeKeys.push(key);
+    const typeOpts = typeKeys.map(function (k) {
+      return '<option value="' + k + '"' + (key === k ? ' selected' : '') + '>' + MOVE_TYPES[k].icon + ' ' + esc(MOVE_TYPES[k].name) +
+        (MOVE_TYPES[k].retired ? '（已下线）' : '') + '</option>';
     }).join('');
     const title = editing ? '修改记录' : (sport ? ('补充运动数据 · ' + MOVE_TYPES[key].name) : '添加记录');
 
@@ -15786,16 +15884,18 @@
       d: d,
       at: at,
       hour: Number(t.slice(0, 2)),
-      steps: num(get('steps')),
-      dur: num(get('dur')),
-      dist: num(get('dist')),
-      kcal: num(get('kcal')),
-      count: num(get('count')),
-      pace: get('pace').slice(0, 12),
-      heart: num(get('heart')),
-      stroke: get('stroke').slice(0, 10),
+      steps: key === 'steps' ? num(get('steps')) : 0,
       recMode: key === 'steps' ? (get('recMode') === 'fixed' ? 'fixed' : 'manual') : ''
     };
+    /* v179：这个模式定义了哪些数据项，就按类型读哪些，不再写死字段 */
+    (MOVE_TYPES[key].fields || []).forEach(function (f) {
+      const raw = get(f.k);
+      if (f.type === 'text' || f.type === 'select') {
+        if (raw) rec[f.k] = raw.slice(0, 16);
+      } else if (raw !== '') {
+        rec[f.k] = num(raw);
+      }
+    });
     if (key === 'steps' && !rec.steps) { toast('请填写步数'); return; }
     if (!state.modules) state.modules = {};
     const m = moveModule();
@@ -18220,7 +18320,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=178', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=179', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

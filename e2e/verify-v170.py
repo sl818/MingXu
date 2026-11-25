@@ -89,7 +89,8 @@ with sync_playwright() as p:
     chk('弹窗写「选择运动模式」', '选择运动模式' in form_txt)
     chk('弹窗写「运动说明」', '运动说明' in form_txt)
     chk('弹窗不再让填「名称」', '名称' not in form_txt)
-    chk('模式网格 9 格', pg.locator('.sp-grid .sp-opt').count() == 9)
+    chk('模式网格 7 格（游泳/瑜伽已下线）', pg.locator('.sp-grid .sp-opt').count() == 7,
+        'count=%d' % pg.locator('.sp-grid .sp-opt').count())
     # 每日步数：两种记录方式，无配速/心率
     pg.click('.sp-grid .sp-opt[data-k="steps"]')
     pg.wait_for_timeout(200)
@@ -120,10 +121,17 @@ with sync_playwright() as p:
     pg.click('#move-sport-body .sp-freq-opt[data-fk2="daily"]')
     pg.wait_for_timeout(200)
     chk('每天模式有紧凑次数框', pg.locator('#move-sport-body #sp-freqn').count() == 1)
-    # 游泳有泳姿
-    pg.click('.sp-grid .sp-opt[data-k="swim"]')
-    pg.wait_for_timeout(200)
-    chk('游泳有「泳姿」', '泳姿' in pg.inner_text('#move-sport-body'))
+    # v179：游泳、瑜伽已下线，新建列表里不应再出现
+    chk('新建列表不含游泳', pg.locator('.sp-grid .sp-opt[data-k="swim"]').count() == 0)
+    chk('新建列表不含瑜伽', pg.locator('.sp-grid .sp-opt[data-k="yoga"]').count() == 0)
+    chk('新建列表共 7 种模式', pg.locator('.sp-grid .sp-opt').count() == 7,
+        'count=%d' % pg.locator('.sp-grid .sp-opt').count())
+    # 力量训练的运动数据记录
+    pg.click('.sp-grid .sp-opt[data-k="strength"]')
+    pg.wait_for_timeout(250)
+    st_txt = pg.inner_text('#move-sport-body')
+    chk('力量训练写「运动数据记录」', '运动数据记录' in st_txt)
+    chk('力量训练含组数 / 负重重量', '组数' in st_txt and '负重重量' in st_txt)
     pg.click('[data-act="close-modal"]')
     pg.wait_for_timeout(200)
 
