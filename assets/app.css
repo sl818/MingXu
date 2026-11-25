@@ -3577,6 +3577,9 @@ body.modal-open{overflow:hidden;}
 .sp-week button{height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0}
 .sp-week button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-2)}
 .sp-hint{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.6}
+/* v182：编辑运动时「已切换到别的模式」的提示，要比普通说明显眼一点 */
+.sp-switched{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:8px 11px;color:var(--text)}
 /* 记录方式：两张卡片 */
 .sp-rec{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
 .sp-rec-opt{padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--surface)}

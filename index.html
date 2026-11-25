@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=181">
+<link rel="stylesheet" href="assets/app.css?v=182">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=181">
+<link rel="stylesheet" href="assets/theme-v2.css?v=182">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v181';
+  const APP_VERSION = 'v182';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -15511,6 +15511,13 @@
     (init ? (init.fields || []) : MOVE_TYPES[curKey].fields.map(function (f) { return f.k; }))
       .forEach(function (k) { fieldOn[k] = true; });
     let strokePick = (init && init.strokePick) || '自由泳';
+    /* v182：编辑已有运动时先数清它有多少条历史记录 ——
+       换模式会把这些记录一起搬到新模式名下，得让用户先知道这事。 */
+    const initRecN = init ? moveRecords().filter(function (r) {
+      if (!r) return false;
+      return r.sportId ? (r.sportId === init.id) : (r.key === init.key);
+    }).length : 0;
+    const originKey = init ? init.key : '';
     /* v178：通知开关与渠道都按「这个运动」自己存。
        编辑老运动（还没有 channels 字段）时，回落到模块级渠道。 */
     let notifyOn = init ? (init.notifyOn !== false) : true;
@@ -15526,6 +15533,13 @@
       const box = $('#move-sport-body');
       let h = '';
       h += '<span class="f-label">运动说明</span>';
+      if (init && initRecN) {
+        h += '<p class="sp-hint">这个运动已经有 ' + initRecN + ' 条记录。换成别的模式后，这些记录会一起按新模式归档，不会留在旧模式名下。</p>';
+      }
+      if (init && curKey !== originKey) {
+        h += '<p class="sp-hint sp-switched">已从「' + esc(MOVE_TYPES[originKey].name) + '」切换到「' + esc(T.name) + '」，保存后生效；' +
+          '要记录的数据项已按新模式重置，可以重新勾选。</p>';
+      }
       h += '<div class="sp-desc">' + esc(T.icon) + ' ' + esc(T.desc) + '</div>';
       h += '<span class="f-label">目标</span>';
       if (TGT.length > 1) {
@@ -15746,11 +15760,28 @@
       channels: st.notifyOn ? st.notifyChannels.slice() : [],
       updatedAt: now
     };
+    let moved = 0;
     if (editing) {
+      const oldKey = editing.key;
       Object.keys(base).forEach(function (k) { editing[k] = base[k]; });
       /* 再过一遍白名单：切换模式后旧字段不会残留 */
       const clean = normalizeMoveSport(editing);
       m.sports = m.sports.map(function (x) { return x.id === clean.id ? clean : x; });
+      /* v182：换了模式，历史记录必须跟着换 —— 否则卡片写着「跑步」，
+         统计里那条记录还挂在「力量训练」名下，等于切了也用不了。
+         只动这个运动实例自己的记录；老数据里没有 sportId 的，
+         只有在「没有别的实例用同一个旧模式」时才一起改，免得张冠李戴。 */
+            if (oldKey && oldKey !== clean.key) {
+        if (!Array.isArray(m.records)) m.records = [];
+        const twin = m.sports.some(function (x) { return x.id !== clean.id && x.key === oldKey; });
+        m.records = m.records.map(function (r) {
+          if (!r) return r;
+          const mine = r.sportId ? (r.sportId === clean.id) : (!twin && r.key === oldKey);
+          if (!mine || r.key !== oldKey) return r;
+          moved++;
+          return Object.assign({}, r, { key: clean.key });
+        });
+      }
     } else {
       const sport = normalizeMoveSport(Object.assign({ createdAt: now }, base));
       if (!Array.isArray(m.sports)) m.sports = [];
@@ -15764,7 +15795,11 @@
     save();
     closeModal();
     render();
-    toast(editing ? '已保存修改' : '已添加 ' + T.name);
+    if (moved) {
+      toast('已保存修改，' + moved + ' 条历史记录已按「' + T.name + '」重新归档');
+    } else {
+      toast(editing ? '已保存修改' : '已添加 ' + T.name);
+    }
   }
 
   /* opts.sportId  → 某个运动的「补数据」（带今日已记录明细）
@@ -18409,7 +18444,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=181', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=182', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
