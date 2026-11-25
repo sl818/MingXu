@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v182（2026-11-25）
+最后更新：v183（2026-11-25）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v182（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v182'`） |
+| 代码版本 | v183（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v183'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -212,6 +212,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v180 | 11-25 | **渠道检测提示改为逐条列出**（陛下指出：勾 3 个渠道、都没配时只显示一条，会误以为另外两个可用）：①`moveChanState(key)` 的返回从 `{ok,msg}` 改为 `{ok,pending,reason}`——**reason 只说原因不带渠道名**，多条并列时才不啰嗦；②`checkSelected()` 整体重写：遍历 `chanSel` 里**每一个**已选渠道，各渲染一行 `.sp-chan-line`（✓ 已配置，服务正常 / ⚠ 渠道名：原因 / · 正在检测），零渠道时单独提示；③**渠道卡片加状态点** `.ch-dot`（绿=已配置、黄=未配置、灰=检测中，`title` 带说明），不用读文字也能一眼看出哪些不可用；④勾选与取消都调同一个 `checkSelected()`（原 `moveChanTell` 删掉，那条路径只报刚点的一项）；⑤CSS 由单行 `::before` 前缀改为 `.sp-chan-tip` flex 列 + `.sp-chan-line.ok/.bad/.wait`。测试：`verify-move-chan-v177` 16/16（新增「三条逐个列出」「正好 3 行」两条断言，旧文案断言同步）；`verify-move-freq-notify-v178` 25/25、`verify-move-modes-v179` 33/33、`regression-v3` 28/28。SW → v180 |
 | v181 | 11-25 | **运动打卡改成状态机：打卡 → 记数据 → 才放行下一次**（陛下指出「单次完成时点补数据任务直接完成」的 bug）：①非步数运动打卡时**先落一条 `pending` 记录再弹表单**，表单标题写明是第几次（`记录第 N 次运动数据 · 跑步`）并附一句「填完数据（或选择跳过）后，才能开始今天的下一次」；②卡片新增 `movePendingRec()` 判定——**有待填记录时主按钮锁成「记录数据」**，「补数据」入口撤掉换成「撤销这一次」，`move-do` 也会被拦下，防止又加一次把多次任务刷完成；③**「跳过不记录」**给出二次确认弹窗，写清「仍算完成，但统计页不显示详细数据」，确认后记录打上 `skipped` 标记，明细显示「未记录详细数据」；④统计页新增透明度：KPI 多出「次未记录数据」、「按运动模式」行尾挂 `跳 N` 小标记（悬停有说明）、统计说明写明「只计次数，不计入时长、距离、心率等详细数据」；⑤**进度环不再写死 0/1**，改显示真实的 `val/target`（如 1/2）；⑥`normalizeMoveRecord` 白名单加 `pending`/`skipped`（老数据默认 false，不要求补填）。测试：新增 `e2e/verify-move-flow-v181.py` 24/24（打卡弹窗、关弹窗后锁卡、跳过二次确认、统计标记、第 2 次打卡标题、填完显示今天已完成）；`verify-v170` 63/63、`verify-move-compat-v176` 24/24、`verify-move-chan-v177` 16/16、`verify-move-freq-notify-v178` 34/34、`verify-move-modes-v179` 33/33、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch3` 60/60、`verify-batch4` 20/20、`verify-api-http` 33/33、PHP 侧 test-ics 64/64、test-schedule 130、test-push 28、test-push-tick 44、verify-ics-subscribe 9/9 全绿。另修 `verify-batch3` 一条**既有失败**（用药只剩一种疗程时小标题）——原因是测试改服务端数据后被页面自动保存顶回去，改成先等页面保存完再改数据并 bump rev，现 60/60。**未上传线上**（按惯例由陛下自行上传）。SW → v181 |
 | v182 | 11-25 | **编辑运动时可切换模式，且历史记录跟着归档**（陛下指出「已有的运动任务在编辑中不支持切换其他运动模式」）：①查下来弹窗本身能切（桌面/手机都实测过），真正的问题是**保存后卡片换了模式、那条历史记录还挂在旧模式下** —— 统计页「按运动模式」分裂成两个名字，等于切了也用不了；②`saveMoveSportForm` 里 `editing` 分支新增**记录迁移**：模式变了就把**这个运动实例自己的记录**的 `key` 改成新 key（记录内容不丢）；老数据里没有 `sportId` 的记录，只在「没有别的实例用同一个旧模式」时才一并迁移，避免张冠李戴；③迁移条数会在 toast 里说明（「N 条历史记录已按『跑步』重新归档」）；④编辑弹窗新增两条提示：打开时先说「这个运动已经有 N 条记录，换成别的模式后这些记录会一起按新模式归档」，切换后再给一条醒目的「已从『力量训练』切换到『跑步』，保存后生效」（`.sp-switched` 左侧描边）；⑤切模式时记录项按新模式重置（原有行为），可重新勾选。测试：新增 `e2e/verify-move-switch-v182.py` 21/21（能切、高亮与内容跟随、两条提示、记录 key 迁移、内容不丢、统计不再分裂、别的实例不受牵连）；`verify-move-flow-v181` 24/24、`verify-move-modes-v179` 33/33、`verify-move-freq-notify-v178` 34/34、`verify-move-chan-v177` 16/16、`verify-move-compat-v176` 24/24、`verify-v170` 63/63、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch3` 60/60、`verify-batch4` 20/20、`verify-mobile-nav` 44/44、`verify-api-http` 33/33 全绿。**未上传线上**（按惯例由陛下自行上传）。SW → v182 |
+| v183 | 11-25 | **编辑运动时锁定运动类型**（陛下定的规矩：「不允许从当前的任务模式改成别的任务模式，只允许新建」）：①编辑弹窗的「选择运动模式」标签改为「**运动类型 🔒**」；②网格里除当前类型外全部加 `.sp-opt.dis`（灰掉、`cursor:not-allowed`、`aria-disabled`、带 title 说明）；③网格下方新增提示条 `.sp-locked`：「🔒 运动类型建好后不能修改。如果需要其他运动，请新建一个运动。」；④点灰色类型**不切换**，只 toast「运动类型建好后不能改；需要别的运动，请新建一个运动」；⑤**新建弹窗不受影响**（照常可选）；目标、频率、通知、记录项等其它设置在编辑时照常可改。**v182 的「切换 + 记录迁移」交互随之撤回**（迁移代码保留为兜底：万一 key 与运动对不上就把记录归位，免得卡片与统计分裂），`verify-move-switch-v182.py` 与 `shot-compare-v182.py` 一并删除。测试：新增 `e2e/verify-move-lock-v183.py` 19/19（新建可选、锁定提示文案、6 种灰掉、点别的类型不切换且有提示、保存后类型与记录不变、其它设置仍可改）；`verify-move-flow-v181` 24/24、`verify-move-modes-v179` 33/33、`verify-move-freq-notify-v178` 34/34、`verify-move-chan-v177` 16/16、`verify-move-compat-v176` 24/24、`verify-v170` 63/63、`regression-v3` 28/28、`verify-batch2` 51/51、`verify-batch3` 60/60、`verify-batch4` 20/20 全绿。**未上传线上**（按惯例由陛下自行上传）。SW → v183 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""v182 编辑运动时切换模式验证：
+"""v183 编辑运动时锁定运动类型：
 
-1. 已有运动在编辑弹窗里能切换到别的模式（高亮、目标、记录项都跟着换）
-2. 编辑弹窗会先告诉用户「有 N 条记录，换模式会一起归档」
-3. 保存后卡片标题变成新模式
-4. **历史记录的 key 跟着迁移** —— 否则卡片写跑步、统计里那条还挂着力量训练，等于切了也用不了
-5. 老数据里没有 sportId 的记录，在旧模式唯一时也会被迁移
-6. 另一个同模式实例的记录不受牵连
+陛下定的规矩 —— 类型建好后不能改，要别的运动就新建一个。
+
+1. 新建弹窗里类型照常可选
+2. 编辑弹窗里有「类型不能修改」的提示文案
+3. 编辑弹窗里只有当前类型可选，其余灰掉
+4. 点别的类型：不会切换，只给一句提示
+5. 保存后类型不变、历史记录不受影响
 """
 import http.server
 import json
@@ -21,7 +22,7 @@ from playwright.sync_api import sync_playwright
 DOC = 'C:/Users/slgzs/Desktop/ai-codex/workbuddy/Todo'
 USER = {'id': 1, 'email': 'test@example.com', 'display_name': '测试', 'is_admin': False}
 sessions = {}
-D = '2026-10-24'          # 周六
+D = '2026-10-24'
 PASS = 0
 FAIL = 0
 FAILS = []
@@ -38,22 +39,12 @@ def chk(name, ok, detail=''):
         print('  [FAIL] %s  << %s' % (name, detail))
 
 
-HABITS = [
-    {'id': 'h_move', 'name': '运动', 'icon': '🏃', 'type': 'build', 'target': 1, 'unit': '次',
-     'color': '#b5733f', 'note': '', 'createdAt': '2026-09-01T08:00:00Z', 'pinned': True},
-]
-
-# 老数据：v176 之前的记录没有 sportId，只有 key
-OLD_REC = {'id': 'oldrec01', 'key': 'strength', 'd': '2026-10-20',
-           'at': '2026-10-20T12:00:00.000Z', 'hour': 20, 'dur': 30, 'dist': 0, 'kcal': 0,
-           'steps': 0, 'count': 0, 'heart': 0, 'pace': ''}
-
 board = {'data': {
     'version': 2, 'schemaVersion': 2, 'view': 'today',
-    'habits': HABITS,
+    'habits': [],
     'modules': {'move': {
         'on': True, 'name': '运动', 'icon': '🏃', 'color': '#b5733f', 'note': '',
-        'unit': '次', 'times': 1, 'sports': [], 'records': [OLD_REC],
+        'unit': '次', 'times': 1, 'sports': [], 'records': [],
         'notifyChannels': ['browser'], 'notify': True,
         'notifyScenes': {'steps': True, 'plan': True, 'week': True},
         'suggestTime': '', 'notifyFreq': 'daily', 'notifyWeekday': 1, 'notifyMonthday': 1,
@@ -155,21 +146,12 @@ def nav(pg, v):
     pg.wait_for_timeout(450)
 
 
-def recs():
-    return board['data']['modules']['move'].get('records') or []
-
-
 def sports():
     return board['data']['modules']['move'].get('sports') or []
 
 
-def new_sport(pg, key):
-    pg.click('[data-act="move-new"]')
-    pg.wait_for_timeout(450)
-    pg.click('.sp-grid .sp-opt[data-k="%s"]' % key)
-    pg.wait_for_timeout(250)
-    pg.click('#move-sport-form button[type="submit"]')
-    pg.wait_for_timeout(1500)
+def recs():
+    return board['data']['modules']['move'].get('records') or []
 
 
 with sync_playwright() as pw:
@@ -190,71 +172,71 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(2800)
     nav(pg, 'move')
 
-    print('\n===== 1. 准备：力量训练 ×1（并带一条老记录）=====')
-    new_sport(pg, 'strength')
+    print('\n===== 1. 新建时类型照常可选 =====')
+    pg.click('[data-act="move-new"]')
+    pg.wait_for_timeout(500)
+    dis_new = pg.locator('#move-sport-form .sp-opt.dis').count()
+    chk('新建时没有灰掉的类型', dis_new == 0, str(dis_new))
+    chk('新建时没有锁定提示', pg.locator('#move-sport-form .sp-locked').count() == 0)
+    pg.click('#move-sport-form .sp-opt[data-k="strength"]')
+    pg.wait_for_timeout(400)
+    on = pg.eval_on_selector_all('#move-sport-form .sp-opt', 'e=>e.filter(x=>x.classList.contains("on")).map(x=>x.dataset.k)')
+    chk('可以选到力量训练', on == ['strength'], json.dumps(on))
+    pg.click('#move-sport-form button[type="submit"]')
+    pg.wait_for_timeout(1500)
     chk('建好了力量训练', [s.get('key') for s in sports()] == ['strength'],
         json.dumps([s.get('key') for s in sports()]))
-    chk('老记录还在（没有 sportId）', any(r.get('id') == 'oldrec01' for r in recs()))
 
-    # 打一次卡，产生带 sportId 的记录
+    # 打一次卡，产生一条记录
     pg.locator('.mv-card [data-act="move-do"]').first.click()
     pg.wait_for_timeout(900)
     pg.click('#move-record-form button[type="submit"]')
     pg.wait_for_timeout(1400)
-    chk('共有 2 条记录', len(recs()) == 2, str(len(recs())))
+    chk('有 1 条记录', len(recs()) == 1, str(len(recs())))
 
-    print('\n===== 2. 编辑弹窗里切到别的模式 =====')
+    print('\n===== 2. 编辑时类型锁定 =====')
     pg.locator('.mv-card [data-act="move-edit"]').first.click()
     pg.wait_for_timeout(700)
-    chk('弹窗标题是「编辑运动」', pg.inner_text('#move-sport-form h3').strip() == '编辑运动',
-        pg.inner_text('#move-sport-form h3'))
-    on = pg.eval_on_selector_all('#move-sport-form .sp-opt', 'e=>e.filter(x=>x.classList.contains("on")).map(x=>x.dataset.k)')
-    chk('当前选中的是力量训练', on == ['strength'], json.dumps(on))
-    hint = pg.inner_text('#move-sport-body')
-    chk('先告诉用户有记录会一起归档', '条记录' in hint and '归档' in hint, hint[:160])
+    chk('弹窗标题是「编辑运动」', pg.inner_text('#move-sport-form h3').strip() == '编辑运动')
+    locked = pg.locator('#move-sport-form .sp-locked')
+    chk('有锁定提示', locked.count() == 1)
+    txt = locked.inner_text() if locked.count() else ''
+    chk('提示说清「不能修改」', '不能修改' in txt, txt)
+    chk('提示说清「请新建」', '新建' in txt, txt)
+    on2 = pg.eval_on_selector_all('#move-sport-form .sp-opt', 'e=>e.filter(x=>x.classList.contains("on")).map(x=>x.dataset.k)')
+    chk('当前类型仍然高亮', on2 == ['strength'], json.dumps(on2))
+    dis = pg.eval_on_selector_all('#move-sport-form .sp-opt.dis', 'e=>e.map(x=>x.dataset.k)')
+    chk('其余 6 种全部灰掉', sorted(dis) == ['ball', 'ride', 'rope', 'run', 'steps', 'walk'],
+        json.dumps(dis))
 
+    print('\n===== 3. 点别的类型：只提示，不切换 =====')
     pg.click('#move-sport-form .sp-opt[data-k="run"]')
     pg.wait_for_timeout(600)
-    on2 = pg.eval_on_selector_all('#move-sport-form .sp-opt', 'e=>e.filter(x=>x.classList.contains("on")).map(x=>x.dataset.k)')
-    chk('点了之后高亮切到跑步', on2 == ['run'], json.dumps(on2))
-    body = pg.inner_text('#move-sport-body')
-    chk('运动说明换成跑步的', '跑步' in body, body[:120])
-    chk('记录项换成跑步的', '距离（公里）' in body and '组数（组）' not in body, body[:200])
-    chk('提示「已切换、保存后生效」', '切换到' in body and '保存后生效' in body, body[:240])
+    on3 = pg.eval_on_selector_all('#move-sport-form .sp-opt', 'e=>e.filter(x=>x.classList.contains("on")).map(x=>x.dataset.k)')
+    chk('高亮没变（还是力量训练）', on3 == ['strength'], json.dumps(on3))
+    toast = pg.inner_text('#toast, .toast, .toast-wrap') if pg.locator('#toast, .toast, .toast-wrap').count() else pg.inner_text('body')
+    chk('给出「不能改、请新建」的提示', ('不能改' in toast) and ('新建' in toast), toast[-200:])
 
-    print('\n===== 3. 保存：卡片与历史记录一起换模式 =====')
+    print('\n===== 4. 保存后类型与记录都不变 =====')
     pg.click('#move-sport-form button[type="submit"]')
     pg.wait_for_timeout(1600)
-    chk('运动模式已改成跑步', sports()[0].get('key') == 'run', json.dumps(sports()[0], ensure_ascii=False)[:160])
+    chk('类型没被改', sports()[0].get('key') == 'strength', json.dumps(sports()[0], ensure_ascii=False)[:140])
     titles = pg.eval_on_selector_all('.mv-card .mv-title b', 'e=>e.map(x=>x.textContent.trim())')
-    chk('卡片标题变成跑步', titles == ['跑步'], json.dumps(titles, ensure_ascii=False))
-    keys = [r.get('key') for r in recs()]
-    chk('两条历史记录都改成跑步', keys == ['run', 'run'], json.dumps(keys))
-    chk('记录内容没丢', any(float(r.get('dur') or 0) == 30 for r in recs()),
-        json.dumps(recs(), ensure_ascii=False)[:200])
-    stats = pg.eval_on_selector_all('.st-barrow .nm', 'e=>e.map(x=>x.textContent.trim())')
-    chk('统计页只剩跑步，不再分裂', all('力量训练' not in s for s in stats), json.dumps(stats, ensure_ascii=False))
-    chk('统计页里有跑步', any('跑步' in s for s in stats), json.dumps(stats, ensure_ascii=False))
+    chk('卡片标题还是力量训练', titles == ['力量训练'], json.dumps(titles, ensure_ascii=False))
+    chk('记录没被动过', len(recs()) == 1 and recs()[0].get('key') == 'strength',
+        json.dumps(recs(), ensure_ascii=False)[:160])
 
-    print('\n===== 4. 别的实例不受牵连 =====')
-    new_sport(pg, 'strength')
-    chk('又建了一个力量训练', [s.get('key') for s in sports()] == ['run', 'strength'],
-        json.dumps([s.get('key') for s in sports()]))
-    n_before = len(recs())
-    # 编辑第一个（跑步）切回力量训练：这时「力量训练」有另一个实例，老记录不该被它牵走
+    print('\n===== 5. 目标等其它设置仍可改 =====')
     pg.locator('.mv-card [data-act="move-edit"]').first.click()
     pg.wait_for_timeout(700)
-    pg.click('#move-sport-form .sp-opt[data-k="strength"]')
-    pg.wait_for_timeout(500)
+    pg.fill('#move-sport-body #sp-tval', '45')
+    pg.wait_for_timeout(200)
     pg.click('#move-sport-form button[type="submit"]')
     pg.wait_for_timeout(1600)
-    chk('记录数没变', len(recs()) == n_before, str(len(recs())))
-    chk('第二个力量训练实例没被改', sports()[1].get('key') == 'strength',
-        json.dumps([s.get('key') for s in sports()]))
-    chk('所有记录都归到力量训练名下', all(r.get('key') == 'strength' for r in recs()),
-        json.dumps([r.get('key') for r in recs()]))
+    chk('目标值改成了 45', float(sports()[0].get('tVal') or 0) == 45, str(sports()[0].get('tVal')))
+    chk('类型仍是力量训练', sports()[0].get('key') == 'strength')
 
-    print('\n===== 5. 无 JS 报错 =====')
+    print('\n===== 6. 无 JS 报错 =====')
     chk('没有 JS 错误', not errs, str(errs[:3]))
 
     br.close()
