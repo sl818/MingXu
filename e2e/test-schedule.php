@@ -524,6 +524,14 @@ chk('478：兜底时间点是 07:00 / 14:00 / 21:00',
     times($bplanDef) === ['07:00 habit:h_breathe', '14:00 habit:h_breathe', '21:00 habit:h_breathe'],
     implode(' | ', times($bplanDef)));
 
+/* v200：上限 5 + 重复时刻只催一条 + 标题写第几组 */
+$bDup = lb_schedule_day($breathOf(['07:00', '07:00', '13:00'], ['groups' => 3]), D);
+chk('478：重复时刻只催一条', count($bDup) === 2, implode(' | ', times($bDup)));
+chk('478：标题写明第几组',
+    strpos((string)($bplan[0]['title'] ?? ''), '第 1 组') !== false, (string)($bplan[0]['title'] ?? ''));
+$bOver = lb_schedule_day($breathOf(['07:00', '08:00', '09:00', '10:00', '11:00', '12:00'], ['groups' => 6]), D);
+chk('478：组数超过上限 5 只按 5 条', count($bOver) === 5, implode(' | ', times($bOver)));
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

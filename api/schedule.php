@@ -340,24 +340,35 @@ function lb_schedule_day(array $state, string $date): array
         }
 
         /* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
-           第 i 个提醒对应第 i 组：当天已经做完 i 组就不再催第 i 个。 */
+           第 N 个提醒对应第 N 组：当天已经做完 N 组就不再催第 N 个。
+           v200：组数上限收到 5；同一时刻只出一条（推送去重键含时刻，重复会让后一条被吃掉）。 */
         if ($mkey === 'breathe') {
             $times = isset($m['notifyTimes']) && is_array($m['notifyTimes']) ? $m['notifyTimes'] : [];
-            $groups = max(1, (int)($m['groups'] ?? 1));
+            $groups = max(1, min(LB_BREATHE_MAX_GROUPS, (int)($m['groups'] ?? 1)));
             /* 兜底：没存时间点就按「每天几组」算默认点，与前端 / api/ics.php 同口径 */
             if (!count($times)) {
                 $times = lb_breathe_default_times($groups);
             }
             $doneN = isset($checks[$hid]) ? (int)(float)$checks[$hid] : 0;
             $any = false;
-            foreach ($times as $i => $t) {
+            $seen = [];
+            $slotNo = 0;
+            foreach ($times as $t) {
+                if ($slotNo >= $groups) {
+                    break;   // 最多到「每天几组」那么多条，脏数据里多出来的时间点不推
+                }
                 $slot = (string)$t;
                 if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
                     continue;
                 }
+                if (isset($seen[$slot])) {
+                    continue;
+                }
+                $seen[$slot] = true;
+                $slotNo++;
                 $any = true;
-                if ($doneN >= $i + 1) {
-                    continue;   // 第 i+1 组已经做完了，就不再催这一组
+                if ($doneN >= $slotNo) {
+                    continue;   // 第 $slotNo 组已经做完了，就不再催这一组
                 }
                 $left = max(0, $groups - $doneN);
                 $body = $left > 1
@@ -367,7 +378,7 @@ function lb_schedule_day(array $state, string $date): array
                     'time' => $slot,
                     'kind' => 'habit',
                     'id' => $hid,
-                    'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+                    'title' => ($icon !== '' ? $icon . ' ' : '') . $name . ' · 第 ' . (string)$slotNo . ' 组',
                     'body' => $body,
                 ];
             }

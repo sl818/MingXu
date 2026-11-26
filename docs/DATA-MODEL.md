@@ -450,7 +450,10 @@ modulesAt: 1763000000000
 ```
 
 **v196 新增 `modules.breathe.notifyTimes`** —— 478 的提醒改成「每天固定时间推送」：
-数组长度 =「每天几组」（最多 12 个），每项是 `'HH:MM'`。
+数组长度 =「每天几组」，每项是 `'HH:MM'`。**v200 起「每天几组」上限 5**（常量 `BREATHE_MAX_GROUPS`，
+后端同名 `LB_BREATHE_MAX_GROUPS`），且时间点**必须两两不同**（`breatheFillTimes()` 负责：按位置保留旧值、
+只补缺口；后端 `ics.php` / `schedule.php` 与前端 `buildICS` 三处都做「同一时刻只出一条」+「按组数截断」）。
+重复时刻的后果是：推送去重键 `日期|kind|id|时刻` 相同 → 后一条被唯一索引吃掉 → 那一组永远收不到提醒。
 老数据只有 `suggestTime` 时，迁移成 `notifyTimes[0]`（见 `normalizeModule`）；
 `suggestTime` 始终等于 `notifyTimes[0]`，卡片上的「建议时间」与第一个提醒点保持一致。
 `notifyTimes` 为空时，前端 `breatheDefaultTimes()` 与后端 `lb_breathe_default_times()`

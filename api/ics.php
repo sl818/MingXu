@@ -19,6 +19,8 @@ if (!defined('LIFEBOARD_API')) {
 const LB_ICS_TZ = 'Asia/Shanghai';
 const LB_ICS_DOMAIN = 'wanfeng-todo';
 const LB_ICS_WEEK = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+/* v200：478 每天最多 5 组（与前端 BREATHE_MAX_GROUPS 同值，改一处必须两边一起改） */
+const LB_BREATHE_MAX_GROUPS = 5;
 
 function lb_ics_tz(): DateTimeZone
 {
@@ -225,7 +227,7 @@ function lb_water_slots(array $m, int $cups): array
    日历和页面提醒对不上（UID 一个带序号一个不带）。 */
 function lb_breathe_default_times(int $k): array
 {
-    $k = max(1, min(12, $k));
+    $k = max(1, min(LB_BREATHE_MAX_GROUPS, $k));
     $from = 7 * 60;
     $to = 21 * 60;
     $out = [];
@@ -572,14 +574,26 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
                后端不兜底的话，同一件事会变成「前端 habit-h_breathe-1 / 后端 habit-h_breathe」，
                订阅出来的日历和页面日历对不上。 */
             if (!count($times)) {
-                $times = lb_breathe_default_times(max(1, min(12, (int)($m['groups'] ?? 1))));
+                $times = lb_breathe_default_times(max(1, min(LB_BREATHE_MAX_GROUPS, (int)($m['groups'] ?? 1))));
             }
+            $bGroups = max(1, min(LB_BREATHE_MAX_GROUPS, (int)($m['groups'] ?? 1)));
             $bn = 0;
+            $seen = [];
             foreach ($times as $i => $t) {
+                if ($bn >= $bGroups) {
+                    break;   // 最多到「每天几组」这么多条，脏数据里多出来的时间点不生成事件
+                }
                 $t = (string)$t;
                 if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $t, $mm)) {
                     continue;
                 }
+                /* v200：同一时刻只出一条 —— 推送去重键是「日期|kind|id|时刻」，
+                   重复时刻会让后一条被唯一索引吃掉，那一组就永远收不到提醒。
+                   （前端 buildICS 里也是同一段逻辑，两边必须一致） */
+                if (isset($seen[$t])) {
+                    continue;
+                }
+                $seen[$t] = true;
                 $start = $todayDate->setTime((int)$mm[1], (int)$mm[2]);
                 if ($start <= $now) {
                     $start = $start->modify('+1 day');

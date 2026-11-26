@@ -323,6 +323,20 @@ chk('478：1 组时兜底 15:00',
     substr_count($btOne['text'], 'UID:habit-h_breathe-') === 1 && strpos($btOne['text'], 'T150000') !== false,
     (string)substr_count($btOne['text'], 'UID:habit-h_breathe-'));
 
+/* v200：上限 5 + 同一时刻只出一条 + 脏数据超量按组数截断 */
+$btDup = lb_ics_build($breathState(['07:00', '07:00', '13:00']), $now);
+chk('478：重复时刻只出一条',
+    substr_count($btDup['text'], 'UID:habit-h_breathe-') === 2,
+    (string)substr_count($btDup['text'], 'UID:habit-h_breathe-'));
+$btOver = lb_ics_build($breathState(['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00'], ['groups' => 7]), $now);
+chk('478：脏数据 7 个时间点也只按上限出 5 条',
+    substr_count($btOver['text'], 'UID:habit-h_breathe-') === 5,
+    (string)substr_count($btOver['text'], 'UID:habit-h_breathe-'));
+$btCap = lb_ics_build($breathState([], ['notifyTimes' => null, 'groups' => 9]), $now);
+chk('478：组数 9 被夹到上限 5（兜底出 5 条）',
+    substr_count($btCap['text'], 'UID:habit-h_breathe-') === 5,
+    (string)substr_count($btCap['text'], 'UID:habit-h_breathe-'));
+
 echo "\n" . str_repeat('=', 46) . "\n";
 echo 'PASS ' . $pass . ' / ' . ($pass + count($fails)) . "\n";
 if ($fails) {

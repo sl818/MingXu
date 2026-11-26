@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=199">
+<link rel="stylesheet" href="assets/app.css?v=200">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=199">
+<link rel="stylesheet" href="assets/theme-v2.css?v=200">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v199';
+  const APP_VERSION = 'v200';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -562,10 +562,15 @@
     return '';
   }
 
+  /* v200：478 每天最多 5 组（陛下定的上限，一刀切）。
+     所有跟「每天几组」有关的上限都走这个常量，别再散落魔法数 ——
+     v196 时它散在 14 个地方，改一次上限要点一遍名。 */
+  const BREATHE_MAX_GROUPS = 5;
+
   /* v194：478 提醒的默认时间点 —— 每天几组就几个点，在 07:00–21:00 之间铺开。
      只是「建议值」，用户可以在提醒区逐个改。 */
   function breatheDefaultTimes(n) {
-    const k = Math.max(1, Math.min(12, Math.round(Number(n) || 1)));
+    const k = Math.max(1, Math.min(BREATHE_MAX_GROUPS, Math.round(Number(n) || 1)));
     const from = 7 * 60, to = 21 * 60;
     const out = [];
     for (let i = 0; i < k; i++) {
@@ -574,6 +579,51 @@
       out.push(pad2(Math.floor(mm / 60) % 24) + ':' + pad2(mm % 60));
     }
     return out;
+  }
+
+  /* v200：算出 k 个「互不相同」的时间点 —— 保留用户已经改过的，只补缺口。
+     ① 先收旧值里合法且不重复的（按原顺序，前几组的时间点不会被挪）
+     ② 不够 → 从 breatheDefaultTimes(k) 里取还没被占用的那个
+     ③ 还不够 → 在 07:00–21:00 每 5 分钟扫空档（k ≤ 5 时 169 个档位，永远够用）
+     为什么不能「扩容时整体重算 dflt(k)」：那会把用户改过的前几个点冲掉，比原问题更糟。
+     为什么必须去重：后端推送去重键是「日期|kind|id|时刻」，两个时刻相同 → 第二条被
+     唯一索引吃掉，那一组就永远收不到提醒（v196 复查问题 ①）。 */
+  function breatheFillTimes(olds, k) {
+    const n = Math.max(1, Math.min(BREATHE_MAX_GROUPS, Math.round(Number(k) || 1)));
+    const TIME_OK = function (s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || '')); };
+    const src = Array.isArray(olds) ? olds : [];
+    const used = {};
+    const out = new Array(n).fill('');
+    /* 第一轮：按**位置**收旧值里合法且不重复的 —— 位置固定，第 N 组还是第 N 组 */
+    for (let i = 0; i < n; i++) {
+      const s = String(src[i] || '');
+      if (TIME_OK(s) && !used[s]) {
+        used[s] = 1;
+        out[i] = s;
+      }
+    }
+    /* 第二轮：空位优先取 dflt 里还没被占用的（用户心里的「建议值」还是那几个） */
+    const dflt = breatheDefaultTimes(n);
+    for (let i = 0; i < n; i++) {
+      if (out[i]) continue;
+      const t = dflt.filter(function (x) { return !used[x]; })[0];
+      if (t) {
+        used[t] = 1;
+        out[i] = t;
+      }
+    }
+    /* 第三轮：还空着的（用户填了重复值、dflt 又用完了）→ 07:00–21:00 找空档 */
+    for (let i = 0; i < n; i++) {
+      if (out[i]) continue;
+      for (let m = 7 * 60; m <= 21 * 60; m += 5) {
+        const t = pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+        if (used[t]) continue;
+        used[t] = 1;
+        out[i] = t;
+        break;
+      }
+    }
+    return out.filter(Boolean);
   }
 
   function moduleDefaults(key) {
@@ -648,13 +698,12 @@
       m.sports = [];
       m.records = [];
     } else if (key === 'breathe') {
-      m.groups = clamp(parseInt(h.target, 10) || 1, 1, 99);
+      m.groups = clamp(parseInt(h.target, 10) || 1, 1, BREATHE_MAX_GROUPS);
       m.cycles = clamp(parseInt(h.breatheCycles, 10) || 4, 1, 8);
-      /* v194：老锚点只有一个 suggestTime，迁成第一个提醒时间点 */
-      const times = breatheDefaultTimes(Math.min(12, m.groups));
+      /* v194：老锚点只有一个 suggestTime，迁成第一个提醒时间点
+         v200：走 breatheFillTimes —— 旧 suggestTime 放第一位，其余补不重复的默认点 */
       const hs = String(h.suggestTime || '');
-      times[0] = /^([01]\d|2[0-3]):[0-5]\d$/.test(hs) ? hs : times[0];
-      m.notifyTimes = times;
+      m.notifyTimes = breatheFillTimes([hs], m.groups);
       m.notifyChannels = ['browser'];
     } else {
       const s = String(h.quitStart || '');
@@ -918,7 +967,7 @@
       };
     } else if (key === 'breathe') {
       out.unit = '组';
-      out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, 99);
+      out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, BREATHE_MAX_GROUPS);
       out.cycles = clamp(Math.round(Number(m.cycles) || d.cycles), 1, 8);
       /* v194：478 的图标 / 名称 / 颜色 / 备注由系统固定，用户不能改 */
       out.name = d.name; out.icon = d.icon; out.color = d.color; out.note = d.note;
@@ -940,25 +989,18 @@
       out.notifyMonthday = (nmd >= 1 && nmd <= 31) ? Math.round(nmd) : 1;
       out.notifyNote = String(m.notifyNote || '').slice(0, 60);
     }
-    /* v194：478 提醒 = 每天固定时间推送。
-       时间点个数跟「每天几组」走（最多 12 个），旧数据的 suggestTime 迁进第一个；
-       卡片上显示的「建议时间」也取第一个，三处口径（前端 / ics.php / schedule.php）对齐。 */
+    /* v194：478 提醒 = 每天固定时间推送，时间点个数跟「每天几组」走；
+       v200：上限收到 5，并统一走 breatheFillTimes 去重 —— 老数据里如果有重复时刻，
+       这里也一并修掉（重复时刻会让后端推送去重把后一条吃掉，那一组就收不到提醒）。 */
     if (key === 'breathe') {
       const CH = ['browser', 'wecom', 'mail'];
       const ch = Array.isArray(m.notifyChannels) ? m.notifyChannels.filter(function (x) { return CH.indexOf(x) >= 0; }) : [];
       out.notifyChannels = ch.length ? ch : ['browser'];
-      const maxT = Math.min(12, out.groups);
       const raw = Array.isArray(m.notifyTimes) ? m.notifyTimes : null;
-      const dflt = breatheDefaultTimes(maxT);
-      const times = [];
-      for (let i = 0; i < maxT; i++) {
-        const t = raw ? String(raw[i] || '') : '';
-        times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dflt[i]);
-      }
-      /* 老数据没有 notifyTimes：把旧的 suggestTime 放进第一个，其余给建议值 */
-      if (!raw || !raw.length) times[0] = out.suggestTime || d.suggestTime;
-      out.notifyTimes = times;
-      out.suggestTime = times[0] || out.suggestTime;
+      /* 老数据没有 notifyTimes：把旧的 suggestTime 当作第一个候选 */
+      const seed = (raw && raw.length) ? raw : [out.suggestTime || d.suggestTime];
+      out.notifyTimes = breatheFillTimes(seed, out.groups);
+      out.suggestTime = out.notifyTimes[0] || out.suggestTime;
     }
     /* v197：白名单之外的键原样带过（与 repairBackup 顶层兜底同一思路）。
        这一层以前是硬白名单 —— 以后给模块加内部字段时，忘了在 normalizeModule 里登记，
@@ -8140,7 +8182,7 @@
   function breatheModule() {
     return (state.modules && state.modules.breathe) ? state.modules.breathe : moduleDefaults('breathe');
   }
-  function breatheGroups(m) { return Math.max(1, Math.min(12, Math.round(Number(m.groups) || 1))); }
+  function breatheGroups(m) { return Math.max(1, Math.min(BREATHE_MAX_GROUPS, Math.round(Number(m.groups) || 1))); }
   function breatheCycles(m) { return Math.max(1, Math.min(8, Math.round(Number(m.cycles) || 4))); }
 
   function breatheHead(m) {
@@ -8176,12 +8218,14 @@
       '<p class="w-sec-lead">设置直接在本页完成，不再跳出对话框。</p>' +
       '<div class="w-locked"><span class="ico">🌬️</span><b>478呼吸法</b>' +
         '<span class="lock">🔒 图标、名称、颜色与备注由系统固定，不可修改</span></div>' +
-      '<form id="breathe-settings-form">' +
+      /* v200：novalidate + 输入框不设 max —— 否则浏览器原生校验会在 submit 之前把提交拦掉，
+         用户点「保存设置」毫无反应（代码里的 clamp 根本走不到）。范围交给保存时收敛并回填。 */
+      '<form id="breathe-settings-form" novalidate>' +
         '<div class="w-fields br-fields">' +
           '<div class="w-field"><span class="f-label">每天几组 <span class="unit">(组)</span></span>' +
-            '<input name="groups" type="number" min="1" max="12" value="' + g + '"><small>1–12 组，提醒时间点跟着组数走</small></div>' +
+            '<input name="groups" type="number" min="1" step="1" value="' + g + '"><small>1–' + BREATHE_MAX_GROUPS + ' 组，提醒时间点跟着组数走</small></div>' +
           '<div class="w-field"><span class="f-label">每组循环次数 <span class="unit">(次)</span></span>' +
-            '<input name="cycles" type="number" min="1" max="8" value="' + c + '"><small>一组 = 吸4·屏7·呼8 循环这么多次</small></div>' +
+            '<input name="cycles" type="number" min="1" step="1" value="' + c + '"><small>1–8 次，一组 = 吸4·屏7·呼8</small></div>' +
         '</div>' +
         '<p class="w-link-hint" id="breathe-link-hint"></p>' +
         '<div class="w-save"><button type="submit" class="btn primary">保存设置</button></div>' +
@@ -16465,16 +16509,11 @@
       next.times = clamp(Math.round(Number(get('times')) || 1), 1, 99);
     } else if (key === 'breathe') {
       next.unit = '组';
-      next.groups = clamp(Math.round(Number(get('groups')) || 1), 1, 12);
+      next.groups = clamp(Math.round(Number(get('groups')) || 1), 1, BREATHE_MAX_GROUPS);
       next.cycles = clamp(Math.round(Number(get('cycles')) || 4), 1, 8);
-      /* v194：提醒时间点个数跟组数走，已填的值保留，没填的给建议值 */
+      /* v194：提醒时间点个数跟组数走，已填的值保留，没填的补不重复的建议值（v200 起走去重） */
       const oldT = Array.isArray(prev.notifyTimes) ? prev.notifyTimes : [];
-      const dfltT = breatheDefaultTimes(next.groups);
-      const ts = [];
-      for (let i = 0; i < next.groups; i++) {
-        const t = String(oldT[i] || '');
-        ts.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dfltT[i]);
-      }
+      const ts = breatheFillTimes(oldT, next.groups);
       next.notifyTimes = ts;
       next.notifyChannels = (Array.isArray(prev.notifyChannels) && prev.notifyChannels.length) ? prev.notifyChannels : ['browser'];
       next.suggestTime = ts[0] || '15:00';
@@ -16626,18 +16665,18 @@
   }
 
   /* ============ 478 呼吸法页改版（v194）：页内设置 + 提醒 ============ */
-  /* 组数一变，提醒区的时间框数量跟着变（已填的值保留，新增的给建议值） */
+  /* 组数一变，提醒区的时间框数量跟着变（已填的值保留，新增的补不重复的默认点）。
+     v200：走 breatheFillTimes —— 扩容时不会再补出一个跟现有时间一模一样的点。 */
   function syncBreatheTimes(n) {
     const box = $('#breathe-times');
     if (!box) return;
     const cur = Array.prototype.map.call(box.querySelectorAll('input[type="time"]'), function (el) { return el.value; });
-    const k = Math.max(1, Math.min(12, Math.round(Number(n) || 1)));
-    const dflt = breatheDefaultTimes(k);
+    const k = Math.max(1, Math.min(BREATHE_MAX_GROUPS, Math.round(Number(n) || 1)));
+    const times = breatheFillTimes(cur, k);
     let html = '';
     for (let i = 0; i < k; i++) {
-      const v = cur[i] || dflt[i];
       html += '<div class="w-dt-row"><span>第 ' + (i + 1) + ' 组</span>' +
-        '<input type="time" name="bt' + i + '" value="' + esc(v) + '"></div>';
+        '<input type="time" name="bt' + i + '" value="' + esc(times[i] || '') + '"></div>';
     }
     box.innerHTML = html;
   }
@@ -16650,9 +16689,15 @@
       const hint = $('#breathe-link-hint');
       const num = function (el, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(Number(el.value) || 0))); };
       const syncHint = function () {
-        const gr = num(g, 1, 12), cy = num(c, 1, 8);
+        const gr = num(g, 1, BREATHE_MAX_GROUPS), cy = num(c, 1, 8);
+        /* 输入时**不**夹住输入框（夹了没法先打「1」再打「2」），只在提示里告诉他超了 */
+        const rawG = Math.round(Number(g.value) || 0), rawC = Math.round(Number(c.value) || 0);
         if (hint) hint.innerHTML = '每天 <b>' + gr + '</b> 组 · 每组 <b>' + cy + '</b> 次循环 = 每天 <b>' +
-          (gr * cy) + '</b> 次呼吸（约 <b>' + fmtDur(gr * cy * 19) + '</b>）';
+          (gr * cy) + '</b> 次呼吸（约 <b>' + fmtDur(gr * cy * 19) + '</b>）' +
+          (rawG > BREATHE_MAX_GROUPS ? ' · <b>上限 ' + BREATHE_MAX_GROUPS + ' 组</b>，保存后按 ' + BREATHE_MAX_GROUPS + ' 组存' : '') +
+          (rawG < 1 ? ' · <b>至少 1 组</b>' : '') +
+          (rawC > 8 ? ' · <b>每组最多 8 次</b>' : '') +
+          (rawC < 1 ? ' · <b>每组至少 1 次</b>' : '');
         syncBreatheTimes(gr);
       };
       if (g && c) {
@@ -16678,15 +16723,15 @@
     const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
     if (!state.modules) state.modules = {};
     const m = state.modules.breathe || moduleDefaults('breathe');
-    const groups = clamp(Math.round(Number(get('groups')) || 1), 1, 12);
-    const cycles = clamp(Math.round(Number(get('cycles')) || 4), 1, 8);
+    const rawG = Math.round(Number(get('groups')) || 0);
+    const rawC = Math.round(Number(get('cycles')) || 0);
+    const groups = clamp(rawG, 1, BREATHE_MAX_GROUPS);
+    const cycles = clamp(rawC, 1, 8);
     const old = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
-    const dflt = breatheDefaultTimes(groups);
-    const times = [];
-    for (let i = 0; i < groups; i++) {
-      const t = String(old[i] || '');
-      times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dflt[i]);
-    }
+    /* v200：扩组数时保留已填的时间点、只补不重复的缺口。
+       以前直接取 dflt[i]，dflt 末位恒为 21:00，而旧末位通常也是 21:00 →
+       补出一个一模一样的时刻 → 后端推送去重把后一条吃掉，那一组永远收不到提醒。 */
+    const times = breatheFillTimes(old, groups);
     m.groups = groups;
     m.cycles = cycles;
     m.notifyTimes = times;
@@ -16694,26 +16739,32 @@
     m.updatedAt = new Date().toISOString();
     state.modules.breathe = m;
     state.modulesAt = Date.now();
+    /* render 会用新的 groups 重绘输入框 → 被夹住的值自动回填到界面上（用户看得见改成了几） */
     save(); render();
-    toast('478呼吸法设置已保存');
+    toast(rawG > BREATHE_MAX_GROUPS
+      ? '已保存 · 每天几组按上限改为 ' + BREATHE_MAX_GROUPS + ' 组'
+      : (rawC > 8 ? '已保存 · 每组循环次数按上限改为 8 次'
+        : ((rawG < 1 || rawC < 1) ? '已保存 · 数值已按最小 1 修正' : '478呼吸法设置已保存')));
   }
 
   function saveBreatheNotify(form) {
-    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
     if (!state.modules) state.modules = {};
     const m = state.modules.breathe || moduleDefaults('breathe');
     m.notify = !!form.querySelector('[name="notify"]').checked;
     const ch = [];
     form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
     m.notifyChannels = ch.length ? ch : ['browser'];
-    const groups = breatheGroups(m);
-    const old = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
-    const dflt = breatheDefaultTimes(groups);
-    const times = [];
-    for (let i = 0; i < groups; i++) {
-      const t = get('bt' + i);
-      times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : (old[i] || dflt[i]));
-    }
+    /* v200：以界面上实际存在的输入框为准 —— 用户把「每天几组」改大但没点「保存设置」时，
+       提醒区已经多出几个框，以前只读已保存的 groups，多填的时间会被静默丢掉。 */
+    const boxes = Array.prototype.slice.call(form.querySelectorAll('[name^="bt"]'));
+    const olds = boxes.map(function (el) { return String(el.value || '').trim(); });
+    const prevGroups = breatheGroups(m);
+    const n = clamp(boxes.length || prevGroups, 1, BREATHE_MAX_GROUPS);
+    const TIME_OK = function (s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || '')); };
+    const valid = olds.filter(TIME_OK);
+    const dup = valid.length !== new Set(valid).size;
+    const times = breatheFillTimes(olds, n);
+    m.groups = n;
     m.notifyTimes = times;
     m.suggestTime = times[0] || m.suggestTime;
     m.notifyFreq = 'daily';
@@ -16721,7 +16772,9 @@
     state.modules.breathe = m;
     state.modulesAt = Date.now();
     save(); render();
-    toast('提醒设置已保存');
+    toast(dup
+      ? '提醒设置已保存 · 重复的时间已自动错开'
+      : (n !== prevGroups ? '提醒设置已保存 · 每天几组同步为 ' + n + ' 组' : '提醒设置已保存'));
   }
 
   /* ============ 运动 2.0（v175）：新建/编辑弹窗、打卡、记录、提醒保存 ============ */
@@ -18601,10 +18654,17 @@
            与 api/ics.php、api/schedule.php 完全同口径（否则 UID 一个带序号一个不带）。 */
         const times = (Array.isArray(m.notifyTimes) && m.notifyTimes.length)
           ? m.notifyTimes
-          : breatheDefaultTimes(Math.max(1, Math.min(12, Number(m.groups) || 1)));
+          : breatheDefaultTimes(breatheGroups(m));
         let bn = 0;
+        const seen = {};
+        const bGroups = breatheGroups(m);
         times.forEach(function (t, i) {
+          if (bn >= bGroups) return;   // 最多到「每天几组」那么多条（与后端一致）
           if (!/^\d{2}:\d{2}$/.test(String(t || ''))) return;
+          /* v200：同一时刻只出一条（与 api/ics.php 同段逻辑）——
+             推送去重键含时刻，重复时刻会让后一条被吃掉 */
+          if (seen[t]) return;
+          seen[t] = 1;
           const hm = t.split(':').map(Number);
           let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
           while (start <= now) start = icsAddDays(start, 1);
@@ -20338,7 +20398,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=199', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=200', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

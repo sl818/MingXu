@@ -257,6 +257,92 @@ with sync_playwright() as p:
     rec('保存提醒 → 渠道仍是浏览器', m.get('notifyChannels') == ['browser'], str(m.get('notifyChannels')))
     ctx.close()
 
+    # ---------- v200：上限 5 / 补点去重 / 保存提醒不丢点 ----------
+    set_board(make_board())
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    r = pg.evaluate("""() => {
+      const f = document.querySelector('#breathe-settings-form');
+      const g = f && f.querySelector('[name="groups"]');
+      const small = document.querySelector('.br-fields .w-field small');
+      return { novalidate: !!f && f.hasAttribute('novalidate'),
+               max: g ? g.getAttribute('max') : 'missing',
+               small: small ? small.textContent : '' };
+    }""")
+    rec('v200 表单有 novalidate（原生校验不再拦提交）', r['novalidate'], '')
+    rec('v200 组数输入框没有 max 属性', r['max'] is None, str(r['max']))
+    rec('v200 提示写 1–5 组', '1–5 组' in r['small'], r['small'])
+
+    pg.fill('#breathe-settings-form input[name="groups"]', '6')
+    pg.wait_for_timeout(400)
+    hint = pg.evaluate("() => (document.querySelector('#breathe-link-hint')||{}).textContent.replace(/\\s+/g,' ').trim()")
+    rec('v200 填 6 时提示「上限 5 组」', '上限 5 组' in hint, hint)
+    pg.click('#breathe-settings-form button[type="submit"]')
+    pg.wait_for_timeout(1600)
+    m = board['data']['modules']['breathe']
+    after = pg.evaluate("""() => { const el = document.querySelector('#breathe-settings-form input[name="groups"]'); return el ? el.value : ''; }""")
+    tst = pg.evaluate("() => (document.querySelector('#toast')||{}).textContent||''")
+    rec('v200 填 6 保存后落库 5 组', int(m.get('groups') or 0) == 5, str(m.get('groups')))
+    rec('v200 填 6 保存后输入框回填 5', after == '5', str(after))
+    rec('v200 toast 说明按上限改为 5 组', '上限改为 5' in tst, tst)
+    rec('v200 5 组出 5 个时间点', len(m.get('notifyTimes') or []) == 5, str(m.get('notifyTimes')))
+    rec('v200 5 个时间点两两不同', len(set(m.get('notifyTimes') or [])) == 5, str(m.get('notifyTimes')))
+    ctx.close()
+
+    # 3→4 / 3→5 扩容不撞车
+    for target in (4, 5):
+        set_board(make_board())
+        ctx, pg, errs = open_page(br)
+        pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+        pg.wait_for_timeout(900)
+        pg.fill('#breathe-settings-form input[name="groups"]', str(target))
+        pg.wait_for_timeout(400)
+        pg.click('#breathe-settings-form button[type="submit"]')
+        pg.wait_for_timeout(1600)
+        m = board['data']['modules']['breathe']
+        ts = m.get('notifyTimes') or []
+        rec('v200 3→%d 组：%d 个时间点' % (target, target), len(ts) == target, str(ts))
+        rec('v200 3→%d 组：时间点两两不同（扩容不再撞车）' % target, len(set(ts)) == len(ts), str(ts))
+        rec('v200 3→%d 组：原有 3 个时间点保留' % target, ts[:3] == ['07:00', '13:00', '21:00'], str(ts))
+        ctx.close()
+
+    # 改 5 组不保存设置 → 保存提醒不丢点
+    set_board(make_board())
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    pg.fill('#breathe-settings-form input[name="groups"]', '5')
+    pg.wait_for_timeout(400)
+    pg.fill('#breathe-times input[name="bt3"]', '17:45')
+    pg.fill('#breathe-times input[name="bt4"]', '18:50')
+    pg.wait_for_timeout(200)
+    pg.click('#breathe-notify-form button[type="submit"]')
+    pg.wait_for_timeout(1600)
+    m = board['data']['modules']['breathe']
+    ts = m.get('notifyTimes') or []
+    rec('v200 改组数未保存 → 保存提醒仍收全 5 个', len(ts) == 5, str(ts))
+    rec('v200 改组数未保存 → 第 4 个 17:45 没丢', '17:45' in ts, str(ts))
+    rec('v200 改组数未保存 → 第 5 个 18:50 没丢', '18:50' in ts, str(ts))
+    rec('v200 改组数未保存 → 组数同步为 5', int(m.get('groups') or 0) == 5, str(m.get('groups')))
+    ctx.close()
+
+    # 两个框填成同一时刻 → 自动错开
+    set_board(make_board())
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    pg.fill('#breathe-times input[name="bt1"]', '07:00')
+    pg.wait_for_timeout(200)
+    pg.click('#breathe-notify-form button[type="submit"]')
+    pg.wait_for_timeout(1600)
+    m = board['data']['modules']['breathe']
+    ts = m.get('notifyTimes') or []
+    tst = pg.evaluate("() => (document.querySelector('#toast')||{}).textContent||''")
+    rec('v200 重复时刻保存后不重复', len(set(ts)) == len(ts), str(ts))
+    rec('v200 重复时刻 toast 说明已自动错开', '自动错开' in tst, tst)
+    ctx.close()
+
     # ---------- 统计档位切换 ----------
     set_board(make_board())
     ctx, pg, errs = open_page(br)
