@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=191">
+<link rel="stylesheet" href="assets/app.css?v=192">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=191">
+<link rel="stylesheet" href="assets/theme-v2.css?v=192">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v191';
+  const APP_VERSION = 'v192';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8098,10 +8098,12 @@
   }
 
   /* 近 7 天喝水时刻，按 6 个时段分桶（从 events 的 at 时刻取） */
-  function waterHourBuckets(h) {
+  function waterHourBuckets(h, days) {
     const buckets = [0, 0, 0, 0, 0, 0];
     const today = todayStr();
-    const from = fmt(addDays(new Date(), -6));
+    /* v192：统计页要跟随 7/30/90 天，故加可选天数；喝水页不传，仍是近 7 天 */
+    const n = Math.max(1, Number(days) || 7);
+    const from = fmt(addDays(new Date(), -(n - 1)));
     (Array.isArray(state.events) ? state.events : []).forEach(function (e) {
       if (!e || e.id !== h.id || Number(e.delta) <= 0) return;
       const ds = String(e.d || '');
@@ -8716,7 +8718,7 @@
   }
 
   /* —— 手写图表 —— */
-  function moveStatLineSvg(vals, labels) {
+  function moveStatLineSvg(vals, labels, opt) {
     const W = 1000, H = 300, P = { l: 54, r: 14, t: 16, b: 30 };
     const max = Math.max.apply(null, vals.concat([1]));
     const iw = W - P.l - P.r, ih = H - P.t - P.b, n = vals.length;
@@ -8731,7 +8733,8 @@
     const pts = vals.map(function (v, i) { return x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
     const line = 'M' + pts.join(' L');
     const area = line + ' L' + x(n - 1).toFixed(1) + ' ' + (P.t + ih) + ' L' + x(0).toFixed(1) + ' ' + (P.t + ih) + ' Z';
-    const step = Math.max(1, Math.ceil(n / 10));
+    /* 半宽容器（统计页两栏）里按 1/10 分档会挤，调用方可传 labelStep */
+    const step = (opt && opt.labelStep) || Math.max(1, Math.ceil(n / 10));
     let xl = '';
     labels.forEach(function (l, i) {
       if (i % step === 0 || i === n - 1) {
@@ -9261,6 +9264,74 @@
   }
   function viewBreathe() { return modulePage('breathe'); }
 
+  /* v192：统计页的「喝水」块 —— 原来只有「今日 + 本周/本月达标 + 累计毫升」，
+     喝水页里那套统计（完成度、连续达标、时段分布）进不来。这里搬过来，
+     并跟随统计页右上角的 7 / 30 / 90 天切换；公式与喝水页完全一致：
+     达标 = 当天毫升 ≥ 目标总量，完成度按天平均，时段分布按每次喝水的记录时间归类。 */
+  function statsWaterPanel(h, range) {
+    const d = todayStr();
+    const ok = met(h, d);
+    const goal = waterGoalMl(h) || 1;
+    const todayMl = Math.round(waterMlOf(h, countOf(d, h.id)));
+    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
+    const ym = d.slice(0, 7);
+    let month = 0, totalMl = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      totalMl += waterMlOf(h, countOf(ds, h.id));
+      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+    });
+
+    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
+    const labels = [], mlByDay = [];
+    let metN = 0;
+    for (let i = R - 1; i >= 0; i--) {
+      const ds = fmt(addDays(new Date(), -i));
+      labels.push(ds.slice(5));
+      const ml = Math.round(waterMlOf(h, countOf(ds, h.id)));
+      mlByDay.push(ml);
+      if (met(h, ds)) metN++;
+    }
+    const sum = mlByDay.reduce(function (a, b) { return a + b; }, 0);
+    const avg = Math.round(sum / R);
+    const rate = Math.round(metN / R * 100);
+    const maxMl = Math.max.apply(null, mlByDay.concat([0]));
+    const streak = streakOn(h, d);
+    const WLAB = ['6–9 时', '9–12 时', '12–14 时', '14–17 时', '17–20 时', '20–23 时'];
+    const buckets = waterHourBuckets(h, R);
+
+    return '<div class="panel">' +
+      '<div class="shead"><h3>喝水 <span class="muted-sm">（今日 · 计入完成率）</span></h3>' +
+        '<button type="button" class="btn sm" data-act="water-goto">完整统计 →</button></div>' +
+      '<div class="module-rows">' +
+        '<div class="ms-row' + (ok ? ' ok' : '') + '">' +
+          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '') + '</span>今日</span>' +
+          '<span class="ms-val">' + todayMl + ' / ' + goal + ' ml</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="module-sum" style="margin-top:12px">' +
+        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
+        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
+        '<div class="ms-box"><b>' + Math.round(totalMl).toLocaleString() + '</b><span>累计毫升</span></div>' +
+      '</div>' +
+      '<div class="stt-kpis">' +
+        moveStatKpiHtml(moveStatNum(sum), 'ml', '近 ' + R + ' 天累计', '') +
+        moveStatKpiHtml(moveStatNum(avg), 'ml', '日均', '') +
+        moveStatKpiHtml(String(metN), '天', '达标天数', '') +
+        moveStatKpiHtml(String(rate), '%', '达标率', '') +
+        moveStatKpiHtml(moveStatNum(maxMl), 'ml', '单日最高', '') +
+        moveStatKpiHtml(String(streak), '天', '连续达标', '') +
+      '</div>' +
+      '<div class="stt-grid2" style="margin-top:16px">' +
+        '<div><h4 class="stt-sub">每日喝水 <span class="stt-sub-n">毫升 · 近 ' + R + ' 天 · 目标 ' + goal + ' ml</span></h4>' +
+          moveStatLineSvg(mlByDay, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
+        '<div><h4 class="stt-sub">喝水时段 <span class="stt-sub-n">近 ' + R + ' 天 · 杯</span></h4>' +
+          moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { h: 72 }) + '</div>' +
+      '</div>' +
+      '<p class="stt-none" style="margin-top:10px">达标算法：当天喝水量 ≥ 目标总量（当前 ' + goal +
+        ' ml）即达标；日均与达标率都按「近 ' + R + ' 天」整段算，没有记录的日子计 0。</p>' +
+    '</div>';
+  }
+
   /* v191：统计页的「运动」块 —— 原来只有「今日 + 本周/本月达标天数 + 累计次数」，
      而运动早已按模式记录（距离 / 时长 / 配速 / 组数…），那些数全憋在运动页里。
      这里补上近 N 天（跟随统计页右上角 7/30/90 天）的关键指标、各模式明细与趋势；
@@ -9315,13 +9386,14 @@
       const metric = A.dur > 0 ? 'dur' : 'steps';
       const metricName = metric === 'dur' ? '运动时长（分钟）' : '步数';
       const bs = moveStatBuckets(list, from, d, metric);
+      const lstep = R <= 7 ? 1 : (R <= 30 ? 5 : 15);
 
       detail =
         '<div class="stt-grid2" style="margin-top:16px">' +
           '<div><h4 class="stt-sub">按运动模式 <span class="stt-sub-n">近 ' + R + ' 天</span></h4>' +
             '<div class="stt-mrows">' + modes.map(function (m) { return m.html; }).join('') + '</div></div>' +
           '<div><h4 class="stt-sub">' + esc(metricName) + '趋势 <span class="stt-sub-n">' + bs.unit + '</span></h4>' +
-            moveStatLineSvg(bs.values, bs.labels) + '</div>' +
+            moveStatLineSvg(bs.values, bs.labels, { labelStep: lstep }) + '</div>' +
         '</div>';
     }
 
@@ -9361,31 +9433,19 @@
     const h = moduleAsHabit(key);
     const d = todayStr();
     const label = MODULE_LABEL[key] || '模块';
-    /* 运动单独成一块（内容比另两个多），走 statsMovePanel */
+    /* 喝水和运动各自成一块（内容比 478 多），各自走独立面板 */
     if (key === 'move') return statsMovePanel(h, range);
+    if (key === 'water') return statsWaterPanel(h, range);
     const ok = met(h, d);
-    let todayVal;
-    if (key === 'water') {
-      todayVal = Math.round(waterMlOf(h, countOf(d, h.id))) + ' / ' + waterGoalMl(h) + ' ml';
-    } else {
-      todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
-    }
+    let todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
     const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
     const ym = d.slice(0, 7);
     let month = 0;
     Object.keys(state.checks || {}).forEach(function (ds) {
       if (ds.slice(0, 7) === ym && met(h, ds)) month++;
     });
-    let total, totalLabel;
-    if (key === 'water') {
-      let ml = 0;
-      Object.keys(state.checks || {}).forEach(function (ds) { ml += waterMlOf(h, countOf(ds, h.id)); });
-      total = Math.round(ml);
-      totalLabel = '累计毫升';
-    } else {
-      total = habitTotalCount(h);
-      totalLabel = '累计 ' + (h.unit || '次');
-    }
+    const total = habitTotalCount(h);
+    const totalLabel = '累计 ' + (h.unit || '次');
     return '<div class="panel">' +
       '<div class="shead"><h3>' + esc(label) + ' <span class="muted-sm">（今日 · 计入完成率）</span></h3></div>' +
       '<div class="module-rows">' +
@@ -18780,6 +18840,7 @@
     'module-edit': el => moduleModal(el.dataset.key),
     'move-new': () => moveSportModal(''),
     'move-goto': () => goView('move'),
+    'water-goto': () => goView('water'),
     'move-do': el => moveDoSport(el.dataset.id),
     'move-fill': el => moveRecordModal({ sportId: el.dataset.id, recordId: el.dataset.rec, mode: 'after' }),
     'move-skip': el => moveSkipConfirm(el.dataset.rec),
@@ -19634,7 +19695,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=191', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=192', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
