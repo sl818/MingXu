@@ -542,6 +542,49 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             }
         }
 
+        /* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
+           口径与前端 buildICS 一致：habit-h_breathe-1 / -2 / ... */
+        if ($mkey === 'breathe') {
+            $times = isset($m['notifyTimes']) && is_array($m['notifyTimes']) ? $m['notifyTimes'] : [];
+            /* v194：notifyTimes 为空时按「每天几组」算默认时间点 ——
+               前端 breatheDefaultTimes() 就是这么兜底的（7:00~21:00 之间均分，取 5 分钟整），
+               后端不兜底的话，同一件事会变成「前端 habit-h_breathe-1 / 后端 habit-h_breathe」，
+               订阅出来的日历和页面日历对不上。 */
+            if (!count($times)) {
+                $k = max(1, min(12, (int)($m['groups'] ?? 1)));
+                $from = 7 * 60;
+                $to = 21 * 60;
+                $times = [];
+                for ($i = 0; $i < $k; $i++) {
+                    $mm = $k === 1
+                        ? 15 * 60
+                        : (int)(round($from + ($to - $from) * ($i / ($k - 1)) / 5) * 5);
+                    $times[] = sprintf('%02d:%02d', intdiv($mm, 60), $mm % 60);
+                }
+            }
+            $bn = 0;
+            foreach ($times as $i => $t) {
+                $t = (string)$t;
+                if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $t, $mm)) {
+                    continue;
+                }
+                $start = $todayDate->setTime((int)$mm[1], (int)$mm[2]);
+                if ($start <= $now) {
+                    $start = $start->modify('+1 day');
+                }
+                $out[] = lb_ics_event(
+                    'habit-' . $hid . '-' . ($i + 1),
+                    $start, $start->modify('+15 minutes'),
+                    $icon . ' ' . $name . ' · 第 ' . ($i + 1) . ' 组', $note, 'FREQ=DAILY'
+                );
+                $count++;
+                $bn++;
+            }
+            if ($bn > 0) {
+                continue;
+            }
+        }
+
         /* 运动 / 478：原单条 suggestTime */
         $st = (string)($m['suggestTime'] ?? '');
         if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {
