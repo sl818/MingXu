@@ -339,6 +339,43 @@ function lb_schedule_day(array $state, string $date): array
             }
         }
 
+        /* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
+           第 i 个提醒对应第 i 组：当天已经做完 i 组就不再催第 i 个。 */
+        if ($mkey === 'breathe') {
+            $times = isset($m['notifyTimes']) && is_array($m['notifyTimes']) ? $m['notifyTimes'] : [];
+            $groups = max(1, (int)($m['groups'] ?? 1));
+            /* 兜底：没存时间点就按「每天几组」算默认点，与前端 / api/ics.php 同口径 */
+            if (!count($times)) {
+                $times = lb_breathe_default_times($groups);
+            }
+            $doneN = isset($checks[$hid]) ? (int)(float)$checks[$hid] : 0;
+            $any = false;
+            foreach ($times as $i => $t) {
+                $slot = (string)$t;
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
+                    continue;
+                }
+                $any = true;
+                if ($doneN >= $i + 1) {
+                    continue;   // 第 i+1 组已经做完了，就不再催这一组
+                }
+                $left = max(0, $groups - $doneN);
+                $body = $left > 1
+                    ? '该做 478 呼吸了 · 今天还差 ' . (string)$left . ' 组'
+                    : '该做 478 呼吸了 · 今天还差最后一组';
+                $out[] = [
+                    'time' => $slot,
+                    'kind' => 'habit',
+                    'id' => $hid,
+                    'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+                    'body' => $body,
+                ];
+            }
+            if ($any) {
+                continue;
+            }
+        }
+
         /* 运动 / 478：沿用原 suggestTime 单条逻辑 */
         $slot = (string)($m['suggestTime'] ?? '');
         if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {

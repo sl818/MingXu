@@ -66,8 +66,13 @@ with sync_playwright() as p:
     chk('运动 页渲染 .move-page（v175 改版）', pg.locator('.move-page').count() >= 1)
     chk('运动 页有「新建运动」按钮', pg.locator('[data-act="move-new"]').count() >= 1)
     nav(pg, 'breathe')
-    chk('478呼吸法 页渲染 .module-page', pg.locator('.module-page').count() >= 1)
-    chk('478呼吸法 页有「设置」按钮', pg.locator('[data-act="module-edit"][data-key="breathe"]').count() >= 1)
+    chk('478呼吸法 页渲染 .breathe-page（v194 内联改版）', pg.locator('.breathe-page').count() >= 1)
+    chk('478呼吸法 页有内联设置表单', pg.locator('#breathe-settings-form').count() == 1)
+    chk('478呼吸法 页有「478呼吸法的介绍」', '478呼吸法的介绍' in pg.inner_text('.breathe-page'))
+    chk('478呼吸法 页有「数据统计」', '数据统计' in pg.inner_text('.breathe-page'))
+    chk('478呼吸法 页有「478呼吸法提醒」', '478呼吸法提醒' in pg.inner_text('.breathe-page'))
+    chk('478呼吸法 页不再有右上角「设置」按钮（改页内设置）',
+        pg.locator('[data-act="module-edit"][data-key="breathe"]').count() == 0)
 
     print('\n===== 3. 喝水设置三值联动 =====')
     nav(pg, 'water')

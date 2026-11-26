@@ -287,6 +287,42 @@ chk('31 号在 11 月落到 30 号',
     strpos($m31b['text'], 'DTSTART;TZID=Asia/Shanghai:20261130T090000') !== false,
     substr($m31b['text'], (int)strpos($m31b['text'], 'DTSTART'), 60));
 
+/* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
+   口径必须和前端 buildICS 一致：UID 形如 habit-h_breathe-1 / -2 / -3。 */
+$breathState = static function (array $times, array $extra = []): array {
+    return ['modules' => ['breathe' => array_merge([
+        'on' => true, 'name' => '478呼吸法', 'icon' => '🌬️', 'note' => '4-7-8 呼吸',
+        'notify' => true, 'groups' => 3, 'cycles' => 4, 'notifyTimes' => $times,
+        'suggestTime' => '15:00',
+    ], $extra)]];
+};
+$bt = lb_ics_build($breathState(['07:00', '13:00', '21:00']), $now);
+$btx = $bt['text'];
+chk('478：三个时间点进订阅',
+    substr_count($btx, 'UID:habit-h_breathe-') === 3, (string)substr_count($btx, 'UID:habit-h_breathe-'));
+chk('478：UID 带序号',
+    strpos($btx, 'UID:habit-h_breathe-1@') !== false && strpos($btx, 'UID:habit-h_breathe-3@') !== false);
+chk('478：时刻 07:00 / 13:00 / 21:00 都在',
+    strpos($btx, 'T070000') !== false && strpos($btx, 'T130000') !== false && strpos($btx, 'T210000') !== false);
+chk('478：标题写明第几组',
+    strpos($btx, '第 1 组') !== false && strpos($btx, '第 3 组') !== false);
+chk('478：每天重复', substr_count($btx, 'RRULE:FREQ=DAILY') >= 3,
+    (string)substr_count($btx, 'RRULE:FREQ=DAILY'));
+$btOff = lb_ics_build($breathState(['07:00'], ['notify' => false]), $now);
+chk('478：关掉提醒不进订阅', strpos($btOff['text'], 'UID:habit-h_breathe') === false);
+/* 老数据没有 notifyTimes → 按「每天几组」算默认时间点（与前端 / schedule.php 同口径） */
+$btOld = lb_ics_build($breathState([], ['notifyTimes' => null]), $now);
+chk('478：没有时间点时按组数兜底出 3 个默认点',
+    substr_count($btOld['text'], 'UID:habit-h_breathe-') === 3, (string)substr_count($btOld['text'], 'UID:habit-h_breathe-'));
+chk('478：兜底时间点是 07:00 / 14:00 / 21:00（不是 35:00 这种非法值）',
+    strpos($btOld['text'], 'T070000') !== false && strpos($btOld['text'], 'T140000') !== false
+    && strpos($btOld['text'], 'T210000') !== false && strpos($btOld['text'], 'T350000') === false,
+    (string)substr_count($btOld['text'], 'UID:habit-h_breathe-'));
+$btOne = lb_ics_build($breathState([], ['notifyTimes' => null, 'groups' => 1]), $now);
+chk('478：1 组时兜底 15:00',
+    substr_count($btOne['text'], 'UID:habit-h_breathe-') === 1 && strpos($btOne['text'], 'T150000') !== false,
+    (string)substr_count($btOne['text'], 'UID:habit-h_breathe-'));
+
 echo "\n" . str_repeat('=', 46) . "\n";
 echo 'PASS ' . $pass . ' / ' . ($pass + count($fails)) . "\n";
 if ($fails) {

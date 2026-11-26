@@ -494,6 +494,36 @@ foreach (lb_schedule_day(['money' => ['notify' => ['on' => true], 'debts' => [$d
 }
 chk('还款日不进日历订阅（lb_schedule_day 不含 debt）', $dbInDay === 0);
 
+/* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
+   第 i 个提醒对应第 i 组：当天做完 i 组就不再催第 i 个。 */
+$breathOf = static function (array $times, array $extra = [], array $checks = []): array {
+    return [
+        'modules' => ['breathe' => array_merge([
+            'on' => true, 'name' => '478呼吸法', 'icon' => '🌬️',
+            'notify' => true, 'groups' => 3, 'cycles' => 4, 'notifyTimes' => $times,
+        ], $extra)],
+        'checks' => $checks ? [D => $checks] : [],
+    ];
+};
+$bplan = lb_schedule_day($breathOf(['07:00', '13:00', '21:00']), D);
+chk('478：三个时间点都进当天计划', count($bplan) === 3, implode(' | ', times($bplan)));
+chk('478：时刻分别是 07:00 / 13:00 / 21:00',
+    times($bplan) === ['07:00 habit:h_breathe', '13:00 habit:h_breathe', '21:00 habit:h_breathe'],
+    implode(' | ', times($bplan)));
+chk('478：正文写今天还差几组',
+    strpos((string)($bplan[0]['body'] ?? ''), '还差 3 组') !== false, (string)($bplan[0]['body'] ?? ''));
+$bplan1 = lb_schedule_day($breathOf(['07:00', '13:00', '21:00'], [], ['h_breathe' => 1]), D);
+chk('478：做完 1 组就不再催第 1 组', count($bplan1) === 2, implode(' | ', times($bplan1)));
+$bplan2 = lb_schedule_day($breathOf(['07:00', '13:00', '21:00'], [], ['h_breathe' => 3]), D);
+chk('478：三组做完一条都不催', count($bplan2) === 0, implode(' | ', times($bplan2)));
+$bplanOff = lb_schedule_day($breathOf(['07:00'], ['notify' => false]), D);
+chk('478：关掉提醒不进计划', count($bplanOff) === 0, implode(' | ', times($bplanOff)));
+$bplanDef = lb_schedule_day($breathOf([], ['groups' => 3]), D);
+chk('478：没存时间点时按组数兜底出 3 条', count($bplanDef) === 3, implode(' | ', times($bplanDef)));
+chk('478：兜底时间点是 07:00 / 14:00 / 21:00',
+    times($bplanDef) === ['07:00 habit:h_breathe', '14:00 habit:h_breathe', '21:00 habit:h_breathe'],
+    implode(' | ', times($bplanDef)));
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

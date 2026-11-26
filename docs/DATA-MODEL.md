@@ -428,6 +428,40 @@ moneyAt: 1763000000000
 `extra` / `strategy` / `customOrder` / `startYM` / `notify` 这些单值字段没有各自的修改时间，
 只能整组比 `moneyAt` —— 新的那端覆盖旧的。
 
+### 5.7d `modules` / `modulesAt` —— 四个常驻模块的配置（v170；v196 补 478 的多提醒时间点）
+
+```js
+modules: {
+  water:   { on:true, name:'喝水', icon:'💧', color:'#4c7f96', note:'', unit:'杯',
+             cups:9, perMl:250, goalMl:2300, notify:true, suggestTime:'',
+             notifyChannels:['browser'], notifyMode:'each', notifyDailyCount:2,
+             notifyDailyTimes:{morning:'08:00', noon:'12:30', afternoon:'15:00'},
+             notifyStart:'08:00', notifyEnd:'21:00' },
+  move:    { on:true, name:'运动', icon:'🏃', color:'#b5733f', note:'', unit:'次',
+             times:1, sports:[], records:[], notify:true, suggestTime:'',
+             notifyChannels:['browser'], notifyScenes:{steps:true, plan:true, week:true} },
+  breathe: { on:true, name:'478呼吸法', icon:'🌬️', color:'#5b8f8a', note:'4-7-8 呼吸', unit:'组',
+             groups:1, cycles:4, notify:true, suggestTime:'15:00',
+             notifyChannels:['browser'], notifyTimes:['15:00'] },
+  quit:    { on:true, name:'戒烟', icon:'🚭', color:'#7a8471', note:'',
+             startDate:'', perDay:0, packPrice:0, packSize:20 }
+},
+modulesAt: 1763000000000
+```
+
+**v196 新增 `modules.breathe.notifyTimes`** —— 478 的提醒改成「每天固定时间推送」：
+数组长度 =「每天几组」（最多 12 个），每项是 `'HH:MM'`。
+老数据只有 `suggestTime` 时，迁移成 `notifyTimes[0]`（见 `normalizeModule`）；
+`suggestTime` 始终等于 `notifyTimes[0]`，卡片上的「建议时间」与第一个提醒点保持一致。
+`notifyTimes` 为空时，前端 `breatheDefaultTimes()` 与后端 `lb_breathe_default_times()`
+会按「每天几组」兜底出同样的默认时刻（07:00–21:00 之间铺开、落到 5 分钟整）——
+**三处口径必须一致**，否则订阅出来的日历和页面提醒对不上。
+
+**合并**：`modules` 整组比 `modulesAt`，新的那端覆盖旧的（与 `money` 同套路）。
+
+**口径提醒**：`modules.breathe` 的 `groups`（每天几组）与 `cycles`（每组循环次数）只决定
+**达标判定**与**次数折算**；打卡记录本身仍写 `checks[日期]['h_breathe']`（数值 = 当天完成的组数）。
+
 **不参与考核**：清债数据不写 `habits` / `checks` / `tasks`，
 所以 `rateOver` / `dayStats` / `taskStats` / `habitDayAcc` 全都看不见它。
 （用户说过「以后可能要做」，到时候得另开一套口径，别往 `dayStats` 里塞。）

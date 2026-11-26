@@ -219,6 +219,27 @@ function lb_water_slots(array $m, int $cups): array
     return $slots;
 }
 
+/* v194：478 提醒的默认时间点 —— 与前端 breatheDefaultTimes() 同口径：
+   每天几组就在 07:00–21:00 之间铺开、落到 5 分钟整；只有 1 组时给 15:00。
+   三处（前端 / api/ics.php / api/schedule.php）必须一致，否则订阅出来的
+   日历和页面提醒对不上（UID 一个带序号一个不带）。 */
+function lb_breathe_default_times(int $k): array
+{
+    $k = max(1, min(12, $k));
+    $from = 7 * 60;
+    $to = 21 * 60;
+    $out = [];
+    for ($i = 0; $i < $k; $i++) {
+        /* 先落到 5 分钟刻度再转 HH:MM：除法必须在加法外面，
+           写成 round($from + (...)/5)*5 会算出 35:00 / 45:30 这种非法时间。 */
+        $mm = $k === 1
+            ? 15 * 60
+            : (int)(round(($from + ($to - $from) * ($i / ($k - 1))) / 5) * 5);
+        $out[] = sprintf('%02d:%02d', intdiv($mm, 60) % 24, $mm % 60);
+    }
+    return $out;
+}
+
 /* 订阅地址无效时输出一个「空日历」而不是 404。
    原因：线上 Nginx 配了 error_page 404，会把 PHP 的 404 换成自己的 HTML 页面。
    日历客户端收到 HTML 只会报「格式错误 / 无法添加」，比空日历还难排查。
@@ -551,16 +572,7 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
                后端不兜底的话，同一件事会变成「前端 habit-h_breathe-1 / 后端 habit-h_breathe」，
                订阅出来的日历和页面日历对不上。 */
             if (!count($times)) {
-                $k = max(1, min(12, (int)($m['groups'] ?? 1)));
-                $from = 7 * 60;
-                $to = 21 * 60;
-                $times = [];
-                for ($i = 0; $i < $k; $i++) {
-                    $mm = $k === 1
-                        ? 15 * 60
-                        : (int)(round($from + ($to - $from) * ($i / ($k - 1)) / 5) * 5);
-                    $times[] = sprintf('%02d:%02d', intdiv($mm, 60), $mm % 60);
-                }
+                $times = lb_breathe_default_times(max(1, min(12, (int)($m['groups'] ?? 1))));
             }
             $bn = 0;
             foreach ($times as $i => $t) {

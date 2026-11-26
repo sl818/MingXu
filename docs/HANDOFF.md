@@ -2,7 +2,7 @@
 
 > 这份文档记录**当前状态和版本流水**。想理解代码怎么跑，先看 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-最后更新：v195（2026-11-26）
+最后更新：v196（2026-11-26）
 
 ---
 
@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v195（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v195'`） |
+| 代码版本 | v196（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v196'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
@@ -225,6 +225,7 @@ curl -sS "https://your-domain.example/service-worker.js" | grep CACHE
 | v193 | 11-26 | **修「统计页 › 喝水 › 喝水时段」柱子偏上、下方空一大片**（陛下截图指出）：根因是 `.stt-grid2` 用 grid 默认的 `align-items:stretch` —— 左栏的趋势图把右栏卡片**拉高**了，而柱状图本身只有 118px 高、内容从卡片顶部开始排，于是下方空出大半张卡。修法：`.stt-grid2` 加 `align-items:start`，两栏各自贴合内容高度（实测桌面左 204px / 右 147px，不再被拉伸；手机上下排列各 117 / 133px）。同时把喝水时段柱子的高度参数从 72 提到 86，让两栏高度更接近。顺带确认：`.stt-grid2` 也用在运动页统计的两处（热力图 + 周内分布、时段 + 模式构成），改动后两栏高度协调、无空白。测试：`regression-v3` 28/28、`verify-stats-controls` 12/12、`verify-water` 38/38 全绿；浅色与深色主题、桌面与 390px 均已截图核对。**未上传线上**。SW → v193 |
 | v194 | 11-26 | **真正修好「统计页 › 喝水 › 喝水时段」柱子偏上**（陛下指出 v193 的修复没生效 —— 他看的是未上传的 v192，而 v193 那版只是让「卡片」贴合内容，右侧那块仍然空着）。这版改到根上：①`moveStatBarsHtml` 新增 **fill 模式** —— 柱子高度输出**百分比**而不是固定 px，容器被拉多高、柱子就长多高、底部对齐；②统计页喝水块的两栏加 `stt-fill`：grid 恢复 `align-items:stretch` 两栏等高，右栏是 flex 列、柱区 `flex:1` 撑满整栏（实测桌面两栏都 206px、柱区 175px，柱子底部与容器底只差 19px＝标签行高度；手机上下排列 119 / 135px）；③CSS 新增 `.stt-grid2.stt-fill` / `.stt-bars.fill`（柱子 max-width 放宽到 44px）。另外做了一份**热力图三档改法的可交互预览**（`docs/design/heat-preview-v194.html`）：甲 12 周大格子自适应铺满 / 乙 18 周 + 20px 格子（推荐）/ 丙 25 周 + 最小格子；实测发现「18 周 + 格子不变（14px）」其实填不满半栏（18 列只有 306px、卡片 480px），故按能填满重新分档；**等陛下选定后再改正式代码**。测试：`verify-water` 38/38、`regression-v3` 28/28、`verify-stats-controls` 12/12 全绿；深色与浅色、桌面与 390px 均已截图核对。**另**：工作区里还压着一处**上一轮遗留的未提交改动** —— 「478 呼吸每天固定时间推送」的 ICS 事件只加了后端 `api/ics.php`（前端 `buildICS` 与 `api/schedule.php` 早已在仓库里），而且**没改完**：后端少了前端 `breatheDefaultTimes()` 那套「按每天几组算默认时间点」的兜底，`notifyTimes` 为空时后端退回单条 `habit-h_breathe`、前端却是 `habit-h_breathe-1` —— `verify-ics-subscribe.py` 直接报「UID 集合完全相同」FAIL。已按前端算法补齐后端兜底（7:00~21:00 之间均分、取 5 分钟整），`verify-ics-subscribe.py` 9/9、`test-ics.php` 64/64、`test-schedule.php` 130/130 全绿，两处改动**分开提交**。**未上传线上**。SW → v194 |
 | v195 | 11-26 | **月历热力图按乙案改造**（陛下在预览三档里选了 **乙：18 周 · 格子中等**）：①周数 12 → **18 周**（`heatDays` 84 → 126，副标题同步）；②**结构大改** —— 原来每列一个 `.stt-col` div + 固定 14px 格子，卡片右侧空一大块；现在把 126 个格子**展平成一串**，用 CSS grid `grid-auto-flow:column` 自动按列填 7 行，**列宽随卡片宽度自适应**，18 列正好排满整行（实测桌面格子 26×24px、网格宽 548px = 容器宽，右侧不再留白）；③**星期标签与格子严格对齐** —— 左边 7 个标签改成 7 行 grid、与右侧格子网格同高（桌面 186px、手机 158px），不再靠固定 14px 凑；④**手机端**格子固定 20px、整块横向可滑动（实测 scrollWidth 450 > clientWidth 292），且**不给 `.stt-heat` 加 `width:max-content`** —— 那会把整个页面撑出横向滚动条（加过一次，regression 立刻发现，已去掉）。测试：`regression-v3` 28/28（含各页「横溢 0」）、`verify-move-full-v185` 91/91、`verify-v170` 68/68 全绿；桌面与 390px 均已截图核对。**未上传线上**。SW → v195 |
+| v196 | 11-26 | **478 呼吸法页整版重做**（陛下给了 6 条需求 + 4 张参考图）：①**右上角「设置」弹窗撤掉**，改成页内「478呼吸法设置」区块（和喝水页一个路子）；②**图标 / 名称 / 颜色 / 备注锁死** —— 页内设置里是一行固定行「🌬️ 478呼吸法 🔒 由系统固定，不可修改」，只留「每天几组」「每组循环次数」两个能改，模块设置弹窗里也一并锁死（保存时强制写回默认值）；③**新增「478呼吸法的介绍」** —— 引导语 + 6 张小卡（快速镇静 / 缓解焦虑 / 改善睡眠 / 提升专注 / 稳定血压 / 温和练肺）+ 底部「怎么做」（吸 4 → 屏 7 → 呼 8，一组 4 次循环约 1 分 16 秒）；④**新增页内「数据统计」** —— 右上四档日期切换（近 7 天 / 近 1 月 / 近 3 月 / 全部）+ 三个完成度环（今日 / 区间 / 连续达标）+ 六个指标（区间完成组数 / 呼吸次数 / 达标天数 / 达标率 / 累计组数 / 累计呼吸次数）+ 每日趋势折线（全部档改画按月柱状）+ 达标算法说明；原「坚持小结」小卡并入统计区；⑤**新增「478呼吸法提醒」** —— 开关 + 渠道多选 + 提醒方式固定为「每天固定时间推送」+ **N 个时间输入框**（N = 每天几组，改组数时框数实时增减、已填的值保留）；真实推送通道以后做，本轮只存字段；⑥**打卡与达标判定照喝水那套** —— 跑满一组才记 1 组（中途关闭不记录），达标 = 当天组数 ≥ 每天几组，照样计入首页完成率与本周/本月达标天数；统计页另给 478 单开一块（`statsBreathePanel`，今日 + 考核三块 + 近 N 天 KPI + 每日趋势 + 「完整统计 →」）。新增字段 `modules.breathe.notifyTimes[]`（老数据的 `suggestTime` 迁进第一个），白名单过 `normalizeModule` / `mergeStates` / `repairBackup`；**后端三处口径同步**：`buildICS` + `api/ics.php` + `api/schedule.php` 从「每日一条」改成「每组一条」（`habit-h_breathe-1/-2/…`），没存时间点时三处都按「每天几组」兜底出同样的默认时刻（抽成 `lb_breathe_default_times()`，与前端 `breatheDefaultTimes()` 同口径）；**踩过的坑**：默认时间点必须「先落到 5 分钟刻度再转 HH:MM」，写成 `round($from + (...)/5)*5` 会算出 `35:00` / `45:30` 这种非法时间（前后端各中过一次，已用测试锁死）。测试：新增 `verify-breathe-page.py` 54/54、`verify-breath.py` 38/38、`test-ics.php` 73/73、`test-schedule.php` 138/138、`verify-ics-subscribe.py` 9/9、`verify-v170` 68/68、`verify-water` 38/38、`regression-v3` 28/28、`verify-v15` 35/35、`verify-mobile-nav` 44/44、`verify-batch2/3/4` 51/60/20、`verify-stats-controls` 12/12、`verify-api-http` 33/33 全绿，对比度审计 0 项低于 AA。**前后对比网页**：`docs/design/breathe-compare-v195.html`。**未上传线上**。SW → v196 |
 
 `checks`（两层 `{日期:{习惯:次数}}`）和 `doses`（三层 `{日期:{药:{时段:记录}}}`）
 用了同一段合并代码，`Number({})` 得到 `NaN → 0`，把整瓶药的当天记录压成 0。
