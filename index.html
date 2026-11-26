@@ -8570,13 +8570,16 @@
        非步数从 v178 起判定的是「每天几次」，目标档里的距离/时长只是参考值 ——
        以前卡片写「目标 5 公里」、实际要求「每天 2 次」，两回事。现在显示判定依据。 */
     let fhtml;
+    const weekly = s.freqKind === 'weekly';
+    const perGoal = Math.max(1, Number(weekly ? s.perDay : s.freqN) || 1);
     if (s.key === 'steps') {
       fhtml = '<span class="mv-ft"><b>目标</b>' + s.tVal + ' ' + esc(tf.unit) + '</span>' +
         '<span class="mv-ft"><b>频率</b>' + esc(moveFreqText(s)) + '</span>';
+    } else if (weekly) {
+      fhtml = '<span class="mv-ft"><b>目标</b>每个运动日 ' + perGoal + ' 次</span>' +
+        '<span class="mv-ft"><b>频率</b>每周选日运动</span>';
     } else {
-      const perGoal = Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1);
-      fhtml = '<span class="mv-ft"><b>目标</b>每天 ' + perGoal + ' 次</span>' +
-        '<span class="mv-ft"><b>频率</b>' + esc(moveFreqText(s)) + '</span>';
+      fhtml = '<span class="mv-ft"><b>目标</b>每天 ' + perGoal + ' 次</span>';
     }
     if (s.key === 'steps') {
       fhtml += '<span class="mv-ft"><b>记录方式</b>' + (s.recMode === 'fixed' ? ('每次 +' + s.fixedSteps + ' 步') : '手动输入') + '</span>';
@@ -8639,11 +8642,10 @@
     return '<article class="mv-card' + (rest ? ' is-rest' : '') + '" data-id="' + s.id + '" style="--sport:' + esc(s.color || T.color) + '">' +
       '<div class="mv-top">' +
         '<span class="mv-ico">' + esc(T.icon) + '</span>' +
-        '<div class="mv-title"><b>' + esc(s.name || T.name) + '</b><small>' + esc(moveFreqText(s)) + ' · ' +
-          /* v197：非步数的达标依据是「每天几次」，标题别再写距离目标 */
-          (s.key === 'steps'
-            ? '目标 ' + s.tVal + ' ' + esc(tf.unit)
-            : '每天 ' + Math.max(1, Number(s.freqKind === 'weekly' ? s.perDay : s.freqN) || 1) + ' 次') +
+        '<div class="mv-title"><b>' + esc(s.name || T.name) + '</b><small>' + esc(moveFreqText(s)) +
+          /* v197：非步数的达标依据是「每天几次」，moveFreqText 里已经写着，标题别再重复一遍；
+             步数没有次数概念，单独把目标步数补上。 */
+          (s.key === 'steps' ? ' · 目标 ' + s.tVal + ' ' + esc(tf.unit) : '') +
           '</small></div>' +
         /* v188：有跳过未记录的次数时，右上角用「待补 N」胶囊顶替「我的运动」标签 ——
            提示变成状态而不是按钮：不占按钮区、卡片高度与普通卡片一致，

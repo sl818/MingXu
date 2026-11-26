@@ -20,7 +20,7 @@
 | 项 | 值 |
 |---|---|
 | 地址 | `https://your-domain.example/` |
-| 代码版本 | v197（`service-wheel-shell-v197'`） |
+| 代码版本 | v197（`service-worker.js` 的 `CACHE = 'lifeboard-shell-v197'`） |
 | 服务器 | 阿里云轻量 + 宝塔，Nginx + PHP 8.2 + MySQL |
 | 站点目录 | `/www/wwwroot/todo` |
 | 数据库迁移 | 已执行到 `2026-10-30_push_content.sql`；**`2026-11-19_smtp.sql` 待部署时先执行** |
