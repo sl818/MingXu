@@ -482,6 +482,32 @@ with sync_playwright() as p:
     rec('v201 ⑥ 横幅「去看看」指向 478 页', dv == 'breathe', str(dv))
     ctx.close()
 
+    # ---------- v202：⑧ 卡片进度 / ⑨ 下一提醒 / ⑪ 连续达标不用环 ----------
+    set_board(make_board(checks={'2026-10-24': {'h_breathe': 1}}))
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    card = pg.evaluate("""() => ({
+      cnt: (document.querySelector('.breathing-card .breath-count')||{}).textContent.replace(/\\s+/g,' ').trim()||'',
+      status: (document.querySelector('.breathing-card .breath-status')||{}).textContent.trim()||'',
+      sub: (document.querySelector('.breathing-card .vital-sub')||{}).textContent.replace(/\\s+/g,' ').trim()||''
+    })""")
+    rec('v202 ⑧ 卡片显示「今天 1 / 3 组」', card['cnt'] == '今天 1 / 3 组', card['cnt'])
+    rec('v202 ⑧ 状态词仍是「还没开始」（没被进度挤掉）', card['status'] == '还没开始', card['status'])
+    rec('v202 ⑨ 卡片文案用「下一提醒」', '下一提醒' in card['sub'], card['sub'])
+    rec('v202 ⑨ 下一提醒取第一个未过的点（14:00 → 21:00）', '21:00' in card['sub'], card['sub'])
+    kpi3 = pg.evaluate("""() => {
+      const el = document.querySelectorAll('.w-kpi')[2];
+      if (!el) return { ring: -1, big: '' };
+      return { ring: el.querySelectorAll('.w-ring').length,
+               big: (el.querySelector('.k-big')||{}).textContent || '',
+               label: (el.querySelector('.k-label')||{}).textContent || '' };
+    }""")
+    rec('v202 ⑪ 连续达标改成纯数字（不再用环）',
+        kpi3['ring'] == 0 and kpi3['big'] != '' and kpi3['label'].startswith('连续达标'), str(kpi3))
+    rec('v202 无 JS 异常', not errs, str(errs[:1]))
+    ctx.close()
+
     # ---------- 手机 ----------
     set_board(make_board())
     for wd in (390, 360):

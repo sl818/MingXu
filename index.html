@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=201">
+<link rel="stylesheet" href="assets/app.css?v=202">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=201">
+<link rel="stylesheet" href="assets/theme-v2.css?v=202">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v201';
+  const APP_VERSION = 'v202';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -5826,9 +5826,20 @@
 
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const sugMin = Number(suggest.slice(0, 2)) * 60 + Number(suggest.slice(3, 5));
-    const diff = sugMin - nowMin;
-    const warm = !done && today && diff <= 0 && diff > -60;
+    /* v202：478 最多有 5 个提醒点 → 卡片显示「下一个还没过的提醒」，
+       而不是永远拿第一个点当「建议时间」（原来第一个点过了就会一直说
+       "建议的 15:00 那组还没做"，哪怕后面还有 21:00 的提醒）。 */
+    const bMod = (state.modules && state.modules.breathe) ? state.modules.breathe : null;
+    const bTimeOk = function (x) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || '')); };
+    const tlist = (bMod && Array.isArray(bMod.notifyTimes) && bMod.notifyTimes.length)
+      ? bMod.notifyTimes.filter(bTimeOk).map(String)
+      : [suggest];
+    const toMin = function (t) { return Number(String(t).slice(0, 2)) * 60 + Number(String(t).slice(3, 5)); };
+    const upNext = tlist.filter(function (t) { return toMin(t) > nowMin; })[0] || '';
+    const lastHit = tlist.filter(function (t) { return toMin(t) <= nowMin; }).pop() || '';
+    const diff = (upNext ? toMin(upNext) : toMin(tlist[0] || suggest)) - nowMin;
+    /* 提醒点刚过 60 分钟内算「现在正好」—— 多组时看最近的那个点 */
+    const warm = !done && today && !!lastHit && (nowMin - toMin(lastHit) < 60);
 
     let status, sub;
     if (done) {
@@ -5836,17 +5847,17 @@
       sub = cycles + ' 次循环跑完了' + (streak ? ' · 连续 ' + streak + ' 天' : '');
     } else if (!today) {
       status = '这一天没有记录';
-      sub = '补记这一天 · 建议时间 ' + suggest;
-    } else if (diff > 0) {
-      status = '还没开始';
-      sub = '现在 ' + breathHHMM(nowMin) + ' · 建议 ' + suggest + ' 做一组，' +
-        (diff >= 60 ? '还有 ' + humanDuration(diff) : '还有 ' + diff + ' 分钟');
+      sub = '补记这一天 · 提醒时间 ' + tlist.join(' / ');
     } else if (warm) {
       status = '现在正好';
-      sub = '现在正是建议的 ' + suggest + ' 时段，做完这一组就踏实了';
+      sub = '现在正是建议的 ' + lastHit + ' 时段，做完这一组就踏实了';
+    } else if (upNext) {
+      status = '还没开始';
+      sub = '现在 ' + breathHHMM(nowMin) + ' · 下一提醒 ' + upNext + ' 做一组，' +
+        (diff >= 60 ? '还有 ' + humanDuration(diff) : '还有 ' + diff + ' 分钟');
     } else {
       status = '还没开始';
-      sub = '现在 ' + breathHHMM(nowMin) + ' · 建议的 ' + suggest + ' 那组还没做，睡前补上也有用';
+      sub = '现在 ' + breathHHMM(nowMin) + ' · 今天的 ' + tlist.length + ' 个提醒点都过了，睡前补上也有用';
     }
 
     const mins = Math.round(totalN * totalSec / 60);
@@ -5859,7 +5870,10 @@
         (streak ? '<span class="breath-streak">🔥 连续 ' + streak + ' 天</span>' : '') +
         '<span class="pin-tag">常驻</span>' +
       '</div>' +
-      '<div class="breath-status' + (done ? ' ok' : '') + '">' + status + '</div>' +
+      '<div class="breath-line">' +
+        '<span class="breath-status' + (done ? ' ok' : '') + '">' + status + '</span>' +
+        '<span class="breath-count">今天 <b>' + c + '</b> / ' + target + ' 组</span>' +
+      '</div>' +
       '<div class="vital-sub">' + sub + '</div>' +
       '<div class="breath-wave-wrap">' +
         '<svg class="breath-wave" viewBox="0 0 ' + (cycles * 100) + ' 48" preserveAspectRatio="none" aria-hidden="true">' +
@@ -8292,8 +8306,7 @@
     return {
       dates: dates, counts: counts, sum: sum, metN: metN, active: active, maxN: maxN,
       pct: dates.length ? Math.round(pctSum / dates.length * 100) : 0,
-      rate: dates.length ? Math.round(metN / dates.length * 100) : 0,
-      avg: active ? Math.round(sum / active * 10) / 10 : 0
+      rate: dates.length ? Math.round(metN / dates.length * 100) : 0
     };
   }
 
@@ -8313,10 +8326,9 @@
         '" data-act="set-breathe-range" data-range="' + x[0] + '">' + x[1] + '</button>';
     }).join('') + '</div>';
     /* 累计（全部历史） */
-    let allGroups = 0, allDays = 0;
+    let allGroups = 0;
     Object.keys(state.checks || {}).forEach(function (ds) {
-      const n = countOf(ds, h.id);
-      if (n > 0) { allGroups += n; allDays++; }
+      allGroups += countOf(ds, h.id);
     });
     let trend;
     if (R) {
@@ -8342,8 +8354,10 @@
           '<span class="k-label">今日完成度</span><span class="k-sub">已完成 ' + todayN + ' / ' + target + ' 组</span></div>' +
         '<div class="w-kpi"><div class="w-ring" style="--p:' + agg.pct + ';--rc:#7a6a4a"><b>' + agg.pct + '%</b></div>' +
           '<span class="k-label">' + rLab + '完成度</span><span class="k-sub">每天完成度取平均</span></div>' +
-        '<div class="w-kpi"><div class="w-ring" style="--p:' + Math.min(100, streak * 10) + ';--rc:#8a6a3a"><b>' + streak + '</b></div>' +
-          '<span class="k-label">连续达标（天）</span><span class="k-sub">当前已连续 ' + streak + ' 天</span></div>' +
+        /* v202：连续达标不用环（streak×10 当进度，超过 10 天就满环，看不出差别）→ 纯数字 */
+        '<div class="w-kpi br-plain"><b class="k-big">' + streak + '</b>' +
+          '<span class="k-label">连续达标（天）</span><span class="k-sub">' +
+          (streak ? '当前已连续 ' + streak + ' 天' : '还没有连续达标') + '</span></div>' +
       '</div>' +
       '<div class="w-mini-grid br-mini-grid">' +
         '<div class="w-mini"><b>' + agg.sum + '</b><span>' + rLab + '完成组数</span></div>' +
@@ -12671,11 +12685,12 @@
     return list.map(h => {
       const pin = isPinned(h);
       const tm = todayMark(h);
-      const detail = h.id === 'h_breathe'
-        ? '每天一组 · ' + (Number(h.breatheCycles) || 4) + ' 次循环 · 建议 ' + String(h.suggestTime || '15:00')
-        : (isQuitLike(h)
-          ? (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天达标'
-          : '养成 · 每天 ' + (h.target || 1) + ' ' + esc(h.unit || '次'));
+      /* v202：这里原来还有一条 `h.id === 'h_breathe'` 的「每天一组 · N 次循环 · 建议 15:00」——
+         但上面的 base 已经用 !isModuleAnchor(h) 过滤掉了 h_breathe，那条分支永远不执行（死代码），
+         而且文案是单点语义（多组多提醒之后「每天一组 / 建议 15:00」都不准），一并删掉。 */
+      const detail = isQuitLike(h)
+        ? (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天达标'
+        : '养成 · 每天 ' + (h.target || 1) + ' ' + esc(h.unit || '次');
       return '<div class="habit-row" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
         '<span class="habit-icon sm" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '✅') + '</span>' +
         '<div class="habit-row-info"><b>' + esc(h.name) + '</b><small>' + detail + (h.note ? ' · ' + esc(h.note) : '') + '</small></div>' +
@@ -20441,7 +20456,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=201', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=202', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

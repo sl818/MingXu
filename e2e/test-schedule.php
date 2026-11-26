@@ -532,6 +532,13 @@ chk('478：标题写明第几组',
 $bOver = lb_schedule_day($breathOf(['07:00', '08:00', '09:00', '10:00', '11:00', '12:00'], ['groups' => 6]), D);
 chk('478：组数超过上限 5 只按 5 条', count($bOver) === 5, implode(' | ', times($bOver)));
 
+/* v202：时间点「非空但全是脏值」→ 按每天几组兜底，不要掉回单条 suggestTime（那会让前后端口径不一致） */
+$bDirty = lb_schedule_day($breathOf(['abc', '99:99'], ['groups' => 3]), D);
+chk('478：脏时间点全部非法时按组数兜底出 3 条', count($bDirty) === 3, implode(' | ', times($bDirty)));
+chk('478：兜底时刻是 07:00 / 14:00 / 21:00',
+    times($bDirty) === ['07:00 habit:h_breathe', '14:00 habit:h_breathe', '21:00 habit:h_breathe'],
+    implode(' | ', times($bDirty)));
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

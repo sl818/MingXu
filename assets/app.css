@@ -2673,6 +2673,16 @@ body.modal-open{overflow:hidden;}
   .profile-grid{grid-template-columns:1fr 1fr}
 }
 /* 478 呼吸卡：波形 + 建议时间 */
+/* v202：状态行改成一整行「状态 + 今天 N/M 组」—— 做了 1 组但没达标时，
+   以前卡片只写「还没开始」，用户看不出今天已经做过一组。 */
+.breath-line{display:flex;align-items:baseline;gap:10px;flex:none;margin-top:13px;min-width:0}
+.breath-line .breath-status{margin-top:0;min-width:0}
+.breath-count{
+  margin-left:auto;flex:none;white-space:nowrap;
+  font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.breath-count b{font-size:13px;font-weight:700;color:var(--text)}
+.breathing-card.is-done .breath-count b{color:var(--accent-strong)}
 .breath-status{
   font-size:19px;font-weight:650;line-height:1.3;margin-top:13px;
   letter-spacing:-.01em;flex:none;
@@ -3445,6 +3455,13 @@ body.modal-open{overflow:hidden;}
 .w-ring b{position:relative;z-index:1;font-size:19px;font-weight:700}
 .w-kpi .k-label{font-size:13px;font-weight:600}
 .w-kpi .k-sub{font-size:11px;color:var(--muted)}
+/* v202：478 的「连续达标」不用环 —— 环按 streak×10 当进度，超过 10 天就满环看不出差别。
+   改成与环同尺寸（94px）的纯数字块，三列仍对齐。 */
+.br-plain .k-big{
+  width:94px;height:94px;display:grid;place-items:center;
+  font-size:30px;font-weight:700;line-height:1;color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
 .w-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
 .w-mini{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center}
 .w-mini b{display:block;font-size:20px;font-weight:700}

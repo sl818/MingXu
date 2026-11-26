@@ -345,10 +345,17 @@ function lb_schedule_day(array $state, string $date): array
         if ($mkey === 'breathe') {
             $times = isset($m['notifyTimes']) && is_array($m['notifyTimes']) ? $m['notifyTimes'] : [];
             $groups = max(1, min(LB_BREATHE_MAX_GROUPS, (int)($m['groups'] ?? 1)));
-            /* 兜底：没存时间点就按「每天几组」算默认点，与前端 / api/ics.php 同口径 */
-            if (!count($times)) {
-                $times = lb_breathe_default_times($groups);
+            /* v202：先洗一遍 —— 时间点可能「非空但全是脏值」（手改坏了 / 老数据）。
+               一个合法值都没有就按「每天几组」兜底，别掉进下面那条通用 suggestTime 单条逻辑：
+               那样前端与 api/ics.php 出 N 条、这里只出 1 条，两边口径就不一致了。 */
+            $clean = [];
+            foreach ($times as $t) {
+                $t = (string)$t;
+                if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) {
+                    $clean[] = $t;
+                }
             }
+            $times = count($clean) ? $clean : lb_breathe_default_times($groups);
             $doneN = isset($checks[$hid]) ? (int)(float)$checks[$hid] : 0;
             $any = false;
             $seen = [];
