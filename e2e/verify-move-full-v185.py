@@ -179,7 +179,9 @@ def sports():
 
 
 def recs():
-    return move_mod().get('records') or []
+    # v198：删除改成软删除（留墓碑），服务端数组里那条还在 ——
+    # 这里按「界面上看得见的记录」口径读，与页面一致
+    return [r for r in (move_mod().get('records') or []) if not r.get('deletedAt')]
 
 
 def sport_by_key(k):

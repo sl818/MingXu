@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=197">
+<link rel="stylesheet" href="assets/app.css?v=198">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=197">
+<link rel="stylesheet" href="assets/theme-v2.css?v=198">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v197';
+  const APP_VERSION = 'v198';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -806,11 +806,25 @@
       const t = new Date(at);
       hour = isNaN(t.getTime()) ? 0 : t.getHours();
     }
+    /* 日期要**真实存在**：光看格式的话，备份里写 2026-02-31 也算数，
+       之后按「天」聚合时那天的记录就成了孤儿。这里用 Date 反查一次。 */
+    const dRaw = String(r.d || '');
+    let d = todayStr();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dRaw)) {
+      const dt = new Date(dRaw + 'T00:00:00');
+      if (!isNaN(dt.getTime()) && fmt(dt) === dRaw) d = dRaw;
+    }
+    /* v198：并发合并要按记录逐条比新旧，所以每条记录带两个戳 ——
+       updatedAt = 最后修改时间（合并时新的胜出），
+       deletedAt = 软删除墓碑（删了不真删，30 天后清理）。
+       没有墓碑的话，一端删的记录会被另一端「复活」。 */
+    const updatedAt = String(r.updatedAt || at);
+    const deletedAt = String(r.deletedAt || '');
     return {
       id: String(r.id || uid()),
       sportId: String(r.sportId || ''),
       key: MOVE_TYPES[r.key] ? r.key : '',
-      d: /^\d{4}-\d{2}-\d{2}$/.test(String(r.d || '')) ? String(r.d) : todayStr(),
+      d: d,
       at: at,
       hour: hour,
       steps: num(r.steps),
@@ -836,7 +850,9 @@
       /* v181：打卡后先记一条「待填数据」的记录（pending），填完或明确跳过才置 false。
          老数据没有这两个字段，默认 false —— 不能反过来要求老用户去补。 */
       pending: r.pending === true,
-      skipped: r.skipped === true
+      skipped: r.skipped === true,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt
     };
   }
 
@@ -878,7 +894,15 @@
       out.times = clamp(Math.round(Number(m.times) || d.times), 1, 99);
       /* 运动 2.0（v175）：sports（运动实例）与 records（运动记录）白名单收敛 */
       out.sports = Array.isArray(m.sports) ? m.sports.map(normalizeMoveSport) : [];
-      out.records = Array.isArray(m.records) ? m.records.map(normalizeMoveRecord) : [];
+      /* v198：软删除的墓碑留 30 天就彻底清掉（够两台设备同步到），别让数据无限膨胀 */
+      const KEEP_TOMB = 30 * 86400000;
+      out.records = Array.isArray(m.records)
+        ? m.records.filter(function (r) {
+            if (!r || !r.deletedAt) return true;
+            const t = Date.parse(String(r.deletedAt));
+            return !(t > 0) || (Date.now() - t) < KEEP_TOMB;
+          }).map(normalizeMoveRecord)
+        : [];
       /* v177 修：notifyChannels / notifyScenes 原本没进白名单，每次 normalize 都被丢掉，
          结果弹窗里选好的渠道一保存就没了。这里补上（渠道多选 + 三个提醒场景）。 */
       const CH2 = ['browser', 'wecom', 'mail'];
@@ -1960,6 +1984,58 @@
     }
   }
 
+  /* v198：运动模块单独合并 —— 不再整块取新。
+     整块取新的后果很实在：A 端删了一条记录，B 端改了点运动配置，
+     最后合并成 B 的整块 → A 删的记录「复活」，A 新加的记录整块丢失。
+     现在按 id 逐条比：
+       · 运动实例（sports）：同 id 看 updatedAt，新的胜出；
+       · 运动记录（records）：同 id 先看墓碑（谁删了就是删了），
+         没有墓碑才看 updatedAt；只在一端出现的直接保留（谁新增都不丢）。
+     运动实例本身还是真删（删实例是罕见操作），记录级才有墓碑。 */
+  function mergeMoveModule(remote, local) {
+    const r = isPlainObject(remote) ? remote : {};
+    const l = isPlainObject(local) ? local : {};
+    const ts = function (o) { return Date.parse(String((o || {}).updatedAt || '')) || 0; };
+    /* 模块级配置字段：整体取较新的一侧 */
+    const out = Object.assign({}, r, l);
+    if (ts(r) > ts(l)) Object.assign(out, r);
+    out.updatedAt = ts(l) > ts(r) ? (l.updatedAt || r.updatedAt || '') : (r.updatedAt || l.updatedAt || '');
+    const byId = function (list) {
+      const map = {};
+      (Array.isArray(list) ? list : []).forEach(function (x) {
+        if (x && x.id) map[x.id] = x;
+      });
+      return map;
+    };
+    const mergeList = function (rl, ll, isRecord) {
+      const rm = byId(rl), lm = byId(ll);
+      const ids = Object.keys(rm).concat(Object.keys(lm).filter(function (id) { return !rm[id]; }));
+      const res = [];
+      ids.forEach(function (id) {
+        const x = rm[id], y = lm[id];
+        if (!x) { res.push(y); return; }
+        if (!y) { res.push(x); return; }
+        if (isRecord && (x.deletedAt || y.deletedAt)) {
+          /* 墓碑优先：任一端删了这条，合并后就该是删掉的 */
+          const dx = Date.parse(String(x.deletedAt || '')) || 0;
+          const dy = Date.parse(String(y.deletedAt || '')) || 0;
+          const win = dx >= dy ? x : y;
+          const newer = ts(y) > ts(x) ? y : x;
+          res.push(Object.assign({}, win, {
+            updatedAt: newer.updatedAt || win.updatedAt || '',
+            deletedAt: win.deletedAt || ''
+          }));
+          return;
+        }
+        res.push(ts(y) > ts(x) ? y : x);
+      });
+      return res;
+    };
+    out.sports = mergeList(r.sports, l.sports, false);
+    out.records = mergeList(r.records, l.records, true);
+    return out;
+  }
+
   function mergeStates(remote, local) {
     if (!remote || typeof remote !== 'object') return local;
     if (!local || typeof local !== 'object') return remote;
@@ -2149,6 +2225,8 @@
         if (!isPlainObject(a) && !isPlainObject(b)) return;
         if (!isPlainObject(a)) { mergedMods[k] = b; return; }
         if (!isPlainObject(b)) { mergedMods[k] = a; return; }
+        /* v198：运动模块按 id 逐条合并（记录有墓碑，整块取新会丢数据） */
+        if (k === 'move') { mergedMods[k] = mergeMoveModule(a, b); return; }
         const at = Date.parse(String(a.updatedAt || '')) || 0;
         const bt = Date.parse(String(b.updatedAt || '')) || 0;
         mergedMods[k] = bt > at ? b : a;
@@ -8439,7 +8517,10 @@
   }
   function moveRecords() {
     const m = moveModule();
-    return Array.isArray(m.records) ? m.records : [];
+    /* v198：软删除的记录（有墓碑的）在界面上当作已经删掉 */
+    return Array.isArray(m.records)
+      ? m.records.filter(function (r) { return r && !r.deletedAt; })
+      : [];
   }
   function moveSportById(id) {
     return moveSports().find(function (s) { return s.id === id; }) || null;
@@ -17276,12 +17357,9 @@
         }
       };
     });
-    box.querySelectorAll('[data-act="move-fill"]').forEach(function (b) {
-      b.onclick = function (e) {
-        e.preventDefault();
-        moveRecordModal({ sportId: s.id, recordId: b.dataset.rec, mode: 'after' });
-      };
-    });
+    /* v198：这里原来还给「补填」按钮绑了一次 onclick，与全局委托重名 ——
+       点一下会开两次弹窗（内容一样，但白开一次）。现在只留全局委托：
+       它按 data-rec 反查记录，所属运动从记录里拿，结果完全一致。 */
   }
 
   function moveRecordModal(opts) {
@@ -17619,6 +17697,8 @@
     /* v181：存了数据就说明这一次处理完了，清掉待填/跳过标记 */
     rec.pending = false;
     rec.skipped = false;
+    /* v198：记录每次改动都盖一个时间戳 —— 并发合并时靠它判新旧 */
+    rec.updatedAt = new Date().toISOString();
     /* v197：补了距离就把「这一天已经补过」记在运动实例上（distLocked）。
        这样删掉记录也不会解锁，当天补不了第二次。 */
     if (key === 'steps' && Number(rec.distM) > 0 && sport && sport.id) {
@@ -17692,7 +17772,7 @@
     const now = new Date();
     m.records.push(normalizeMoveRecord({
       sportId: s.id, key: s.key, d: todayStr(), at: now.toISOString(), hour: now.getHours(),
-      steps: s.fixedSteps, recMode: 'fixed'
+      steps: s.fixedSteps, recMode: 'fixed', updatedAt: now.toISOString()
     }));
     m.updatedAt = now.toISOString();
     state.modules.move = m;
@@ -17770,7 +17850,7 @@
     m.records = m.records.map(function (r) {
       if (r.id !== recId) return r;
       hit = true;
-      return Object.assign({}, r, { pending: false, skipped: true });
+      return Object.assign({}, r, { pending: false, skipped: true, updatedAt: new Date().toISOString() });
     });
     if (!hit) { closeModal(); render(); return; }
     m.updatedAt = new Date().toISOString();
@@ -17790,8 +17870,13 @@
     if (!recs.length) { toast('今天还没有记录'); return; }
     const last = recs[recs.length - 1];
     const m = moveModule();
-    m.records = (m.records || []).filter(function (r) { return r.id !== last.id; });
-    m.updatedAt = new Date().toISOString();
+    /* v198：撤销也走软删除（留墓碑，防止另一台设备同步回来把它复活） */
+    const delAt = new Date().toISOString();
+    m.records = (m.records || []).map(function (r) {
+      if (!r || r.id !== last.id) return r;
+      return Object.assign({}, r, { deletedAt: delAt, updatedAt: delAt });
+    });
+    m.updatedAt = delAt;
     state.modules.move = m;
     state.modulesAt = Date.now();
     save();
@@ -17833,8 +17918,15 @@
     if (!confirm(ask)) return;
     const m = moveModule();
     const sportId = rec.sportId;
-    m.records = (m.records || []).filter(function (r) { return r.id !== rid; });
-    m.updatedAt = new Date().toISOString();
+    /* v198：软删除 —— 记录不真删，留个墓碑（deletedAt）。
+       界面上立刻消失（moveRecords 过滤墓碑），但另一台设备的旧数据同步回来时
+       不会把这条「复活」；30 天后墓碑自动清理。 */
+    const delAt = new Date().toISOString();
+    m.records = (m.records || []).map(function (r) {
+      if (!r || r.id !== rid) return r;
+      return Object.assign({}, r, { deletedAt: delAt, updatedAt: delAt });
+    });
+    m.updatedAt = delAt;
     state.modules.move = m;
     state.modulesAt = Date.now();
     save();
@@ -20246,7 +20338,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=197', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=198', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

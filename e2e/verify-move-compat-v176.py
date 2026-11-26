@@ -206,8 +206,15 @@ with sync_playwright() as pw:
 
     print('\n===== 2. 旧 goal 迁到目标值 =====')
     chk('步数目标仍是 8000 步', '8000 步' in txt)
-    chk('跑步目标仍是 5 公里', '5 公里' in txt)
-    chk('游泳目标仍是 800 米', '800 米' in txt)
+    # v198：非步数卡片的「目标」改成显示实际判定依据（每天几次），
+    # 距离目标不再显示在卡上 —— 目标值本身仍要迁对，改查数据层。
+    by_key = {s.get('key'): s for s in (board['data']['modules']['move'].get('sports') or [])}
+    chk('跑步目标档仍是 5 公里（数据层）',
+        int(by_key.get('run', {}).get('tVal') or 0) == 5,
+        str(by_key.get('run', {}).get('tVal')))
+    chk('游泳目标档仍是 800 米（数据层）',
+        int(by_key.get('swim', {}).get('tVal') or 0) == 800,
+        str(by_key.get('swim', {}).get('tVal')))
 
     print('\n===== 3. 旧记录仍算达标（含 sportId 为空的更老记录）=====')
     cards = pg.evaluate("""() => Array.from(document.querySelectorAll('.mv-card')).map(c => ({

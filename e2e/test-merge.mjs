@@ -17,9 +17,16 @@ function extractFunction(src, name) {
 
 const isPlainObjectSrc = extractFunction(html, 'isPlainObject');
 const mergeStatesSrc = extractFunction(html, 'mergeStates');
+const mergeMoveSrc = extractFunction(html, 'mergeMoveModule');
 
 const isPlainObject = new Function('return ' + isPlainObjectSrc)();
-const mergeStates = new Function('isPlainObject', 'return ' + mergeStatesSrc)(isPlainObject);
+const mergeMoveModule = new Function('isPlainObject', 'return ' + mergeMoveSrc)(isPlainObject);
+/* mergeStates 里用到全局的 MODULE_KEYS —— 从 index.html 里原样抠出来，别写死 */
+const mkMatch = html.match(/const\s+MODULE_KEYS\s*=\s*\[([^\]]*)\]/);
+if (!mkMatch) throw new Error('MODULE_KEYS not found');
+const MODULE_KEYS = eval('[' + mkMatch[1] + ']');
+const mergeStates = new Function('isPlainObject', 'mergeMoveModule', 'MODULE_KEYS',
+  'return ' + mergeStatesSrc)(isPlainObject, mergeMoveModule, MODULE_KEYS);
 
 let pass = 0, fail = 0;
 function eq(actual, expected, name) {
@@ -91,6 +98,46 @@ console.log('场景 H：未完成标记 skips → 按天逐键并集');
   const m = mergeStates(remote, local);
   eq(m.skips['2026-11-18'], { a: 1, b: 1 }, '同一天两边各标一个，都保留');
   eq(m.skips['2026-11-20'], { a: 1 }, '本地新增的那天被保留');
+}
+
+console.log('场景 J：运动模块按 id 逐条合并（v198）—— 不再整块取新');
+{
+  const T1 = '2026-10-24T09:00:00.000Z', T2 = '2026-10-24T18:00:00.000Z';
+  const sport = (id) => ({ id, key: 'run', name: '跑步', tVal: 5, updatedAt: T1 });
+  const rec = (id, extra) => Object.assign({ id, sportId: 'sp1', key: 'run', d: '2026-10-24', at: T1, dur: 30, updatedAt: T1 }, extra || {});
+  const mod = (sports, records, updatedAt) => ({
+    on: true, name: '运动', updatedAt: updatedAt || T2, sports: sports, records: records
+  });
+  // 云端：A 端（远端）删了 r2、带墓碑；本地：B 端改了配置、还有 r2 的旧数据
+  const remote = {
+    modules: { move: mod([sport('sp1')], [rec('r1'), rec('r2', { deletedAt: T2, updatedAt: T2 })], T2) },
+    checks: {}, moods: {}, doses: {}, notes: {}, events: [], bodyProfile: {}, habits: [], tasks: []
+  };
+  // 本地：B 端新增了 r3，r2 还是没删的旧版本，配置改过（updatedAt 更新）
+  const local = {
+    modules: { move: mod([sport('sp1')], [rec('r1'), rec('r2'), rec('r3')], T2) },
+    checks: {}, moods: {}, doses: {}, notes: {}, events: [], bodyProfile: {}, habits: [], tasks: []
+  };
+  const m = mergeStates(remote, local);
+  const ids = m.modules.move.records.map(r => r.id).sort();
+  eq(ids, ['r1', 'r2', 'r3'], '记录一条没丢（新增的 r3 保住了）');
+  const r2 = m.modules.move.records.find(r => r.id === 'r2');
+  eq(!!r2.deletedAt, true, '云端删掉的 r2 没被本地旧数据复活（墓碑优先）');
+  // 配置以较新的一侧为准，集合另行合并
+  eq(m.modules.move.sports.length, 1, '运动实例没有重复');
+}
+
+console.log('场景 K：同一条记录两边都改 → updatedAt 新的胜出');
+{
+  const T1 = '2026-10-24T09:00:00.000Z', T2 = '2026-10-24T20:00:00.000Z';
+  const base = { id: 'r1', sportId: 'sp1', key: 'run', d: '2026-10-24', at: T1 };
+  const remote = { modules: { move: { on: true, updatedAt: T2, sports: [], records: [Object.assign({}, base, { dur: 30, updatedAt: T1 })] } },
+    checks: {}, moods: {}, doses: {}, notes: {}, events: [], bodyProfile: {}, habits: [], tasks: [] };
+  const local = { modules: { move: { on: true, updatedAt: T2, sports: [], records: [Object.assign({}, base, { dur: 45, updatedAt: T2 })] } },
+    checks: {}, moods: {}, doses: {}, notes: {}, events: [], bodyProfile: {}, habits: [], tasks: [] };
+  const m = mergeStates(remote, local);
+  eq(m.modules.move.records.length, 1, '只有一条记录（没有变两条）');
+  eq(m.modules.move.records[0].dur, 45, '本地改的 45 分钟胜出（updatedAt 更新）');
 }
 
 console.log('场景 I：一侧没有 skips 字段 → 不报错');
