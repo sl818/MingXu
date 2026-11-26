@@ -68,6 +68,16 @@ SPORTS = [
 ]
 
 SPORTS[0]['distLocked'] = {D: True}   # 今天已经补过距离（v197 的日锁）
+# 第二个步数实例：同样锁着今天，但一条记录都没有 → reload 后可以重新打卡验锁
+_sp2 = sports_of('steps', '午后步数', 10000, 1, 1, ['distM'])
+_sp2['id'] = 'sp-steps2'
+_sp2['distLocked'] = {D: True}
+SPORTS.append(_sp2)
+# 第三个步数实例：今天没锁 —— 作对照，用来证明「弹不弹」确实由 distLocked 决定
+_sp3 = sports_of('steps', '晚间步数', 10000, 1, 1, ['distM'])
+_sp3['id'] = 'sp-steps3'
+_sp3['distLocked'] = {}
+SPORTS.append(_sp3)
 
 RECORDS = [
     # 今天的步数：一条正常 6000，一条「跳过未记录」但仍带 5200 步与 12061 米距离
@@ -321,7 +331,49 @@ def main():
         else:
             chk('待处理弹窗能打开', False, '没打开')
 
-        print('\n===== 8. 无 JS 报错 =====')
+        print('\n===== 8. distLocked 存得住（编辑运动重写实例 → 上传 → 拉回 → 归一化后还在）=====')
+        clear_modal(pg)
+        # 编辑运动（保存会重写整个实例）→ 锁不能被冲掉
+        pg.locator('.mv-card[data-id="sp-steps"] [data-act="move-edit"]').click()
+        pg.wait_for_timeout(800)
+        if pg.locator('#move-sport-form').count():
+            pg.click('#move-sport-form button[type="submit"]')
+            pg.wait_for_timeout(1200)
+        else:
+            pg.keyboard.press('Escape')
+            pg.wait_for_timeout(400)
+        sp2 = [x for x in BOARD['data']['modules']['move']['sports'] if x.get('id') == 'sp-steps'][0]
+        chk('编辑运动后距离日锁仍在（实例被重写也不丢）',
+            (sp2.get('distLocked') or {}).get(D) is True, str(sp2.get('distLocked')))
+        # 刷新页面 → 云端拉回 → 归一化 → 仍应锁着（补数据弹窗不给距离输入框）
+        pg.reload(wait_until='networkidle')
+        pg.wait_for_timeout(1500)
+        pg.evaluate("() => document.querySelector('[data-nav=\"move\"]').click()")
+        pg.wait_for_timeout(1200)
+        # 用「午后步数」这个实例（未达标、有打卡按钮），它的今天也已锁
+        pg.locator('.mv-card[data-id="sp-steps2"] [data-act="move-do"]').click()
+        pg.wait_for_timeout(700)
+        pg.locator('#move-record-form [name="steps"]').fill('500')
+        pg.click('#move-record-form button[type="submit"]')
+        pg.wait_for_timeout(1300)
+        chk('刷新后仍锁着：当天已补过 → 不再弹补数据弹窗（没有可补项）',
+            pg.locator('#move-record-form').count() == 0,
+            str(pg.locator('#move-record-form').count()))
+        # 对照：另一个今天没锁的实例 → 照常弹补数据弹窗，且有距离输入框
+        pg.locator('.mv-card[data-id="sp-steps3"] [data-act="move-do"]').click()
+        pg.wait_for_timeout(700)
+        pg.locator('#move-record-form [name="steps"]').fill('12000')
+        pg.click('#move-record-form button[type="submit"]')
+        pg.wait_for_timeout(1300)
+        chk('对照实例（今天没锁）照常弹补数据弹窗',
+            pg.locator('#move-record-form').count() == 1,
+            str(pg.locator('#move-record-form').count()))
+        if pg.locator('#move-record-form').count():
+            chk('对照实例有距离输入框（说明弹不弹确实由 distLocked 决定）',
+                pg.locator('#move-record-form input[name="distM"]').count() == 1,
+                str(pg.locator('#move-record-form input[name="distM"]').count()))
+
+        print('\n===== 9. 无 JS 报错 =====')
         chk('无未捕获异常', not errs, str(errs[:3]))
         br.close()
 
