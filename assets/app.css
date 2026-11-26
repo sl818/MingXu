@@ -3521,7 +3521,7 @@ body.modal-open{overflow:hidden;}
 .mv-note{font-size:11px;color:var(--muted);margin-top:3px}
 .mv-fields{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .mv-ft{background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:2px 9px;font-size:10.5px;color:var(--muted)}
-.mv-ft b{color:var(--sport,#b5733f);font-weight:600}
+.mv-ft b{color:color-mix(in srgb,var(--sport,#b5733f) 45%,var(--text));font-weight:600}  /* 纯运动色写 10.5px 小字只有 2.95:1，混入正文色才过 AA（v190 审计发现） */
 .mv-ring{flex:none;position:relative;width:96px;height:96px}
 .mv-ring svg{display:block;width:100%;height:100%}
 .mv-rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -3542,13 +3542,6 @@ body.modal-open{overflow:hidden;}
 .mv-pill:hover{background:#B91C1C}
 .mv-sec-title{margin:0 0 4px;font-size:16px;font-weight:700}
 .mv-sec-lead{font-size:12.5px;color:var(--muted);margin:0 0 14px}
-.mv-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-.mv-tab{border:1px solid var(--line);background:var(--surface-2);color:var(--text);font:inherit;font-size:12px;font-weight:600;padding:5px 13px;border-radius:99px;cursor:pointer}
-.mv-tab.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.mv-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.mv-kpi{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:center}
-.mv-kpi b{display:block;font-size:20px;font-weight:700;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums}
-.mv-kpi span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
 .mv-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--side-line);margin-bottom:14px}
 .mv-toggle-row b{font-size:13.5px}
 .mv-toggle-row small{display:block;font-size:11px;color:var(--muted)}
@@ -3601,8 +3594,7 @@ body.modal-open{overflow:hidden;}
 .ch-dot.ok{background:var(--good)}
 .ch-dot.bad{background:var(--bad)}
 .ch-dot.wait{background:var(--line)}
-@media (max-width:900px){.mv-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:600px){.mv-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.mv-chan-grid,.sp-grid,.sp-chan{grid-template-columns:repeat(2,1fr)}}
 
 /* ---- 运动页 2.1（v176）：目标档 / 频率 / 记录方式 / 统计 / 明细 ---- */
 /* 目标行（健走/骑行/跳绳/游泳可下拉切换 距离↔时长） */
@@ -3707,71 +3699,6 @@ body.modal-open{overflow:hidden;}
   .sp-logbody{padding:2px 11px 8px}
 }
 
-/* 统计：8 项总览 */
-.st-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
-.st-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
-.st-none{font-size:12.5px;color:var(--muted);margin:8px 0 0}
-/* 类型占比条（span 必须 block，否则宽度不生效） */
-.st-bars{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.st-barrow{display:flex;align-items:center;gap:10px;font-size:12px}
-.st-barrow .nm{flex:0 0 34%;display:flex;align-items:center;gap:6px;color:var(--text);min-width:0}
-.st-barrow .dot{width:8px;height:8px;border-radius:2px;flex:none}
-.st-barrow .tr{flex:1;height:9px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:block}
-.st-barrow .fl{display:block;height:100%;border-radius:99px}
-.st-barrow .vl{flex:none;color:var(--muted)}
-/* v181：跳过了数据记录的次数，在次数旁边挂个小标记（悬停有说明） */
-.st-barrow .sk-chip{display:inline-block;margin-left:5px;padding:0 5px;border-radius:99px;font-style:normal;
-  font-size:10.5px;line-height:16px;color:var(--text);background:var(--surface-3);border:1px solid var(--line);
-  cursor:default;white-space:nowrap}
-/* 记录方式双栏 */
-.st-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
-.st-split .box{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.st-split h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--text)}
-.st-split .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:3px 0}
-.st-split .kv b{color:var(--text);font-weight:600}
-/* 时段柱 / 近 14 天趋势 */
-.st-hours{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;align-items:end;margin-top:14px}
-.st-hours .hb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
-.st-hours .hb b{font-size:11.5px;color:var(--text);font-weight:600}
-.st-hours .hb i{width:100%;max-width:34px;background:color-mix(in srgb,var(--sport,#b5733f) 70%,var(--surface-3));border-radius:4px 4px 0 0;min-height:2px;display:block}
-.st-hours .hb span{font-size:10px;color:var(--muted);white-space:nowrap}
-.st-trend{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;margin-top:14px}
-.st-trend .tb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
-.st-trend .tb i{width:100%;background:color-mix(in srgb,var(--sport,#b5733f) 60%,var(--surface-3));border-radius:3px 3px 0 0;min-height:2px;display:block}
-.st-trend .tb span{font-size:9px;color:var(--muted)}
-/* 专项 */
-.st-spec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
-.st-spec .sp{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.st-spec h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:var(--text)}
-.st-spec .row{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:2px 0}
-.st-spec .row b{color:var(--text);font-weight:600}
-.st-strokes .s{display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:6px;color:var(--muted)}
-.st-strokes .sn{flex:0 0 44px}
-.st-strokes .tr{flex:1;height:7px;background:var(--surface-3);border-radius:99px;overflow:hidden;display:block}
-.st-strokes .fl{display:block;height:100%;background:var(--sport,#b5733f);border-radius:99px}
-.st-strokes b{color:var(--text);font-weight:600;flex:none}
-/* 达标环 */
-.st-ring{display:flex;align-items:center;gap:24px;margin-top:12px;flex-wrap:wrap}
-.st-ring .big{position:relative;width:88px;height:88px;flex:none}
-.st-ring .big svg{width:88px;height:88px;display:block}
-.st-ring .big .t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
-.st-ring .big .t b{font-size:16px;font-weight:700;color:var(--text)}
-.st-ring .big .t span{font-size:9.5px;color:var(--muted)}
-.st-ring .lst{flex:1;min-width:160px;display:flex;flex-direction:column;gap:6px}
-.st-ring .lst .r{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted)}
-.st-ring .lst .r b{color:var(--text);font-weight:600}
-
-/* 运动明细 */
-.dv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.dv-list{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:420px;overflow-y:auto}
-.dv-row{display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--line)}
-.dv-row:last-child{border-bottom:none}
-.dv-row .ic{flex:none;font-size:15px}
-.dv-row .dt{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
-.dv-row .nm{flex:0 0 84px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dv-row .val{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dv-row .ops{flex:none;display:flex;gap:10px}
-.dv-empty{padding:22px 12px;text-align:center;font-size:12.5px;color:var(--muted)}
 .lnk{background:none;border:none;padding:0;font:inherit;font-size:12.5px;color:var(--accent);cursor:pointer}
 .lnk.danger{color:var(--accent)}
 
