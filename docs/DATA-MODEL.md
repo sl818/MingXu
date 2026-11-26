@@ -460,6 +460,8 @@ modulesAt: 1763000000000
 会按「每天几组」兜底出同样的默认时刻（07:00–21:00 之间铺开、落到 5 分钟整）——
 **三处口径必须一致**，否则订阅出来的日历和页面提醒对不上。
 
+**迁移（v201）**：老数据没有 `modules.breathe` 时，「每天几组」存在 `habits` 里 `h_breathe.target` 上；`ensureBreathingHabit()` 会在抹掉 `target` **之前**把它和 `suggestTime` 一起搬进 `modules.breathe`（只在模块没配过 groups 时搬，幂等）。以前是先抹成 1、后提取，导致老用户的组数永远变成 1。
+
 **合并**：`modules` 整组比 `modulesAt`，新的那端覆盖旧的（与 `money` 同套路）。
 
 **口径提醒**：`modules.breathe` 的 `groups`（每天几组）与 `cycles`（每组循环次数）只决定

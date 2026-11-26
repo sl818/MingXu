@@ -42,6 +42,27 @@ def make_board(modules=None, checks=None):
     return {'data': data, 'rev': 5}
 
 
+def make_legacy_board(schema=None, target=3, modules=None):
+    """v201：老数据 —— 没有 modules，habits 里 h_breathe.target 才是「每天几组」"""
+    habits = [
+        {'id': 'h_med', 'name': '用药', 'icon': '💊', 'type': 'build', 'target': 1, 'unit': '次',
+         'color': '#2f6f5e', 'note': '', 'createdAt': '2026-10-01T00:00:00Z', 'pinned': True,
+         'med': True, 'archivedAt': ''},
+        {'id': 'h_breathe', 'name': '478呼吸法', 'icon': '🌬️', 'type': 'build', 'target': target,
+         'unit': '组', 'color': '#5b8f8a', 'note': '4-7-8 呼吸', 'breatheCycles': 4,
+         'suggestTime': '21:30', 'createdAt': '2026-10-01T00:00:00Z', 'pinned': True, 'archivedAt': ''},
+    ]
+    data = {'version': 2, 'view': 'today', 'habits': habits,
+            'checks': {'2026-10-23': {'h_breathe': 1}}, 'notes': {}, 'moods': {}, 'events': [],
+            'meds': [], 'doses': {}, 'bodyProfile': {'age': 30, 'height': 170},
+            'weights': [], 'essays': [], 'tasks': []}
+    if modules is not None:
+        data['modules'] = modules
+    if schema is not None:
+        data['schemaVersion'] = schema
+    return {'data': data, 'rev': 5}
+
+
 board = make_board()
 save_count = {'n': 0}
 rev_counter = {'n': 100}
@@ -398,6 +419,67 @@ with sync_playwright() as p:
     rec('[迁移] 迁移后默认 1 组 / 1 个提醒时间点',
         c and c['timeCount'] == 1 and '每天 1 组' in c['sub'], (c or {}).get('timeVals'))
     rec('[迁移] 无 JS 异常', not errs, str(errs[:2]))
+    ctx.close()
+
+    # ---------- v201：④ 全部档文案 / ⑤ 老数据组数迁移 / ⑥ 首页横幅 / ⑦ 渠道说明 ----------
+    for tag, sch in (('无 schemaVersion', None), ('schemaVersion=6', 6)):
+        set_board(make_legacy_board(schema=sch, target=3))
+        ctx, pg, errs = open_page(br)
+        pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+        pg.wait_for_timeout(900)
+        r = pg.evaluate("""() => ({
+          groups: (document.querySelector('#breathe-settings-form input[name="groups"]')||{}).value||'',
+          times: Array.from(document.querySelectorAll('#breathe-times input')).map(x=>x.value)
+        })""")
+        rec('v201 ⑤ 老数据[%s] 组数保住 3' % tag, r['groups'] == '3', str(r['groups']))
+        rec('v201 ⑤ 老数据[%s] 首个提醒点是旧 suggestTime' % tag,
+            r['times'][:1] == ['21:30'], str(r['times']))
+        ctx.close()
+
+    # ⑤ 幂等：刷新一次组数不丢
+    set_board(make_legacy_board(schema=None, target=3))
+    ctx, pg, errs = open_page(br)
+    pg.reload(wait_until='networkidle')
+    pg.wait_for_timeout(1800)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    g2 = pg.evaluate("() => (document.querySelector('#breathe-settings-form input[name=\"groups\"]')||{}).value||''")
+    rec('v201 ⑤ 刷新后组数仍是 3（迁移幂等）', g2 == '3', str(g2))
+    ctx.close()
+
+    # ⑤ 已有模块配置时不被老 target 覆盖
+    set_board(make_legacy_board(schema=None, target=4, modules={'breathe': breathe_module(groups=2)}))
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    g3 = pg.evaluate("() => (document.querySelector('#breathe-settings-form input[name=\"groups\"]')||{}).value||''")
+    rec('v201 ⑤ 已有模块配置时不被老 target 覆盖', g3 == '2', str(g3))
+    ctx.close()
+
+    # ④ 全部档文案 + ⑦ 渠道说明
+    set_board(make_board())
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    a7 = pg.evaluate("() => (document.querySelector('.w-algo')||{}).textContent.replace(/\\s+/g,' ').trim()||''")
+    pg.click('.br-range button[data-range="0"]')
+    pg.wait_for_timeout(600)
+    aa = pg.evaluate("() => (document.querySelector('.w-algo')||{}).textContent.replace(/\\s+/g,' ').trim()||''")
+    rec('v201 ④ 近 7 天文案仍写「没记录的日子算 0」', '没记录的日子算 0' in a7, a7[-30:])
+    rec('v201 ④ 全部档文案改成「有记录的天数」',
+        '有记录的天数' in aa and '没记录的日子算 0' not in aa, aa[-40:])
+    note = pg.evaluate("() => Array.from(document.querySelectorAll('.w-chan-note')).map(x=>x.textContent.replace(/\\s+/g,' ').trim()).join(' | ')")
+    rec('v201 ⑦ 渠道区说明「由通知配置统一控制」', '习惯类' in note and '仅作记录' in note, note[:60])
+    ctx.close()
+
+    # ⑥ 首页横幅
+    set_board(make_board(checks={'2026-10-24': {'h_breathe': 1}}))
+    ctx, pg, errs = open_page(br)
+    lines = pg.evaluate("""() => (document.body.innerText||'').split('\\n').map(x=>x.trim())
+        .filter(x=>x && (x.indexOf('还差 2 组')>=0 || x.indexOf('还没打卡')>=0)).slice(0,4)""")
+    rec('v201 ⑥ 横幅写「今天还差 2 组」', any('还差 2 组' in x for x in lines), str(lines))
+    dv = pg.evaluate("""() => { const b = document.querySelector('[data-act="remind-go"]'); return b ? b.getAttribute('data-view') : ''; }""")
+    rec('v201 ⑥ 横幅「去看看」指向 478 页', dv == 'breathe', str(dv))
     ctx.close()
 
     # ---------- 手机 ----------

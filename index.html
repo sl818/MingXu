@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=200">
+<link rel="stylesheet" href="assets/app.css?v=201">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=200">
+<link rel="stylesheet" href="assets/theme-v2.css?v=201">
 </head>
 <body>
 <div class="app landing">
@@ -119,6 +119,10 @@
   };
   const todayStr = () => fmt(new Date());
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /* v200：478 每天最多 5 组（陛下定的上限，一刀切）。
+     放在工具常量区，是因为 ensureBreathingHabit（迁移路径，靠前）也要用它；
+     所有跟「每天几组」有关的上下限都走这个常量，别再散落魔法数。 */
+  const BREATHE_MAX_GROUPS = 5;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
@@ -270,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v200';
+  const APP_VERSION = 'v201';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -457,6 +461,24 @@
       };
       data.habits.push(h);
     } else {
+      /* v201：抹 target 之前，先把它搬进模块配置 —— 老用户的「每天几组」存在
+         habits 的 target 上。这个函数在 migrateState 里跑，而 ensureModules 在它
+         **之后** 才从锚点提取组数；先抹成 1 再提取，就永远只能拿到 1（v170 遗留的丢设置）。
+         只在「模块还没配过 groups」时搬 → 搬过一次后 target 已是 1，不会重复搬（幂等）。 */
+      const tgt = Math.round(Number(h.target) || 0);
+      if (tgt > 1) {
+        if (!data.modules || typeof data.modules !== 'object') data.modules = {};
+        const bm = (data.modules.breathe && typeof data.modules.breathe === 'object') ? data.modules.breathe : null;
+        if (!bm || !(Number(bm.groups) > 1)) {
+          /* suggestTime 也要一起搬 —— 它是老数据唯一的提醒时刻，
+             normalizeModule 会把它当 notifyTimes 的第一个点；不搬就会退回默认 15:00。 */
+          const st = String(h.suggestTime || '');
+          data.modules.breathe = Object.assign({}, bm || {}, {
+            groups: clamp(tgt, 1, BREATHE_MAX_GROUPS),
+            suggestTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : '15:00'
+          });
+        }
+      }
       h.pinned = true;
       h.optional = false;
       h.type = 'build';
@@ -562,13 +584,8 @@
     return '';
   }
 
-  /* v200：478 每天最多 5 组（陛下定的上限，一刀切）。
-     所有跟「每天几组」有关的上限都走这个常量，别再散落魔法数 ——
-     v196 时它散在 14 个地方，改一次上限要点一遍名。 */
-  const BREATHE_MAX_GROUPS = 5;
-
-  /* v194：478 提醒的默认时间点 —— 每天几组就几个点，在 07:00–21:00 之间铺开。
-     只是「建议值」，用户可以在提醒区逐个改。 */
+  /* 478 提醒的默认时间点 —— 每天几组就几个点，在 07:00–21:00 之间铺开。
+     只是「建议值」，用户可以在提醒区逐个改。（上限常量 BREATHE_MAX_GROUPS 在工具常量区） */
   function breatheDefaultTimes(n) {
     const k = Math.max(1, Math.min(BREATHE_MAX_GROUPS, Math.round(Number(n) || 1)));
     const from = 7 * 60, to = 21 * 60;
@@ -4749,18 +4766,37 @@
       items.push({ key: 'task-late', text: lateCount + ' 件待办已逾期', view: 'today' });
     }
 
-    /* 习惯：只有填了「建议时间」的才会被催（如 478 呼吸法 15:00） */
-    const habitDue = assessmentHabits(d).filter(h => {
+    /* 习惯：只有填了「建议时间」的才会被催
+       v201：478 有多个提醒点，按 notifyTimes 的**全部**判断（任一已过且当天没达标就催），
+       文案也说清是「还差 N 组」而不是笼统的「还没打卡」（做了 1/3 组时那样写是错的）。 */
+    const habitDue = assessmentHabits(d).filter(function (h) {
       if (h.med || isQuitLike(h)) return false;
+      const target = Number(h.target) || 1;
+      if (countOf(d, h.id) >= target) return false;
+      if (h.id === 'h_breathe') {
+        const bm = (state.modules && state.modules.breathe) ? state.modules.breathe : null;
+        const list = (bm && Array.isArray(bm.notifyTimes) && bm.notifyTimes.length)
+          ? bm.notifyTimes
+          : [String(h.suggestTime || '')];
+        return list.some(function (t) {
+          const s = String(t || '');
+          return /^\d{2}:\d{2}$/.test(s) && s <= hm;
+        });
+      }
       const st = String(h.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st) || st > hm) return false;
-      return countOf(d, h.id) < (Number(h.target) || 1);
+      return true;
     });
     if (habitDue.length) {
+      const h0 = habitDue[0];
+      const target0 = Number(h0.target) || 1;
+      const left0 = Math.max(1, target0 - countOf(d, h0.id));
       items.push({
-        key: 'habit-' + habitDue[0].id,
-        text: '「' + String(habitDue[0].name || '习惯') + '」还没打卡',
-        view: 'habits'
+        key: 'habit-' + h0.id,
+        text: h0.id === 'h_breathe'
+          ? '「' + String(h0.name || '478呼吸法') + '」今天还差 ' + left0 + ' 组'
+          : '「' + String(h0.name || '习惯') + '」还没打卡',
+        view: h0.id === 'h_breathe' ? 'breathe' : 'habits'
       });
     }
 
@@ -8320,7 +8356,11 @@
       '<div class="w-hours br-trend">' + trend + '</div>' +
       '<div class="w-algo"><b>达标算法</b>：当天完成的组数 ≥ 每天几组（当前 ' + target + ' 组）即达标；' +
         '呼吸次数按「组数 × 每组循环次数（当前 ' + cycles + ' 次）」折算，历史记录按当前设置计算。' +
-        rLab + '达标率 = 达标天数 ÷ ' + rLab + '天数（没记录的日子算 0）。</div>' +
+        /* v201（方案 A）：两档分母不同，说明要分开写 ——
+           「近 N 天」含没记录的日子，分母就是 N；「全部」只统计有记录的日子，分母是有记录的天数。 */
+        (R ? rLab + '达标率 = 达标天数 ÷ ' + rLab + '（没记录的日子算 0）。'
+          : '全部达标率 = 达标天数 ÷ <b>有记录的天数</b>（只统计有记录的日子）。') +
+      '</div>' +
     '</section>';
   }
 
@@ -8347,6 +8387,9 @@
         '<div id="breathe-notify-body"' + (notify ? '' : ' class="w-notify-off"') + '>' +
           '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
           '<div class="w-chan-grid">' + chanHtml + '</div>' +
+          /* v201：如实说明 —— 真实推送走全局通知矩阵的「习惯类」通道，这里的勾选只作记录。
+             用独立 class，别复用 .w-freq-note（那个是「按每天 N 组生成 N 个提醒点」的说明） */
+          '<p class="w-chan-note">渠道由「设置 › 通知配置」里的<b>习惯类</b>统一控制，这里勾选仅作记录、暂不单独生效。</p>' +
           '<div style="margin-top:18px">' +
             '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
             '<div class="w-mode-grid br-mode-grid"><label class="w-mode on"><span>每天固定时间推送</span>' +
@@ -20398,7 +20441,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=200', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=201', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
