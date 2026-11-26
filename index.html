@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=192">
+<link rel="stylesheet" href="assets/app.css?v=193">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=192">
+<link rel="stylesheet" href="assets/theme-v2.css?v=193">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v192';
+  const APP_VERSION = 'v193';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -9325,7 +9325,7 @@
         '<div><h4 class="stt-sub">每日喝水 <span class="stt-sub-n">毫升 · 近 ' + R + ' 天 · 目标 ' + goal + ' ml</span></h4>' +
           moveStatLineSvg(mlByDay, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
         '<div><h4 class="stt-sub">喝水时段 <span class="stt-sub-n">近 ' + R + ' 天 · 杯</span></h4>' +
-          moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { h: 72 }) + '</div>' +
+          moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { h: 86 }) + '</div>' +
       '</div>' +
       '<p class="stt-none" style="margin-top:10px">达标算法：当天喝水量 ≥ 目标总量（当前 ' + goal +
         ' ml）即达标；日均与达标率都按「近 ' + R + ' 天」整段算，没有记录的日子计 0。</p>' +
@@ -19695,7 +19695,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=192', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=193', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

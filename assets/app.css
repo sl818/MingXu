@@ -4110,7 +4110,10 @@ body.modal-open{overflow:hidden;}
 .stt-legend i{width:11px;height:11px;border-radius:2px;flex:none}
 .stt-legend span:last-child{margin-left:auto}
 
-.stt-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px}
+/* align-items:start —— 两栏各自贴合内容高度。
+   不加的话 grid 默认 stretch：左栏趋势图把右栏卡片拉高，柱状图只有 118px 高、
+   下方空出一大片（陛下 11-26 截图指出的「柱子偏上」就是它）。 */
+.stt-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px;align-items:start}
 
 .stt-bars{display:flex;align-items:flex-end;gap:8px;height:118px;margin-top:10px}
 .stt-bar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
