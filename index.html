@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=188">
+<link rel="stylesheet" href="assets/app.css?v=189">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=188">
+<link rel="stylesheet" href="assets/theme-v2.css?v=189">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v188';
+  const APP_VERSION = 'v189';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -1385,8 +1385,11 @@
   let view = state.view || 'today';
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
-  /* 运动页统计周期（今日/7/30/90/全部），纯视图状态，不进 state */
-  let moveStatRange = '7d';
+  /* 运动页统计的视图状态（范围 / 模式 / 趋势指标），都不进 state：
+     换设备不需要同步，也不该占用云端快照的字段。 */
+  let moveStatRange = '30d';
+  let moveStatMode = '';        /* '' = 全部模式 */
+  let moveStatMetric = 'auto';  /* 'auto' = 按模式取默认指标 */
   let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   /* 常驻卡排序模式：纯视图状态，不进 state。退出页面就结束，
      不需要记「上次停在排序模式」。 */
@@ -8551,191 +8554,664 @@
     }).join('');
   }
 
-  function moveStatsHtml(m) {
-    const sports = moveSports();
-    const ranges = [['today', '今日'], ['7d', '7 天'], ['30d', '30 天'], ['90d', '90 天'], ['all', '全部']];
-    const cur = moveStatRange;
-    const tabs = ranges.map(function (r) {
-      return '<button class="mv-tab' + (cur === r[0] ? ' on' : '') + '" data-act="move-stat-range" data-v="' + r[0] + '">' + r[1] + '</button>';
-    }).join('');
-    const from = cur === 'today' ? todayStr()
-      : cur === '7d' ? fmt(addDays(new Date(), -6))
-        : cur === '30d' ? fmt(addDays(new Date(), -29))
-          : cur === '90d' ? fmt(addDays(new Date(), -89)) : '';
-    const list = moveRecords().filter(function (r) { return !from || r.d >= from; });
-    /* v181：用户点了「跳过不记录」的那些次 —— 仍算完成，但详细数据是空的。
-       统计里要能看见它们，否则用户会以为记录丢了。 */
-    const skipByKey = {};
-    let skipN = 0;
-    list.forEach(function (r) {
-      if (!r.skipped) return;
-      skipN++;
-      skipByKey[r.key] = (skipByKey[r.key] || 0) + 1;
-    });
+  /* ============================================================
+     运动数据统计（v189 改版）
+     ------------------------------------------------------------
+     旧的「全部合计 + 4 个区块」不够用：只能看合计、时间只有 5 档、
+     趋势只数记录条数、每种模式的专项只有一两行数字。
+     现在改成：先把范围收窄到某个模式，再看这个模式自己的指标 / 趋势 / 分布 / 专项。
 
-    /* —— 汇总 —— */
-    let dur = 0, dist = 0, kcal = 0, steps = 0, ropeCount = 0;
-    let manualN = 0, fixedN = 0, distN = 0, countN = 0, durN = 0;
-    let heartSum = 0, heartN = 0, runDist = 0, rideDist = 0, speedSum = 0, speedN = 0;
-    const byType = {}, strokeMap = {}, buckets = [0, 0, 0, 0, 0, 0];
-    const paceAgg = { run: [0, 0], ride: [0, 0] };
-    const BUCKET_LAB = ['6–9 时', '9–12 时', '12–14 时', '14–17 时', '17–20 时', '20–23 时'];
-    list.forEach(function (r) {
-      const k = r.key;
-      if (!MOVE_TYPES[k]) return;
-      byType[k] = byType[k] || { n: 0 };
-      byType[k].n++;
-      dur += Number(r.dur) || 0;
-      kcal += Number(r.kcal) || 0;
-      steps += Number(r.steps) || 0;
-      /* 距离统一折成公里：游泳按米录入，直接加进公里会把总数放大一千倍 */
-      dist += (k === 'swim' ? (Number(r.dist) || 0) / 1000 : (Number(r.dist) || 0));
-      if (k === 'steps') {
-        if (r.recMode === 'fixed') fixedN++; else manualN++;
-      } else {
-        if (Number(r.dist)) distN++;
-        if (Number(r.count)) countN++;
-        if (Number(r.dur) && !Number(r.dist) && !Number(r.count)) durN++;
-      }
-      if (k === 'rope') ropeCount += Number(r.count) || 0;
-      if (k === 'swim' && r.stroke) strokeMap[r.stroke] = (strokeMap[r.stroke] || 0) + 1;
-      if (Number(r.heart)) { heartSum += Number(r.heart); heartN++; }
-      /* v179：球类用「平均心率」字段，一并计入心率统计 */
-      if (Number(r.heartAvg)) { heartSum += Number(r.heartAvg); heartN++; }
-      if (Number(r.speed)) { speedSum += Number(r.speed); speedN++; }
-      if (k === 'run' || k === 'ride') {
-        if (k === 'run') runDist += Number(r.dist) || 0; else rideDist += Number(r.dist) || 0;
-        const pm = /^(\d+):([0-5]\d)$/.exec(String(r.pace || ''));
-        if (pm) { paceAgg[k][0] += (+pm[1]) * 60 + (+pm[2]); paceAgg[k][1]++; }
-      }
-      const h = Number(r.hour);
-      if (h >= 6 && h < 9) buckets[0]++;
-      else if (h >= 9 && h < 12) buckets[1]++;
-      else if (h >= 12 && h < 14) buckets[2]++;
-      else if (h >= 14 && h < 17) buckets[3]++;
-      else if (h >= 17 && h < 20) buckets[4]++;
-      else if (h >= 20 && h < 23) buckets[5]++;
-    });
-    const avgPace = function (k) {
-      const a = paceAgg[k];
-      if (!a[1]) return '—';
-      const s = Math.round(a[0] / a[1]);
-      return Math.floor(s / 60) + ':' + pad2(s % 60);
+     · 纯视图状态：moveStatMode / moveStatRange / moveStatMetric，都不进 state；
+     · 口径沿用旧的：距离统一折公里、跳过只计次数、达标看 moveMet；
+     · 图表全部手写 SVG / div，项目无构建、无 CDN、不引第三方库；
+     · 一次 render 只跑一遍过滤与汇总，避免上千条记录被反复 filter。
+     ============================================================ */
+  const MOVE_STAT_RANGES = [
+    ['today', '今日'], ['week', '本周'], ['month', '本月'], ['lastmonth', '上月'],
+    ['30d', '近 30 天'], ['90d', '近 90 天'], ['all', '全部']
+  ];
+  const MOVE_STAT_HLAB = ['0-2', '2-4', '4-6', '6-8', '8-10', '10-12', '12-14', '14-16', '16-18', '18-20', '20-22', '22-24'];
+  /* 专项标题里把字段键翻成中文，别把 dur / dist / pace 直接写给用户看 */
+  const MOVE_FIELD_CN = {
+    dur: '时长', dist: '距离', pace: '配速', cadence: '步频/踏频', heart: '心率', kcal: '热量',
+    stride: '步幅', distM: '距离', count: '次数', ropeRate: '跳频', sets: '组数', reps: '重复次数',
+    weight: '负重', rest: '组间休息', hrZone: '心率区间', heartAvg: '平均心率', speed: '平均速度'
+  };
+
+  function moveStatNum(n) {
+    const v = Number(n) || 0;
+    return v >= 1000 ? Math.round(v).toLocaleString() : (Math.round(v * 10) / 10).toString();
+  }
+  /* 时间范围 → [起始日, 结束日]（'YYYY-MM-DD'，闭区间） */
+  function moveStatBounds(k) {
+    const t = new Date();
+    if (k === 'today') return [fmt(t), fmt(t)];
+    if (k === 'week') { const wd = (t.getDay() + 6) % 7; return [fmt(addDays(t, -wd)), fmt(t)]; }
+    if (k === 'month') return [fmt(new Date(t.getFullYear(), t.getMonth(), 1)), fmt(t)];
+    if (k === 'lastmonth') {
+      return [fmt(new Date(t.getFullYear(), t.getMonth() - 1, 1)), fmt(new Date(t.getFullYear(), t.getMonth(), 0))];
+    }
+    if (k === '30d') return [fmt(addDays(t, -29)), fmt(t)];
+    if (k === '90d') return [fmt(addDays(t, -89)), fmt(t)];
+    let old = '';
+    moveRecords().forEach(function (r) { if (r && r.d && (!old || r.d < old)) old = r.d; });
+    return [old || fmt(addDays(t, -179)), fmt(t)];
+  }
+  function moveStatKm(r) {
+    /* 游泳历史记录按米录入，折成公里；其余模式本来就是公里 */
+    return r.key === 'swim' ? (Number(r.dist) || 0) / 1000 : (Number(r.dist) || 0);
+  }
+  function moveStatVolume(r) {
+    return (Number(r.sets) || 0) * (Number(r.reps) || 0) * (Number(r.weight) || 0);
+  }
+  function moveStatMetricVal(r, metric) {
+    if (metric === 'count') return 1;
+    if (metric === 'dist') return moveStatKm(r);
+    if (metric === 'volume') return moveStatVolume(r);
+    return Number(r[metric]) || 0;
+  }
+  /* 当天运动量（分钟）：有详细时长按时长；只有步数的天按 100 步 ≈ 1 分钟折算。
+     不这么折算的话，步数（几千）和时长（几十）画进同一张热力图，有步数的天会整片全红。 */
+  function moveStatDayScore(day) {
+    if (!day) return 0;
+    return day.score || 0;
+  }
+  function moveStatAgg(list) {
+    const o = {
+      n: list.length, skip: 0, realN: 0, dur: 0, dist: 0, kcal: 0, steps: 0, distM: 0,
+      ropeCount: 0, sets: 0, volume: 0, heartSum: 0, heartN: 0, speedSum: 0, speedN: 0,
+      cadSum: 0, cadN: 0, rateSum: 0, rateN: 0, paceSum: 0, paceN: 0,
+      byDay: {}, byMode: {}, hours: [], wd: []
     };
-    /* 天数 / 达标 */
-    const daySet = {};
-    list.forEach(function (r) { if (MOVE_TYPES[r.key]) daySet[r.d] = 1; });
-    const dayList = Object.keys(daySet).sort();
-    const days = dayList.length;
-    const metN = dayList.filter(function (d) { return moveMet(d); }).length;
-    let bestStreak = 0, runStreak = 0;
-    for (let i = 89; i >= 0; i--) {
-      if (moveMet(fmt(addDays(new Date(), -i)))) { runStreak++; if (runStreak > bestStreak) bestStreak = runStreak; }
-      else runStreak = 0;
+    for (let i = 0; i < 12; i++) o.hours.push(0);
+    for (let i = 0; i < 7; i++) o.wd.push(0);
+    list.forEach(function (r) {
+      if (!r || !MOVE_TYPES[r.key]) return;
+      const mb = o.byMode[r.key] || (o.byMode[r.key] = { n: 0, skip: 0, dur: 0, dist: 0 });
+      mb.n++;
+      if (r.skipped) mb.skip++;
+      mb.dur += Number(r.dur) || 0;
+      mb.dist += moveStatKm(r);
+      o.hours[Math.min(11, Math.floor((Number(r.hour) || 0) / 2))]++;
+      o.wd[(new Date(r.d + 'T00:00:00').getDay() + 6) % 7]++;
+      const day = o.byDay[r.d] || (o.byDay[r.d] = { n: 0, dur: 0, steps: 0, dist: 0, score: 0, met: false });
+      day.n++;
+      day.dur += Number(r.dur) || 0;
+      day.steps += Number(r.steps) || 0;
+      day.dist += moveStatKm(r);
+      if (r.skipped) { o.skip++; return; }
+      o.realN++;
+      /* 当天运动量：有时长按时长，没有时长的（纯步数）按 100 步 ≈ 1 分钟 */
+      day.score += (Number(r.dur) || 0) + ((Number(r.dur) || 0) ? 0 : (Number(r.steps) || 0) / 100);
+      o.dur += Number(r.dur) || 0;
+      o.dist += moveStatKm(r);
+      o.kcal += Number(r.kcal) || 0;
+      o.steps += Number(r.steps) || 0;
+      o.distM += Number(r.distM) || 0;
+      o.ropeCount += Number(r.count) || 0;
+      o.sets += Number(r.sets) || 0;
+      o.volume += moveStatVolume(r);
+      const hr = Number(r.heart) || Number(r.heartAvg) || 0;
+      if (hr) { o.heartSum += hr; o.heartN++; }
+      if (Number(r.speed)) { o.speedSum += Number(r.speed); o.speedN++; }
+      if (Number(r.cadence)) { o.cadSum += Number(r.cadence); o.cadN++; }
+      if (Number(r.ropeRate)) { o.rateSum += Number(r.ropeRate); o.rateN++; }
+      const pm = /^(\d+):([0-5]\d)$/.exec(String(r.pace || ''));
+      if (pm) { o.paceSum += (+pm[1]) * 60 + (+pm[2]); o.paceN++; }
+    });
+    o.days = Object.keys(o.byDay).length;
+    o.heartAvg = o.heartN ? Math.round(o.heartSum / o.heartN) : 0;
+    o.speedAvg = o.speedN ? Math.round(o.speedSum / o.speedN * 10) / 10 : 0;
+    o.cadAvg = o.cadN ? Math.round(o.cadSum / o.cadN) : 0;
+    o.rateAvg = o.rateN ? Math.round(o.rateSum / o.rateN) : 0;
+    if (o.paceN) {
+      const s = Math.round(o.paceSum / o.paceN);
+      o.pace = Math.floor(s / 60) + ':' + pad2(s % 60);
+    } else {
+      o.pace = '—';
     }
-    /* 步数达标（按步数实例的目标） */
-    const stepSport = sports.find(function (s) { return moveTargetOf(s).k === 'steps'; });
-    const stepBound = stepSport ? stepSport.tVal : 10000;
-    const stepDays = {};
-    list.forEach(function (r) { if (r.key === 'steps') stepDays[r.d] = (stepDays[r.d] || 0) + (Number(r.steps) || 0); });
-    const stepDayN = Object.keys(stepDays).length;
-    const stepMet = Object.keys(stepDays).filter(function (d) { return stepDays[d] >= stepBound; }).length;
-    const stepRate = stepDayN ? Math.round(stepMet / stepDayN * 100) : 0;
+    return o;
+  }
+  /* 趋势分桶：今日按 2 小时 / ≤31 天按日 / ≤120 天按周 / 更久按月 */
+  function moveStatBuckets(list, from, to, metric) {
+    const span = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+    if (from === to) {
+      const arr = [];
+      for (let i = 0; i < 12; i++) arr.push(0);
+      list.forEach(function (r) { arr[Math.min(11, Math.floor((Number(r.hour) || 0) / 2))] += moveStatMetricVal(r, metric); });
+      return { labels: MOVE_STAT_HLAB.slice(), values: arr, unit: '每 2 小时' };
+    }
+    if (span <= 31) {
+      const vals = [], labs = [], at = {};
+      for (let i = span - 1; i >= 0; i--) {
+        const ds = fmt(addDays(new Date(to + 'T00:00:00'), -i));
+        at[ds] = vals.length;
+        vals.push(0);
+        labs.push(ds.slice(5));
+      }
+      list.forEach(function (r) { if (at[r.d] !== undefined) vals[at[r.d]] += moveStatMetricVal(r, metric); });
+      return { labels: labs, values: vals, unit: '每天' };
+    }
+    if (span <= 120) {
+      const weeks = Math.ceil(span / 7), vals = [], labs = [];
+      const start = new Date(from + 'T00:00:00');
+      for (let i = 0; i < weeks; i++) { vals.push(0); labs.push('第' + (i + 1) + '周'); }
+      list.forEach(function (r) {
+        const w = Math.floor((new Date(r.d + 'T00:00:00') - start) / 86400000 / 7);
+        vals[Math.max(0, Math.min(weeks - 1, w))] += moveStatMetricVal(r, metric);
+      });
+      return { labels: labs, values: vals, unit: '每周' };
+    }
+    const map = {};
+    list.forEach(function (r) {
+      const k = r.d.slice(0, 7);
+      map[k] = (map[k] || 0) + moveStatMetricVal(r, metric);
+    });
+    const keys = Object.keys(map).sort();
+    return { labels: keys.map(function (k) { return (+k.slice(5)) + ' 月'; }), values: keys.map(function (k) { return map[k]; }), unit: '每月' };
+  }
 
-    const kpi = function (v, l) { return '<div class="mv-kpi"><b>' + v + '</b><span>' + l + '</span></div>'; };
+  /* —— 手写图表 —— */
+  function moveStatLineSvg(vals, labels) {
+    const W = 1000, H = 300, P = { l: 54, r: 14, t: 16, b: 30 };
+    const max = Math.max.apply(null, vals.concat([1]));
+    const iw = W - P.l - P.r, ih = H - P.t - P.b, n = vals.length;
+    const x = function (i) { return P.l + (n === 1 ? iw / 2 : i * iw / (n - 1)); };
+    const y = function (v) { return P.t + ih - (v / max) * ih; };
+    let g = '';
+    for (let i = 0; i <= 3; i++) {
+      const gy = P.t + ih * i / 3;
+      g += '<line x1="' + P.l + '" y1="' + gy.toFixed(1) + '" x2="' + (W - P.r) + '" y2="' + gy.toFixed(1) + '" stroke="#f4eadb" stroke-width="1"/>' +
+        '<text x="' + (P.l - 8) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" class="stt-ax">' + moveStatNum(max * (3 - i) / 3) + '</text>';
+    }
+    const pts = vals.map(function (v, i) { return x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
+    const line = 'M' + pts.join(' L');
+    const area = line + ' L' + x(n - 1).toFixed(1) + ' ' + (P.t + ih) + ' L' + x(0).toFixed(1) + ' ' + (P.t + ih) + ' Z';
+    const step = Math.max(1, Math.ceil(n / 10));
+    let xl = '';
+    labels.forEach(function (l, i) {
+      if (i % step === 0 || i === n - 1) {
+        xl += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" class="stt-ax">' + esc(l) + '</text>';
+      }
+    });
+    const dots = n <= 40
+      ? vals.map(function (v, i) { return '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="2.4" fill="var(--accent)"/>'; }).join('')
+      : '';
+    return '<div class="stt-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="趋势图">' +
+      g + '<path d="' + area + '" fill="rgba(220,38,38,.10)"/>' +
+      '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>' +
+      dots + xl + '</svg></div>';
+  }
+  function moveStatMiniSvg(vals, color) {
+    if (!vals.length) return '';
+    const W = 200, H = 52, max = Math.max.apply(null, vals), min = Math.min.apply(null, vals);
+    const rngv = Math.max(1, max - min);
+    const pts = vals.map(function (v, i) {
+      return ((i / Math.max(1, vals.length - 1)) * W).toFixed(1) + ' ' + (H - 4 - ((v - min) / rngv) * (H - 10)).toFixed(1);
+    });
+    return '<div class="stt-mini"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path d="M' + pts.join(' L') + '" fill="none" stroke="' + color + '" stroke-width="1.8"/></svg></div>';
+  }
+  function moveStatBarsHtml(items, opt) {
+    const o = opt || {};
+    const max = Math.max.apply(null, items.map(function (x) { return x.v; }).concat([1]));
+    return '<div class="stt-bars' + (o.tight ? ' tight' : '') + '">' + items.map(function (x) {
+      return '<div class="stt-bar' + (x.hot ? ' hot' : '') + '">' +
+        '<b>' + (x.v ? moveStatNum(x.v) : '') + '</b>' +
+        '<i style="height:' + Math.max(2, Math.round(x.v / max * (o.h || 76))) + 'px;' +
+        (x.color ? 'background:' + x.color : '') + '"></i>' +
+        '<span>' + esc(x.l) + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function moveStatRankHtml(items, unit) {
+    const max = Math.max.apply(null, items.map(function (x) { return x.v; }).concat([1]));
+    return '<div class="stt-rank">' + items.map(function (x) {
+      return '<div class="rk"><span class="nm">' + (x.icon ? x.icon + ' ' : '') + esc(x.l) + '</span>' +
+        '<span class="tr"><span class="fl" style="width:' + Math.round(x.v / max * 100) + '%;background:' + (x.color || 'var(--text)') + '"></span></span>' +
+        '<span class="vl">' + moveStatNum(x.v) + (unit || '') + (x.tag ? ' <i class="stt-tag">' + esc(x.tag) + '</i>' : '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function moveStatDistHtml(items, color) {
+    const max = Math.max.apply(null, items.map(function (x) { return x.v; }).concat([1]));
+    return '<div class="stt-dist">' + items.map(function (x) {
+      return '<div class="dl"><span class="nm">' + esc(x.l) + '</span>' +
+        '<span class="tr"><span class="fl" style="width:' + Math.round(x.v / max * 100) + '%;background:' + (x.color || color || 'var(--chart-2)') + '"></span></span>' +
+        '<span class="vl">' + esc(x.t) + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function moveStatRingHtml(pct, color, lab) {
+    const R = 32, C = 2 * Math.PI * R;
+    return '<div class="stt-ring"><svg viewBox="0 0 78 78" aria-hidden="true">' +
+      '<circle cx="39" cy="39" r="' + R + '" fill="none" stroke="var(--surface-3)" stroke-width="9"/>' +
+      '<circle cx="39" cy="39" r="' + R + '" fill="none" stroke="' + color + '" stroke-width="9" stroke-linecap="round" ' +
+      'stroke-dasharray="' + (C * Math.max(0, Math.min(100, pct)) / 100).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 39 39)"/></svg>' +
+      '<div class="rc"><b>' + Math.round(pct) + '%</b><span>' + esc(lab) + '</span></div></div>';
+  }
+  function moveStatKpiHtml(v, unit, label, delta) {
+    return '<div class="stt-kpi"><b>' + v + (unit ? '<small>' + esc(unit) + '</small>' : '') + '</b>' +
+      '<span>' + esc(label) + '</span>' + (delta || '') + '</div>';
+  }
+  function moveStatDeltaHtml(cur, prev, reverse) {
+    if (moveStatRange === 'all' || !prev) return '';
+    const p = (cur - prev) / prev * 100;
+    if (!isFinite(p) || Math.abs(p) < 0.5 || Math.abs(p) > 300) return '';
+    const up = p > 0;
+    const good = reverse ? !up : up;
+    return '<i class="stt-delta ' + (good ? 'up' : 'down') + '">' + (up ? '↑' : '↓') + Math.abs(p).toFixed(0) + '% 比上期</i>';
+  }
+  /* 某个模式的趋势指标（第一个是默认） */
+  function moveStatMetrics(mode) {
+    if (!mode) return [['count', '记录次数'], ['dur', '时长'], ['dist', '距离'], ['steps', '步数']];
+    if (mode === 'steps') return [['steps', '步数'], ['distM', '补录距离'], ['count', '次数']];
+    if (mode === 'rope') return [['count', '跳绳数'], ['dur', '时长']];
+    if (mode === 'strength') return [['volume', '训练容量'], ['sets', '组数'], ['dur', '时长']];
+    if (mode === 'ball') return [['dur', '时长'], ['kcal', '热量']];
+    return [['dist', '距离'], ['dur', '时长'], ['kcal', '热量']];
+  }
+
+  function moveStatsHtml(m) {
+    const all = moveRecords().filter(function (r) { return r && MOVE_TYPES[r.key]; });
+    const sports = moveSports();
+    const modeKey = (moveStatMode && MOVE_TYPES[moveStatMode]) ? moveStatMode : '';
+    const T = modeKey ? MOVE_TYPES[modeKey] : null;
+    const bd = moveStatBounds(moveStatRange);
+    const from = bd[0], to = bd[1];
+    const base = modeKey ? all.filter(function (r) { return r.key === modeKey; }) : all;
+    const list = base.filter(function (r) { return r.d >= from && r.d <= to; });
+    const span = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+    const pTo = fmt(addDays(new Date(from + 'T00:00:00'), -1));
+    const pFrom = fmt(addDays(new Date(from + 'T00:00:00'), -span));
+    const prevList = base.filter(function (r) { return r.d >= pFrom && r.d <= pTo; });
+    const A = moveStatAgg(list);
+    const Pv = moveStatAgg(prevList);
+
+    const metrics = moveStatMetrics(modeKey);
+    let metric = moveStatMetric;
+    if (metric === 'auto' || !metrics.some(function (x) { return x[0] === metric; })) metric = metrics[0][0];
+    const metricName = (function () {
+      const f = metrics.filter(function (x) { return x[0] === metric; })[0];
+      return f ? f[1] : metrics[0][1];
+    })();
+
+    /* —— 工具条 —— */
     let h = '<section class="panel"><h3 class="mv-sec-title">数据统计</h3>' +
-      '<p class="mv-sec-lead">按周期汇总所有运动记录，卡片里改一条这里立刻重算。</p>' +
-      (skipN ? '<p class="mv-sec-lead">其中 <b>' + skipN + '</b> 次跳过了数据记录：只计次数，不计入时长、距离、心率等详细数据。</p>' : '') +
-      '<div class="mv-tabs">' + tabs + '</div>' +
-      '<div class="st-kpi">' +
-        kpi(list.length, '运动次数') +
-        (skipN ? kpi(skipN, '次未记录数据') : '') +
-        kpi(Math.round(dur), '总时长（分）') +
-        kpi(Math.round(dist * 10) / 10, '总距离（公里）') +
-        kpi(kcal, '消耗（千卡）') +
-        kpi(steps.toLocaleString(), '累计步数') +
-        kpi(days, '运动天数') +
-        kpi(days ? Math.round(list.length / days * 10) / 10 : 0, '日均次数') +
-        kpi(stepRate + '%', '步数达标率') +
-      '</div></section>';
+      '<p class="mv-sec-lead">先选运动模式，再看这个模式自己的指标、趋势和分布。卡片里改一条，这里立刻重算。</p>' +
+      '<div class="stt-tool">' +
+        '<div class="stt-chips">' +
+          '<button type="button" class="stt-chip' + (modeKey ? '' : ' on') + '" data-act="move-stat-mode" data-v="">全部</button>' +
+          Object.keys(MOVE_TYPES).map(function (k) {
+            const t = MOVE_TYPES[k];
+            /* 下线模式（游泳/瑜伽）只有存在历史记录时才占位置 */
+            if (t.retired && !all.some(function (r) { return r.key === k; })) return '';
+            return '<button type="button" class="stt-chip' + (modeKey === k ? ' on' : '') +
+              '" data-act="move-stat-mode" data-v="' + k + '">' + esc(t.icon) + ' ' + esc(t.name) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="stt-chips">' +
+          MOVE_STAT_RANGES.map(function (r) {
+            return '<button type="button" class="stt-chip sm' + (moveStatRange === r[0] ? ' on' : '') +
+              '" data-act="move-stat-range" data-v="' + r[0] + '">' + r[1] + '</button>';
+          }).join('') +
+        '</div>' +
+        '<p class="stt-range">' + from + ' → ' + to +
+          (A.skip ? ' · 其中 <b>' + A.skip + '</b> 次跳过了数据记录：只计次数，不计入时长、距离、心率等详细数据' : '') + '</p>' +
+      '</div>';
 
-    /* —— 类型 / 记录方式 —— */
-    const typeKeys = Object.keys(byType).sort(function (a, b) { return byType[b].n - byType[a].n; });
-    const maxN = Math.max.apply(null, typeKeys.map(function (k) { return byType[k].n; }).concat([1]));
-    h += '<div class="st-grid2">';
-    h += '<section class="panel"><h3 class="mv-sec-title">按运动模式</h3><p class="mv-sec-lead">各模式记录次数。' +
-      (skipN ? '<br>「跳 N」表示这个模式里有 N 次跳过了数据记录，没有详细数据。' : '') + '</p><div class="st-bars">' +
-      (typeKeys.length ? typeKeys.map(function (k) {
-        const o = byType[k], T = MOVE_TYPES[k];
-        const sk = skipByKey[k] || 0;
-        return '<div class="st-barrow"><span class="nm"><span class="dot" style="background:' + esc(T.color) + '"></span>' + esc(T.name) + '</span>' +
-          '<span class="tr"><span class="fl" style="width:' + Math.round(o.n / maxN * 100) + '%;background:' + esc(T.color) + '"></span></span>' +
-          '<span class="vl">' + o.n + ' 次' +
-          (sk ? '<i class="sk-chip" title="其中 ' + sk + ' 次跳过了数据记录，没有时长/距离等详细数据">跳 ' + sk + '</i>' : '') +
-          '</span></div>';
-      }).join('') : '<p class="st-none">这个周期还没有记录。</p>') + '</div></section>';
-    h += '<section class="panel"><h3 class="mv-sec-title">记录方式</h3><p class="mv-sec-lead">步数两种方式 + 其他记录类型。</p><div class="st-split">' +
-      '<div class="box"><h4>👟 每日步数</h4>' +
-        '<div class="kv"><span>手动输入</span><b>' + manualN + ' 次</b></div>' +
-        '<div class="kv"><span>每次固定</span><b>' + fixedN + ' 次</b></div>' +
-        '<div class="kv"><span>合计</span><b>' + (manualN + fixedN) + ' 次</b></div></div>' +
-      '<div class="box"><h4>🏃 其他运动</h4>' +
-        '<div class="kv"><span>按距离</span><b>' + distN + ' 次</b></div>' +
-        '<div class="kv"><span>按次数</span><b>' + countN + ' 次</b></div>' +
-        '<div class="kv"><span>按时长</span><b>' + durN + ' 次</b></div></div>' +
-      '</div></section>';
-    h += '</div>';
-
-    /* —— 时段 / 趋势 —— */
-    const maxB = Math.max.apply(null, buckets.concat([1]));
-    h += '<div class="st-grid2">';
-    h += '<section class="panel"><h3 class="mv-sec-title">运动时段</h3><p class="mv-sec-lead">按时间段的次数分布。</p><div class="st-hours">' +
-      buckets.map(function (n, i) {
-        return '<div class="hb"><b>' + n + '</b><i style="height:' + Math.round(n / maxB * 78) + 'px"></i><span>' + BUCKET_LAB[i] + '</span></div>';
-      }).join('') + '</div></section>';
-    const trend = [];
-    for (let i = 13; i >= 0; i--) {
-      const ds = fmt(addDays(new Date(), -i));
-      trend.push({ d: ds.slice(8), c: list.filter(function (r) { return r.d === ds; }).length });
+    /* —— KPI —— */
+    const stepSport = sports.filter(function (s) { return moveTargetOf(s).k === 'steps'; })[0];
+    const stepBound = stepSport ? (Number(stepSport.tVal) || 10000) : 10000;
+    const maxSteps = list.reduce(function (mx, r) { return Math.max(mx, Number(r.steps) || 0); }, 0);
+    const days = A.days || 1;
+    let kpis = '';
+    if (!modeKey) {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '记录次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '运动时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(moveStatNum(A.dist), '公里', '总距离', moveStatDeltaHtml(A.dist, Pv.dist)) +
+        moveStatKpiHtml(moveStatNum(A.kcal), '千卡', '热量消耗', moveStatDeltaHtml(A.kcal, Pv.kcal)) +
+        moveStatKpiHtml(moveStatNum(A.steps), '步', '累计步数', moveStatDeltaHtml(A.steps, Pv.steps)) +
+        moveStatKpiHtml(moveStatNum(A.days), '天', '有运动的天数', moveStatDeltaHtml(A.days, Pv.days));
+    } else if (modeKey === 'steps') {
+      kpis = moveStatKpiHtml(moveStatNum(A.steps), '步', '累计步数', moveStatDeltaHtml(A.steps, Pv.steps)) +
+        (moveStatRange === 'today'
+          ? moveStatKpiHtml(moveStatNum(Math.max(0, stepBound - A.steps)), '步', '距 ' + moveStatNum(stepBound) + ' 步还差', '')
+          : moveStatKpiHtml(moveStatNum(A.steps / days), '步', '日均步数', moveStatDeltaHtml(A.steps / days, Pv.steps / Math.max(1, Pv.days || 1)))) +
+        moveStatKpiHtml(moveStatNum(A.days), '天', '有记录的天数', '') +
+        moveStatKpiHtml((A.distM / 1000).toFixed(1), '公里', '补录距离合计', '') +
+        moveStatKpiHtml(moveStatNum(maxSteps), '步', '单次最多', '') +
+        moveStatKpiHtml(moveStatNum(A.realN), '次', '打卡次数', moveStatDeltaHtml(A.realN, Pv.realN));
+    } else if (modeKey === 'run' || modeKey === 'walk') {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '记录次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.dist), '公里', '总距离', moveStatDeltaHtml(A.dist, Pv.dist)) +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '总时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(A.pace, '/公里', '平均配速', '') +
+        moveStatKpiHtml(A.cadAvg || '—', '步/分', '平均步频', '') +
+        moveStatKpiHtml(A.heartAvg || '—', 'bpm', '平均心率', '');
+    } else if (modeKey === 'ride') {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '记录次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.dist), '公里', '总里程', moveStatDeltaHtml(A.dist, Pv.dist)) +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '总时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(A.speedAvg || '—', 'km/h', '平均速度', '') +
+        moveStatKpiHtml(A.cadAvg || '—', 'rpm', '平均踏频', '') +
+        moveStatKpiHtml(A.heartAvg || '—', 'bpm', '平均心率', '');
+    } else if (modeKey === 'rope') {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '记录次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.ropeCount), '下', '累计跳绳数', moveStatDeltaHtml(A.ropeCount, Pv.ropeCount)) +
+        moveStatKpiHtml(A.rateAvg || '—', '下/分', '平均跳频', '') +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '总时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(moveStatNum(list.reduce(function (mx, r) { return Math.max(mx, Number(r.count) || 0); }, 0)), '下', '单次最多', '') +
+        moveStatKpiHtml(A.heartAvg || '—', 'bpm', '平均心率', '');
+    } else if (modeKey === 'strength') {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '训练次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.sets), '组', '累计组数', moveStatDeltaHtml(A.sets, Pv.sets)) +
+        moveStatKpiHtml(moveStatNum(A.volume), 'kg', '训练容量', moveStatDeltaHtml(A.volume, Pv.volume)) +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '总时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(A.heartAvg || '—', 'bpm', '平均心率', '') +
+        moveStatKpiHtml(moveStatNum(A.kcal), '千卡', '热量消耗', moveStatDeltaHtml(A.kcal, Pv.kcal));
+    } else {
+      kpis = moveStatKpiHtml(moveStatNum(A.n), '次', '打球次数', moveStatDeltaHtml(A.n, Pv.n)) +
+        moveStatKpiHtml(moveStatNum(A.dur), '分钟', '总时长', moveStatDeltaHtml(A.dur, Pv.dur)) +
+        moveStatKpiHtml(A.heartAvg || '—', 'bpm', '平均心率', '') +
+        moveStatKpiHtml(moveStatNum(A.kcal), '千卡', '热量消耗', moveStatDeltaHtml(A.kcal, Pv.kcal)) +
+        moveStatKpiHtml(moveStatNum(A.n / Math.max(1, Math.ceil(days / 7))), '次', '周均次数', '') +
+        moveStatKpiHtml(moveStatNum(A.realN), '次', '有详细数据', '');
     }
-    const maxT = Math.max.apply(null, trend.map(function (t) { return t.c; }).concat([1]));
-    h += '<section class="panel"><h3 class="mv-sec-title">近 14 天趋势</h3><p class="mv-sec-lead">每天记录条数。</p><div class="st-trend">' +
-      trend.map(function (t) {
-        return '<div class="tb"><i style="height:' + Math.round(t.c / maxT * 92) + 'px"></i><span>' + t.d + '</span></div>';
-      }).join('') + '</div></section>';
+    h += '<div class="stt-kpis">' + kpis + '</div></section>';
+
+    /* —— 趋势 —— */
+    const bs = moveStatBuckets(list, from, to, metric);
+    h += '<section class="panel">' +
+      '<div class="stt-head"><div><h3 class="mv-sec-title">' +
+        (modeKey ? esc(T.name) : '全部运动') + ' · ' + esc(metricName) + '趋势</h3>' +
+        '<p class="mv-sec-lead">' + bs.unit + ' · 共 ' + bs.values.length + ' 个点' +
+        (moveStatRange === 'today' ? '（今天的记录按 2 小时分段）' : '（≤31 天按日、≤120 天按周、更久按月）') + '</p></div>' +
+        '<div class="stt-chips">' + metrics.map(function (x) {
+          return '<button type="button" class="stt-chip sm' + (metric === x[0] ? ' on red' : '') +
+            '" data-act="move-stat-metric" data-v="' + x[0] + '">' + x[1] + '</button>';
+        }).join('') + '</div></div>' +
+      (bs.values.some(function (v) { return v > 0; })
+        ? moveStatLineSvg(bs.values, bs.labels)
+        : '<p class="stt-none">这个周期还没有记录。</p>') +
+    '</section>';
+
+    /* —— 热力图 + 周内分布 —— */
+    const heatDays = 84;
+    const recentCut = fmt(addDays(new Date(), -(heatDays - 1)));
+    const recentList = base.filter(function (r) { return r.d >= recentCut; });
+    const recentAgg = moveStatAgg(recentList);
+    const todayDs = fmt(new Date());
+    let heatMax = 1;
+    const heatVals = {};
+    Object.keys(recentAgg.byDay).forEach(function (d) {
+      const v = moveStatDayScore(recentAgg.byDay[d]);
+      heatVals[d] = v;
+      if (v > heatMax) heatMax = v;
+    });
+    const wdNames = ['一', '二', '三', '四', '五', '六', '日'];
+    const tWd = (new Date().getDay() + 6) % 7;
+    let heatCols = '';
+    const startHeat = addDays(new Date(), -(heatDays - 1));
+    const startWd = (startHeat.getDay() + 6) % 7;
+    const gridStart = addDays(startHeat, -startWd);
+    for (let w = 0; w < Math.ceil((heatDays + startWd) / 7); w++) {
+      let col = '';
+      for (let dd = 0; dd < 7; dd++) {
+        const d = addDays(gridStart, w * 7 + dd), ds = fmt(d);
+        const v = heatVals[ds] || 0;
+        const t = v / heatMax;
+        const bg = v <= 0 ? 'var(--surface-3)' : 'rgba(220,38,38,' + (0.12 + t * 0.72).toFixed(2) + ')';
+        col += '<i class="stt-cell' + (ds === todayDs ? ' m' : '') + '" style="background:' + bg +
+          '" title="' + ds + ' · ' + (v ? moveStatNum(v) + ' 分钟' : '没有记录') + '"></i>';
+      }
+      heatCols += '<div class="stt-col">' + col + '</div>';
+    }
+    /* 周内分布：近 8 周，每周一~周日「平均每天运动多少分钟」 */
+    const wdSum = [0, 0, 0, 0, 0, 0, 0];
+    for (let i = 0; i < 56; i++) {
+      const d = addDays(new Date(), -i), ds = fmt(d);
+      wdSum[(d.getDay() + 6) % 7] += moveStatDayScore(recentAgg.byDay[ds]);
+    }
+    const wdAvg = wdSum.map(function (s) { return s / 8; });
+    h += '<div class="stt-grid2">' +
+      '<section class="panel"><h3 class="mv-sec-title">月历热力图</h3>' +
+        '<p class="mv-sec-lead">近 12 周 · 深色＝当天运动量大（分钟；纯步数的天按 100 步≈1 分钟折算）</p>' +
+        '<div class="stt-heat"><div class="stt-wl">' +
+          wdNames.map(function (x) { return '<span>' + x + '</span>'; }).join('') +
+        '</div><div class="stt-hgrid">' + heatCols + '</div></div>' +
+        '<p class="stt-legend">少' +
+          ['rgba(220,38,38,.12)', 'rgba(220,38,38,.3)', 'rgba(220,38,38,.5)', 'rgba(220,38,38,.7)', 'rgba(220,38,38,.9)']
+            .map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') +
+          '多<span>描边那格是今天</span></p>' +
+      '</section>' +
+      '<section class="panel"><h3 class="mv-sec-title">周内分布</h3>' +
+        '<p class="mv-sec-lead">近 8 周平均每天运动多少分钟 · 周' + wdNames[tWd] + ' 是今天</p>' +
+        moveStatBarsHtml(wdAvg.map(function (v, i) {
+          return { l: '周' + wdNames[i], v: Math.round(v * 10) / 10, hot: i === tWd };
+        }), { h: 78 }) +
+      '</section></div>';
+
+    /* —— 时段 + 模式构成 / 本期对比 —— */
+    h += '<div class="stt-grid2">' +
+      '<section class="panel"><h3 class="mv-sec-title">时段分布</h3>' +
+        '<p class="mv-sec-lead">按开始时间，每 2 小时一段</p>' +
+        moveStatBarsHtml(A.hours.map(function (v, i) { return { l: MOVE_STAT_HLAB[i], v: v }; }), { h: 72, tight: true }) +
+      '</section>';
+    if (!modeKey) {
+      const items = Object.keys(A.byMode).map(function (k) {
+        return { l: MOVE_TYPES[k].name, icon: MOVE_TYPES[k].icon, v: A.byMode[k].n, color: MOVE_TYPES[k].color, tag: A.byMode[k].skip ? '跳 ' + A.byMode[k].skip : '' };
+      }).sort(function (a, b) { return b.v - a.v; });
+      h += '<section class="panel"><h3 class="mv-sec-title">模式构成</h3>' +
+        '<p class="mv-sec-lead">按记录次数' + (A.skip ? ' · 「跳 N」表示该模式有 N 次跳过了数据记录' : '') + '</p>' +
+        (items.length ? moveStatRankHtml(items, ' 次') : '<p class="stt-none">这个周期还没有记录。</p>') +
+      '</section>';
+    } else {
+      const pickVal = function (o) {
+        if (modeKey === 'steps') return o.steps;
+        if (modeKey === 'strength') return o.volume;
+        if (modeKey === 'rope') return o.ropeCount;
+        return o.dur || o.n;
+      };
+      const a1 = pickVal(A), a2 = pickVal(Pv);
+      const unit = modeKey === 'steps' ? ' 步' : (modeKey === 'strength' ? ' kg' : (modeKey === 'rope' ? ' 下' : ' 分钟'));
+      const chg = a2 > 0 ? ((a1 - a2) / a2 * 100) : 0;
+      h += '<section class="panel"><h3 class="mv-sec-title">本期 vs 上期</h3>' +
+        '<p class="mv-sec-lead">' + esc(T.name) + ' · 与上一个同长度周期比（' + pFrom + ' → ' + pTo + '）</p>' +
+        '<div class="stt-rank">' +
+          '<div class="rk"><span class="nm">本期</span><span class="tr"><span class="fl" style="width:' +
+            Math.round(a1 / Math.max(1, a1, a2) * 100) + '%;background:var(--accent)"></span></span>' +
+            '<span class="vl">' + moveStatNum(a1) + unit + '</span></div>' +
+          '<div class="rk"><span class="nm">上期</span><span class="tr"><span class="fl" style="width:' +
+            Math.round(a2 / Math.max(1, a1, a2) * 100) + '%;background:var(--chart-3)"></span></span>' +
+            '<span class="vl">' + moveStatNum(a2) + unit + '</span></div>' +
+          '<div class="rk"><span class="nm">变化</span><span class="tr" style="background:transparent"></span>' +
+            '<span class="vl">' + (a2 > 0 ? (chg >= 0 ? '+' : '') + chg.toFixed(0) + '%' : '—') + '</span></div>' +
+        '</div></section>';
+    }
     h += '</div>';
 
     /* —— 专项 —— */
-    const strokeKeys = Object.keys(strokeMap);
-    const maxStroke = Math.max.apply(null, strokeKeys.map(function (k) { return strokeMap[k]; }).concat([1]));
-    h += '<section class="panel"><h3 class="mv-sec-title">专项数据</h3><p class="mv-sec-lead">按运动模式的专项指标。</p><div class="st-spec">' +
-      '<div class="sp"><h4>🏃 跑步</h4><div class="row"><span>总距离</span><b>' + (Math.round(runDist * 10) / 10) + ' 公里</b></div><div class="row"><span>平均配速</span><b>' + avgPace('run') + ' /公里</b></div></div>' +
-      '<div class="sp"><h4>🚴 骑行</h4><div class="row"><span>总距离</span><b>' + (Math.round(rideDist * 10) / 10) + ' 公里</b></div>' +
-        '<div class="row"><span>平均速度</span><b>' + (speedN ? (Math.round(speedSum / speedN * 10) / 10) + ' 公里/时' : '—') + '</b></div></div>' +
-      '<div class="sp"><h4>❤️ 心率</h4><div class="row"><span>平均心率</span><b>' + (heartN ? Math.round(heartSum / heartN) : '—') + ' 次/分</b></div><div class="row"><span>含心率记录</span><b>' + heartN + ' 次</b></div></div>' +
-      /* 游泳已下线（v179），只有历史记录还在时才显示这一块 */
-      (strokeKeys.length ? '<div class="sp"><h4>🏊 游泳</h4><div class="st-strokes">' +
-        strokeKeys.map(function (k) {
-          return '<div class="s"><span class="sn">' + esc(k) + '</span><span class="tr"><span class="fl" style="width:' + Math.round(strokeMap[k] / maxStroke * 100) + '%"></span></span><b>' + strokeMap[k] + '</b></div>';
-        }).join('') + '</div></div>' : '') +
-      '<div class="sp"><h4>🪢 跳绳</h4><div class="row"><span>累计次数</span><b>' + ropeCount.toLocaleString() + ' 次</b></div><div class="row"><span>记录次数</span><b>' + (byType.rope ? byType.rope.n : 0) + ' 次</b></div></div>' +
-      '<div class="sp"><h4>👟 步数</h4><div class="row"><span>日均步数</span><b>' + (stepDayN ? Math.round(steps / stepDayN).toLocaleString() : '0') + '</b></div><div class="row"><span>达标天数</span><b>' + stepMet + ' / ' + stepDayN + ' 天</b></div></div>' +
-      '</div></section>';
+    const cards = [];
+    const realList = list.filter(function (r) { return !r.skipped; });
+    /* 全部模式下只给「本周期真的有记录」的模式出专项卡，否则跳绳/球类这些没练的日子会挂一堆空卡 */
+    const hasMode = function (k) { return list.some(function (r) { return r.key === k; }); };
+    /* 近 14 天逐日步数（步数相关都用得到） */
+    const last14 = [];
+    for (let i = 13; i >= 0; i--) {
+      const ds = fmt(addDays(new Date(), -i));
+      last14.push({ d: ds, v: (A.byDay[ds] ? A.byDay[ds].steps : 0) });
+    }
+    if (modeKey === 'steps' || (!modeKey && hasMode('steps'))) {
+      const stepsBase = modeKey === 'steps' ? base : all.filter(function (r) { return r.key === 'steps'; });
+      const cut = fmt(addDays(new Date(), -13));
+      const perDay = {};
+      stepsBase.forEach(function (r) {
+        if (r.d < cut) return;
+        perDay[r.d] = (perDay[r.d] || 0) + (Number(r.steps) || 0);
+      });
+      const vals = Object.keys(perDay).map(function (k) { return perDay[k]; });
+      const tiers = [
+        { l: '<5 千', lo: 0, hi: 5000 }, { l: '5–8 千', lo: 5000, hi: 8000 },
+        { l: '8–10 千', lo: 8000, hi: 10000 }, { l: '10–15 千', lo: 10000, hi: 15000 },
+        { l: '>15 千', lo: 15000, hi: 1e9 }
+      ].map(function (t) {
+        const n = vals.filter(function (v) { return v > 0 && v >= t.lo && v < t.hi; }).length;
+        return { l: t.l, v: n, t: n + ' 天' };
+      });
+      const metN = vals.filter(function (v) { return v >= stepBound; }).length;
+      const hasN = vals.filter(function (v) { return v > 0; }).length;
+      cards.push('<div class="stt-spec"><h4>👟 步数档位（近 14 天）</h4>' + moveStatDistHtml(tiers) + '</div>');
+      cards.push('<div class="stt-spec"><h4>🎯 达标情况</h4><div class="stt-ringbox">' +
+        moveStatRingHtml(hasN ? metN / hasN * 100 : 0, 'var(--accent)', '达标') +
+        '<div><div class="kv"><span>达标天数</span><b>' + metN + ' / ' + (hasN || 0) + ' 天</b></div>' +
+        '<div class="kv"><span>日均</span><b>' + moveStatNum(hasN ? vals.reduce(function (s, v) { return s + v; }, 0) / hasN : 0) + ' 步</b></div>' +
+        '<div class="kv"><span>最高单日</span><b>' + moveStatNum(vals.length ? Math.max.apply(null, vals) : 0) + ' 步</b></div></div>' +
+      '</div></div>');
+      cards.push('<div class="stt-spec"><h4>📈 近 14 天步数</h4>' +
+        moveStatMiniSvg(last14.map(function (x) { return x.v; }), 'var(--accent)') +
+        '<div class="kv"><span>补录距离</span><b>' + (A.distM / 1000).toFixed(2) + ' 公里</b></div>' +
+      '</div>');
+    }
+    if (modeKey === 'run' || modeKey === 'walk' || (!modeKey && (hasMode('run') || hasMode('walk')))) {
+      const paces = realList.filter(function (r) { return /^\d+:[0-5]\d$/.test(String(r.pace || '')); });
+      const secs = paces.map(function (r) {
+        const p = String(r.pace).split(':');
+        return (+p[0]) * 60 + (+p[1]);
+      });
+      const zones = [0, 0, 0, 0];
+      realList.forEach(function (r) {
+        const hre = Number(r.heart) || 0;
+        if (!hre) return;
+        if (hre < 130) zones[0]++; else if (hre < 145) zones[1]++; else if (hre < 158) zones[2]++; else zones[3]++;
+      });
+      cards.push('<div class="stt-spec"><h4>⏱️ 配速趋势（越往下越快）</h4>' +
+        moveStatMiniSvg(secs.slice(-14).map(function (s) { return -s; }), 'var(--text)') +
+        '<div class="kv"><span>平均配速</span><b>' + A.pace + ' /公里</b></div>' +
+        '<div class="kv"><span>最快一次</span><b>' + (secs.length
+          ? (function () { const s = Math.min.apply(null, secs); return Math.floor(s / 60) + ':' + pad2(s % 60); })()
+          : '—') + '</b></div></div>');
+      cards.push('<div class="stt-spec"><h4>❤️ 心率区间</h4>' + moveStatDistHtml([
+        { l: '轻松 <130', v: zones[0], t: zones[0] + ' 次' },
+        { l: '有氧 130–144', v: zones[1], t: zones[1] + ' 次' },
+        { l: '阈值 145–157', v: zones[2], t: zones[2] + ' 次' },
+        { l: '无氧 ≥158', v: zones[3], t: zones[3] + ' 次' }
+      ]) + '</div>');
+      if (!modeKey) {
+        const strides = realList.filter(function (r) { return Number(r.stride); });
+        cards.push('<div class="stt-spec"><h4>👟 步频 / 步幅</h4>' +
+          '<div class="kv"><span>平均步频</span><b>' + (A.cadAvg || '—') + ' 步/分</b></div>' +
+          '<div class="kv"><span>平均步幅</span><b>' + (strides.length
+            ? Math.round(strides.reduce(function (s, r) { return s + Number(r.stride); }, 0) / strides.length)
+            : '—') + ' 厘米</b></div></div>');
+      }
+    }
+    if (modeKey === 'ride' || (!modeKey && hasMode('ride'))) {
+      const sp = realList.filter(function (r) { return Number(r.speed); }).map(function (r) { return Number(r.speed); });
+      const km = realList.map(function (r) { return moveStatKm(r); });
+      cards.push('<div class="stt-spec"><h4>🚴 速度趋势（km/h）</h4>' + moveStatMiniSvg(sp.slice(-14), '#5b7fb3') +
+        '<div class="kv"><span>平均速度</span><b>' + (A.speedAvg || '—') + ' km/h</b></div>' +
+        '<div class="kv"><span>平均踏频</span><b>' + (A.cadAvg || '—') + ' rpm</b></div></div>');
+      cards.push('<div class="stt-spec"><h4>📍 里程分布</h4>' + moveStatDistHtml([
+        { l: '<10 km', v: km.filter(function (x) { return x < 10; }).length, t: km.filter(function (x) { return x < 10; }).length + ' 次' },
+        { l: '10–20', v: km.filter(function (x) { return x >= 10 && x < 20; }).length, t: km.filter(function (x) { return x >= 10 && x < 20; }).length + ' 次' },
+        { l: '20–30', v: km.filter(function (x) { return x >= 20 && x < 30; }).length, t: km.filter(function (x) { return x >= 20 && x < 30; }).length + ' 次' },
+        { l: '≥30 km', v: km.filter(function (x) { return x >= 30; }).length, t: km.filter(function (x) { return x >= 30; }).length + ' 次' }
+      ], '#5b7fb3') + '</div>');
+    }
+    if (modeKey === 'rope' || (!modeKey && hasMode('rope'))) {
+      const rates = realList.filter(function (r) { return Number(r.ropeRate); }).map(function (r) { return Number(r.ropeRate); });
+      const tiers = [
+        { l: '<1 千', lo: 0, hi: 1000 }, { l: '1–2 千', lo: 1000, hi: 2000 },
+        { l: '2–3 千', lo: 2000, hi: 3000 }, { l: '≥3 千', lo: 3000, hi: 1e9 }
+      ].map(function (t) {
+        const n = realList.filter(function (r) { return (Number(r.count) || 0) >= t.lo && (Number(r.count) || 0) < t.hi; }).length;
+        return { l: t.l, v: n, t: n + ' 次' };
+      });
+      cards.push('<div class="stt-spec"><h4>🪢 跳频趋势（下/分）</h4>' + moveStatMiniSvg(rates.slice(-14), '#c07a3a') +
+        '<div class="kv"><span>平均跳频</span><b>' + (A.rateAvg || '—') + ' 下/分</b></div>' +
+        '<div class="kv"><span>累计跳绳</span><b>' + moveStatNum(A.ropeCount) + ' 下</b></div></div>');
+      cards.push('<div class="stt-spec"><h4>🔢 单次数量分布</h4>' + moveStatDistHtml(tiers, '#c07a3a') + '</div>');
+    }
+    if (modeKey === 'strength' || (!modeKey && hasMode('strength'))) {
+      const vol = realList.map(function (r) { return moveStatVolume(r); });
+      const rests = realList.filter(function (r) { return Number(r.rest); }).map(function (r) { return Number(r.rest); });
+      const wts = realList.filter(function (r) { return Number(r.weight); }).map(function (r) { return Number(r.weight); });
+      cards.push('<div class="stt-spec"><h4>🏋️ 训练容量趋势（kg）</h4>' + moveStatMiniSvg(vol.slice(-14), '#8a6a3a') +
+        '<div class="kv"><span>本期容量</span><b>' + moveStatNum(A.volume) + ' kg</b></div>' +
+        '<div class="kv"><span>单次最大</span><b>' + moveStatNum(vol.length ? Math.max.apply(null, vol) : 0) + ' kg</b></div></div>');
+      cards.push('<div class="stt-spec"><h4>⏸️ 组间休息 / 负重</h4>' +
+        '<div class="kv"><span>平均组间休息</span><b>' + (rests.length ? Math.round(rests.reduce(function (s, v) { return s + v; }, 0) / rests.length) : '—') + ' 秒</b></div>' +
+        '<div class="kv"><span>平均负重</span><b>' + (wts.length ? Math.round(wts.reduce(function (s, v) { return s + v; }, 0) / wts.length) : '—') + ' kg</b></div>' +
+        '<div class="kv"><span>累计组数</span><b>' + moveStatNum(A.sets) + ' 组</b></div></div>');
+    }
+    if (modeKey === 'ball' || (!modeKey && hasMode('ball'))) {
+      const zone = {};
+      realList.forEach(function (r) { if (r.hrZone) zone[r.hrZone] = (zone[r.hrZone] || 0) + 1; });
+      const zk = Object.keys(zone);
+      const avgs = realList.filter(function (r) { return Number(r.heartAvg); }).map(function (r) { return Number(r.heartAvg); });
+      cards.push('<div class="stt-spec"><h4>❤️ 心率区间构成</h4>' +
+        (zk.length ? moveStatDistHtml(zk.map(function (k) { return { l: k, v: zone[k], t: zone[k] + ' 次' }; }), '#a35b7a')
+          : '<p class="stt-none">还没有记录心率区间。</p>') +
+        '<div class="kv"><span>平均心率</span><b>' + (A.heartAvg || '—') + ' bpm</b></div></div>');
+      cards.push('<div class="stt-spec"><h4>📈 平均心率趋势</h4>' + moveStatMiniSvg(avgs.slice(-14), '#a35b7a') +
+        '<div class="kv"><span>最高一次</span><b>' + (avgs.length ? Math.max.apply(null, avgs) : '—') + ' bpm</b></div></div>');
+    }
+    if (modeKey) {
+      const durs = realList.map(function (r) { return Number(r.dur) || 0; });
+      cards.push('<div class="stt-spec"><h4>📊 单次时长分布</h4>' + moveStatDistHtml([
+        { l: '<30 分', v: durs.filter(function (v) { return v > 0 && v < 30; }).length, t: durs.filter(function (v) { return v > 0 && v < 30; }).length + ' 次' },
+        { l: '30–60', v: durs.filter(function (v) { return v >= 30 && v < 60; }).length, t: durs.filter(function (v) { return v >= 30 && v < 60; }).length + ' 次' },
+        { l: '60–90', v: durs.filter(function (v) { return v >= 60 && v < 90; }).length, t: durs.filter(function (v) { return v >= 60 && v < 90; }).length + ' 次' },
+        { l: '≥90 分', v: durs.filter(function (v) { return v >= 90; }).length, t: durs.filter(function (v) { return v >= 90; }).length + ' 次' }
+      ], T.color) + '</div>');
+    }
+    if (cards.length) {
+      h += '<section class="panel"><h3 class="mv-sec-title">专项数据</h3>' +
+        '<p class="mv-sec-lead">' + (modeKey
+          ? esc(T.name) + ' 支持的字段：' + (T.fields || []).map(function (f) { return MOVE_FIELD_CN[f.k] || f.n; }).join(' / ')
+          : '只显示本周期有记录的模式（步数 / 跑步 / 骑行 / 跳绳 / 力量 / 球类）') + '</p>' +
+        '<div class="stt-specs">' + cards.join('') + '</div></section>';
+    }
 
-    /* —— 达标 —— */
-    const metRate = days ? Math.round(metN / days * 100) : 0;
-    h += '<section class="panel"><h3 class="mv-sec-title">达标情况</h3><p class="mv-sec-lead">任一运动完成即算这一天达标；按计划休息的日子不计入未达标。</p><div class="st-ring">' +
-      '<div class="big"><svg viewBox="0 0 88 88" aria-hidden="true">' +
-        '<circle cx="44" cy="44" r="39" fill="none" stroke="var(--surface-3)" stroke-width="9"/>' +
-        '<circle cx="44" cy="44" r="39" fill="none" stroke="var(--sport, #b5733f)" stroke-width="9" stroke-linecap="round"' +
-        ' stroke-dasharray="' + (metRate / 100 * 2 * Math.PI * 39).toFixed(1) + ' ' + (2 * Math.PI * 39 * (1 - metRate / 100)).toFixed(1) + '"' +
-        ' transform="rotate(-90 44 44)"/></svg>' +
-        '<div class="t"><b>' + metRate + '%</b><span>达标率</span></div></div>' +
-      '<div class="lst">' +
-        '<div class="r"><span>达标天数</span><b>' + metN + ' 天</b></div>' +
-        '<div class="r"><span>记录天数</span><b>' + days + ' 天</b></div>' +
-        '<div class="r"><span>最长连续达标</span><b>' + bestStreak + ' 天</b></div>' +
-      '</div></div></section>';
+    /* —— 记录质量 + 最近记录 —— */
+    let streak = 0;
+    for (let i = 0; i < 200; i++) {
+      const ds = fmt(addDays(new Date(), -i));
+      const has = base.some(function (r) { return r.d === ds; });
+      if (has) streak++;
+      else if (i > 0 || !has) break;
+    }
+    const skipPct = A.n ? Math.round(A.skip / A.n * 100) : 0;
+    const recent = list.slice().sort(function (x, y) {
+      const kx = x.d + (x.at || ''), ky = y.d + (y.at || '');
+      return kx < ky ? -1 : (kx > ky ? 1 : 0);
+    }).slice(-8).reverse();
+    h += '<div class="stt-grid2">' +
+      '<section class="panel"><h3 class="mv-sec-title">记录质量</h3>' +
+        '<p class="mv-sec-lead">有多少次跳过了记录</p>' +
+        '<div class="stt-q">' +
+          '<div class="q"><span>记录总数</span><b>' + A.n + ' 次</b></div>' +
+          '<div class="q"><span>有详细数据</span><b>' + A.realN + ' 次</b></div>' +
+          '<div class="q"><span>跳过未记录</span><b>' + A.skip + ' 次' +
+            (skipPct ? ' <i class="stt-tag">' + skipPct + '%</i>' : '') + '</b></div>' +
+          '<div class="q"><span>当前连续有记录</span><b>' + streak + ' 天</b></div>' +
+          '<div class="q"><span>有记录的天数</span><b>' + A.days + ' 天</b></div>' +
+        '</div></section>' +
+      '<section class="panel"><h3 class="mv-sec-title">最近记录</h3>' +
+        '<p class="mv-sec-lead">' + (modeKey ? esc(T.name) : '全部模式') + ' · 最近 8 条</p>' +
+        (recent.length ? '<div class="stt-recs">' + recent.map(function (r) {
+          const TT = MOVE_TYPES[r.key];
+          const bits = [];
+          if (Number(r.steps)) bits.push(moveStatNum(r.steps) + ' 步');
+          if (Number(r.dur)) bits.push(r.dur + ' 分钟');
+          if (Number(r.dist)) bits.push((Math.round(moveStatKm(r) * 10) / 10) + ' 公里');
+          if (Number(r.count)) bits.push(moveStatNum(r.count) + ' 下');
+          if (r.pace) bits.push(r.pace + ' /公里');
+          if (Number(r.distM)) bits.push('距离 ' + moveStatNum(r.distM) + ' 米');
+          return '<div class="rr"><span class="ic">' + esc(TT.icon) + '</span>' +
+            '<span class="dd">' + esc(r.d.slice(5)) + ' ' + esc(pad2(Number(r.hour) || 0)) + ':00</span>' +
+            '<span class="vv">' + esc(r.skipped ? '跳过未记录' : (bits.join(' · ') || '无详细数据')) + '</span>' +
+            '<span class="nm">' + esc(TT.name) + '</span></div>';
+        }).join('') + '</div>' : '<p class="stt-none">这个周期还没有记录。</p>') +
+      '</section></div>';
 
     if (sports.length === 0) {
       h += '<p class="mv-sec-lead" style="margin-top:12px">还没有运动实例，先点「＋ 新建运动」添加一项。</p>';
@@ -18247,7 +18723,16 @@
     'move-edit': el => moveSportModal(el.dataset.id),
     'move-del': el => moveDelSport(el.dataset.id),
     'move-stat-range': el => {
-      moveStatRange = el.dataset.v || '7d';
+      moveStatRange = el.dataset.v || '30d';
+      render();
+    },
+    'move-stat-mode': el => {
+      moveStatMode = el.dataset.v || '';
+      moveStatMetric = 'auto';
+      render();
+    },
+    'move-stat-metric': el => {
+      moveStatMetric = el.dataset.v || 'auto';
       render();
     },
     'breathing-start': () => {
@@ -19071,7 +19556,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=188', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=189', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

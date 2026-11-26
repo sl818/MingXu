@@ -4137,3 +4137,124 @@ body.modal-open{overflow:hidden;}
 .mail-result.bad{border-color:color-mix(in srgb,var(--bad) 50%,var(--line));
   color:color-mix(in srgb,var(--bad) 78%,var(--text));font-weight:600}
 .mail-result[hidden]{display:none}
+
+/* ============================================================
+   v189：运动数据统计改版（.stt- 前缀，避免与旧的 .st-* 撞名）
+   ------------------------------------------------------------
+   结构：模式/范围 chips → KPI → 趋势 → 热力图 + 周内分布 →
+         时段 + 模式构成 → 专项 → 记录质量 + 最近记录
+   ============================================================ */
+.stt-tool{display:flex;flex-direction:column;gap:8px;margin:12px 0 2px}
+.stt-chips{display:flex;flex-wrap:wrap;gap:6px}
+.stt-chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.stt-chip:hover{border-color:var(--line-strong);color:var(--text)}
+.stt-chip.sm{font-size:11.5px;padding:4px 9px}
+.stt-chip.on{background:var(--text);border-color:var(--text);color:var(--surface)}
+.stt-chip.on.red{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.stt-range{margin:2px 0 0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stt-range b{color:var(--text)}
+
+.stt-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-top:12px}
+.stt-kpi{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:11px 12px}
+.stt-kpi b{display:block;font-size:19px;letter-spacing:-.3px;font-variant-numeric:tabular-nums;color:var(--text)}
+.stt-kpi b small{font-size:11px;font-weight:600;color:var(--muted);margin-left:2px}
+.stt-kpi span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.stt-delta{display:inline-block;margin-top:4px;font-size:10.5px;font-style:normal;font-weight:700}
+.stt-delta.up{color:var(--accent-2)}
+.stt-delta.down{color:var(--good)}
+
+.stt-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.stt-head>div:first-child{flex:1;min-width:0}
+.stt-head .stt-chips{margin-left:auto}
+.stt-chart{margin-top:10px}
+.stt-chart svg{width:100%;height:auto;display:block}
+.stt-ax{font-size:10px;fill:var(--muted)}
+
+.stt-heat{display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:2px}
+.stt-wl{display:flex;flex-direction:column;gap:3px;font-size:9.5px;color:var(--muted);flex:none}
+.stt-wl span{height:14px;line-height:14px}
+.stt-hgrid{display:flex;gap:3px}
+.stt-col{display:flex;flex-direction:column;gap:3px}
+.stt-cell{display:block;width:14px;height:14px;border-radius:3px}
+.stt-cell.m{outline:1.5px solid var(--text);outline-offset:1px}
+.stt-legend{display:flex;align-items:center;gap:4px;margin:9px 0 0;font-size:10px;color:var(--muted)}
+.stt-legend i{width:11px;height:11px;border-radius:2px;flex:none}
+.stt-legend span:last-child{margin-left:auto}
+
+.stt-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:14px}
+
+.stt-bars{display:flex;align-items:flex-end;gap:8px;height:118px;margin-top:10px}
+.stt-bar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.stt-bar i{display:block;width:100%;max-width:34px;min-height:2px;border-radius:5px 5px 0 0;background:var(--chart-1)}
+.stt-bar.hot i{background:var(--accent)}
+.stt-bar b{font-size:10px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.stt-bar span{font-size:9.5px;color:var(--muted);white-space:nowrap}
+.stt-bars.tight{gap:3px}
+.stt-bars.tight .stt-bar i{max-width:none;border-radius:3px 3px 0 0}
+.stt-bars.tight .stt-bar span{font-size:8.5px;letter-spacing:-.2px}
+
+.stt-rank{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+.stt-rank .rk{display:flex;align-items:center;gap:9px;font-size:12px}
+.stt-rank .nm{width:96px;flex:none;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stt-rank .tr{flex:1;min-width:0;height:8px;background:var(--surface-3);border-radius:99px;overflow:hidden}
+.stt-rank .fl{display:block;height:100%;border-radius:99px}
+.stt-rank .vl{width:96px;flex:none;text-align:right;color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.stt-tag{font-style:normal;font-size:10px;font-weight:700;background:var(--accent-soft);color:var(--accent-2);
+  border-radius:99px;padding:1px 6px;margin-left:4px}
+
+.stt-dist{display:flex;flex-direction:column;gap:6px}
+.stt-dist .dl{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.stt-dist .nm{width:74px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stt-dist .tr{flex:1;min-width:0;height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden}
+.stt-dist .fl{display:block;height:100%;border-radius:99px;background:var(--chart-2)}
+.stt-dist .vl{width:52px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
+
+.stt-mini{margin:6px 0 4px}
+.stt-mini svg{width:100%;height:52px;display:block;overflow:visible}
+
+.stt-ring{position:relative;width:78px;height:78px;flex:none}
+.stt-ring svg{width:78px;height:78px;display:block}
+.stt-ring .rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.stt-ring .rc b{font-size:14px}
+.stt-ring .rc span{font-size:9px;color:var(--muted)}
+.stt-ringbox{display:flex;align-items:center;gap:14px}
+
+.stt-specs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.stt-spec{border:1px solid var(--line);border-radius:11px;padding:12px 13px;background:var(--surface-2);min-width:0}
+.stt-spec h4{margin:0 0 8px;font-size:12.5px;font-weight:700}
+.stt-spec .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;color:var(--muted)}
+.stt-spec .kv b{color:var(--text);font-variant-numeric:tabular-nums}
+
+.stt-q .q{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:12px;
+  border-bottom:1px dashed var(--line);color:var(--muted)}
+.stt-q .q:last-child{border-bottom:none}
+.stt-q .q b{color:var(--text);font-variant-numeric:tabular-nums}
+
+.stt-recs .rr{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:11.5px;
+  border-bottom:1px dashed var(--line)}
+.stt-recs .rr:last-child{border-bottom:none}
+.stt-recs .ic{width:18px;flex:none;text-align:center}
+.stt-recs .dd{width:64px;flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.stt-recs .vv{flex:1;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stt-recs .nm{width:64px;flex:none;text-align:right;font-size:10.5px;color:var(--muted)}
+.stt-none{margin:10px 0;font-size:12px;color:var(--muted)}
+
+@media (max-width:1180px){
+  .stt-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  .stt-grid2{grid-template-columns:minmax(0,1fr)}
+  .stt-specs{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  /* 窄屏：卡片标题与指标 chips 改上下排，否则标题被 chips 挤成每行三四个字 */
+  .stt-head{flex-direction:column;align-items:stretch}
+  .stt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stt-specs{grid-template-columns:minmax(0,1fr)}
+  .stt-head .stt-chips{margin-left:0}
+  .stt-rank .nm{width:72px}
+  .stt-rank .vl{width:78px}
+  .stt-bars{height:104px}
+}
