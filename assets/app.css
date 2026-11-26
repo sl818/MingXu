@@ -3411,10 +3411,10 @@ body.modal-open{overflow:hidden;}
 .ms-row.ok .ms-val{color:var(--good)}
 
 /* ============ 喝水页改版（v173） ============ */
-.water-page{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0}
-.water-page .vital-card{max-width:none}
-.water-page .panel{max-width:none}
-.water-page .page-head .sub b{color:var(--accent)}
+.water-page,.breathe-page{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0}
+.water-page .vital-card,.breathe-page .vital-card{max-width:none}
+.water-page .panel,.breathe-page .panel{max-width:none}
+.water-page .page-head .sub b,.breathe-page .page-head .sub b{color:var(--accent)}
 .w-sec-title{margin:0 0 4px;font-size:16px;font-weight:700}
 .w-sec-lead{margin:0 0 14px;color:var(--muted);font-size:12.5px}
 .w-benefit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -3493,6 +3493,23 @@ body.modal-open{overflow:hidden;}
 @media (max-width:600px){
   .w-benefit-grid,.w-fields,.w-chan-grid,.w-mini-grid{grid-template-columns:repeat(2,1fr)}
   .w-kpi-grid{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ============ 478 呼吸法页（v194） ============
+   复用 .w-* 的视觉（介绍卡 / 页内设置 / 提醒），只多三样：
+   两列的设置字段、六格的统计小卡、页内统计的日期档位切换。 */
+.br-fields{grid-template-columns:repeat(2,1fr)}
+.br-mini-grid{grid-template-columns:repeat(6,1fr)}
+.br-range{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);flex:none;margin-bottom:4px}
+.br-range button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:11px;padding:5px 9px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.br-range button.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.br-trend{margin-top:20px}
+.br-trend .stt-sub{margin:0 0 8px}
+.br-trend .stt-bars{gap:6px}
+@media (max-width:600px){
+  .br-mini-grid{grid-template-columns:repeat(3,1fr)}
+  .br-range{width:100%;justify-content:space-between}
+  .br-range button{flex:1}
 }
 
 /* ============ 运动页 2.0（v175） ============ */
@@ -4204,3 +4221,11 @@ body.modal-open{overflow:hidden;}
   .stt-mrow .nm{width:62px}
   .stt-mrow .rt{display:none}
 }
+
+/* v193b：两栏里柱子要撑满整栏 —— 容器 flex:1 撑到与另一栏等高，
+   柱子高度用百分比（moveStatBarsHtml 的 fill 模式），底部对齐、不悬空 */
+.stt-grid2.stt-fill{align-items:stretch}
+.stt-grid2.stt-fill>div{display:flex;flex-direction:column;min-width:0}
+.stt-bars.fill{flex:1;min-height:104px;height:auto;align-items:flex-end}
+.stt-bars.fill .stt-bar{justify-content:flex-end}
+.stt-bars.fill .stt-bar i{max-width:44px}

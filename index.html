@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=193">
+<link rel="stylesheet" href="assets/app.css?v=194">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=193">
+<link rel="stylesheet" href="assets/theme-v2.css?v=194">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v193';
+  const APP_VERSION = 'v194';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -562,6 +562,20 @@
     return '';
   }
 
+  /* v194：478 提醒的默认时间点 —— 每天几组就几个点，在 07:00–21:00 之间铺开。
+     只是「建议值」，用户可以在提醒区逐个改。 */
+  function breatheDefaultTimes(n) {
+    const k = Math.max(1, Math.min(12, Math.round(Number(n) || 1)));
+    const from = 7 * 60, to = 21 * 60;
+    const out = [];
+    for (let i = 0; i < k; i++) {
+      /* 先落到 5 分钟刻度，再转成 HH:MM（先除后加，顺序反了会算出 45:30 这种非法值） */
+      const mm = k === 1 ? 15 * 60 : Math.round((from + (to - from) * (i / (k - 1))) / 5) * 5;
+      out.push(pad2(Math.floor(mm / 60) % 24) + ':' + pad2(mm % 60));
+    }
+    return out;
+  }
+
   function moduleDefaults(key) {
     const iso = new Date().toISOString();
     const base = {
@@ -592,7 +606,9 @@
       return Object.assign(base, {
         name: '478呼吸法', icon: '🌬️', color: '#5b8f8a', note: '4-7-8 呼吸', unit: '组',
         groups: 1, cycles: 4, notify: true, suggestTime: '15:00', notifyFreq: 'daily',
-        notifyWeekday: 1, notifyMonthday: 1, notifyNote: ''
+        notifyWeekday: 1, notifyMonthday: 1, notifyNote: '',
+        /* v194：提醒改成「每天固定时间推送」—— 每天几组就几个时间点，用户自己填 */
+        notifyChannels: ['browser'], notifyTimes: ['15:00']
       });
     }
     return Object.assign(base, {
@@ -634,6 +650,12 @@
     } else if (key === 'breathe') {
       m.groups = clamp(parseInt(h.target, 10) || 1, 1, 99);
       m.cycles = clamp(parseInt(h.breatheCycles, 10) || 4, 1, 8);
+      /* v194：老锚点只有一个 suggestTime，迁成第一个提醒时间点 */
+      const times = breatheDefaultTimes(Math.min(12, m.groups));
+      const hs = String(h.suggestTime || '');
+      times[0] = /^([01]\d|2[0-3]):[0-5]\d$/.test(hs) ? hs : times[0];
+      m.notifyTimes = times;
+      m.notifyChannels = ['browser'];
     } else {
       const s = String(h.quitStart || '');
       m.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
@@ -864,6 +886,8 @@
       out.unit = '组';
       out.groups = clamp(Math.round(Number(m.groups) || d.groups), 1, 99);
       out.cycles = clamp(Math.round(Number(m.cycles) || d.cycles), 1, 8);
+      /* v194：478 的图标 / 名称 / 颜色 / 备注由系统固定，用户不能改 */
+      out.name = d.name; out.icon = d.icon; out.color = d.color; out.note = d.note;
     } else {
       const s = String(m.startDate || '');
       out.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
@@ -881,6 +905,26 @@
       const nmd = Number(m.notifyMonthday);
       out.notifyMonthday = (nmd >= 1 && nmd <= 31) ? Math.round(nmd) : 1;
       out.notifyNote = String(m.notifyNote || '').slice(0, 60);
+    }
+    /* v194：478 提醒 = 每天固定时间推送。
+       时间点个数跟「每天几组」走（最多 12 个），旧数据的 suggestTime 迁进第一个；
+       卡片上显示的「建议时间」也取第一个，三处口径（前端 / ics.php / schedule.php）对齐。 */
+    if (key === 'breathe') {
+      const CH = ['browser', 'wecom', 'mail'];
+      const ch = Array.isArray(m.notifyChannels) ? m.notifyChannels.filter(function (x) { return CH.indexOf(x) >= 0; }) : [];
+      out.notifyChannels = ch.length ? ch : ['browser'];
+      const maxT = Math.min(12, out.groups);
+      const raw = Array.isArray(m.notifyTimes) ? m.notifyTimes : null;
+      const dflt = breatheDefaultTimes(maxT);
+      const times = [];
+      for (let i = 0; i < maxT; i++) {
+        const t = raw ? String(raw[i] || '') : '';
+        times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dflt[i]);
+      }
+      /* 老数据没有 notifyTimes：把旧的 suggestTime 放进第一个，其余给建议值 */
+      if (!raw || !raw.length) times[0] = out.suggestTime || d.suggestTime;
+      out.notifyTimes = times;
+      out.suggestTime = times[0] || out.suggestTime;
     }
     return out;
   }
@@ -5638,8 +5682,8 @@
         '" style="--hc:' + color + '">' +
       '<div class="vital-top">' +
         '<span class="habit-icon">' + esc(h.icon || '🌬️') + '</span>' +
-        '<div class="vital-title"><b>' + esc(h.name) + '</b><small>每天一组 · ' + cycles +
-          ' 次循环 · 约 ' + fmtDur(totalSec) + '</small></div>' +
+        '<div class="vital-title"><b>' + esc(h.name) + '</b><small>每天' + (target > 1 ? ' ' + target + ' 组' : '一组') +
+          ' · ' + cycles + ' 次循环 · 约 ' + fmtDur(totalSec) + '</small></div>' +
         (streak ? '<span class="breath-streak">🔥 连续 ' + streak + ' 天</span>' : '') +
         '<span class="pin-tag">常驻</span>' +
       '</div>' +
@@ -7990,63 +8034,205 @@
   }
 
   /* ============================================================
-     健康模块独立页（v170）：喝水 / 运动 / 478呼吸法
-     戒烟页 = viewQuit（上）；这里只有另外三个。
-     页面 = 页头 + 今日卡 + 坚持小结。卡片沿用 vitalCard，
-     交互（habit-inc / habit-dec / breathing-start）仍写旧记录键。
+     478 呼吸法独立页（v194）：照喝水的版式重做
+     介绍 → 页内设置 → 数据统计 → 提醒，全部在本页完成，
+     不再弹「设置」对话框（右上角那个入口已撤掉）。
+     图标 / 名称 / 颜色 / 备注由系统固定，页面上不给改的入口。
+     旧的三段通用模块页（modulePageHead / moduleSummary / modulePage）
+     只服务过 478，v194 起由下面这套取代。
      ============================================================ */
-  function modulePageHead(key, sub) {
-    const label = MODULE_LABEL[key] || '模块';
+  let breatheStatRange = 7;   /* 页内统计的日期档位：近7天 / 近1月 / 近3月 / 全部 */
+
+  function breatheModule() {
+    return (state.modules && state.modules.breathe) ? state.modules.breathe : moduleDefaults('breathe');
+  }
+  function breatheGroups(m) { return Math.max(1, Math.min(12, Math.round(Number(m.groups) || 1))); }
+  function breatheCycles(m) { return Math.max(1, Math.min(8, Math.round(Number(m.cycles) || 4))); }
+
+  function breatheHead(m) {
+    const g = breatheGroups(m), c = breatheCycles(m);
     return '<div class="page-head">' +
-      '<div><h2>' + esc(label) + '</h2><p>' + sub + '</p></div>' +
-      '<div class="head-actions">' +
-        '<button class="btn" data-act="module-edit" data-key="' + key + '">设置</button>' +
-      '</div>' +
+      '<div><h2>478呼吸法</h2><p class="sub">4-7-8 呼吸 · 每天 <b>' + g + '</b> 组 · 每组 <b>' + c +
+        '</b> 次循环 · 一组约 <b>' + fmtDur(c * 19) + '</b></p></div>' +
     '</div>';
   }
 
-  function moduleSummary(key, h) {
-    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
-    const ym = todayStr().slice(0, 7);
-    let month = 0;
-    Object.keys(state.checks || {}).forEach(function (ds) {
-      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
-    });
-    let total, totalLabel;
-    if (key === 'water') {
-      let ml = 0;
-      Object.keys(state.checks || {}).forEach(function (ds) {
-        ml += waterMlOf(h, countOf(ds, h.id));
-      });
-      total = Math.round(ml);
-      totalLabel = '累计毫升';
-    } else {
-      total = habitTotalCount(h);
-      totalLabel = '累计 ' + (h.unit || '次');
-    }
-    return '<div class="panel"><h3>坚持小结</h3>' +
-      '<div class="module-sum">' +
-        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
-        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
-        '<div class="ms-box"><b>' + total + '</b><span>' + totalLabel + '</span></div>' +
-      '</div></div>';
+  function breatheBenefitsHtml() {
+    const items = [
+      ['🌬️', '快速镇静', '长呼气能较快激活副交感神经，心率跟着慢下来，人容易静下来。'],
+      ['😌', '缓解焦虑', '把注意力放在数秒数上，紧张感会跟着每一次呼气散掉。'],
+      ['💤', '改善睡眠', '睡前做一组，配合鼻吸口呼，身体会更快滑进深睡。'],
+      ['🧠', '提升专注', '稳定的呼吸节奏帮你收敛思绪，把注意力拉回当下。'],
+      ['❤️', '稳定血压', '规律练习有助血管张力稳定，坚持越久收益越明显。'],
+      ['🫁', '温和练肺', '屏息与深呼吸交替，是对呼吸肌一次不费力的训练。']
+    ].map(function (it) {
+      return '<div class="w-benefit"><span class="ico">' + it[0] + '</span><b>' + it[1] + '</b><p>' + it[2] + '</p></div>';
+    }).join('');
+    return '<section class="panel"><h3 class="w-sec-title">478呼吸法的介绍</h3>' +
+      '<p class="w-sec-lead">4-7-8 呼吸把注意力交给呼吸本身，是最容易上手的放松练习之一。</p>' +
+      '<div class="w-benefit-grid">' + items + '</div>' +
+      '<div class="w-sci"><b>怎么做</b>　吸气 4 秒 → 屏息 7 秒 → 呼气 8 秒，一组做 4 次循环（约 1 分 16 秒）。' +
+        '刚开始屏息 7 秒会略感憋气，可以先把循环减到 2–3 次，熟练了再加回来。</div>' +
+    '</section>';
   }
 
-  function modulePage(key) {
-    const h = moduleAsHabit(key);
-    const d = todayStr();
-    let sub;
-    if (key === 'water') {
-      sub = '每天 ' + waterTimesN(h) + ' 杯 · 每次 ' + waterPerMl(h) + ' ml · 共 ' + waterGoalMl(h) + ' ml';
-    } else if (key === 'move') {
-      sub = '每天 ' + (Number(h.target) || 1) + ' 次';
+  function breatheSettingsHtml(m) {
+    const g = breatheGroups(m), c = breatheCycles(m);
+    return '<section class="panel"><h3 class="w-sec-title">478呼吸法设置</h3>' +
+      '<p class="w-sec-lead">设置直接在本页完成，不再跳出对话框。</p>' +
+      '<div class="w-locked"><span class="ico">🌬️</span><b>478呼吸法</b>' +
+        '<span class="lock">🔒 图标、名称、颜色与备注由系统固定，不可修改</span></div>' +
+      '<form id="breathe-settings-form">' +
+        '<div class="w-fields br-fields">' +
+          '<div class="w-field"><span class="f-label">每天几组 <span class="unit">(组)</span></span>' +
+            '<input name="groups" type="number" min="1" max="12" value="' + g + '"><small>1–12 组，提醒时间点跟着组数走</small></div>' +
+          '<div class="w-field"><span class="f-label">每组循环次数 <span class="unit">(次)</span></span>' +
+            '<input name="cycles" type="number" min="1" max="8" value="' + c + '"><small>一组 = 吸4·屏7·呼8 循环这么多次</small></div>' +
+        '</div>' +
+        '<p class="w-link-hint" id="breathe-link-hint"></p>' +
+        '<div class="w-save"><button type="submit" class="btn primary">保存设置</button></div>' +
+      '</form>' +
+    '</section>';
+  }
+
+  /* 区间聚合：组数 / 次数 / 达标天数 / 达标率 / 完成度。R=0 表示「全部」。 */
+  function breatheRangeAgg(h, R) {
+    const target = Math.max(1, Number(h.target) || 1);
+    const dates = [];
+    if (!R) {
+      Object.keys(state.checks || {}).sort().forEach(function (ds) {
+        if (countOf(ds, h.id) > 0) dates.push(ds);
+      });
     } else {
-      sub = '每天 ' + (Number(h.target) || 1) + ' 组 · 每组 ' + (Number(h.breatheCycles) || 4) + ' 次循环';
+      for (let i = R - 1; i >= 0; i--) dates.push(fmt(addDays(new Date(), -i)));
     }
-    return '<div class="module-page">' +
-      modulePageHead(key, sub) +
-      vitalCard(h, d) +
-      moduleSummary(key, h) +
+    const counts = dates.map(function (ds) { return countOf(ds, h.id); });
+    let sum = 0, metN = 0, active = 0, maxN = 0, pctSum = 0;
+    counts.forEach(function (n, i) {
+      sum += n;
+      if (n > 0) active++;
+      if (n > maxN) maxN = n;
+      if (met(h, dates[i])) metN++;
+      pctSum += Math.min(1, n / target);
+    });
+    return {
+      dates: dates, counts: counts, sum: sum, metN: metN, active: active, maxN: maxN,
+      pct: dates.length ? Math.round(pctSum / dates.length * 100) : 0,
+      rate: dates.length ? Math.round(metN / dates.length * 100) : 0,
+      avg: active ? Math.round(sum / active * 10) / 10 : 0
+    };
+  }
+
+  function breatheStatsHtml(h) {
+    const d = todayStr();
+    const target = Math.max(1, Number(h.target) || 1);
+    const cycles = Math.max(1, Math.min(8, Number(h.breatheCycles) || 4));
+    const todayN = countOf(d, h.id);
+    const todayPct = Math.max(0, Math.min(100, Math.round(todayN / target * 100)));
+    const streak = streakOn(h, d);
+    const R = breatheStatRange;
+    const agg = breatheRangeAgg(h, R);
+    const RLAB = [[7, '近 7 天'], [30, '近 1 月'], [90, '近 3 月'], [0, '全部']];
+    const rLab = R ? RLAB.filter(function (x) { return x[0] === R; })[0][1] : '全部';
+    const switchHtml = '<div class="br-range">' + RLAB.map(function (x) {
+      return '<button type="button" class="' + (R === x[0] ? 'active' : '') +
+        '" data-act="set-breathe-range" data-range="' + x[0] + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+    /* 累计（全部历史） */
+    let allGroups = 0, allDays = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      const n = countOf(ds, h.id);
+      if (n > 0) { allGroups += n; allDays++; }
+    });
+    let trend;
+    if (R) {
+      const labels = agg.dates.map(function (ds) { return ds.slice(5); });
+      trend = '<h4 class="stt-sub">每日完成 <span class="stt-sub-n">组 · ' + rLab + '</span></h4>' +
+        moveStatLineSvg(agg.counts, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) });
+    } else {
+      const byMonth = {};
+      Object.keys(state.checks || {}).forEach(function (ds) {
+        const n = countOf(ds, h.id);
+        if (n > 0) { const mk = ds.slice(0, 7); byMonth[mk] = (byMonth[mk] || 0) + n; }
+      });
+      const mks = Object.keys(byMonth).sort().slice(-12);
+      const items = mks.map(function (mk) { return { l: mk.slice(2), v: byMonth[mk] }; });
+      trend = '<h4 class="stt-sub">按月完成 <span class="stt-sub-n">组 · 最近 ' + mks.length + ' 个月</span></h4>' +
+        (items.length ? moveStatBarsHtml(items, { fill: true }) : '<p class="stt-none">还没有任何记录。</p>');
+    }
+    return '<section class="panel"><h3 class="w-sec-title">数据统计</h3>' +
+      '<p class="w-sec-lead">达标 = 当天完成的组数 ≥ 每天几组；呼吸次数 = 组数 × 每组循环次数。</p>' +
+      switchHtml +
+      '<div class="w-kpi-grid">' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + todayPct + ';--rc:#5b8f8a"><b>' + todayPct + '%</b></div>' +
+          '<span class="k-label">今日完成度</span><span class="k-sub">已完成 ' + todayN + ' / ' + target + ' 组</span></div>' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + agg.pct + ';--rc:#7a6a4a"><b>' + agg.pct + '%</b></div>' +
+          '<span class="k-label">' + rLab + '完成度</span><span class="k-sub">每天完成度取平均</span></div>' +
+        '<div class="w-kpi"><div class="w-ring" style="--p:' + Math.min(100, streak * 10) + ';--rc:#8a6a3a"><b>' + streak + '</b></div>' +
+          '<span class="k-label">连续达标（天）</span><span class="k-sub">当前已连续 ' + streak + ' 天</span></div>' +
+      '</div>' +
+      '<div class="w-mini-grid br-mini-grid">' +
+        '<div class="w-mini"><b>' + agg.sum + '</b><span>' + rLab + '完成组数</span></div>' +
+        '<div class="w-mini"><b>' + (agg.sum * cycles) + '</b><span>' + rLab + '呼吸次数</span></div>' +
+        '<div class="w-mini"><b>' + agg.metN + '</b><span>' + rLab + '达标天数</span></div>' +
+        '<div class="w-mini"><b>' + agg.rate + '%</b><span>' + rLab + '达标率</span></div>' +
+        '<div class="w-mini"><b>' + allGroups + '</b><span>累计组数</span></div>' +
+        '<div class="w-mini"><b>' + (allGroups * cycles) + '</b><span>累计呼吸次数</span></div>' +
+      '</div>' +
+      '<div class="w-hours br-trend">' + trend + '</div>' +
+      '<div class="w-algo"><b>达标算法</b>：当天完成的组数 ≥ 每天几组（当前 ' + target + ' 组）即达标；' +
+        '呼吸次数按「组数 × 每组循环次数（当前 ' + cycles + ' 次）」折算，历史记录按当前设置计算。' +
+        rLab + '达标率 = 达标天数 ÷ ' + rLab + '天数（没记录的日子算 0）。</div>' +
+    '</section>';
+  }
+
+  function breatheNotifyHtml(m) {
+    const notify = m.notify !== false;
+    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
+    const groups = breatheGroups(m);
+    const times = (Array.isArray(m.notifyTimes) && m.notifyTimes.length) ? m.notifyTimes : breatheDefaultTimes(groups);
+    const CHAN_ITEMS = [['browser','🔔','浏览器通知'], ['wecom','💬','企业微信群'], ['mail','✉️','邮件通知']];
+    const chanHtml = CHAN_ITEMS.map(function (c) {
+      const on = chans.indexOf(c[0]) >= 0;
+      return '<label class="w-chan' + (on ? ' on' : '') + '"><span class="ci">' + c[1] + '</span>' + c[2] +
+        '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
+    }).join('');
+    const timeRows = times.slice(0, groups).map(function (t, i) {
+      return '<div class="w-dt-row"><span>第 ' + (i + 1) + ' 组</span>' +
+        '<input type="time" name="bt' + i + '" value="' + esc(t) + '"></div>';
+    }).join('');
+    return '<section class="panel"><h3 class="w-sec-title">478呼吸法提醒</h3>' +
+      '<p class="w-sec-lead">每天固定时间提醒你做一组；做几组就有几个提醒点。</p>' +
+      '<form id="breathe-notify-form">' +
+        '<div class="w-toggle-row"><div><b>开启呼吸提醒</b><small>关闭后不推送任何呼吸提醒</small></div>' +
+          '<label class="w-switch"><input type="checkbox" name="notify"' + (notify ? ' checked' : '') + '><i></i></label></div>' +
+        '<div id="breathe-notify-body"' + (notify ? '' : ' class="w-notify-off"') + '>' +
+          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
+          '<div class="w-chan-grid">' + chanHtml + '</div>' +
+          '<div style="margin-top:18px">' +
+            '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
+            '<div class="w-mode-grid"><label class="w-mode on"><span>每天固定时间推送</span>' +
+              '<span>按「每天几组」生成提醒点</span><input type="radio" name="mode" value="daily" checked></label></div>' +
+            '<div class="w-daily-times" id="breathe-times">' + timeRows + '</div>' +
+            '<p class="w-freq-note">按「每天 <b>' + groups + '</b> 组」自动生成 ' + groups +
+              ' 个提醒时间，逐个可以改；真实推送通道稍后开放，这里先把设置记下来。</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="w-save"><button type="submit" class="btn primary">保存提醒设置</button></div>' +
+      '</form>' +
+    '</section>';
+  }
+
+  function viewBreathe() {
+    const h = moduleAsHabit('breathe');
+    const m = breatheModule();
+    return '<div class="breathe-page" style="--hc:' + esc(m.color || '#5b8f8a') + '">' +
+      breatheHead(m) +
+      vitalCard(h, todayStr()) +
+      breatheBenefitsHtml() +
+      breatheSettingsHtml(m) +
+      breatheStatsHtml(h) +
+      breatheNotifyHtml(m) +
     '</div>';
   }
 
@@ -8762,10 +8948,15 @@
   function moveStatBarsHtml(items, opt) {
     const o = opt || {};
     const max = Math.max.apply(null, items.map(function (x) { return x.v; }).concat([1]));
-    return '<div class="stt-bars' + (o.tight ? ' tight' : '') + '">' + items.map(function (x) {
+    /* fill 模式：高度用百分比 —— 容器被拉多高，柱子就长多高，底部对齐不悬空。
+       否则固定 px 的柱子在被拉高的栏里会「顶在上面 + 下方空一大片」。 */
+    return '<div class="stt-bars' + (o.tight ? ' tight' : '') + (o.fill ? ' fill' : '') + '">' + items.map(function (x) {
+      const hh = o.fill
+        ? Math.max(2, Math.round(x.v / max * 100))
+        : Math.max(2, Math.round(x.v / max * (o.h || 76)));
       return '<div class="stt-bar' + (x.hot ? ' hot' : '') + '">' +
         '<b>' + (x.v ? moveStatNum(x.v) : '') + '</b>' +
-        '<i style="height:' + Math.max(2, Math.round(x.v / max * (o.h || 76))) + 'px;' +
+        '<i style="height:' + hh + (o.fill ? '%' : 'px') + ';' +
         (x.color ? 'background:' + x.color : '') + '"></i>' +
         '<span>' + esc(x.l) + '</span></div>';
     }).join('') + '</div>';
@@ -9262,8 +9453,6 @@
       moveNotifyHtml(m) +
     '</div>';
   }
-  function viewBreathe() { return modulePage('breathe'); }
-
   /* v192：统计页的「喝水」块 —— 原来只有「今日 + 本周/本月达标 + 累计毫升」，
      喝水页里那套统计（完成度、连续达标、时段分布）进不来。这里搬过来，
      并跟随统计页右上角的 7 / 30 / 90 天切换；公式与喝水页完全一致：
@@ -9321,14 +9510,62 @@
         moveStatKpiHtml(moveStatNum(maxMl), 'ml', '单日最高', '') +
         moveStatKpiHtml(String(streak), '天', '连续达标', '') +
       '</div>' +
-      '<div class="stt-grid2" style="margin-top:16px">' +
+      '<div class="stt-grid2 stt-fill" style="margin-top:16px">' +
         '<div><h4 class="stt-sub">每日喝水 <span class="stt-sub-n">毫升 · 近 ' + R + ' 天 · 目标 ' + goal + ' ml</span></h4>' +
           moveStatLineSvg(mlByDay, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
         '<div><h4 class="stt-sub">喝水时段 <span class="stt-sub-n">近 ' + R + ' 天 · 杯</span></h4>' +
-          moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { h: 86 }) + '</div>' +
+          moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { fill: true }) + '</div>' +
       '</div>' +
       '<p class="stt-none" style="margin-top:10px">达标算法：当天喝水量 ≥ 目标总量（当前 ' + goal +
         ' ml）即达标；日均与达标率都按「近 ' + R + ' 天」整段算，没有记录的日子计 0。</p>' +
+    '</div>';
+  }
+
+  /* v194：统计页的「478呼吸法」块 —— 与喝水块同构：今日 + 考核三块 + 近 N 天 KPI + 每日趋势 + 算法说明。
+     口径：达标 = 当天完成组数 ≥ 每天几组；呼吸次数 = 组数 × 每组循环次数（当前设置折算历史）。 */
+  function statsBreathePanel(h, range) {
+    const d = todayStr();
+    const ok = met(h, d);
+    const target = Math.max(1, Number(h.target) || 1);
+    const cycles = Math.max(1, Math.min(8, Number(h.breatheCycles) || 4));
+    const todayN = countOf(d, h.id);
+    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
+    const ym = d.slice(0, 7);
+    let month = 0, totalGroups = 0;
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      totalGroups += countOf(ds, h.id);
+      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+    });
+    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
+    const agg = breatheRangeAgg(h, R);
+    const labels = agg.dates.map(function (ds) { return ds.slice(5); });
+    const streak = streakOn(h, d);
+    return '<div class="panel">' +
+      '<div class="shead"><h3>478呼吸法 <span class="muted-sm">（今日 · 计入完成率）</span></h3>' +
+        '<button type="button" class="btn sm" data-act="breathe-goto">完整统计 →</button></div>' +
+      '<div class="module-rows">' +
+        '<div class="ms-row' + (ok ? ' ok' : '') + '">' +
+          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#5b8f8a') + '">' + esc(h.icon || '🌬️') + '</span>今日</span>' +
+          '<span class="ms-val">' + todayN + ' / ' + target + ' 组</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="module-sum" style="margin-top:12px">' +
+        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
+        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
+        '<div class="ms-box"><b>' + totalGroups + '</b><span>累计组数</span></div>' +
+      '</div>' +
+      '<div class="stt-kpis">' +
+        moveStatKpiHtml(String(agg.sum), '组', '近 ' + R + ' 天完成', '') +
+        moveStatKpiHtml(String(agg.sum * cycles), '次', '近 ' + R + ' 天呼吸', '') +
+        moveStatKpiHtml(String(agg.metN), '天', '达标天数', '') +
+        moveStatKpiHtml(String(agg.rate), '%', '达标率', '') +
+        moveStatKpiHtml(String(agg.maxN), '组', '单日最高', '') +
+        moveStatKpiHtml(String(streak), '天', '连续达标', '') +
+      '</div>' +
+      '<div style="margin-top:16px"><h4 class="stt-sub">每日完成 <span class="stt-sub-n">组 · 近 ' + R + ' 天</span></h4>' +
+        moveStatLineSvg(agg.counts, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
+      '<p class="stt-none" style="margin-top:10px">达标算法：当天完成的组数 ≥ 每天几组（当前 ' + target +
+        ' 组）即达标；呼吸次数 = 组数 × 每组循环次数（当前 ' + cycles + ' 次），历史记录按当前设置折算。</p>' +
     '</div>';
   }
 
@@ -9436,6 +9673,7 @@
     /* 喝水和运动各自成一块（内容比 478 多），各自走独立面板 */
     if (key === 'move') return statsMovePanel(h, range);
     if (key === 'water') return statsWaterPanel(h, range);
+    if (key === 'breathe') return statsBreathePanel(h, range);
     const ok = met(h, d);
     let todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
     const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
@@ -14653,6 +14891,7 @@
     });
     if (view === 'water') bindWaterPage();
     if (view === 'move') bindMovePage();
+    if (view === 'breathe') bindBreathePage();
     if (view === 'board') {
       bindBoard();
       bindBoardContext();
@@ -15991,15 +16230,20 @@
         '</select></label>' +
         '<label class="field"><span>通知时间</span><input type="time" name="suggestTime" value="' + esc(m.suggestTime || '15:00') + '"></label>' +
       '</div>';
+    /* v194：478 的图标 / 名称 / 颜色 / 备注由系统固定，这个弹窗里不给入口 */
+    const locked = key === 'breathe';
     openModal(
       '<form class="modal-card" id="module-form" data-key="' + key + '">' +
         '<h3>设置 · ' + esc(label) + '</h3>' +
         '<div class="form-grid">' +
-          '<label class="field"><span>图标（emoji）</span><input name="icon" maxlength="4" value="' + esc(m.icon || '') + '" placeholder="💧"></label>' +
-          '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(m.name || '') + '"></label>' +
+          (locked
+            ? '<p class="hint" style="grid-column:1/-1">🔒 图标、名称、颜色与备注由系统固定，不可修改</p>'
+            : '<label class="field"><span>图标（emoji）</span><input name="icon" maxlength="4" value="' + esc(m.icon || '') + '" placeholder="💧"></label>' +
+              '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(m.name || '') + '"></label>') +
           body +
-          '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(m.color || '#2f6f5e') + '"></label>' +
-          '<label class="field wide"><span>备注</span><input name="note" maxlength="40" value="' + esc(m.note || '') + '" placeholder="可选"></label>' +
+          (locked ? '' :
+            '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(m.color || '#2f6f5e') + '"></label>' +
+            '<label class="field wide"><span>备注</span><input name="note" maxlength="40" value="' + esc(m.note || '') + '" placeholder="可选"></label>') +
         '</div>' +
         notify +
         '<div class="modal-actions">' +
@@ -16054,6 +16298,13 @@
       createdAt: prev.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    /* v194：478 的图标 / 名称 / 颜色 / 备注由系统固定，保存时强制写回默认值 */
+    if (key === 'breathe') {
+      next.name = MODULE_LABEL.breathe || '478呼吸法';
+      next.icon = '🌬️';
+      next.color = '#5b8f8a';
+      next.note = '4-7-8 呼吸';
+    }
     if (key === 'water') {
       const per = clamp(Math.round(Number(get('perMl')) || 250), 50, 1000);
       const cups = clamp(Math.round(Number(get('cups')) || 9), 1, 24);
@@ -16067,8 +16318,19 @@
       next.times = clamp(Math.round(Number(get('times')) || 1), 1, 99);
     } else if (key === 'breathe') {
       next.unit = '组';
-      next.groups = clamp(Math.round(Number(get('groups')) || 1), 1, 99);
+      next.groups = clamp(Math.round(Number(get('groups')) || 1), 1, 12);
       next.cycles = clamp(Math.round(Number(get('cycles')) || 4), 1, 8);
+      /* v194：提醒时间点个数跟组数走，已填的值保留，没填的给建议值 */
+      const oldT = Array.isArray(prev.notifyTimes) ? prev.notifyTimes : [];
+      const dfltT = breatheDefaultTimes(next.groups);
+      const ts = [];
+      for (let i = 0; i < next.groups; i++) {
+        const t = String(oldT[i] || '');
+        ts.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dfltT[i]);
+      }
+      next.notifyTimes = ts;
+      next.notifyChannels = (Array.isArray(prev.notifyChannels) && prev.notifyChannels.length) ? prev.notifyChannels : ['browser'];
+      next.suggestTime = ts[0] || '15:00';
     } else {
       const s = get('startDate');
       next.startDate = /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
@@ -16211,6 +16473,105 @@
     m.notifyEnd = TIME_OK(get('notifyEnd')) ? get('notifyEnd') : '21:00';
     m.updatedAt = new Date().toISOString();
     state.modules.water = m;
+    state.modulesAt = Date.now();
+    save(); render();
+    toast('提醒设置已保存');
+  }
+
+  /* ============ 478 呼吸法页改版（v194）：页内设置 + 提醒 ============ */
+  /* 组数一变，提醒区的时间框数量跟着变（已填的值保留，新增的给建议值） */
+  function syncBreatheTimes(n) {
+    const box = $('#breathe-times');
+    if (!box) return;
+    const cur = Array.prototype.map.call(box.querySelectorAll('input[type="time"]'), function (el) { return el.value; });
+    const k = Math.max(1, Math.min(12, Math.round(Number(n) || 1)));
+    const dflt = breatheDefaultTimes(k);
+    let html = '';
+    for (let i = 0; i < k; i++) {
+      const v = cur[i] || dflt[i];
+      html += '<div class="w-dt-row"><span>第 ' + (i + 1) + ' 组</span>' +
+        '<input type="time" name="bt' + i + '" value="' + esc(v) + '"></div>';
+    }
+    box.innerHTML = html;
+  }
+
+  function bindBreathePage() {
+    const sf = $('#breathe-settings-form');
+    if (sf) {
+      const g = sf.querySelector('[name="groups"]');
+      const c = sf.querySelector('[name="cycles"]');
+      const hint = $('#breathe-link-hint');
+      const num = function (el, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(Number(el.value) || 0))); };
+      const syncHint = function () {
+        const gr = num(g, 1, 12), cy = num(c, 1, 8);
+        if (hint) hint.innerHTML = '每天 <b>' + gr + '</b> 组 · 每组 <b>' + cy + '</b> 次循环 = 每天 <b>' +
+          (gr * cy) + '</b> 次呼吸（约 <b>' + fmtDur(gr * cy * 19) + '</b>）';
+        syncBreatheTimes(gr);
+      };
+      if (g && c) {
+        g.addEventListener('input', syncHint);
+        c.addEventListener('input', syncHint);
+        syncHint();
+      }
+    }
+    const nf = $('#breathe-notify-form');
+    if (nf) {
+      const sw = nf.querySelector('[name="notify"]');
+      if (sw) sw.addEventListener('change', function () {
+        const body = $('#breathe-notify-body');
+        if (body) body.classList.toggle('w-notify-off', !sw.checked);
+      });
+      nf.querySelectorAll('[name="channels"]').forEach(function (box) {
+        box.addEventListener('change', function () { box.closest('.w-chan').classList.toggle('on', box.checked); });
+      });
+    }
+  }
+
+  function saveBreatheSettings(form) {
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    if (!state.modules) state.modules = {};
+    const m = state.modules.breathe || moduleDefaults('breathe');
+    const groups = clamp(Math.round(Number(get('groups')) || 1), 1, 12);
+    const cycles = clamp(Math.round(Number(get('cycles')) || 4), 1, 8);
+    const old = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
+    const dflt = breatheDefaultTimes(groups);
+    const times = [];
+    for (let i = 0; i < groups; i++) {
+      const t = String(old[i] || '');
+      times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : dflt[i]);
+    }
+    m.groups = groups;
+    m.cycles = cycles;
+    m.notifyTimes = times;
+    m.suggestTime = times[0] || m.suggestTime;
+    m.updatedAt = new Date().toISOString();
+    state.modules.breathe = m;
+    state.modulesAt = Date.now();
+    save(); render();
+    toast('478呼吸法设置已保存');
+  }
+
+  function saveBreatheNotify(form) {
+    const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
+    if (!state.modules) state.modules = {};
+    const m = state.modules.breathe || moduleDefaults('breathe');
+    m.notify = !!form.querySelector('[name="notify"]').checked;
+    const ch = [];
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
+    m.notifyChannels = ch.length ? ch : ['browser'];
+    const groups = breatheGroups(m);
+    const old = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
+    const dflt = breatheDefaultTimes(groups);
+    const times = [];
+    for (let i = 0; i < groups; i++) {
+      const t = get('bt' + i);
+      times.push(/^([01]\d|2[0-3]):[0-5]\d$/.test(t) ? t : (old[i] || dflt[i]));
+    }
+    m.notifyTimes = times;
+    m.suggestTime = times[0] || m.suggestTime;
+    m.notifyFreq = 'daily';
+    m.updatedAt = new Date().toISOString();
+    state.modules.breathe = m;
     state.modulesAt = Date.now();
     save(); render();
     toast('提醒设置已保存');
@@ -17986,6 +18347,24 @@
         if (instCount) return;
       }
 
+      /* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
+         口径必须和 api/ics.php / api/schedule.php 一致。 */
+      if (key === 'breathe') {
+        const times = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
+        let bn = 0;
+        times.forEach(function (t, i) {
+          if (!/^\d{2}:\d{2}$/.test(String(t || ''))) return;
+          const hm = t.split(':').map(Number);
+          let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hm[0], hm[1]);
+          while (start <= now) start = icsAddDays(start, 1);
+          out.push(icsEvent('habit-' + RECORD_IDS[key] + '-' + (i + 1), start, new Date(start.getTime() + 15 * 60000),
+            icon + ' ' + name + ' · 第 ' + (i + 1) + ' 组', m.note || '', 'FREQ=DAILY'));
+          count++;
+          bn++;
+        });
+        if (bn) return;
+      }
+
       const st = String(m.suggestTime || '');
       if (!/^\d{2}:\d{2}$/.test(st)) return;
       const hm = st.split(':').map(Number);
@@ -18841,6 +19220,13 @@
     'move-new': () => moveSportModal(''),
     'move-goto': () => goView('move'),
     'water-goto': () => goView('water'),
+    'breathe-goto': () => goView('breathe'),
+    'set-breathe-range': el => {
+      const r = Number(el.dataset.range);
+      if ([0, 7, 30, 90].indexOf(r) < 0) return;
+      breatheStatRange = r;
+      render();
+    },
     'move-do': el => moveDoSport(el.dataset.id),
     'move-fill': el => moveRecordModal({ sportId: el.dataset.id, recordId: el.dataset.rec, mode: 'after' }),
     'move-skip': el => moveSkipConfirm(el.dataset.rec),
@@ -19476,6 +19862,12 @@
     } else if (form.id === 'water-notify-form') {
       e.preventDefault();
       saveWaterNotify(form);
+    } else if (form.id === 'breathe-settings-form') {
+      e.preventDefault();
+      saveBreatheSettings(form);
+    } else if (form.id === 'breathe-notify-form') {
+      e.preventDefault();
+      saveBreatheNotify(form);
     } else if (form.id === 'move-sport-form') {
       e.preventDefault();
       saveMoveSportForm(form);
@@ -19695,7 +20087,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=193', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=194', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
