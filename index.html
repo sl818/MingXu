@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=190">
+<link rel="stylesheet" href="assets/app.css?v=191">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=190">
+<link rel="stylesheet" href="assets/theme-v2.css?v=191">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v190';
+  const APP_VERSION = 'v191';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8630,8 +8630,12 @@
       const mb = o.byMode[r.key] || (o.byMode[r.key] = { n: 0, skip: 0, dur: 0, dist: 0 });
       mb.n++;
       if (r.skipped) mb.skip++;
-      mb.dur += Number(r.dur) || 0;
-      mb.dist += moveStatKm(r);
+      /* v191：跳过的那些只计次数，不计时长/距离 —— byMode 自己也有 dur/dist，
+         口径必须和总汇总一致，否则「按运动模式」的距离会比上面 KPI 多出跳过的部分 */
+      if (!r.skipped) {
+        mb.dur += Number(r.dur) || 0;
+        mb.dist += moveStatKm(r);
+      }
       o.hours[Math.min(11, Math.floor((Number(r.hour) || 0) / 2))]++;
       o.wd[(new Date(r.d + 'T00:00:00').getDay() + 6) % 7]++;
       const day = o.byDay[r.d] || (o.byDay[r.d] = { n: 0, dur: 0, steps: 0, dist: 0, score: 0, met: false });
@@ -8639,7 +8643,7 @@
       day.dur += Number(r.dur) || 0;
       day.steps += Number(r.steps) || 0;
       day.dist += moveStatKm(r);
-      if (r.skipped) { o.skip++; return; }
+      if (r.skipped) return;   /* o.skip 已在上面累加，别再加一次 */
       o.realN++;
       /* 当天运动量：有时长按时长，没有时长的（纯步数）按 100 步 ≈ 1 分钟 */
       day.score += (Number(r.dur) || 0) + ((Number(r.dur) || 0) ? 0 : (Number(r.steps) || 0) / 100);
@@ -9257,53 +9261,127 @@
   }
   function viewBreathe() { return modulePage('breathe'); }
 
+  /* v191：统计页的「运动」块 —— 原来只有「今日 + 本周/本月达标天数 + 累计次数」，
+     而运动早已按模式记录（距离 / 时长 / 配速 / 组数…），那些数全憋在运动页里。
+     这里补上近 N 天（跟随统计页右上角 7/30/90 天）的关键指标、各模式明细与趋势；
+     口径与运动页完全一致：距离折公里、跳过只计次数；可交互的完整版仍在运动页。 */
+  function statsMovePanel(h, range) {
+    const d = todayStr();
+    const ok = met(h, d);
+    const sports = moveSports();
+    const doneN = sports.filter(function (s) { return moveSportDone(s, d); }).length;
+    const allRest = sports.length > 0 && sports.every(function (s) { return moveIsRestOn(s, d); });
+    const todayVal = doneN > 0 ? ('完成 ' + doneN + ' 项')
+      : allRest ? '今日无需运动'
+        : (moveMet(d) ? '已达标' : '还没运动');
+    /* 坚持小结：沿用旧口径（计入完成率的那一套），别和下面按记录算的指标混为一谈 */
+    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
+    const ym = d.slice(0, 7);
+    const daySet = {};
+    Object.keys(state.checks || {}).forEach(function (ds) { daySet[ds] = 1; });
+    moveRecords().forEach(function (r) { if (r && r.d) daySet[r.d] = 1; });
+    let month = 0;
+    Object.keys(daySet).forEach(function (ds) { if (ds.slice(0, 7) === ym && moveMet(ds)) month++; });
+    const totalN = moveRecords().length;
+
+    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
+    const from = fmt(addDays(new Date(), -(R - 1)));
+    const list = moveRecords().filter(function (r) {
+      return r && MOVE_TYPES[r.key] && r.d >= from && r.d <= d;
+    });
+    const A = moveStatAgg(list);
+
+    let detail = '';
+    if (!list.length) {
+      detail = '<p class="stt-none">近 ' + R + ' 天还没有运动记录。' +
+        '在运动页点「＋ 新建运动」开始记录，或点右上角「＋ 添加记录」补一条。</p>';
+    } else {
+      /* 按模式：次数 + 距离/时长 + 最近一次 */
+      const modes = Object.keys(A.byMode).map(function (k) {
+        const o = A.byMode[k];
+        const last = list.filter(function (r) { return r.key === k; })
+          .map(function (r) { return r.d; }).sort().pop() || '';
+        const bits = [o.n + ' 次'];
+        if (o.dist > 0) bits.push((Math.round(o.dist * 10) / 10) + ' 公里');
+        if (o.dur > 0) bits.push(Math.round(o.dur) + ' 分钟');
+        return { k: k, n: o.n, html: '<div class="stt-mrow">' +
+          '<span class="ic">' + esc(MOVE_TYPES[k].icon) + '</span>' +
+          '<span class="nm">' + esc(MOVE_TYPES[k].name) + '</span>' +
+          '<span class="vv">' + esc(bits.join(' · ')) + '</span>' +
+          '<span class="rt">' + (last ? '最近 ' + esc(last.slice(5)) : '') + '</span></div>' };
+      }).sort(function (a, b) { return b.n - a.n; });
+
+      /* 趋势：有详细时长的按时长画；只有步数时按步数画，避免画出一条全 0 的直线 */
+      const metric = A.dur > 0 ? 'dur' : 'steps';
+      const metricName = metric === 'dur' ? '运动时长（分钟）' : '步数';
+      const bs = moveStatBuckets(list, from, d, metric);
+
+      detail =
+        '<div class="stt-grid2" style="margin-top:16px">' +
+          '<div><h4 class="stt-sub">按运动模式 <span class="stt-sub-n">近 ' + R + ' 天</span></h4>' +
+            '<div class="stt-mrows">' + modes.map(function (m) { return m.html; }).join('') + '</div></div>' +
+          '<div><h4 class="stt-sub">' + esc(metricName) + '趋势 <span class="stt-sub-n">' + bs.unit + '</span></h4>' +
+            moveStatLineSvg(bs.values, bs.labels) + '</div>' +
+        '</div>';
+    }
+
+    return '<div class="panel">' +
+      '<div class="shead"><h3>运动 <span class="muted-sm">（今日 · 计入完成率）</span></h3>' +
+        '<button type="button" class="btn sm" data-act="move-goto">完整统计 →</button></div>' +
+      '<div class="module-rows">' +
+        '<div class="ms-row' + (ok ? ' ok' : '') + '">' +
+          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '') + '</span>今日</span>' +
+          '<span class="ms-val">' + todayVal + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="module-sum" style="margin-top:12px">' +
+        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
+        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
+        '<div class="ms-box"><b>' + totalN + '</b><span>累计运动次数</span></div>' +
+      '</div>' +
+      (list.length
+        ? '<div class="stt-kpis">' +
+            moveStatKpiHtml(moveStatNum(A.n), '次', '记录次数', '') +
+            moveStatKpiHtml(moveStatNum(A.dur), '分钟', '运动时长', '') +
+            moveStatKpiHtml(moveStatNum(A.dist), '公里', '总距离', '') +
+            moveStatKpiHtml(moveStatNum(A.kcal), '千卡', '热量消耗', '') +
+            moveStatKpiHtml(moveStatNum(A.steps), '步', '累计步数', '') +
+            moveStatKpiHtml(moveStatNum(A.days), '天', '有运动的天数', '') +
+          '</div>'
+        : '') +
+      detail +
+    '</div>';
+  }
+
   /* 统计页：喝火 / 运动 / 478 各成一块（v172）。
      原来塞在一个「健康模块」合并面板里，按陛下要求拆开，与「用药」一样独立成块。
      戒烟不在这里——统计页已有专属「戒烟」块（qhSum），不再重复。
      每块 = 今日进度一行 + 坚持小结（本周达标 / 本月达标 / 累计）。 */
-  function moduleStatPanel(key) {
+  function moduleStatPanel(key, range) {
     const h = moduleAsHabit(key);
     const d = todayStr();
     const label = MODULE_LABEL[key] || '模块';
+    /* 运动单独成一块（内容比另两个多），走 statsMovePanel */
+    if (key === 'move') return statsMovePanel(h, range);
     const ok = met(h, d);
     let todayVal;
     if (key === 'water') {
       todayVal = Math.round(waterMlOf(h, countOf(d, h.id))) + ' / ' + waterGoalMl(h) + ' ml';
-    } else if (key === 'move') {
-      const sports = moveSports();
-      const doneN = sports.filter(function (s) { return moveSportDone(s, d); }).length;
-      const allRest = sports.length > 0 && sports.every(function (s) { return moveIsRestOn(s, d); });
-      todayVal = doneN > 0 ? '完成 ' + doneN + ' 项'
-        : allRest ? '今日无需运动'
-          : (moveMet(d) ? '已达标' : '还没运动');
     } else {
       todayVal = countOf(d, h.id) + ' / ' + (Number(h.target) || 1) + ' ' + (h.unit || '次');
     }
     const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
     const ym = d.slice(0, 7);
     let month = 0;
-    if (key === 'move') {
-      /* 运动记录存 records，日期集合 = checks 并集 + records 日期 */
-      const days = {};
-      Object.keys(state.checks || {}).forEach(function (ds) { days[ds] = 1; });
-      moveRecords().forEach(function (r) { if (r && r.d) days[r.d] = 1; });
-      Object.keys(days).forEach(function (ds) {
-        if (ds.slice(0, 7) === ym && moveMet(ds)) month++;
-      });
-    } else {
-      Object.keys(state.checks || {}).forEach(function (ds) {
-        if (ds.slice(0, 7) === ym && met(h, ds)) month++;
-      });
-    }
+    Object.keys(state.checks || {}).forEach(function (ds) {
+      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
+    });
     let total, totalLabel;
     if (key === 'water') {
       let ml = 0;
       Object.keys(state.checks || {}).forEach(function (ds) { ml += waterMlOf(h, countOf(ds, h.id)); });
       total = Math.round(ml);
       totalLabel = '累计毫升';
-    } else if (key === 'move') {
-      total = moveRecords().length;
-      totalLabel = '累计运动次数';
     } else {
       total = habitTotalCount(h);
       totalLabel = '累计 ' + (h.unit || '次');
@@ -11735,7 +11813,7 @@
       '</div>' +
 
       /* 喝水 / 运动 / 478：各自独立成块（戒烟下方已有专属「戒烟」块） */
-      ['water', 'move', 'breathe'].map(function (k) { return moduleStatPanel(k); }).join('') +
+      ['water', 'move', 'breathe'].map(function (k) { return moduleStatPanel(k, range); }).join('') +
 
       /* 戒烟：8 张卡常显，分析（勋章 + 时段图）默认折起来 */
       (qhSum
@@ -19556,7 +19634,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=190', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=191', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

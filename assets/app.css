@@ -4185,3 +4185,19 @@ body.modal-open{overflow:hidden;}
   .stt-rank .vl{width:78px}
   .stt-bars{height:104px}
 }
+
+/* v191：统计页「运动」块 —— 各模式明细行与小标题（复用 .stt-kpis / .stt-chart） */
+.stt-sub{margin:0 0 2px;font-size:12px;font-weight:700;color:var(--text)}
+.stt-sub-n{font-size:11px;font-weight:600;color:var(--muted);margin-left:4px}
+.stt-mrows{margin-top:6px}
+.stt-mrow{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:12px;
+  border-bottom:1px dashed var(--line)}
+.stt-mrow:last-child{border-bottom:none}
+.stt-mrow .ic{width:18px;flex:none;text-align:center}
+.stt-mrow .nm{width:70px;flex:none;font-weight:600;color:var(--text)}
+.stt-mrow .vv{flex:1;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stt-mrow .rt{flex:none;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .stt-mrow .nm{width:62px}
+  .stt-mrow .rt{display:none}
+}
