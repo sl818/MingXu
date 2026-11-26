@@ -288,7 +288,8 @@ with sync_playwright() as pw:
         card2.locator('.mv-btn').all_inner_texts())
     card2.locator('[data-act="move-rec"]').click()
     pg.wait_for_timeout(800)
-    chk('补数据弹窗标题', '补数据' in pg.inner_text('#modal-root h3'), pg.inner_text('#modal-root h3'))
+    # v197：这个弹窗现在叫「待处理」—— 列表里除了跳过的，也包含「还没填数据」的
+    chk('补数据弹窗标题', '待处理' in pg.inner_text('#modal-root h3'), pg.inner_text('#modal-root h3'))
     chk('列表里有那一次', '补填' in pg.inner_text('#modal-root'), pg.inner_text('#modal-root')[:200])
     pg.click('#modal-root [data-act="move-fill"]')
     pg.wait_for_timeout(900)

@@ -218,9 +218,16 @@ with sync_playwright() as pw:
         pg.locator('#move-record-form [data-act="move-skip"]').count() == 1
         and '更新这条' in pg.inner_text('#move-record-form'),
         pg.inner_text('#move-record-form .modal-actions'))
-    # 用 Esc 模拟「意外关掉」：卡片必须锁在「记录数据」，不能装作已完成
+    # v197：待填弹窗**不许**直接关 —— ESC / 点遮罩都拦住了，还要提示。
+    # （v188 时是「意外关掉也没关系，卡片锁住就行」；v197 起改成直接不让关：
+    #   关掉后那条记录留在 pending，而补数据入口只查近几天、卡片只查今天，
+    #   跨天之后它就再没有任何入口能处理了。）
     pg.keyboard.press('Escape')
     pg.wait_for_timeout(600)
+    chk('Esc 关不掉待填弹窗', pg.locator('#move-record-form').count() == 1,
+        str(pg.locator('#move-record-form').count()))
+    chk('提示先填数据或跳过', '先填数据' in pg.inner_text('body'),
+        pg.inner_text('body')[:120])
     c = card(pg)
     st = c.locator('.mv-st').inner_text()
     chk('状态行提示等记录数据', '等记录' in st, st)
@@ -235,8 +242,7 @@ with sync_playwright() as pw:
     chk('记录数没有增加（没刷完成）', len(recs()) == 1, str(len(recs())))
 
     print('\n===== 3. 跳过不记录：先讲清后果 =====')
-    c.locator('[data-act="move-fill"]').click()
-    pg.wait_for_timeout(700)
+    # v197：待填弹窗还开着（上一步 Esc 没关掉它），直接点里面的「跳过不记录」
     pg.click('#move-record-form [data-act="move-skip"]')
     pg.wait_for_timeout(500)
     conf = pg.inner_text('#modal-root')
