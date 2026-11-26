@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=202">
+<link rel="stylesheet" href="assets/app.css?v=203">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=202">
+<link rel="stylesheet" href="assets/theme-v2.css?v=203">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v202';
+  const APP_VERSION = 'v203';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -4007,6 +4007,29 @@
     });
     return { rate: n ? sum / n : 0, days: n };
   }
+  /* v203：把「统计档位天数」转成日期数组。R = 0 表示「全部」——
+     从最早有记录那天铺到今天（rateOver 会跳过没记录的日子，分母仍是有记录的天数）。 */
+  function statsRangeDays(R) {
+    const now = new Date();
+    const out = [];
+    const n = Number(R) || 0;
+    if (n > 0) {
+      for (let i = n - 1; i >= 0; i--) out.push(fmt(addDays(now, -i)));
+      return out;
+    }
+    const keys = Object.keys(state.checks || {}).sort();
+    const start = keys.length ? parseD(keys[0]) : now;
+    const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let guard = 0;
+    while (cur <= end && guard++ < 4000) {
+      out.push(fmt(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (!out.length) out.push(fmt(now));
+    return out;
+  }
+
   function dayQualified(d) {
     if (!hasRecords(d)) return false;
     const s = dayStats(d);
@@ -8310,21 +8333,18 @@
     };
   }
 
-  function breatheStatsHtml(h) {
+  /* v203：统计内容（三环 + 6 小卡 + 趋势 + 算法说明）—— 478 页内与统计页的 478 块**共用这一段**，
+     保证两处完全一致；档位 R 由调用方给（页内用自己的四档，统计页用全局 7/30/90/全部）。 */
+  function breatheStatsBody(h, R) {
     const d = todayStr();
     const target = Math.max(1, Number(h.target) || 1);
     const cycles = Math.max(1, Math.min(8, Number(h.breatheCycles) || 4));
     const todayN = countOf(d, h.id);
     const todayPct = Math.max(0, Math.min(100, Math.round(todayN / target * 100)));
     const streak = streakOn(h, d);
-    const R = breatheStatRange;
+    R = [0, 7, 30, 90].indexOf(Number(R)) >= 0 ? Number(R) : 30;
     const agg = breatheRangeAgg(h, R);
-    const RLAB = [[7, '近 7 天'], [30, '近 1 月'], [90, '近 3 月'], [0, '全部']];
-    const rLab = R ? RLAB.filter(function (x) { return x[0] === R; })[0][1] : '全部';
-    const switchHtml = '<div class="br-range">' + RLAB.map(function (x) {
-      return '<button type="button" class="' + (R === x[0] ? 'active' : '') +
-        '" data-act="set-breathe-range" data-range="' + x[0] + '">' + x[1] + '</button>';
-    }).join('') + '</div>';
+    const rLab = R ? '近 ' + R + ' 天' : '全部';
     /* 累计（全部历史） */
     let allGroups = 0;
     Object.keys(state.checks || {}).forEach(function (ds) {
@@ -8346,10 +8366,7 @@
       trend = '<h4 class="stt-sub">按月完成 <span class="stt-sub-n">组 · 最近 ' + mks.length + ' 个月</span></h4>' +
         (items.length ? moveStatBarsHtml(items, { fill: true }) : '<p class="stt-none">还没有任何记录。</p>');
     }
-    return '<section class="panel"><h3 class="w-sec-title">数据统计</h3>' +
-      '<p class="w-sec-lead">达标 = 当天完成的组数 ≥ 每天几组；呼吸次数 = 组数 × 每组循环次数。</p>' +
-      switchHtml +
-      '<div class="w-kpi-grid">' +
+    return '<div class="w-kpi-grid">' +
         '<div class="w-kpi"><div class="w-ring" style="--p:' + todayPct + ';--rc:#5b8f8a"><b>' + todayPct + '%</b></div>' +
           '<span class="k-label">今日完成度</span><span class="k-sub">已完成 ' + todayN + ' / ' + target + ' 组</span></div>' +
         '<div class="w-kpi"><div class="w-ring" style="--p:' + agg.pct + ';--rc:#7a6a4a"><b>' + agg.pct + '%</b></div>' +
@@ -8374,7 +8391,21 @@
            「近 N 天」含没记录的日子，分母就是 N；「全部」只统计有记录的日子，分母是有记录的天数。 */
         (R ? rLab + '达标率 = 达标天数 ÷ ' + rLab + '（没记录的日子算 0）。'
           : '全部达标率 = 达标天数 ÷ <b>有记录的天数</b>（只统计有记录的日子）。') +
-      '</div>' +
+      '</div>';
+  }
+
+  /* 478 页内的「数据统计」区块：标题 + 档位条 + 上面那段内容（四档与统计页统一为 近 7 天/近 30 天/近 90 天/全部） */
+  function breatheStatsHtml(h) {
+    const R = breatheStatRange;
+    const RLAB = [[7, '近 7 天'], [30, '近 30 天'], [90, '近 90 天'], [0, '全部']];
+    const switchHtml = '<div class="br-range">' + RLAB.map(function (x) {
+      return '<button type="button" class="' + (R === x[0] ? 'active' : '') +
+        '" data-act="set-breathe-range" data-range="' + x[0] + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+    return '<section class="panel"><h3 class="w-sec-title">数据统计</h3>' +
+      '<p class="w-sec-lead">达标 = 当天完成的组数 ≥ 每天几组；呼吸次数 = 组数 × 每组循环次数。</p>' +
+      switchHtml +
+      breatheStatsBody(h, R) +
     '</section>';
   }
 
@@ -8483,8 +8514,9 @@
     const buckets = [0, 0, 0, 0, 0, 0];
     const today = todayStr();
     /* v192：统计页要跟随 7/30/90 天，故加可选天数；喝水页不传，仍是近 7 天 */
-    const n = Math.max(1, Number(days) || 7);
-    const from = fmt(addDays(new Date(), -(n - 1)));
+    /* v203：days = 0 表示「全部」（统计页全部档）—— 不设下限，直接从最早开始算 */
+    const n = days === 0 ? 0 : Math.max(1, Number(days) || 7);
+    const from = n ? fmt(addDays(new Date(), -(n - 1))) : '';
     (Array.isArray(state.events) ? state.events : []).forEach(function (e) {
       if (!e || e.id !== h.id || Number(e.delta) <= 0) return;
       const ds = String(e.d || '');
@@ -9704,19 +9736,22 @@
       if (ds.slice(0, 7) === ym && met(h, ds)) month++;
     });
 
-    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
+    const R = [0, 7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;  /* v203：0 = 全部 */
+    const rLab = R ? '近 ' + R + ' 天' : '全部';
+    const days = statsRangeDays(R);
     const labels = [], mlByDay = [];
     let metN = 0;
-    for (let i = R - 1; i >= 0; i--) {
-      const ds = fmt(addDays(new Date(), -i));
+    days.forEach(function (ds) {
       labels.push(ds.slice(5));
       const ml = Math.round(waterMlOf(h, countOf(ds, h.id)));
       mlByDay.push(ml);
       if (met(h, ds)) metN++;
-    }
+    });
     const sum = mlByDay.reduce(function (a, b) { return a + b; }, 0);
-    const avg = Math.round(sum / R);
-    const rate = Math.round(metN / R * 100);
+    /* v203：全部档的分母用「有记录的天数」，与 478 页内「全部」同口径；近 N 天仍除以 N */
+    const base = R ? days.length : (days.filter(hasRecords).length || 1);
+    const avg = Math.round(sum / base);
+    const rate = Math.round(metN / base * 100);
     const maxMl = Math.max.apply(null, mlByDay.concat([0]));
     const streak = streakOn(h, d);
     const WLAB = ['6–9 时', '9–12 时', '12–14 时', '14–17 时', '17–20 时', '20–23 时'];
@@ -9737,7 +9772,7 @@
         '<div class="ms-box"><b>' + Math.round(totalMl).toLocaleString() + '</b><span>累计毫升</span></div>' +
       '</div>' +
       '<div class="stt-kpis">' +
-        moveStatKpiHtml(moveStatNum(sum), 'ml', '近 ' + R + ' 天累计', '') +
+        moveStatKpiHtml(moveStatNum(sum), 'ml', rLab + '累计', '') +
         moveStatKpiHtml(moveStatNum(avg), 'ml', '日均', '') +
         moveStatKpiHtml(String(metN), '天', '达标天数', '') +
         moveStatKpiHtml(String(rate), '%', '达标率', '') +
@@ -9745,13 +9780,13 @@
         moveStatKpiHtml(String(streak), '天', '连续达标', '') +
       '</div>' +
       '<div class="stt-grid2 stt-fill" style="margin-top:16px">' +
-        '<div><h4 class="stt-sub">每日喝水 <span class="stt-sub-n">毫升 · 近 ' + R + ' 天 · 目标 ' + goal + ' ml</span></h4>' +
+        '<div><h4 class="stt-sub">每日喝水 <span class="stt-sub-n">毫升 · ' + rLab + ' · 目标 ' + goal + ' ml</span></h4>' +
           moveStatLineSvg(mlByDay, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
-        '<div><h4 class="stt-sub">喝水时段 <span class="stt-sub-n">近 ' + R + ' 天 · 杯</span></h4>' +
+        '<div><h4 class="stt-sub">喝水时段 <span class="stt-sub-n">' + rLab + ' · 杯</span></h4>' +
           moveStatBarsHtml(buckets.map(function (v, i) { return { l: WLAB[i], v: v }; }), { fill: true }) + '</div>' +
       '</div>' +
       '<p class="stt-none" style="margin-top:10px">达标算法：当天喝水量 ≥ 目标总量（当前 ' + goal +
-        ' ml）即达标；日均与达标率都按「近 ' + R + ' 天」整段算，没有记录的日子计 0。</p>' +
+        ' ml）即达标；日均与达标率都按「' + rLab + '」整段算，没有记录的日子计 0。</p>' +
     '</div>';
   }
 
@@ -9761,45 +9796,21 @@
     const d = todayStr();
     const ok = met(h, d);
     const target = Math.max(1, Number(h.target) || 1);
-    const cycles = Math.max(1, Math.min(8, Number(h.breatheCycles) || 4));
     const todayN = countOf(d, h.id);
-    const week = weekDaysOf(h).filter(function (x) { return x.done; }).length;
-    const ym = d.slice(0, 7);
-    let month = 0, totalGroups = 0;
-    Object.keys(state.checks || {}).forEach(function (ds) {
-      totalGroups += countOf(ds, h.id);
-      if (ds.slice(0, 7) === ym && met(h, ds)) month++;
-    });
-    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
-    const agg = breatheRangeAgg(h, R);
-    const labels = agg.dates.map(function (ds) { return ds.slice(5); });
-    const streak = streakOn(h, d);
+    /* v203：统计页的 478 块与 478 页内**完全一致** —— 直接复用 breatheStatsBody()。
+       只保留「今日」这一行（统计页各块统一的入口），其余指标/趋势/算法说明都由 body 产出。 */
+    const R = [0, 7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
     return '<div class="panel">' +
       '<div class="shead"><h3>478呼吸法 <span class="muted-sm">（今日 · 计入完成率）</span></h3>' +
-        '<button type="button" class="btn sm" data-act="breathe-goto">完整统计 →</button></div>' +
+        '<button type="button" class="btn sm" data-act="breathe-goto">去 478 页 →</button></div>' +
       '<div class="module-rows">' +
         '<div class="ms-row' + (ok ? ' ok' : '') + '">' +
-          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#5b8f8a') + '">' + esc(h.icon || '🌬️') + '</span>今日</span>' +
+          '<span class="ms-name"><span class="ms-ico" style="--hc:' + esc(h.color || '#5b8f8a') + '">' +
+            esc(h.icon || '🌬️') + '</span>今日</span>' +
           '<span class="ms-val">' + todayN + ' / ' + target + ' 组</span>' +
         '</div>' +
       '</div>' +
-      '<div class="module-sum" style="margin-top:12px">' +
-        '<div class="ms-box"><b>' + week + '</b><span>本周达标天数</span></div>' +
-        '<div class="ms-box"><b>' + month + '</b><span>本月达标天数</span></div>' +
-        '<div class="ms-box"><b>' + totalGroups + '</b><span>累计组数</span></div>' +
-      '</div>' +
-      '<div class="stt-kpis">' +
-        moveStatKpiHtml(String(agg.sum), '组', '近 ' + R + ' 天完成', '') +
-        moveStatKpiHtml(String(agg.sum * cycles), '次', '近 ' + R + ' 天呼吸', '') +
-        moveStatKpiHtml(String(agg.metN), '天', '达标天数', '') +
-        moveStatKpiHtml(String(agg.rate), '%', '达标率', '') +
-        moveStatKpiHtml(String(agg.maxN), '组', '单日最高', '') +
-        moveStatKpiHtml(String(streak), '天', '连续达标', '') +
-      '</div>' +
-      '<div style="margin-top:16px"><h4 class="stt-sub">每日完成 <span class="stt-sub-n">组 · 近 ' + R + ' 天</span></h4>' +
-        moveStatLineSvg(agg.counts, labels, { labelStep: R <= 7 ? 1 : (R <= 30 ? 5 : 15) }) + '</div>' +
-      '<p class="stt-none" style="margin-top:10px">达标算法：当天完成的组数 ≥ 每天几组（当前 ' + target +
-        ' 组）即达标；呼吸次数 = 组数 × 每组循环次数（当前 ' + cycles + ' 次），历史记录按当前设置折算。</p>' +
+      '<div style="margin-top:14px">' + breatheStatsBody(h, R) + '</div>' +
     '</div>';
   }
 
@@ -9826,8 +9837,10 @@
     Object.keys(daySet).forEach(function (ds) { if (ds.slice(0, 7) === ym && moveMet(ds)) month++; });
     const totalN = moveRecords().length;
 
-    const R = [7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;
-    const from = fmt(addDays(new Date(), -(R - 1)));
+    const R = [0, 7, 30, 90].indexOf(Number(range)) >= 0 ? Number(range) : 30;  /* v203：0 = 全部 */
+    const rLab = R ? '近 ' + R + ' 天' : '全部';
+    /* v203：全部档用「从最早记录到今天」的日期集合，不再按天数往回数 */
+    const from = R ? fmt(addDays(new Date(), -(R - 1))) : statsRangeDays(0)[0];
     const list = moveRecords().filter(function (r) {
       return r && MOVE_TYPES[r.key] && r.d >= from && r.d <= d;
     });
@@ -9835,7 +9848,7 @@
 
     let detail = '';
     if (!list.length) {
-      detail = '<p class="stt-none">近 ' + R + ' 天还没有运动记录。' +
+      detail = '<p class="stt-none">' + rLab + ' 还没有运动记录。' +
         '在运动页点「＋ 新建运动」开始记录，或点右上角「＋ 添加记录」补一条。</p>';
     } else {
       /* 按模式：次数 + 距离/时长 + 最近一次 */
@@ -9861,7 +9874,7 @@
 
       detail =
         '<div class="stt-grid2" style="margin-top:16px">' +
-          '<div><h4 class="stt-sub">按运动模式 <span class="stt-sub-n">近 ' + R + ' 天</span></h4>' +
+          '<div><h4 class="stt-sub">按运动模式 <span class="stt-sub-n">' + rLab + '</span></h4>' +
             '<div class="stt-mrows">' + modes.map(function (m) { return m.html; }).join('') + '</div></div>' +
           '<div><h4 class="stt-sub">' + esc(metricName) + '趋势 <span class="stt-sub-n">' + bs.unit + '</span></h4>' +
             moveStatLineSvg(bs.values, bs.labels, { labelStep: lstep }) + '</div>' +
@@ -12095,11 +12108,29 @@
 
   function viewStats() {
     const now = new Date();
-    const range = [7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
+    /* v203：档位加「全部」（0）—— 与 478 页内的四档一致（陛下定的「两处完全一致」）。 */
+    const range = [0, 7, 30, 90].indexOf(statsRange) >= 0 ? statsRange : 30;
+    const rangeLabel = range ? '近 ' + range + ' 天' : '全部';
     const last7 = [];
-    const rangeDays = [];
     for (let i = 6; i >= 0; i--) last7.push(fmt(addDays(now, -i)));
-    for (let i = range - 1; i >= 0; i--) rangeDays.push(fmt(addDays(now, -i)));
+    /* 全部档：从最早有记录那天铺到今天。
+       rateOver() 本来就会跳过「没记录的日子」，所以分母仍然是**有记录的天数**
+       —— 与 478 页内「全部」档完全同口径。 */
+    const rangeDays = [];
+    if (range) {
+      for (let i = range - 1; i >= 0; i--) rangeDays.push(fmt(addDays(now, -i)));
+    } else {
+      const keys = Object.keys(state.checks || {}).sort();
+      const start = keys.length ? parseD(keys[0]) : now;
+      let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let guard = 0;
+      while (cur <= end && guard++ < 4000) {
+        rangeDays.push(fmt(cur));
+        cur = addDays(cur, 1);
+      }
+      if (!rangeDays.length) rangeDays.push(fmt(now));
+    }
 
     const week = rateOver(last7);
     const rangeStats = rateOver(rangeDays);
@@ -12114,27 +12145,55 @@
 
     const pct = v => v.days ? Math.round(v.rate * 100) + '%' : '—';
 
-    const bars = rangeDays.map((ds, bi) => {
-      const st = dayStats(ds);
-      const rec = hasRecords(ds);
-      const pctv = rec ? Math.round(st.ratio * 100) : 0;
-      const h = rec ? Math.max(4, pctv) : 0;
-      const barCls = !rec ? 'zero' : (st.ratio >= 0.75 ? '' : 'low');
-      const labelStep = Math.max(1, Math.ceil(rangeDays.length / 10));
-      const showLabel = (rangeDays.length - 1 - bi) % labelStep === 0;
-      const label = showLabel ? String(parseD(ds).getDate()) : '';
-      return '<div class="bar-col ' + (ds === todayStr() ? 'is-today' : '') + '" title="' + ds +
-          (rec ? ' 完成 ' + st.done + '/' + st.total + '（' + pctv + '%）' : ' 无记录') + '">' +
-        '<div class="bar-wrap"><i class="' + barCls + '"' + (rec ? ' style="height:' + h + '%"' : '') + '></i></div>' +
-        '<span>' + label + '</span>' +
-      '</div>';
-    }).join('');
+    /* v203：全部档的逐日柱子会有几百根（会挤成一条线）→ 改按月聚合，与 478 页内「全部」档同一做法 */
+    let bars;
+    if (range) {
+      bars = rangeDays.map((ds, bi) => {
+        const st = dayStats(ds);
+        const rec = hasRecords(ds);
+        const pctv = rec ? Math.round(st.ratio * 100) : 0;
+        const h = rec ? Math.max(4, pctv) : 0;
+        const barCls = !rec ? 'zero' : (st.ratio >= 0.75 ? '' : 'low');
+        const labelStep = Math.max(1, Math.ceil(rangeDays.length / 10));
+        const showLabel = (rangeDays.length - 1 - bi) % labelStep === 0;
+        const label = showLabel ? String(parseD(ds).getDate()) : '';
+        return '<div class="bar-col ' + (ds === todayStr() ? 'is-today' : '') + '" title="' + ds +
+            (rec ? ' 完成 ' + st.done + '/' + st.total + '（' + pctv + '%）' : ' 无记录') + '">' +
+          '<div class="bar-wrap"><i class="' + barCls + '"' + (rec ? ' style="height:' + h + '%"' : '') + '></i></div>' +
+          '<span>' + label + '</span>' +
+        '</div>';
+      }).join('');
+    } else {
+      const byMonth = {};
+      rangeDays.forEach(function (ds) {
+        if (!hasRecords(ds)) return;
+        const ym = ds.slice(0, 7);
+        if (!byMonth[ym]) byMonth[ym] = { sum: 0, n: 0 };
+        byMonth[ym].sum += dayStats(ds).ratio;
+        byMonth[ym].n++;
+      });
+      const months = Object.keys(byMonth).sort();
+      const step = Math.max(1, Math.ceil(months.length / 10));
+      bars = months.length ? months.map(function (ym, bi) {
+        const it = byMonth[ym];
+        const ratio = it.n ? it.sum / it.n : 0;
+        const pctv = Math.round(ratio * 100);
+        const h = Math.max(4, pctv);
+        const barCls = ratio >= 0.75 ? '' : 'low';
+        const label = (bi % step === 0) ? String(Number(ym.slice(5, 7))) + ' 月' : '';
+        return '<div class="bar-col" title="' + ym + ' · 有记录 ' + it.n + ' 天 · 平均完成 ' + pctv + '%">' +
+          '<div class="bar-wrap"><i class="' + barCls + '" style="height:' + h + '%"></i></div>' +
+          '<span>' + label + '</span>' +
+        '</div>';
+      }).join('') : '<p class="stt-none">还没有记录</p>';
+    }
 
     const hstats = state.habits.filter(h => !h.optional && !isArchived(h) && !isModuleAnchor(h)).map(h => {
       const isQuit = isQuitLike(h);
       /* 戒烟的点阵按事件算：有「抽了」= miss，只有「忍住了」= ok，
          一条都没有 = 空（没记录 ≠ 成功，不能混为一谈）。 */
-      const dots = rangeDays.map(ds => {
+      /* v203：全部档的日子可能有几百天，逐日点阵会挤成一条线 → 不画点阵，给一句说明 */
+      const dots = range ? rangeDays.map(ds => {
         let rec, ok, tip;
         if (isQuit) {
           const evs = dayCravings(h.id, ds);
@@ -12152,7 +12211,7 @@
         }
         const cls = rec ? (ok ? 'ok' : 'miss') : '';
         return '<i class="' + cls + '" title="' + tip + '"></i>';
-      }).join('');
+      }).join('') : '';
 
       let detail;
       if (isQuit) {
@@ -12169,15 +12228,15 @@
         /* 戒除只有一个按钮，不点就是守住——没有「忍」这个事件，
            硬摆「守 0」会让人以为是数据丢了。 */
         hitText = isSmoke(h)
-          ? ('近 ' + range + ' 天 ' + w.hero + ' <b>' + q.smoke + '</b> · ' + w.hold + ' <b>' + q.resist + '</b>'
+          ? (rangeLabel + ' ' + w.hero + ' <b>' + q.smoke + '</b> · ' + w.hold + ' <b>' + q.resist + '</b>'
              + (q.total ? ' · 抵御率 <b>' + Math.round(q.rate * 100) + '%</b>' : ''))
-          : ('近 ' + range + ' 天未达标 <b>' + q.smoke + '</b> 次');
+          : (rangeLabel + '未达标 <b>' + q.smoke + '</b> 次');
       } else {
         let hit = 0;
         rangeDays.forEach(ds => {
           if (hasRecords(ds) && met(h, ds)) hit++;
         });
-        hitText = '近 ' + range + ' 天达标 <b>' + hit + '</b> 天';
+        hitText = rangeLabel + '达标 <b>' + hit + '</b> 天';
       }
 
       return '<div class="hstat" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
@@ -12185,7 +12244,9 @@
           '<span class="habit-icon sm" style="--hc:' + esc(h.color || '#2f6f5e') + '">' + esc(h.icon || '✅') + '</span>' +
           '<div><b>' + esc(h.name) + '</b><small>' + esc(detail) + '</small></div>' +
         '</div>' +
-        '<div class="hstat-dots" style="grid-template-columns:repeat(' + rangeDays.length + ',1fr);gap:' + (rangeDays.length > 30 ? '2px' : '4px') + ';max-width:' + (rangeDays.length > 30 ? '100%' : '240px') + '">' + dots + '</div>' +
+        (range
+          ? '<div class="hstat-dots" style="grid-template-columns:repeat(' + rangeDays.length + ',1fr);gap:' + (rangeDays.length > 30 ? '2px' : '4px') + ';max-width:' + (rangeDays.length > 30 ? '100%' : '240px') + '">' + dots + '</div>'
+          : '<p class="stt-none" style="margin:0">全部档不画逐日点阵 —— 切「近 90 天」或看「本月」更清楚</p>') +
         '<div class="hstat-meta">' + hitText + '<span class="streak">🔥 连续 ' + habitStreak(h) + ' <i>天</i></span></div>' +
         '</div>';
     }).join('');
@@ -12283,7 +12344,7 @@
     const hTab = ['month', 'range', 'log'].indexOf(statsHabitTab) >= 0 ? statsHabitTab : 'month';
     const mTab = ['month', 'range', 'trend'].indexOf(statsMedTab) >= 0 ? statsMedTab : 'month';
     const habitSub = hTab === 'month' ? '只看有记录的日子'
-      : (hTab === 'range' ? '最近 ' + range + ' 天' : '最近 ' + logList.length + ' 次操作，含服药');
+      : (hTab === 'range' ? (range ? '最近 ' + range + ' 天' : '全部') : '最近 ' + logList.length + ' 次操作，含服药');
     /* v115：把习惯页的「本月概览」同步进来（口径都是本月，与「本月」分段放一起）。
        没有可统计的习惯时 habitMonthOverview 返回空串，不影响月份网格。 */
     const habitBody = hTab === 'month'
@@ -12295,7 +12356,7 @@
           ? logRows + logToggle
           : '<div class="empty-box">还没有操作记录，去今日页点一下习惯试试。</div>'));
     const medSub = mTab === 'month' ? '本月 · 按应服次数'
-      : (mTab === 'range' ? '近 ' + range + ' 天 · 按应服次数' : '近 ' + range + ' 天 · 每天一根柱');
+      : (mTab === 'range' ? rangeLabel + ' · 按应服次数' : rangeLabel + ' · 每天一根柱');
     const medBody = mTab === 'month'
       ? (monthMedPanel(now.getFullYear(), now.getMonth()) || '<div class="empty-box">本月还没有用药数据。</div>')
       : (mTab === 'range'
@@ -12306,18 +12367,20 @@
       '<div class="page-head"><div><h2>数据统计</h2><p>不追求完美，只看趋势。只统计有记录的日子：柱状图空白 = 无记录，红框 = 未达标，实心 = 达标（≥75%）。</p></div>' +
         '<div class="stats-acts">' +
           '<button type="button" class="btn sm" data-act="algo-open">考核算法</button>' +
-          '<div class="range-switch">' + [7, 30, 90].map(n =>
-            '<button type="button" class="' + (range === n ? 'active' : '') + '" data-act="set-stats-range" data-range="' + n + '">' + n + ' 天</button>'
-          ).join('') + '</div>' +
+          /* v203：档位加「全部」（0）—— 与 478 页内四档一致 */
+          '<div class="range-switch">' + [[7, '近 7 天'], [30, '近 30 天'], [90, '近 90 天'], [0, '全部']].map(function (it) {
+            return '<button type="button" class="' + (range === it[0] ? 'active' : '') +
+              '" data-act="set-stats-range" data-range="' + it[0] + '">' + it[1] + '</button>';
+          }).join('') + '</div>' +
         '</div></div>' +
-      '<div class="panel"><h3>总览 <span class="muted-sm">（近 ' + range + ' 天 · 只看有记录的日子）</span></h3>' +
+      '<div class="panel"><h3>总览 <span class="muted-sm">（' + rangeLabel + ' · 只看有记录的日子）</span></h3>' +
         '<div class="stat-grid">' +
           '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
-          '<div class="stat-card"><small>近 ' + range + ' 天完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
+          '<div class="stat-card"><small>' + rangeLabel + '完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
           '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
         '</div>' +
         '<div class="sblock">' +
-          '<div class="sblock-head"><b>近 ' + range + ' 天完成率</b>' +
+          '<div class="sblock-head"><b>' + rangeLabel + '完成率</b>' +
             '<span class="muted-sm">空白 = 无记录 · 红框 = 未达标 · 实心 = 达标（≥75%）</span></div>' +
           '<div class="chart" style="gap:' + (range > 30 ? '1px' : (range > 14 ? '3px' : '8px')) + '">' + bars + '</div>' +
         '</div>' +
@@ -12331,7 +12394,7 @@
       /* 习惯：本月网格 / 近 N 天明细 / 操作时间线，同一份数据的三种粒度 */
       '<div class="panel">' +
         '<div class="shead"><h3>习惯 <span class="muted-sm">（' + habitSub + '）</span></h3>' +
-          statsSegHtml('stats-habit-tab', hTab, [['month', '本月'], ['range', '近 ' + range + ' 天'], ['log', '时间线']]) +
+          statsSegHtml('stats-habit-tab', hTab, [['month', '本月'], ['range', rangeLabel], ['log', '时间线']]) +
         '</div>' +
         habitBody +
       '</div>' +
@@ -12339,7 +12402,7 @@
       /* 用药：本月 / 近 N 天 / 趋势，三处的百分比口径都写在标题的括号里 */
       '<div class="panel">' +
         '<div class="shead"><h3>用药 <span class="muted-sm">（' + medSub + '）</span></h3>' +
-          statsSegHtml('stats-med-tab', mTab, [['month', '本月'], ['range', '近 ' + range + ' 天'], ['trend', '趋势']]) +
+          statsSegHtml('stats-med-tab', mTab, [['month', '本月'], ['range', rangeLabel], ['trend', '趋势']]) +
         '</div>' +
         medBody +
       '</div>' +
@@ -12411,7 +12474,7 @@
   }
 
   function weightRangeSwitchHtml() {
-    return '<div class="range-switch">' + [[7, '7 天'], [30, '30 天'], [90, '90 天'], [0, '全部']].map(p =>
+    return '<div class="range-switch">' + [[7, '近 7 天'], [30, '近 30 天'], [90, '近 90 天'], [0, '全部']].map(p =>
       '<button type="button" class="' + (weightRange === p[0] ? 'active' : '') + '" data-act="set-weight-range" data-range="' + p[0] + '">' + p[1] + '</button>'
     ).join('') + '</div>';
   }
@@ -18923,8 +18986,10 @@
       render();
     },
     'set-stats-range': el => {
-      const r = Number(el.dataset.range) || 30;
-      if ([7, 30, 90].indexOf(r) < 0) return;
+      /* v203：0 = 全部（与 478 页内统计的四档一致）。
+         注意不能写 `Number(...) || 30` —— 那会把 0 变成 30。 */
+      const r = Number(el.dataset.range);
+      if ([0, 7, 30, 90].indexOf(r) < 0) return;
       statsRange = r;
       render();
     },
@@ -20456,7 +20521,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=202', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=203', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

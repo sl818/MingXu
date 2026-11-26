@@ -217,7 +217,7 @@ with sync_playwright() as p:
         not any(k in c['setFields'] for k in ('icon', 'name', 'color', 'note')), str(c['setFields']))
     rec('设置联动提示：组数 × 循环 = 次数',
         '每天 3 组' in c['setHint'] and '4 次循环' in c['setHint'] and '12 次呼吸' in c['setHint'], c['setHint'])
-    rec('统计区四档切换', c['rangeBtns'] == ['近 7 天', '近 1 月', '近 3 月', '全部'], str(c['rangeBtns']))
+    rec('统计区四档切换（与统计页同文案）', c['rangeBtns'] == ['近 7 天', '近 30 天', '近 90 天', '全部'], str(c['rangeBtns']))
     rec('默认档位 近 7 天', c['rangeActive'] == '近 7 天', c['rangeActive'])
     rec('KPI 三个环', c['kpiCount'] == 3, '%d 个' % c['kpiCount'])
     rec('统计小卡 6 个（含组数/次数/累计）',
@@ -372,7 +372,7 @@ with sync_playwright() as p:
     pg.click('.br-range button[data-range="30"]')
     pg.wait_for_timeout(500)
     c = pg.evaluate(PAGE)
-    rec('切到近 1 月', c['rangeActive'] == '近 1 月', c['rangeActive'])
+    rec('切到近 30 天', c['rangeActive'] == '近 30 天', c['rangeActive'])
     pg.click('.br-range button[data-range="0"]')
     pg.wait_for_timeout(500)
     c = pg.evaluate(PAGE)
@@ -391,14 +391,16 @@ with sync_playwright() as p:
       if (!panel) return { heads: heads, kpis: 0, goto: false, today: '' };
       return {
         heads: heads,
-        kpis: panel.querySelectorAll('.stt-kpi').length,
+        kpis: panel.querySelectorAll('.w-mini').length,
+        rings: panel.querySelectorAll('.w-kpi').length,
         goto: !!panel.querySelector('[data-act="breathe-goto"]'),
         today: (panel.querySelector('.ms-val') || {}).textContent || ''
       };
     }""")
     rec('统计页有 478 块', any('478呼吸法' in h for h in st['heads']), str(st['heads'][:6]))
-    rec('统计页 478 块 KPI 6 张', st['kpis'] == 6, '%d 张' % st['kpis'])
-    rec('统计页有「完整统计 →」', st['goto'], '')
+    rec('v203 统计页 478 块与页内一致：6 张 mini 卡', st['kpis'] == 6, '%d 张' % st['kpis'])
+    rec('v203 统计页 478 块与页内一致：3 个 KPI（含去环的连续达标）', st['rings'] == 3, '%d 个' % st['rings'])
+    rec('统计页有跳回 478 页的按钮', st['goto'], '')
     rec('统计页今日行写组数', '/ 3 组' in st['today'], st['today'])
     # 点「完整统计 →」跳回 478 页
     pg.click('[data-act="breathe-goto"]')
