@@ -4116,6 +4116,11 @@ body.modal-open{overflow:hidden;}
 .stt-chart{margin-top:10px}
 .stt-chart svg{width:100%;height:auto;display:block}
 .stt-ax{font-size:10px;fill:var(--muted)}
+/* v199：趋势图网格线原来写死 #f4eadb（浅米白），深色主题下比文字还刺眼。
+   改走主题令牌，跟同一函数里的折线/数据点（var(--accent)）一致：
+   浅色下 --line=#f0e4d1 与原值只差几个色阶（看不出变化），深色下变 #2e3a4d，网格退到背景层。
+   注意：这函数是 478 / 喝水 / 运动 / 统计页共用的，一改全都跟着变。 */
+.stt-grid{stroke:var(--line)}
 
 /* v195：热力图改 18 周（陛下选的乙案）—— 列宽随卡片自适应，18 列正好排满右侧。
    结构：左侧 7 个星期标签 + 右侧 126 个格子；两边都用 7 行 grid，行高一致，标签与格子严格对齐。
