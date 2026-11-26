@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=194">
+<link rel="stylesheet" href="assets/app.css?v=195">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=194">
+<link rel="stylesheet" href="assets/theme-v2.css?v=195">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v194';
+  const APP_VERSION = 'v195';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8211,7 +8211,7 @@
           '<div class="w-chan-grid">' + chanHtml + '</div>' +
           '<div style="margin-top:18px">' +
             '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
-            '<div class="w-mode-grid"><label class="w-mode on"><span>每天固定时间推送</span>' +
+            '<div class="w-mode-grid br-mode-grid"><label class="w-mode on"><span>每天固定时间推送</span>' +
               '<span>按「每天几组」生成提醒点</span><input type="radio" name="mode" value="daily" checked></label></div>' +
             '<div class="w-daily-times" id="breathe-times">' + timeRows + '</div>' +
             '<p class="w-freq-note">按「每天 <b>' + groups + '</b> 组」自动生成 ' + groups +
@@ -9132,7 +9132,7 @@
     '</section>';
 
     /* —— 热力图 + 周内分布 —— */
-    const heatDays = 84;
+    const heatDays = 126;   /* v195：18 周（陛下选的乙案） */
     const recentCut = fmt(addDays(new Date(), -(heatDays - 1)));
     const recentList = base.filter(function (r) { return r.d >= recentCut; });
     const recentAgg = moveStatAgg(recentList);
@@ -9146,21 +9146,19 @@
     });
     const wdNames = ['一', '二', '三', '四', '五', '六', '日'];
     const tWd = (new Date().getDay() + 6) % 7;
-    let heatCols = '';
+    /* v195：格子展平成一串（CSS grid 用 grid-auto-flow:column 自动按列填 7 行），
+       列宽随卡片宽度自适应 → 18 列正好排满右侧；原来每列一个 div + 固定 14px 格子会空一大块。 */
+    let heatCells = '';
     const startHeat = addDays(new Date(), -(heatDays - 1));
     const startWd = (startHeat.getDay() + 6) % 7;
     const gridStart = addDays(startHeat, -startWd);
-    for (let w = 0; w < Math.ceil((heatDays + startWd) / 7); w++) {
-      let col = '';
-      for (let dd = 0; dd < 7; dd++) {
-        const d = addDays(gridStart, w * 7 + dd), ds = fmt(d);
-        const v = heatVals[ds] || 0;
-        const t = v / heatMax;
-        const bg = v <= 0 ? 'var(--surface-3)' : 'rgba(220,38,38,' + (0.12 + t * 0.72).toFixed(2) + ')';
-        col += '<i class="stt-cell' + (ds === todayDs ? ' m' : '') + '" style="background:' + bg +
-          '" title="' + ds + ' · ' + (v ? moveStatNum(v) + ' 分钟' : '没有记录') + '"></i>';
-      }
-      heatCols += '<div class="stt-col">' + col + '</div>';
+    for (let i = 0; i < heatDays + startWd; i++) {
+      const d = addDays(gridStart, i), ds = fmt(d);
+      const v = heatVals[ds] || 0;
+      const t = v / heatMax;
+      const bg = v <= 0 ? 'var(--surface-3)' : 'rgba(220,38,38,' + (0.12 + t * 0.72).toFixed(2) + ')';
+      heatCells += '<i class="stt-cell' + (ds === todayDs ? ' m' : '') + '" style="background:' + bg +
+        '" title="' + ds + ' · ' + (v ? moveStatNum(v) + ' 分钟' : '没有记录') + '"></i>';
     }
     /* 周内分布：近 8 周，每周一~周日「平均每天运动多少分钟」 */
     const wdSum = [0, 0, 0, 0, 0, 0, 0];
@@ -9171,10 +9169,10 @@
     const wdAvg = wdSum.map(function (s) { return s / 8; });
     h += '<div class="stt-grid2">' +
       '<section class="panel"><h3 class="mv-sec-title">月历热力图</h3>' +
-        '<p class="mv-sec-lead">近 12 周 · 深色＝当天运动量大（分钟；纯步数的天按 100 步≈1 分钟折算）</p>' +
+        '<p class="mv-sec-lead">近 18 周 · 深色＝当天运动量大（分钟；纯步数的天按 100 步≈1 分钟折算）</p>' +
         '<div class="stt-heat"><div class="stt-wl">' +
           wdNames.map(function (x) { return '<span>' + x + '</span>'; }).join('') +
-        '</div><div class="stt-hgrid">' + heatCols + '</div></div>' +
+        '</div><div class="stt-hgrid">' + heatCells + '</div></div>' +
         '<p class="stt-legend">少' +
           ['rgba(220,38,38,.12)', 'rgba(220,38,38,.3)', 'rgba(220,38,38,.5)', 'rgba(220,38,38,.7)', 'rgba(220,38,38,.9)']
             .map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') +
@@ -18350,7 +18348,11 @@
       /* v194：478 呼吸 —— 每天固定时间推送，做几组就有几个时间点。
          口径必须和 api/ics.php / api/schedule.php 一致。 */
       if (key === 'breathe') {
-        const times = Array.isArray(m.notifyTimes) ? m.notifyTimes : [];
+        /* 兜底：没存时间点就按「每天几组」算默认点，
+           与 api/ics.php、api/schedule.php 完全同口径（否则 UID 一个带序号一个不带）。 */
+        const times = (Array.isArray(m.notifyTimes) && m.notifyTimes.length)
+          ? m.notifyTimes
+          : breatheDefaultTimes(Math.max(1, Math.min(12, Number(m.groups) || 1)));
         let bn = 0;
         times.forEach(function (t, i) {
           if (!/^\d{2}:\d{2}$/.test(String(t || ''))) return;
@@ -20087,7 +20089,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=194', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=195', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
