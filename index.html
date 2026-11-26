@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=187">
+<link rel="stylesheet" href="assets/app.css?v=188">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=187">
+<link rel="stylesheet" href="assets/theme-v2.css?v=188">
 </head>
 <body>
 <div class="app landing">
@@ -270,7 +270,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v187';
+  const APP_VERSION = 'v188';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8380,7 +8380,7 @@
       note = p.isSteps
         ? ('今天已记 ' + p.val + ' / ' + p.target + ' ' + tf.unit + '，达标了')
         : ('今天已完成 ' + p.val + ' / ' + p.target + ' 次' +
-          (skips.length ? '，有 ' + skips.length + ' 次跳过了记录数据，点「补充运动后详细数据」补上' : ''));
+          (skips.length ? '，有 ' + skips.length + ' 次跳过了记录数据，点右上角「待补 ' + skips.length + '」补上' : ''));
     } else if (rest) {
       st = '<div class="mv-st rest">今日无需运动</div>';
       note = '今天按计划休息 · ' + moveFreqText(s);
@@ -8419,7 +8419,13 @@
       '<div class="mv-top">' +
         '<span class="mv-ico">' + esc(T.icon) + '</span>' +
         '<div class="mv-title"><b>' + esc(s.name || T.name) + '</b><small>' + esc(moveFreqText(s)) + ' · 目标 ' + s.tVal + ' ' + esc(tf.unit) + '</small></div>' +
-        '<span class="mv-tag">我的运动</span>' +
+        /* v188：有跳过未记录的次数时，右上角用「待补 N」胶囊顶替「我的运动」标签 ——
+           提示变成状态而不是按钮：不占按钮区、卡片高度与普通卡片一致，
+           也不会被误认为「再打一次卡」。点它进补数据列表。 */
+        (skips.length
+          ? '<button type="button" class="mv-pill" data-act="move-rec" data-id="' + s.id + '" ' +
+            'title="有 ' + skips.length + ' 次跳过了记录数据，点击补上">待补 <b>' + skips.length + '</b></button>'
+          : '<span class="mv-tag">我的运动</span>') +
       '</div>' +
       '<div class="mv-main">' +
         '<div class="mv-left">' +
@@ -8432,14 +8438,11 @@
       '<div class="mv-actions">' +
         mainBtn +
         /* v184：「补数据」只在跳过没记录时才出现 —— 填过数据的记录没得补。
-           以前常驻一个「补数据」按钮，用户会以为还能再加一次，把任务刷完成。
-           v185：文案改成「补充运动后详细数据」，红底白字 —— 这是「还没了结」的事，
-           红色按项目配色约定正给这类，蓝色只给「开启一件事」。 */
+           v188：入口已收到右上角胶囊，按钮区不再放长条红按钮。
+           待填数据时给「撤销这一次」，避免用户以为还能再加一次。 */
         (pend
           ? '<button class="mv-btn ghost" data-act="move-undo" data-id="' + s.id + '">撤销这一次</button>'
-          : (skips.length
-            ? '<button class="mv-btn need" data-act="move-rec" data-id="' + s.id + '">补充运动后详细数据</button>'
-            : '')) +
+          : '') +
         /* v184：卡片内的统一记录入口，替代原来页面底部那个混着补数据的总日志 */
         '<button class="mv-btn ghost" data-act="move-log" data-id="' + s.id + '">今日任务记录</button>' +
         '<button class="mv-btn ghost" data-act="move-edit" data-id="' + s.id + '">编辑</button>' +
@@ -15815,7 +15818,7 @@
       }
       h += '<span class="f-label">运动数据记录</span>';
       if (T.fields.length) {
-        h += '<p class="sp-hint">勾选这次运动要记录的数据。打勾的项目会出现在「补充运动后详细数据」表单里，不勾的不显示。</p>';
+        h += '<p class="sp-hint">勾选这次运动要记录的数据。打勾的项目会出现在「运动后数据」表单里，不勾的不显示。</p>';
         T.fields.forEach(function (f) {
           const unitTxt = f.unit ? ('（' + f.unit + '）') : '';
           const sub = f.k === 'pace' ? '记录本次平均配速'
@@ -16148,7 +16151,7 @@
         }
         const withDist = recs.find(function (r) { return Number(r.distM) > 0; });
         if (!withDist) {
-          return '<div class="sp-dataempty">达标时选择了「跳过不记录」。之后可以用卡片上的「补充运动后详细数据」补一次；' +
+          return '<div class="sp-dataempty">达标时选择了「跳过不记录」。之后可以点卡片右上角的「待补」补一次；' +
             '<b>补过就锁定，不能再改。</b></div>';
         }
         return '<div class="sp-dataitem">' +
@@ -16335,9 +16338,9 @@
     let head = '<h3>' + esc(title) + '</h3>';
     if (isAfter) {
       head += '<p class="sp-hint">' + (key === 'steps'
-        ? '今天的步数已经达标。下面补一条这次运动的运动后数据；填完就收工，不填可以选「跳过不记录」，之后用卡片上的「补充运动后详细数据」补上。'
+        ? '今天的步数已经达标。下面补一条这次运动的运动后数据；填完就收工，不填可以选「跳过不记录」，之后点卡片右上角的「待补」补上。'
         : (rec && rec.pending
-          ? '这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。跳过后可以用卡片上的「补充运动后详细数据」补填。'
+          ? '这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。跳过后可以点卡片右上角的「待补」补填。'
           : '这次当时跳过了记录数据。补上运动后数据就好；现在不想补可以点「取消」，它还留在「补数据」列表里。')) + '</p>';
     } else if (isPending) {
       head += '<p class="sp-hint">这一次已经算完成。填完数据（或选择跳过）后，才能开始今天的下一次。</p>';
@@ -16354,6 +16357,10 @@
     }
     head += '<div class="field"><span>任务完成时间</span><input name="t" type="time" value="' + esc(dfltT) + '"><small class="f-sub">记录本次运动结束的时间</small></div>';
 
+    /* v188：达标后自动弹的那条（记录处于「待填数据」）必须二选一 —— 跳过，或把数据填了。
+       点「取消」只是关掉弹窗、数据一点没改，记录仍是待填，等于把用户卡在「弹窗关了、入口也没了」。
+       从「待补 N」列表点「补填」进来的那条（已跳过）保留「取消」：随时可以退出去看别的。 */
+    const mustSettle = !!(rec && rec.pending && !rec.skipped);
     openModal(
       '<form class="modal-card" id="move-record-form" data-sport="' + (sportId || '') + '" data-rec="' + (rec ? rec.id : '') + '" data-for="' + (sport ? 'sport' : '') + '" data-mode="' + esc(mode) + '">' +
         head +
@@ -16362,7 +16369,7 @@
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
           (isPending ? '<button type="button" class="btn ghost" data-act="move-skip" data-rec="' + rec.id + '">跳过不记录</button>' : '') +
-          '<button type="button" class="btn ghost" data-act="close-modal">取消</button>' +
+          (mustSettle ? '' : '<button type="button" class="btn ghost" data-act="close-modal">取消</button>') +
           '<button type="submit" class="btn primary">' + (editing ? '更新这条' : '保存') + '</button>' +
         '</div>' +
       '</form>');
@@ -16419,6 +16426,9 @@
     state.modules.move = m;
     state.modulesAt = Date.now();
     save();
+    /* v188：打完标记要重绘卡片 —— 否则卡片还停在「已完成 · 点击撤销」，
+       用户看到的和存档里的「待填」状态不一致（v187 前取消掉弹窗就会卡住）。 */
+    render();
   }
 
   function saveMoveRecordForm(form) {
@@ -16613,7 +16623,7 @@
         '<h3>跳过不记录这次的数据？</h3>' +
         '<p class="sp-hint" style="margin:12px 0 0;font-size:12.5px">' +
           '跳过之后，这一次运动仍然算完成；但<b>数据统计页不会显示它的详细数据</b>' +
-          '（时长、距离、配速、心率等）。之后也可以用卡片上的「补充运动后详细数据」补录。' +
+          '（时长、距离、配速、心率等）。之后也可以点卡片右上角的「待补」补录。' +
         '</p>' +
         '<div class="modal-actions">' +
           '<span class="spacer"></span>' +
@@ -19061,7 +19071,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=187', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=188', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

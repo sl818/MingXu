@@ -3533,10 +3533,13 @@ body.modal-open{overflow:hidden;}
 .mv-btn.done{background:var(--surface-2);border:1px solid var(--line);color:var(--good)}
 .mv-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .mv-btn.ghost.danger{color:var(--bad)}
-/* v185：跳过了记录数据时出现的「补充运动后详细数据」—— 红底白字，独占一行，
-   文案长，不能挤在其它按钮中间换行 */
-.mv-btn.need{flex:1 1 100%;background:#DC2626;color:#fff;border:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mv-btn.need:hover{background:#B91C1C}
+/* v188：有跳过未记录的次数时，卡片右上角「待补 N」胶囊（顶替「我的运动」标签）。
+   红底白字，是「还没了结」的事；不占按钮区，卡片高度与普通卡片一致。 */
+.mv-pill{flex:none;display:inline-flex;align-items:center;gap:4px;border:none;border-radius:99px;
+  background:#DC2626;color:#fff;font:inherit;font-size:11px;font-weight:700;padding:3px 9px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.mv-pill b{font-size:11.5px;font-variant-numeric:tabular-nums}
+.mv-pill:hover{background:#B91C1C}
 .mv-sec-title{margin:0 0 4px;font-size:16px;font-weight:700}
 .mv-sec-lead{font-size:12.5px;color:var(--muted);margin:0 0 14px}
 .mv-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}

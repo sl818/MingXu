@@ -210,8 +210,16 @@ with sync_playwright() as pw:
     chk('记录已落库（待填状态）', len(recs()) == 1 and recs()[0].get('pending') is True,
         json.dumps(recs(), ensure_ascii=False)[:200])
 
-    print('\n===== 2. 中途关掉弹窗 → 卡片锁住，等着记数据 =====')
-    pg.click('#move-record-form [data-act="close-modal"]')
+    print('\n===== 2. v188：待填弹窗不给「取消」，意外关掉后卡片也锁住 =====')
+    chk('待填弹窗没有「取消」',
+        pg.locator('#move-record-form [data-act="close-modal"]').count() == 0,
+        str(pg.locator('#move-record-form [data-act="close-modal"]').count()))
+    chk('只有「跳过不记录」+「更新这条」',
+        pg.locator('#move-record-form [data-act="move-skip"]').count() == 1
+        and '更新这条' in pg.inner_text('#move-record-form'),
+        pg.inner_text('#move-record-form .modal-actions'))
+    # 用 Esc 模拟「意外关掉」：卡片必须锁在「记录数据」，不能装作已完成
+    pg.keyboard.press('Escape')
     pg.wait_for_timeout(600)
     c = card(pg)
     st = c.locator('.mv-st').inner_text()

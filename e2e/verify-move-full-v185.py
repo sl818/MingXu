@@ -13,7 +13,7 @@
   5. 固定步数的数值仍可改
 
 三、需求 1 · 「补数据」按钮改名 + 填红
-  6. 跳过一次后出现「补充运动后详细数据」，底色 #DC2626
+  6. 跳过一次后卡片右上角出现「待补 N」胶囊，底色 #DC2626
   7. 补填完按钮消失
 
 四、需求 2 · 今日任务记录逐字段展开
@@ -401,6 +401,13 @@ with sync_playwright() as pw:
     fill_rec(pg, {'steps': 600})
     chk('达标后弹补充运动数据', '补充运动数据' in pg.inner_text('#move-record-form h3'),
         pg.inner_text('#move-record-form h3') if pg.locator('#move-record-form h3').count() else 'no modal')
+    # v188：待填状态的弹窗不给「取消」—— 取消只会关窗、把用户卡住
+    chk('待填弹窗没有「取消」', pg.locator('#move-record-form [data-act="close-modal"]').count() == 0,
+        str(pg.locator('#move-record-form [data-act="close-modal"]').count()))
+    chk('待填弹窗只有「跳过不记录」+「更新这条」',
+        pg.locator('#move-record-form [data-act="move-skip"]').count() == 1
+        and '更新这条' in pg.inner_text('#move-record-form'),
+        pg.inner_text('#move-record-form .modal-actions'))
     labels2 = pg.eval_on_selector_all('#move-record-body .field > span', 'e => e.map(x => x.textContent)')
     chk('补充弹窗只有距离', len(labels2) == 1 and '距离' in labels2[0], str(labels2))
     chk('补充弹窗没有步数输入框', pg.locator('#move-record-form input[name="steps"]').count() == 0)
@@ -495,7 +502,7 @@ with sync_playwright() as pw:
     close_modal(pg)
 
     # ============================================================
-    print('\n===== 9. 需求1：跳过 → 红色「补充运动后详细数据」=====')
+    print('\n===== 9. v188：跳过 → 卡片右上角「待补 N」胶囊 =====')
     open_new(pg, 'walk')
     pg.fill('#sp-tval', '3')
     submit_sport(pg)
@@ -508,21 +515,30 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(900)
     notice = card_of(pg, walk['id']).locator('[data-act="move-rec"]')
     chk('卡片出现补数据入口', notice.count() == 1, str(notice.count()))
-    chk('按钮文案是「补充运动后详细数据」', notice.inner_text().strip() == '补充运动后详细数据',
+    chk('入口是右上角胶囊', card_of(pg, walk['id']).locator('.mv-top .mv-pill').count() == 1,
+        str(card_of(pg, walk['id']).locator('.mv-top .mv-pill').count()))
+    chk('胶囊文案是「待补 1」', '待补' in notice.inner_text() and '1' in notice.inner_text(),
         notice.inner_text().strip() if notice.count() else '')
     bg = notice.evaluate('e => getComputedStyle(e).backgroundColor')
-    chk('底色是 #DC2626', bg.replace(' ', '') == 'rgb(220,38,38)', bg)
-    chk('卡片说明指向新名字', '补充运动后详细数据' in card_of(pg, walk['id']).inner_text(),
+    chk('胶囊底色是 #DC2626', bg.replace(' ', '') == 'rgb(220,38,38)', bg)
+    chk('按钮区不再有红长条', card_of(pg, walk['id']).locator('.mv-btn.need').count() == 0)
+    chk('卡片说明指向胶囊', '待补 1' in card_of(pg, walk['id']).inner_text(),
         card_of(pg, walk['id']).inner_text())
-    chk('卡片说明不再写「点『补数据』补上」', '点「补数据」补上' not in card_of(pg, walk['id']).inner_text())
+    chk('胶囊顶替了「我的运动」标签',
+        card_of(pg, walk['id']).locator('.mv-tag').count() == 0)
 
-    print('\n===== 10. 需求1：补填完按钮消失 =====')
+    print('\n===== 10. v188：补填弹窗保留「取消」，补完胶囊消失 =====')
     notice.click()
     pg.wait_for_timeout(600)
     pg.click('#modal-root [data-act="move-fill"]')
     pg.wait_for_timeout(600)
+    chk('补填弹窗仍有「取消」（可以退出去看别的）',
+        pg.locator('#move-record-form [data-act="close-modal"]').count() == 1,
+        str(pg.locator('#move-record-form [data-act="close-modal"]').count()))
     fill_rec(pg, {'dur': 30, 'dist': 3})
-    chk('补填后按钮消失', card_of(pg, walk['id']).locator('[data-act="move-rec"]').count() == 0)
+    chk('补填后胶囊消失', card_of(pg, walk['id']).locator('[data-act="move-rec"]').count() == 0)
+    chk('补填后「我的运动」标签回来了',
+        card_of(pg, walk['id']).locator('.mv-tag').count() == 1)
 
     # ============================================================
     print('\n===== 11. D 一致性：取消勾选后旧值不丢 =====')
