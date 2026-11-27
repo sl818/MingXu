@@ -28,8 +28,8 @@ def chk(name, ok, detail=''):
         print('  ✗ %s  << %s' % (name, detail))
 
 
-DEFAULT = ['today', 'meds', 'quit', 'board', 'money', 'habits', 'weight', 'essays',
-           'calendar', 'stats', 'config', 'settings']
+DEFAULT = ['today', 'meds', 'quit', 'water', 'move', 'breathe', 'board', 'money', 'habits',
+           'weight', 'essays', 'calendar', 'stats', 'modules', 'notifyroute', 'config', 'settings']
 NAV_ORDER_JS = "() => [...document.querySelectorAll('#nav .nav-item')].map(b => b.dataset.nav)"
 
 
@@ -79,15 +79,15 @@ with sync_playwright() as p:
     login(pg)
 
     print('\n[1] 默认顺序没有被改动')
-    chk('导航顺序 = 默认 12 项', pg.evaluate(NAV_ORDER_JS) == DEFAULT, str(pg.evaluate(NAV_ORDER_JS)))
+    chk('导航顺序 = 默认 17 项', pg.evaluate(NAV_ORDER_JS) == DEFAULT, str(pg.evaluate(NAV_ORDER_JS)))
 
     print('\n[2] 设置页的排序面板')
     go(pg, 'settings')
     n = names(pg)
-    chk('共 12 行（今日 + 记录 7 + 回顾 2 + 设置 2）', len(n) == 12, str(len(n)))
+    chk('共 17 行（今日 + 记录 10 + 回顾 2 + 设置 4）', len(n) == 17, str(len(n)))
     chk('顺序：仪表盘置顶 + 三组',
-        n == ['仪表盘', '用药', '戒烟', '待办', '清债', '习惯', '体重', '随笔',
-              '日历', '统计', '配置', '设置'], str(n))
+        n == ['仪表盘', '用药', '戒烟', '喝水', '运动', '478呼吸法', '待办', '清债', '习惯', '体重', '随笔',
+              '日历', '统计', '模块', '通知路由', '配置', '设置'], str(n))
     chk('今日置顶行没有拖拽手柄',
         pg.locator('.no-row', has_text='仪表盘').locator('.drag-handle').count() == 0)
     before = names(pg)

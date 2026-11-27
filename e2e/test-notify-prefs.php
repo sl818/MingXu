@@ -191,6 +191,142 @@ chk('自定义后只剩两条', count($cus) === 2, (string)count($cus));
 chk('第一条是 10:00', ($cus[0]['time'] ?? '') === '10:00', $cus[0]['time'] ?? '');
 chk('最后一条是 22:30', ($cus[1]['time'] ?? '') === '22:30', $cus[1]['time'] ?? '');
 
+echo '[14] 11 板块默认结构（v211）' . PHP_EOL;
+$bd = lb_notify_boards();
+chk('11 个板块齐全', count($bd) === 11, (string)count($bd));
+chk('模块五板块不存 on',
+    !isset($bd['med']['on']) && !isset($bd['water']['on']) && !isset($bd['quit']['on']));
+chk('基础板块有 on 且默认开', $bd['task']['on'] === true && $bd['notice']['on'] === true);
+chk('三个渠道列齐全（含浏览器）', array_keys($bd['notice']['channels']) === ['wecom', 'mail', 'browser']);
+chk('还款板块渠道默认开（是否发送由 money.notify 管）', $bd['debt']['channels']['wecom'] === true);
+
+echo '[15] 旧扁平结构原地迁移' . PHP_EOL;
+$pdo15 = db();
+$pdo15->prepare('INSERT INTO app_settings (k, v) VALUES (?, ?)')->execute(['notify_prefs_15', json_encode([
+    'med' => ['wecom' => true, 'mail' => false],
+    'habit' => ['wecom' => false, 'mail' => false],
+    'report' => ['wecom' => true, 'mail' => false],
+], JSON_UNESCAPED_UNICODE)]);
+$b15 = lb_notify_boards_load($pdo15, 15);
+chk('med 渠道保留', $b15['med']['channels']['wecom'] === true && $b15['med']['channels']['mail'] === false);
+chk('habit 渠道继承给 water/move/breathe',
+    $b15['water']['channels']['wecom'] === false && $b15['move']['channels']['mail'] === false
+    && $b15['breathe']['channels']['wecom'] === false);
+chk('没出现的类型保持默认', $b15['notice']['channels']['wecom'] === true);
+chk('旧结构投影回 7 类仍正确', lb_notify_prefs_flat($b15)['habit'] === ['wecom' => false, 'mail' => false]);
+
+echo '[16] 新结构保存与模块 on 丢弃' . PHP_EOL;
+$pdo16 = db();
+$res16 = lb_notify_boards_save($pdo16, 16, ['boards' => [
+    'med' => ['on' => false, 'channels' => ['wecom' => false, 'mail' => true, 'browser' => true]],
+    'task' => ['on' => false, 'channels' => ['wecom' => true, 'mail' => false]],
+    'water' => ['on' => false],
+]]);
+$b16 = lb_notify_boards_load($pdo16, 16);
+chk('新结构保存成功', $res16['ok'] === true, (string)($res16['error'] ?? ''));
+chk('模块板块的 on 入参被丢弃', !isset($b16['med']['on']));
+chk('模块渠道照常保存',
+    $b16['med']['channels']['wecom'] === false && $b16['med']['channels']['mail'] === true);
+chk('基础板块 on 可单独关', $b16['task']['on'] === false);
+chk('未提交的渠道保持默认', $b16['task']['channels']['browser'] === true);
+
+echo '[17] 免打扰时段可配（跨夜）' . PHP_EOL;
+$pdo17 = db();
+chk('默认关 + 23:00–07:00',
+    lb_notify_quiet_cfg($pdo17, 17) === ['on' => false, 'start' => '23:00', 'end' => '07:00']);
+lb_notify_quiet_save($pdo17, 17, ['on' => true, 'start' => '22:30', 'end' => '06:30']);
+$q2 = lb_notify_quiet_cfg($pdo17, 17);
+chk('对象保存后读回', $q2['on'] === true && $q2['start'] === '22:30' && $q2['end'] === '06:30',
+    json_encode($q2));
+chk('22:30 命中', lb_notify_in_quiet('22:30', '22:30', '06:30') === true);
+chk('06:29 命中', lb_notify_in_quiet('06:29', '22:30', '06:30') === true);
+chk('06:30 不命中', lb_notify_in_quiet('06:30', '22:30', '06:30') === false);
+chk('12:00 不命中', lb_notify_in_quiet('12:00', '22:30', '06:30') === false);
+chk('起止相同视为不生效', lb_notify_in_quiet('23:00', '23:00', '23:00') === false);
+$pdo17->prepare('INSERT INTO app_settings (k, v) VALUES (?, ?)')->execute(['notify_quiet_18', '1']);
+chk('旧布尔存储仍可读', lb_notify_quiet_cfg($pdo17, 18)['on'] === true);
+
+echo '[18] 文案模板与渲染' . PHP_EOL;
+$pdo18 = db();
+$tpl = lb_notify_tpl_load($pdo18, 18);
+chk('默认 11 个场景', count($tpl['scenes']) === 11, (string)count($tpl['scenes']));
+chk('用药默认标题固定', $tpl['scenes']['med']['title'] === '该吃药了');
+$sv18 = lb_notify_tpl_save($pdo18, 18, [
+    'scenes' => ['med' => ['title' => '吃药 {时间}', 'body' => "{正文}\n{优先级}"]],
+    'mail' => ['color' => 'green', 'footer' => '测试页脚'],
+]);
+chk('模板保存成功', $sv18['ok'] === true, (string)($sv18['error'] ?? ''));
+$tpl2 = lb_notify_tpl_load($pdo18, 18);
+chk('自定义标题读回', $tpl2['scenes']['med']['title'] === '吃药 {时间}');
+chk('邮件配色与页脚读回', $tpl2['mail']['color'] === 'green' && $tpl2['mail']['footer'] === '测试页脚');
+chk('邮件样式默认 HTML 卡片', $tpl2['mail']['mode'] === 'html', (string)($tpl2['mail']['mode'] ?? ''));
+lb_notify_tpl_save($pdo18, 18, ['mail' => ['mode' => 'plain']]);
+chk('可切换为纯文本', lb_notify_tpl_load($pdo18, 18)['mail']['mode'] === 'plain');
+lb_notify_tpl_save($pdo18, 18, ['mail' => ['mode' => 'xxx']]);
+chk('非法模式不覆盖原值', lb_notify_tpl_load($pdo18, 18)['mail']['mode'] === 'plain');
+
+$evMed = ['kind' => 'med', 'source' => 'med', 'id' => 'm1', 'time' => '08:00',
+    'title' => '该吃药了', 'body' => '阿莫西林 1片', 'priority' => '紧急'];
+chk('渲染替换变量', lb_notify_text_render($tpl2, $evMed) === "吃药 08:00\n阿莫西林 1片\n紧急",
+    lb_notify_text_render($tpl2, $evMed));
+
+$evWater = ['kind' => 'habit', 'source' => 'water', 'id' => 'h_water', 'time' => '10:00',
+    'title' => '喝水', 'body' => '还差 4 杯', 'priority' => '日常'];
+chk('未知场景回退 kind 模板', strpos(lb_notify_text_render($tpl2, $evWater), '喝水') !== false,
+    lb_notify_text_render($tpl2, $evWater));
+chk('板块映射：water 归 water', lb_notify_board_of($evWater) === 'water');
+chk('板块映射：测试消息归自定义提醒', lb_notify_board_of(['kind' => 'notice', 'source' => 'test']) === 'notice');
+chk('板块映射：无 source 的 habit 归 habit', lb_notify_board_of(['kind' => 'habit']) === 'habit');
+
+echo '[19] 板块停用真的拦发送（接线）' . PHP_EOL;
+$pdo19 = db();
+$pdo19->prepare('INSERT INTO users (id, email, status, push_webhook, push_enabled) VALUES (?, ?, ?, ?, 1)')
+    ->execute([19, 'u19@example.com', 'active', HOOK]);
+$pdo19->prepare('INSERT INTO user_mail_config (user_id, enabled) VALUES (?, 1)')->execute([19]);
+$taskState = ['tasks' => [[
+    'id' => 't1', 'title' => '交报告', 'status' => 'todo', 'due' => D,
+    'repeat' => 'none', 'notifyTime' => HM,
+]]];
+$pdo19->prepare('INSERT INTO boards (user_id, data) VALUES (?, ?)')
+    ->execute([19, json_encode($taskState, JSON_UNESCAPED_UNICODE)]);
+lb_notify_boards_save($pdo19, 19, ['boards' => ['task' => ['on' => false]]]);
+$log19 = [];
+lb_push_tick_run($pdo19, D, HM, channels($log19));
+chk('停用待办板块后不发送', $log19 === [], implode(',', $log19));
+
+lb_notify_boards_save($pdo19, 19, ['boards' => ['task' => ['on' => true]]]);
+$log19b = [];
+lb_push_tick_run($pdo19, D, HM, channels($log19b));
+chk('重新启用后照常发送', $log19b === ['wecom', 'mail'], implode(',', $log19b));
+
+echo '[20] 自定义免打扰时段真的拦发送' . PHP_EOL;
+$pdo20 = db();
+add_user($pdo20, 20, '21:30');
+lb_notify_quiet_save($pdo20, 20, ['on' => true, 'start' => '21:00', 'end' => '22:00']);
+$log20 = [];
+$r20 = lb_push_tick_run($pdo20, D, '21:30', channels($log20));
+chk('21:30 命中自定义时段，一条不发',
+    $log20 === [] && ($r20['quiet_skipped'] ?? 0) === 1, implode(',', $log20));
+lb_notify_quiet_save($pdo20, 20, ['on' => false, 'start' => '21:00', 'end' => '22:00']);
+$log20b = [];
+lb_push_tick_run($pdo20, D, '21:30', channels($log20b));
+chk('关掉后同一时刻照发', count($log20b) > 0, implode(',', $log20b));
+
+echo '[21] 全局通知总闸（v212）' . PHP_EOL;
+$pdo21 = db();
+add_user($pdo21, 21);
+chk('默认开（没配过不能一条都不发）', lb_notify_global_load($pdo21, 21) === true);
+lb_notify_global_save($pdo21, 21, false);
+chk('关掉后读回 false', lb_notify_global_load($pdo21, 21) === false);
+$log21 = [];
+$r21 = lb_push_tick_run($pdo21, D, HM, channels($log21));
+chk('总闸关闭时一条不发',
+    $log21 === [] && ($r21['global_skipped'] ?? 0) === 1, implode(',', $log21));
+lb_notify_global_save($pdo21, 21, true);
+$log21b = [];
+lb_push_tick_run($pdo21, D, HM, channels($log21b));
+chk('重新打开后照常发送', count($log21b) > 0, implode(',', $log21b));
+
 echo PHP_EOL . str_repeat('-', 46) . PHP_EOL;
 echo '通知通道矩阵：通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail > 0 ? 1 : 0);

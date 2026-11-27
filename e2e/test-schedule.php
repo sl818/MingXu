@@ -539,6 +539,83 @@ chk('478：兜底时刻是 07:00 / 14:00 / 21:00',
     times($bDirty) === ['07:00 habit:h_breathe', '14:00 habit:h_breathe', '21:00 habit:h_breathe'],
     implode(' | ', times($bDirty)));
 
+/* ------------------------------------------------------------------ */
+/* v211：模板字段 source / priority
+   只增不改：time/kind/id/title/body 保持原样，去重键仍是 日期|kind|id|时间。
+   模块停用 v209 已在上面覆盖，这里只验新增字段。 */
+echo PHP_EOL . '[7] 模板字段（v211）' . PHP_EOL;
+
+$mf = lb_schedule_day(['meds' => [$med]], D)[0] ?? [];
+chk('药：source=med / priority=紧急',
+    ($mf['source'] ?? '') === 'med' && ($mf['priority'] ?? '') === '紧急',
+    json_encode($mf, JSON_UNESCAPED_UNICODE));
+
+$taskTagged = ['id' => 't9', 'title' => '交周报', 'status' => 'todo', 'due' => D,
+    'repeat' => 'none', 'notifyTime' => '09:00', 'tag' => '工作', 'priority' => '高'];
+$tf = lb_schedule_day(['tasks' => [$taskTagged]], D)[0] ?? [];
+chk('待办：source=task / priority=当日 / tag / taskPriority',
+    ($tf['source'] ?? '') === 'task' && ($tf['priority'] ?? '') === '当日'
+    && ($tf['tag'] ?? '') === '工作' && ($tf['taskPriority'] ?? '') === '高',
+    json_encode($tf, JSON_UNESCAPED_UNICODE));
+
+$habitBuild = ['id' => 'h9', 'name' => '读书', 'suggestTime' => '15:00',
+    'target' => 1, 'unit' => '次', 'type' => 'build'];
+$hf = lb_schedule_day(['habits' => [$habitBuild]], D)[0] ?? [];
+chk('习惯：source=habit / priority=日常 / habitType=build',
+    ($hf['source'] ?? '') === 'habit' && ($hf['priority'] ?? '') === '日常'
+    && ($hf['habitType'] ?? '') === 'build',
+    json_encode($hf, JSON_UNESCAPED_UNICODE));
+
+$wf = lb_schedule_day(['modules' => ['water' => [
+    'on' => true, 'name' => '喝水', 'icon' => '💧', 'notify' => true,
+    'cups' => 3, 'perMl' => 250, 'goalMl' => 750,
+    'notifyMode' => 'each', 'notifyStart' => '08:00', 'notifyEnd' => '21:00',
+]]], D)[0] ?? [];
+chk('喝水：source=water / priority=日常',
+    ($wf['source'] ?? '') === 'water' && ($wf['priority'] ?? '') === '日常',
+    json_encode($wf, JSON_UNESCAPED_UNICODE));
+
+$mvf = lb_schedule_day(['modules' => ['move' => [
+    'on' => true, 'name' => '运动', 'icon' => '🏃', 'notify' => true,
+    'sports' => [[
+        'id' => 's1', 'key' => 'run', 'name' => '晨跑', 'startTime' => '06:30',
+        'freqKind' => 'daily', 'freqN' => 1,
+    ]],
+    'records' => [],
+]]], D)[0] ?? [];
+chk('运动：source=move / priority=日常 / sport=run',
+    ($mvf['source'] ?? '') === 'move' && ($mvf['priority'] ?? '') === '日常'
+    && ($mvf['sport'] ?? '') === 'run',
+    json_encode($mvf, JSON_UNESCAPED_UNICODE));
+
+$brf = lb_schedule_day($breathOf(['07:00']), D)[0] ?? [];
+chk('478：source=breathe / priority=日常',
+    ($brf['source'] ?? '') === 'breathe' && ($brf['priority'] ?? '') === '日常',
+    json_encode($brf, JSON_UNESCAPED_UNICODE));
+
+$rpf = lb_schedule_reports(['tasks' => []], D)[0] ?? [];
+chk('小结：source=report / priority=日常',
+    ($rpf['source'] ?? '') === 'report' && ($rpf['priority'] ?? '') === '日常',
+    json_encode($rpf, JSON_UNESCAPED_UNICODE));
+
+$ntf = $noticesOf([$everyDay], '2026-11-08')[0] ?? [];
+chk('自定义通知：source=notice / priority=当日',
+    ($ntf['source'] ?? '') === 'notice' && ($ntf['priority'] ?? '') === '当日',
+    json_encode($ntf, JSON_UNESCAPED_UNICODE));
+
+$cdf = $cdsOf([$cd([])], '2026-11-17')[0] ?? [];
+chk('倒数日：source=countdown / priority=当日',
+    ($cdf['source'] ?? '') === 'countdown' && ($cdf['priority'] ?? '') === '当日',
+    json_encode($cdf, JSON_UNESCAPED_UNICODE));
+
+$dbtOne = $dbtOf([$db([])], '2026-11-12')[0] ?? [];
+chk('还款：source=debt / priority=紧急 / due=本次还款日',
+    ($dbtOne['source'] ?? '') === 'debt' && ($dbtOne['priority'] ?? '') === '紧急'
+    && ($dbtOne['due'] ?? '') === '2026-11-15',
+    json_encode($dbtOne, JSON_UNESCAPED_UNICODE));
+
+chk('新增字段不改变既有五键', isset($mf['time'], $mf['kind'], $mf['id'], $mf['title'], $mf['body']));
+
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail === 0 ? 0 : 1);

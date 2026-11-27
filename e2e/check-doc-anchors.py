@@ -27,12 +27,33 @@ DOCS = ['docs/ARCHITECTURE.md', 'docs/FRONTEND.md', 'docs/BACKEND.md',
         'docs/SMTP.md', 'README.md',
         # 待办技术债（P0）2026-11-24 起
         'docs/P0-喝水模块通知渠道路由.md',
+        # 通知路由现状与方案汇总 2026-11-27 起
+        'docs/通知路由方案汇总.md',
+        # 通知字段落地改动清单（待实施，含新增函数符号）2026-11-27 起
+        'docs/通知字段落地改动清单.md',
+        # 通知路由落地执行方案（工单，待实施，含新增符号）2026-11-27 起
+        'docs/通知路由落地执行方案.md',
+        # 架构判断与升级待办 2026-11-27 起
+        'docs/架构升级评估对照.md',
+        'docs/两万行单文件对策.md',
+        'docs/组件规范与日期控件待办.md',
+        'docs/给外部AI的开工提示词.md',
         # 设计类文档 2026-11-23 起集中在 docs/design/
         # 只核对「还会指导未来改动」的几份；THEME-SPEC / AI-THEME-GUIDE 是六皮肤时代的存档，
         # 正文必然提到已删除的 themes/*.css，纳进来只会制造固定噪音。
         'docs/design/README.md', 'docs/design/SITE-STRUCTURE.md',
         'docs/design/BRAND.md', 'docs/design/DESIGN-LIB.md',
         'docs/design/THEME-V2-PLAN.md', 'docs/design/REVIEW-2026-11-23.md']
+
+# 待实施文档：描述的是「将要新增」的符号，不是声称现在就有。
+# 对这些文档，除了「已删除」豁免，还豁免「待新增 / 计划引入」行里的符号。
+PLAN_DOCS = {
+    'docs/架构升级评估对照.md',
+    'docs/两万行单文件对策.md',
+    'docs/组件规范与日期控件待办.md',
+    'docs/通知字段落地改动清单.md',
+    'docs/通知路由落地执行方案.md',
+}
 
 # 已知的"不是代码符号"的白名单，避免误报
 NOT_CODE = {
@@ -47,6 +68,7 @@ NOT_CODE = {
     'password_verify()', 'microtime()', 'round()', 'strlen()', 'substr()',
     'slice()', 'split()', 'join()', 'replace()', 'filter()', 'map()',
     'forEach()', 'sort()', 'push()', 'concat()', 'indexOf()', 'includes()',
+    'FormData()',  # 浏览器内置
 }
 
 
@@ -113,11 +135,15 @@ def main():
     problems = []
     del_by_doc = {}
 
-    def deletion_spans(text):
-        """收集出现在「已删除 / 废弃 / 移除」说明行里的反引号符号，后面按行豁免。"""
+    def deletion_spans(text, doc):
+        """收集出现在「已删除 / 废弃 / 移除」说明行里的反引号符号，后面按行豁免。
+        待实施文档（PLAN_DOCS）额外豁免「新增 / 引入 / 下载 / 待建 / 抽成」行——
+        那些是「将要有的」符号，不是「声称已经有的」。"""
         out = set()
         for line in text.split('\n'):
-            if re.search(r'删|移除|废弃|去掉|失效', line):
+            killed = re.search(r'删|移除|废弃|去掉|失效', line)
+            planned = doc in PLAN_DOCS and re.search(r'新增|引入|下载|待建|抽成|待新增|计划', line)
+            if killed or planned:
                 out.update(x.strip() for x in re.findall(r'`([^`\n]+)`', line))
         return out
 
@@ -127,7 +153,7 @@ def main():
             problems.append((doc, '整个文件缺失', ''))
             continue
         text = load(path)
-        del_by_doc[doc] = deletion_spans(text)
+        del_by_doc[doc] = deletion_spans(text, doc)
         code_spans = re.findall(r'`([^`\n]+)`', text)
 
         # 1. 函数名（只认干净标识符，跳过伪代码和内置方法）

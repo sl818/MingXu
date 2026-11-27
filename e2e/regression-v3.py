@@ -61,6 +61,28 @@ class H(http.server.SimpleHTTPRequestHandler):
             elif a == 'me': self._j({'ok': True, 'user': sessions.get(self._sid()), 'csrf': 'x', 'registration_open': False})
             elif a == 'push_status': self._j({'ok': True, 'enabled': False, 'webhook': '', 'sent_today': 0, 'last_sent': '', 'recent': []})
             elif a == 'push_preview': self._j({'ok': True, 'date': '2026-10-25', 'items': []})
+            elif a == 'mail_status': self._j({'ok': True, 'config': {'enabled': False, 'hasSecret': False}})
+            elif a == 'notify_prefs':
+                bd = {k: {'channels': {'wecom': True, 'mail': False, 'browser': False}}
+                      for k in ('med', 'water', 'move', 'breathe', 'quit')}
+                bd.update({k: {'on': True, 'channels': {'wecom': True, 'mail': True, 'browser': True}}
+                           for k in ('task', 'habit', 'notice', 'countdown', 'debt', 'report')})
+                scenes = {k: {'title': '{标题}', 'body': '{正文}', 'browser': '{浏览器文案}'}
+                          for k in ('med', 'task', 'habit', 'water', 'move', 'breathe',
+                                    'report', 'notice', 'countdown', 'debt', 'test')}
+                self._j({'ok': True,
+                         'kinds': {'med': '用药提醒', 'task': '待办到点', 'habit': '习惯提醒',
+                                   'countdown': '倒数日', 'notice': '自定义提醒',
+                                   'debt': '还款提醒', 'report': '每日小结'},
+                         'channels': {'wecom': '企业微信', 'mail': '邮件'},
+                         'prefs': {k: {'wecom': True, 'mail': k not in ('habit', 'report')}
+                                   for k in ('med', 'task', 'habit', 'countdown', 'notice', 'debt', 'report')},
+                         'quiet': False,
+                         'report': {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'},
+                         'boards': bd,
+                         'quietCfg': {'on': False, 'start': '23:00', 'end': '07:00'},
+                         'templates': {'scenes': scenes,
+                                       'mail': {'color': 'blue', 'footer': '明序 · 个人生活提醒'}}})
             elif a == 'ics_status': self._j({'ok': True, 'url': None})
             elif a == 'load': self._j({'ok': True, 'data': board['data'], 'rev': board['rev'], 'updated_at': 1792813000000})
             else: self._j({'ok': False, 'error': '?'}, 404)
@@ -122,7 +144,8 @@ with sync_playwright() as p:
         pg.click('form.modal-card button[type="submit"]'); pg.wait_for_timeout(2800)
 
         views = [('today', '今日'), ('board', '待办'), ('habits', '习惯'), ('weight', '体重'),
-                 ('essays', '随笔'), ('calendar', '日历'), ('stats', '统计'), ('settings', '设置')]
+                 ('essays', '随笔'), ('calendar', '日历'), ('stats', '统计'), ('settings', '设置'),
+                 ('notifyroute', '通知路由')]
         for v, label in views:
             before = len(errs)
             pg.click(f'.nav-item[data-nav="{v}"]'); pg.wait_for_timeout(1100)
@@ -196,15 +219,15 @@ with sync_playwright() as p:
         pg.click('.nav-item[data-nav="settings"]'); pg.wait_for_timeout(900)
         n = pg.locator('button[data-act="set-layout"]').count()
         if target == 'wide' and n != 2:
-            rec('排版选择器 3 张卡片', False, f'{n} 张')
+            rec('排版选择器 2 张卡片', False, f'{n} 张')
         pg.click(f'[data-act="set-layout"][data-layout="{target}"]'); pg.wait_for_timeout(900)
         got = pg.evaluate("() => ({lay: document.documentElement.dataset.layout, app: getComputedStyle(document.querySelector('.app')).display})")
         rec(f'切换到 {target}', got['lay'] == target and got['app'] == chk, json.dumps(got))
     pg.reload(wait_until='networkidle'); pg.wait_for_timeout(2500)
     kept = pg.evaluate("() => ({lay: document.documentElement.dataset.layout, items: document.querySelectorAll('.nav-item').length})")
     # v170 拆分健康模块后，导航 15 项（v170）；v208 加「功能模块」→ 16 项
-    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 16, json.dumps(kept))
-    rec('排版选择器 3 张卡片', True, '已在上面校验')
+    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 17, json.dumps(kept))
+    rec('排版选择器 2 张卡片', True, '已在上面校验')
     ctx.close()
 
     # ---------- C. 移动端三布局 ----------

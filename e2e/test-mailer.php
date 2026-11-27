@@ -132,5 +132,13 @@ $bad['user'] = 'notmail';
 lb_mail_send($bad, 'a@qq.com', '主题', '正文', $why);
 chk('用户名不是完整邮箱被挡', strpos($why, '完整邮箱地址') !== false, $why);
 
+echo PHP_EOL . '[7] 通知邮件 HTML 卡片（v211）' . PHP_EOL;
+$card = lb_notify_mail_card('该吃药了 <x>', "阿莫西林 1片\n记得饭后", '明序 · 测试', 'green');
+chk('卡片是 HTML', strpos($card, '<div') === 0);
+chk('标题被转义', strpos($card, '&lt;x&gt;') !== false && strpos($card, '<x>') === false);
+chk('换行转成 br', strpos($card, '阿莫西林 1片<br') !== false);
+chk('主题色生效', strpos($card, '#0c6e42') !== false);
+chk('页脚写入', strpos($card, '明序 · 测试') !== false);
+
 echo PHP_EOL . "通过 " . $pass . " / " . ($pass + $fail) . PHP_EOL;
 exit($fail > 0 ? 1 : 0);

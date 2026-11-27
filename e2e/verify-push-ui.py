@@ -155,9 +155,9 @@ with sync_playwright() as p:
     pg.wait_for_timeout(2600)
 
     print('\n[1] 还没配置时')
-    nav(pg, 'settings')
+    nav(pg, 'config')
     pg.wait_for_timeout(900)
-    chk('设置页有「手机推送」区块',
+    chk('配置页有「手机推送」区块',
         pg.locator('.ntf-head', has_text='手机推送').count() == 1)
     st = box_state(pg)
     chk('状态是「还没设置」', st and '还没设置' in st['state'], st)
@@ -167,30 +167,37 @@ with sync_playwright() as p:
         (pg.locator('#push-hook').input_value() or '') == '')
     chk('输入框可编辑（不是只读）',
         pg.locator('#push-hook').get_attribute('readonly') is None)
-    chk('有测试按钮', pg.locator('[data-act="push-test"]').count() == 1)
+    chk('未配置时没有「发一条测试」（先保存才能测）',
+        pg.locator('[data-act="push-test"]').count() == 0)
+    chk('有保存按钮', pg.locator('[data-act="push-save"]').count() == 1)
     chk('未开启时没有「暂停推送」', pg.locator('[data-act="push-off"]').count() == 0)
     chk('提示里写了要建「内部群」',
-        '内部群' in pg.locator('.ics-hint').last.inner_text())
+        '内部群' in pg.locator('.push-center .ics-hint').first.inner_text())
     chk('提示里提醒地址不要外传',
-        '别贴到公开的地方' in pg.locator('.ics-warn').last.inner_text())
+        '别贴到公开的地方' in pg.locator('.push-center .ics-warn').first.inner_text())
 
-    print('\n[2] 地址为空时点测试')
+    print('\n[2] 地址为空时点保存：先确认「清空即停用」')
     before = len(MOCK['saves'])
-    pg.locator('[data-act="push-test"]').click()
-    pg.wait_for_timeout(600)
-    chk('不发保存请求', len(MOCK['saves']) == before, 'saves=%d' % len(MOCK['saves']))
-    chk('也不发测试请求', MOCK['tests'] == 0, 'tests=%d' % MOCK['tests'])
-    chk('提示先填地址', '先把 webhook' in toast_text(pg), toast_text(pg))
-
-    print('\n[3] 填地址并发测试')
-    pg.fill('#push-hook', HOOK)
-    pg.locator('[data-act="push-test"]').click()
+    dialogs = []
+    pg.once('dialog', lambda d: (dialogs.append(d.message), d.dismiss()))
+    pg.locator('[data-act="push-save"]').click()
     pg.wait_for_timeout(900)
-    chk('先保存了一次', len(MOCK['saves']) == before + 1, 'saves=%d' % len(MOCK['saves']))
+    chk('弹出清空确认', bool(dialogs) and '清空地址后推送会停用' in dialogs[0],
+        str(dialogs)[:80])
+    chk('取消后不发保存请求', len(MOCK['saves']) == before, 'saves=%d' % len(MOCK['saves']))
+
+    print('\n[3] 填地址 → 保存 → 发测试')
+    pg.fill('#push-hook', HOOK)
+    pg.locator('[data-act="push-save"]').click()
+    pg.wait_for_timeout(900)
+    chk('保存了一次', len(MOCK['saves']) == before + 1, 'saves=%d' % len(MOCK['saves']))
     last = MOCK['saves'][-1] if MOCK['saves'] else {}
     chk('保存时带上完整地址', last.get('webhook') == HOOK, str(last)[:80])
     chk('保存时请求开启', last.get('enabled') is True, str(last.get('enabled')))
-    chk('随后调用了发送测试', MOCK['tests'] == 1, 'tests=%d' % MOCK['tests'])
+    chk('保存后才出现「发一条测试」', pg.locator('[data-act="push-test"]').count() == 1)
+    pg.locator('[data-act="push-test"]').click()
+    pg.wait_for_timeout(900)
+    chk('调用了发送测试', MOCK['tests'] == 1, 'tests=%d' % MOCK['tests'])
     chk('提示发出去了', '发出去了' in toast_text(pg), toast_text(pg))
     st = box_state(pg)
     chk('状态变成已开启', st and ('已开启' in st['state']), st)
@@ -216,16 +223,20 @@ with sync_playwright() as p:
 
     print('\n[5] 地址非法时后端拒绝')
     MOCK['bad_save'] = '这条地址不像是企业微信机器人。正确形式是 https://qyapi.weixin.qq.com/...'
+    pg.locator('[data-act="push-edit"]').click()
+    pg.wait_for_timeout(400)
     pg.fill('#push-hook', 'https://example.com/hook')
-    pg.locator('[data-act="push-test"]').click()
+    pg.locator('[data-act="push-save"]').click()
     pg.wait_for_timeout(800)
     chk('把后端的错误显示出来',
         '不像是企业微信机器人' in toast_text(pg), toast_text(pg))
 
     print('\n[6] 发送失败时的提示')
     MOCK['bad_save'] = ''
-    pg.fill('#push-hook', HOOK)
     MOCK['fail_test'] = True
+    pg.fill('#push-hook', HOOK)
+    pg.locator('[data-act="push-save"]').click()
+    pg.wait_for_timeout(900)
     pg.locator('[data-act="push-test"]').click()
     pg.wait_for_timeout(900)
     chk('失败原因透传到界面',
@@ -236,7 +247,7 @@ with sync_playwright() as p:
     MOCK['enabled'] = True
     pg.reload(wait_until='networkidle')
     pg.wait_for_timeout(2400)
-    nav(pg, 'settings')
+    nav(pg, 'config')
     pg.wait_for_timeout(900)
     st = box_state(pg)
     chk('重新打开仍是已开启', st and '已开启' in st['state'], st)
@@ -249,12 +260,8 @@ with sync_playwright() as p:
     chk('显示今天已发条数', '今天已发 3 条' in txt, txt[-100:])
     chk('发送记录带正文', '阿莫西林' in txt, txt[-140:])
 
-    print('\n[7b] 今日推送计划')
-    chk('显示今日推送计划', '今日推送计划' in txt, txt[:140])
-    chk('计划里有 3 条', '3 条' in txt, txt[:120])
-    chk('计划里出现用药', '用药' in txt, txt[:180])
-    chk('计划里出现汇报', '汇报' in txt, txt[:180])
-    chk('计划里出现时间 08:20', '08:20' in txt, txt[:180])
+    print('\n[7b] 今日计划已迁出配置页（v211 起归「通知路由」页）')
+    chk('配置页不再显示今日推送计划', '今日推送计划' not in txt, txt[:140])
 
     print('\n[8] 手机端的排版')
     pg.set_viewport_size({'width': 390, 'height': 844})
