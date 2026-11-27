@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=203">
+<link rel="stylesheet" href="assets/app.css?v=204">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=203">
+<link rel="stylesheet" href="assets/theme-v2.css?v=204">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v203';
+  const APP_VERSION = 'v204';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -640,7 +640,10 @@
         break;
       }
     }
-    return out.filter(Boolean);
+    /* v204：按时间升序返回。线上拟真测试发现：1 组 15:00 → 改 3 组，会得出
+       15:00 / 07:00 / 14:00 这种乱序（保留旧值 + 追加缺口的必然结果）。
+       「第 N 个时间点 = 第 N 组」的语义要求它单调递增，所以这里统一排一次。 */
+    return out.filter(Boolean).sort(function (a, b) { return a < b ? -1 : (a > b ? 1 : 0); });
   }
 
   function moduleDefaults(key) {
@@ -3211,6 +3214,15 @@
   }
   /* 两类都走事件流、都进统计：别用 type === 'quit' 判断，会漏掉戒烟 */
   function isQuitLike(h) { return !!h && (h.type === 'quit' || h.type === 'smoke'); }
+  /* v204：戒除（quit）与戒烟（smoke）判定分家。
+     戒烟靠「当天没点一根」自动成立；戒除不再自动打卡——从生效日起，
+     必须当天点一次「完成」写进 checks 才算守住。
+     生效日之前的历史沿用旧口径（没记失守即守住），既保住已有统计，
+     也让固定时钟在生效日前的全部回归脚本不受影响。 */
+  const QUIT_CHECKIN_FROM = '2026-11-27';
+  function quitNeedsCheckin(h, d) {
+    return !!h && h.type === 'quit' && !!d && d >= QUIT_CHECKIN_FROM;
+  }
   /* 戒除的打卡方式（v79）：
      once  = 每日单次，点了就是破了，再点撤销（老行为）
      multi = 每日多次，一天可以记好几次（比如奶茶喝了两杯）
@@ -3277,6 +3289,8 @@
   /* 连续无烟天数：今天 - 最后一次「抽了」那天。今天抽过就是 0；
      从没抽过则从戒烟起点算（含当天，所以 +1）。 */
   function quitStreak(h) {
+    /* v204：生效日起戒除类看连续打卡；戒烟（smoke）与历史日期都不变 */
+    if (quitNeedsCheckin(h, todayStr())) return streakOn(h, todayStr());
     const last = lastSmokeTs(h.id);
     const diff = Math.round((parseD(todayStr()) - parseD(last ? tsDay(last) : quitStartDay(h))) / 86400000);
     return Math.max(0, last ? diff : diff + 1);
@@ -3603,7 +3617,7 @@
         ? (isMultiSlip(h)
             ? '又记一次 · 今天 ' + quitSlips(h, todayStr()) + ' 次'
             : '今天没守住 · 连续从今天重新数')
-        : '已记一次');
+        : (quitNeedsCheckin(h, todayStr()) ? '已打卡 · 今天守住了' : '已记一次'));
     }
   }
   function undoCraving(hid) {
@@ -3973,10 +3987,17 @@
     if (h.id === 'h_move') {
       return moveMet(d);
     }
-    /* 戒烟看事件不看计数：今天只要有一条「抽了」就不算达标。
+    /* 戒烟（smoke）看事件不看计数：今天只要有一条「抽了」就不算达标。
        老数据里 checks 的残值不再参与判断（v5 迁移时已转成事件）。 */
-    if (isQuitLike(h)) {
+    if (isSmoke(h)) {
       return !dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
+    }
+    /* v204：戒除（quit）从生效日起必须主动打卡才算守住。
+       一天里既没打卡也没记失守，就是「还没做」，不能再自动算完成。 */
+    if (h.type === 'quit') {
+      if (dayCravings(h.id, d).some(function (e) { return e.k === 's'; })) return false;
+      if (quitNeedsCheckin(h, d)) return countOf(d, h.id) >= 1;
+      return true;
     }
     const c = countOf(d, h.id);
     return c >= Math.max(1, Number(h.target) || 1);
@@ -4056,7 +4077,28 @@
      当天还没达标就从昨天起算，和 habitStreak 的口径一致。 */
   function streakOn(h, d) {
     if (!h || h.med) return 0;
-    if (isQuitLike(h)) {
+    if (isSmoke(h)) {
+      let last = '';
+      cravingsOf(h.id).forEach(function (e) {
+        if (e.k === 's') {
+          const day = tsDay(e.t);
+          if (day <= d && day > last) last = day;
+        }
+      });
+      const base = last || quitStartDay(h);
+      const diff = Math.round((parseD(d) - parseD(base)) / 86400000);
+      return Math.max(0, last ? diff : diff + 1);
+    }
+    if (h.type === 'quit') {
+      /* v204：生效日起戒除类按「连续打卡」算，没打卡就断；
+         生效日之前沿用老的「距上次破戒天数」，历史纪录不翻旧账。 */
+      if (quitNeedsCheckin(h, d)) {
+        const born = quitStartDay(h);
+        let n = 0, cur = d;
+        if (!met(h, cur)) cur = shiftDay(cur, -1);
+        while (n < 3650 && cur >= born && met(h, cur)) { n++; cur = shiftDay(cur, -1); }
+        return n;
+      }
       let last = '';
       cravingsOf(h.id).forEach(function (e) {
         if (e.k === 's') {
@@ -4086,8 +4128,13 @@
       if (q) {
         const evs = dayCravings(h.id, ds);
         const slip = evs.some(function (e) { return e.k === 's'; });
-        if (!evs.length) { cls += ' empty'; tip += '没记录'; }
-        else if (slip) { cls += ' broken'; tip += '失守'; }
+        if (slip) { cls += ' broken'; tip += '失守'; }
+        /* v204：戒除类生效日起看打卡，没打卡就是空圈；戒烟/历史仍看事件 */
+        else if (quitNeedsCheckin(h, ds)) {
+          if (countOf(ds, h.id) >= 1) { cls += ' on'; ratio = 1; tip += '守住了'; }
+          else { cls += ' empty'; tip += '没打卡'; }
+        }
+        else if (!evs.length) { cls += ' empty'; tip += '没记录'; }
         else { cls += ' on'; ratio = 1; tip += '守住'; }
       } else {
         const c = countOf(ds, h.id);
@@ -4120,11 +4167,17 @@
      以前两处各算一套，于是出现过「七个空圈 + 本周 7/7」这种一张卡讲两套话。 */
   function habitDayMark(h, ds, d) {
     if (ds > d) return 'future';
-    if (isQuitLike(h)) {
-      /* 戒除的达标是隐式的：不记失守就是守住（这是产品的原有语义，也是
-         「连续 29 天」的来源）。起始日之前的日子不算——那是还没开始。 */
+    if (isSmoke(h)) {
+      /* 戒烟仍是「没点一根就守住」，和以前一样 */
       if (dayCravings(h.id, ds).some(function (e) { return e.k === 's'; })) return 'fail';
       if (ds < quitStartDay(h)) return 'none';
+      return 'done';
+    }
+    if (h.type === 'quit') {
+      if (dayCravings(h.id, ds).some(function (e) { return e.k === 's'; })) return 'fail';
+      if (ds < quitStartDay(h)) return 'none';
+      /* v204：生效日起，戒除类当天没主动打卡就是空圈，不再自动画勾 */
+      if (quitNeedsCheckin(h, ds) && countOf(ds, h.id) < 1) return 'none';
       return 'done';
     }
     const target = Math.max(1, Number(h.target) || 1);
@@ -4204,7 +4257,35 @@
      扫描区间由最早一条记录决定，没有记录时只算今天，不会白转几千轮。 */
   function habitBest(h, d) {
     if (!h || h.med) return 0;
-    if (isQuitLike(h)) {
+    if (isSmoke(h)) {
+      const slips = [];
+      cravingsOf(h.id).forEach(function (e) {
+        if (e.k === 's') {
+          const day = tsDay(e.t);
+          if (day <= d) slips.push(day);
+        }
+      });
+      if (!slips.length) return streakOn(h, d);
+      slips.sort();
+      let best = 0, prev = quitStartDay(h);
+      slips.forEach(function (day) {
+        best = Math.max(best, Math.round((parseD(day) - parseD(prev)) / 86400000));
+        prev = day;
+      });
+      return Math.max(best, Math.round((parseD(d) - parseD(prev)) / 86400000));
+    }
+    if (h.type === 'quit') {
+      /* v204：生效日起戒除类按打卡算最长连续；之前的历史仍按破戒间隔算 */
+      if (quitNeedsCheckin(h, d)) {
+        const born = quitStartDay(h);
+        let best = 0, run = 0, cur = d;
+        const span = Math.max(1, Math.round((parseD(d) - parseD(born)) / 86400000) + 1);
+        for (let i = 0; i < span; i++) {
+          if (met(h, cur)) { run++; if (run > best) best = run; } else run = 0;
+          cur = shiftDay(cur, -1);
+        }
+        return best;
+      }
       const slips = [];
       cravingsOf(h.id).forEach(function (e) {
         if (e.k === 's') {
@@ -5046,15 +5127,16 @@
     const best = habitBest(h, d);
 
     /* 右上状态：三种文案，两种底色。红只给「还没做完」。
-       戒除的「今天没记录」等于守住（不点 = 一直守着），所以它不会出现
-       「今日待打卡」——真出现的话，就会与同一张卡上的「连续 29 天」「本周 7/7」打架。 */
+       v204：戒除生效日起没打卡就是「今日待打卡」（走 badge 初值），
+       与周条空圈、连续天数断掉保持一致；戒烟与历史仍按「没记失守即守住」。 */
     let badge = '今日待打卡', badgeCls = 'wait';
     if (skip || broken) { badge = '今日未完成'; badgeCls = 'bad'; }
     else if (done) { badge = '今日已完成'; badgeCls = 'ok'; }
 
     /* 节奏：一句话说清「多久做一次、做到多少」 */
     let pace = '每天';
-    if (isQ) pace = '每天保持 0 次';
+    if (isSmoke(h)) pace = '每天保持 0 次';
+    else if (isQ) pace = quitNeedsCheckin(h, d) ? '每天打卡守住' : '每天保持 0 次';
     else if (isDeadlineHabit(h)) pace = '每天 · ' + h.deadline + ' 前';
     else if (target > 1) pace = '每天 · 目标 ' + target + ' ' + (h.unit || '次');
 
@@ -8370,7 +8452,8 @@
         '<div class="w-kpi"><div class="w-ring" style="--p:' + todayPct + ';--rc:#5b8f8a"><b>' + todayPct + '%</b></div>' +
           '<span class="k-label">今日完成度</span><span class="k-sub">已完成 ' + todayN + ' / ' + target + ' 组</span></div>' +
         '<div class="w-kpi"><div class="w-ring" style="--p:' + agg.pct + ';--rc:#7a6a4a"><b>' + agg.pct + '%</b></div>' +
-          '<span class="k-label">' + rLab + '完成度</span><span class="k-sub">每天完成度取平均</span></div>' +
+          /* v204：说清「按现在设的几组折算」——改目标后历史会重算，别让人以为数据丢了 */
+          '<span class="k-label">' + rLab + '完成度</span><span class="k-sub">按现行 ' + target + ' 组折算</span></div>' +
         /* v202：连续达标不用环（streak×10 当进度，超过 10 天就满环，看不出差别）→ 纯数字 */
         '<div class="w-kpi br-plain"><b class="k-big">' + streak + '</b>' +
           '<span class="k-label">连续达标（天）</span><span class="k-sub">' +
@@ -8386,7 +8469,11 @@
       '</div>' +
       '<div class="w-hours br-trend">' + trend + '</div>' +
       '<div class="w-algo"><b>达标算法</b>：当天完成的组数 ≥ 每天几组（当前 ' + target + ' 组）即达标；' +
-        '呼吸次数按「组数 × 每组循环次数（当前 ' + cycles + ' 次）」折算，历史记录按当前设置计算。' +
+        '呼吸次数按「组数 × 每组循环次数（当前 ' + cycles + ' 次）」折算。' +
+        /* v204（方案 A）：把「改目标会重算历史」明说出来 —— 这是按当前目标折算的必然结果，
+           不写清楚，用户把 1 组改成 3 组后会以为历史数据丢了。 */
+        '<b>改了「每天几组」之后，历史达标天数会按新目标重新判定</b>（所有日子用同一把尺子量，' +
+        '所以调高目标时以前的达标天数会变少）。' +
         /* v201（方案 A）：两档分母不同，说明要分开写 ——
            「近 N 天」含没记录的日子，分母就是 N；「全部」只统计有记录的日子，分母是有记录的天数。 */
         (R ? rLab + '达标率 = 达标天数 ÷ ' + rLab + '（没记录的日子算 0）。'
@@ -10563,7 +10650,8 @@
           tr('<b>单次类</b><br><span class="algo-ex">早睡、签到</span>',
              '目标 1 次，打个卡就算做到') +
           tr('<b>戒除类</b><br><span class="algo-ex">不喝奶茶</span>',
-             '当天<b>一条「破了」都没有</b>就算守住 —— 什么都不用点') +
+             '<b>11 月 27 日起</b>：当天<b>点过「完成」打卡</b>、且没有记失守才算守住；不打卡就不算。' +
+             '此前历史仍按「没记失守即守住」口径') +
           tr('<b>戒烟</b>', '当天<b>没有「点一根」</b>就算做到；点了「忍一次」不影响') +
           tr('<b>用药</b><br><span class="algo-ex">站点自带的常驻卡</span>',
              '当天该吃的剂次<b>全部记录了</b>才算，少吃一次就是没做到') +
@@ -14522,7 +14610,7 @@
       '<div class="panel"><h3>小提示</h3>' +
         '<ul class="tips">' +
           '<li>每天花 10 秒打卡，晚上睡前补记也可以。</li>' +
-          '<li>「戒烟」这类戒除型习惯，保持 0 次就会累积连续天数。</li>' +
+          '<li>「戒烟」保持 0 根就累积连续天数；「戒除」类习惯每天要点一次「完成」打卡才算守住（11 月 27 日起）。</li>' +
           '<li>待办里的任务不必很多，3 件以内最容易真正完成。</li>' +
           '<li>同一账号同一时间只允许一台设备在线；换设备登录会把上一台退出去。</li>' +
         '</ul>' +
@@ -15891,7 +15979,7 @@
               ? '<option value="smoke" selected>戒烟 · 站点自带的常驻卡（类型固定）</option>'
               : '') +
             '<option value="build"' + (h.type === 'build' ? ' selected' : '') + '>保持 · 点一下算今天达标</option>' +
-            '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 不点算一直守着，点一下记一次没守住</option>' +
+            '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 每天点「完成」打卡才算守住，点了「未完成」记一次失守</option>' +
           '</select></label>' +
         '<div class="form-grid quit-fields wide" data-quit-only hidden>' +
           '<label class="field" data-qf-start><span>开始日期</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
@@ -15929,10 +16017,10 @@
           '<label class="field" data-habit-freq data-habit-for="monthly"><span>每月几号</span><input type="number" name="notifyMonthday" min="1" max="31" value="' + (Number(h.notifyMonthday) || 1) + '"></label>' +
           '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
         '</div>' +
-        '<p class="hint" data-quit-hint="quit" data-slip="once" hidden>「戒除」默认算守住，什么都不用点；<b>守不住的时候点中间那条横条</b>，' +
-          '记一次失守，连续天数从那天重新数。点错了再点一次即可撤销。</p>' +
-        '<p class="hint" data-quit-hint="quit" data-slip="multi" hidden>同样默认算守住；<b>守不住的时候点中间那颗按钮</b>记一次，' +
-          '一天可以记好几次失守（比如奶茶喝了两杯）。点错了用旁边的「撤销」退掉最后一次，不会把整天清空。</p>' +
+        '<p class="hint" data-quit-hint="quit" data-slip="once" hidden>「戒除」<b>每天要点一次「完成」打卡</b>才算守住，不点就不算；' +
+          '守不住点「未完成」记一次失守，连续天数从那天重新数。点错了各自再点一次即可撤销。</p>' +
+        '<p class="hint" data-quit-hint="quit" data-slip="multi" hidden>「戒除」<b>每天要点一次「完成」打卡</b>才算守住；' +
+          '守不住点「未完成」记一次，一天可以记好几次（比如奶茶喝了两杯）。点错了用旁边的「撤销」退掉最后一次，不会把整天清空。</p>' +
         '<p class="hint" data-quit-hint="smoke" hidden>「戒烟」是站点自带的常驻卡：想抽时点「点一根」，忍住了点「忍一次」，两个都记。' +
           '想把连续天数从今天重新算，把开始日期改成今天即可，历史记录不会丢。</p>' +
         (isPinned(h) ? '<p class="hint">常驻习惯不能删除，可以在这里修改名称、目标和颜色。</p>' : '') +
@@ -16844,6 +16932,7 @@
     const get = function (n) { const el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
     if (!state.modules) state.modules = {};
     const m = state.modules.breathe || moduleDefaults('breathe');
+    const prevGroups = breatheGroups(m);
     const rawG = Math.round(Number(get('groups')) || 0);
     const rawC = Math.round(Number(get('cycles')) || 0);
     const groups = clamp(rawG, 1, BREATHE_MAX_GROUPS);
@@ -16862,10 +16951,14 @@
     state.modulesAt = Date.now();
     /* render 会用新的 groups 重绘输入框 → 被夹住的值自动回填到界面上（用户看得见改成了几） */
     save(); render();
+    /* v204（方案 A）：改组数会让历史达标天数按新目标重判，明说一句，别让人以为数据丢了 */
     toast(rawG > BREATHE_MAX_GROUPS
-      ? '已保存 · 每天几组按上限改为 ' + BREATHE_MAX_GROUPS + ' 组'
+      ? '已保存 · 每天几组按上限改为 ' + BREATHE_MAX_GROUPS + ' 组，历史达标率会按新目标重算'
       : (rawC > 8 ? '已保存 · 每组循环次数按上限改为 8 次'
-        : ((rawG < 1 || rawC < 1) ? '已保存 · 数值已按最小 1 修正' : '478呼吸法设置已保存')));
+        : ((rawG < 1 || rawC < 1) ? '已保存 · 数值已按最小 1 修正'
+          : (groups !== prevGroups
+            ? '已保存 · 每天 ' + groups + ' 组，历史达标率会按新目标重算'
+            : '478呼吸法设置已保存'))));
   }
 
   function saveBreatheNotify(form) {
@@ -19156,14 +19249,20 @@
     },
 
     'pack-open': el => packModal(null),
-    /* 戒除卡右上角圆圈：点一下 = 今天没守住（记一次），再点 = 撤销。
-       语义跟养成相反——养成是「点 = 完成」，戒除是「点 = 破功，不点才是完成」。 */
+    /* 戒除卡右上角圆圈：生效日起点一下 = 打卡守住（再点撤销），
+       之前 / 戒烟仍是「点 = 破功，不点才是守住」。语义跟养成相反。 */
     'quit-mark': el => {
       const h = currentHabit(el.dataset.id);
       if (!h) return;
       /* 多次模式不走这里：它是 toggle（有记录就整天全删），会把记了 3 次的清空 */
       if (isMultiSlip(h)) return;
       const today = todayStr();
+      if (quitNeedsCheckin(h, today)) {
+        setCount(today, h.id, countOf(today, h.id) >= 1 ? 0 : 1);
+        render();
+        toast(countOf(today, h.id) ? '已打卡 · 今天守住了' : '已撤销今天的打卡');
+        return;
+      }
       if (quitSlips(h, today) > 0) {
         state.cravings = craveList().filter(function (e) {
           return !(e.h === h.id && e.k === 's' && tsDay(e.t) === today);
@@ -19248,6 +19347,9 @@
       logHabit(id, -1);
       setCount(selectedDate, id, c - 1);
       render();
+      /* v204：撤销原来一点反馈都没有（数字变了但没提示）。只给 478 补，
+         不动其他习惯 —— 它们的撤销已有自己的视觉反馈，加 toast 反而吵。 */
+      if (id === 'h_breathe') toast('已撤销一组');
     },
     /* ---- 倒数日（v76） ---- */
     'cd-new': () => countdownModal(null),
@@ -19313,14 +19415,23 @@
 
     /* v2 卡片的主按钮：完成 / 未完成。
        养成：完成 = 记到目标值；未完成 = 打上「明确没做完」的标记（不清多目标已达成的进度）。
-       戒除：完成 = 记一次「忍住了」（有记录才算确认）；未完成 = 记一次失守。
+       戒除（v204 生效日起）：完成 = 打卡守住（写入 checks，再点撤销）；未完成 = 记一次失守。
+       戒烟 / 生效日前的戒除：完成只撤销误记的失守，不点也算守住。
        两边都做成 toggle —— 再点一次就是撤销，卡片上的按钮不会变成单向阀。 */
     'habit-ok': el => {
       const h = currentHabit(el.dataset.id);
       if (!h) return;
       const d = selectedDate;
+      if (quitNeedsCheckin(h, d)) {
+        /* 戒除新语义：主动打卡才算守住，再点一次撤销打卡 */
+        setCount(d, h.id, countOf(d, h.id) >= 1 ? 0 : 1);
+        render();
+        if (countOf(d, h.id)) habitPulse(h.id, 'on');
+        toast(countOf(d, h.id) ? '已打卡 · 今天守住了' : '已撤销今天的打卡');
+        return;
+      }
       if (isQuitLike(h)) {
-        /* 戒除没有「确认守住」这个动作——不记失守就是守住。
+        /* 戒烟与历史戒除：没有「确认守住」这个动作——不记失守就是守住。
            这个按钮只承担一件事：把今天误记的失守撤掉。 */
         if (quitSlips(h, d) > 0) {
           state.cravings = craveList().filter(function (e) {
@@ -19330,7 +19441,7 @@
           toast('已撤销失守 · 今天重新算作守住');
           return;
         }
-        toast('今天已经守住了');
+        toast(isSmoke(h) ? '今天已经守住了' : '这一天按老规则：没记失守就算守住');
         return;
       }
       const target = Math.max(1, Number(h.target) || 1);
@@ -19352,8 +19463,10 @@
       const d = selectedDate;
       if (isQuitLike(h)) {
         /* 多次模式：点一次加一条（一天几次正是这个习惯本身）；
-           单次模式：再点一次是撤销，与「完成」形成一对 */
+           单次模式：再点一次是撤销，与「完成」形成一对。
+           v204：记失守时顺手撤掉当天的打卡，免得「已打卡」和「已失守」同时成立。 */
         if (isMultiSlip(h) || quitSlips(h, d) === 0) {
+          if (quitNeedsCheckin(h, d) && countOf(d, h.id) >= 1) setCount(d, h.id, 0);
           addCraving(h.id, 's');
           habitPulse(h.id, 'slip');
           return;
@@ -19362,7 +19475,7 @@
           return !(e.h === h.id && e.k === 's' && tsDay(e.t) === d);
         });
         save(); render();
-        toast('已撤销 · 今天重新算作守住');
+        toast(quitNeedsCheckin(h, d) ? '已撤销失守 · 记得点「完成」打卡' : '已撤销 · 今天重新算作守住');
         return;
       }
       if (isSkipped(d, h.id)) {
@@ -20521,7 +20634,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=203', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=204', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

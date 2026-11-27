@@ -259,8 +259,10 @@ with sync_playwright() as p:
     rec('保存设置 → 新增的两个时间点合法且在 07:00–21:00 之间',
         all(t in ('07:00', '10:30', '14:00', '17:30', '21:00') for t in m.get('notifyTimes', [])[3:]),
         str(m.get('notifyTimes')))
-    rec('保存设置 → 保留原有时间值',
-        m.get('notifyTimes', [])[:3] == ['07:00', '13:00', '21:00'], str(m.get('notifyTimes')))
+    rec('保存设置 → 原有时间点都还在（v204 起按时间升序，位置会变）',
+        set(['07:00', '13:00', '21:00']).issubset(set(m.get('notifyTimes', []))), str(m.get('notifyTimes')))
+    rec('v204 保存设置 → 时间点升序',
+        m.get('notifyTimes', []) == sorted(m.get('notifyTimes', [])), str(m.get('notifyTimes')))
     rec('保存设置 → suggestTime 同步第一个', m.get('suggestTime') == '07:00', str(m.get('suggestTime')))
     ctx.close()
 
@@ -325,7 +327,9 @@ with sync_playwright() as p:
         ts = m.get('notifyTimes') or []
         rec('v200 3→%d 组：%d 个时间点' % (target, target), len(ts) == target, str(ts))
         rec('v200 3→%d 组：时间点两两不同（扩容不再撞车）' % target, len(set(ts)) == len(ts), str(ts))
-        rec('v200 3→%d 组：原有 3 个时间点保留' % target, ts[:3] == ['07:00', '13:00', '21:00'], str(ts))
+        rec('v200 3→%d 组：原有 3 个时间点都还在' % target,
+            set(['07:00', '13:00', '21:00']).issubset(set(ts)), str(ts))
+        rec('v204 3→%d 组：时间点升序' % target, ts == sorted(ts), str(ts))
         ctx.close()
 
     # 改 5 组不保存设置 → 保存提醒不丢点
@@ -434,8 +438,8 @@ with sync_playwright() as p:
           times: Array.from(document.querySelectorAll('#breathe-times input')).map(x=>x.value)
         })""")
         rec('v201 ⑤ 老数据[%s] 组数保住 3' % tag, r['groups'] == '3', str(r['groups']))
-        rec('v201 ⑤ 老数据[%s] 首个提醒点是旧 suggestTime' % tag,
-            r['times'][:1] == ['21:30'], str(r['times']))
+        rec('v201 ⑤ 老数据[%s] 旧 suggestTime 仍被保留（v204 起按时间排序，不再固定第一位）' % tag,
+            '21:30' in r['times'], str(r['times']))
         ctx.close()
 
     # ⑤ 幂等：刷新一次组数不丢
