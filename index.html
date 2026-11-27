@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=204">
+<link rel="stylesheet" href="assets/app.css?v=206">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=204">
+<link rel="stylesheet" href="assets/theme-v2.css?v=206">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v204';
+  const APP_VERSION = 'v206';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -712,7 +712,7 @@
       if (cups < 2 && goal > per) cups = clamp(Math.ceil(goal / per), 1, 24);
       m.cups = cups || 9;
       m.perMl = per;
-      m.goalMl = Math.max(goal, m.cups * per);
+      m.goalMl = goal;   /* v206：同上，不再被 cups×per 抬高 */
     } else if (key === 'move') {
       m.times = clamp(parseInt(h.target, 10) || 1, 1, 99);
       m.sports = [];
@@ -942,7 +942,9 @@
       out.unit = '杯';
       out.perMl = clamp(Math.round(Number(m.perMl) || d.perMl), 50, 1000);
       out.cups = clamp(Math.round(Number(m.cups) || d.cups), 1, 24);
-      out.goalMl = Math.max(clamp(Math.round(Number(m.goalMl) || d.goalMl), 200, 8000), out.cups * out.perMl);
+      /* v206：不再用 max(cups×per) 抬高用户填的总量 —— 规范化层每次加载/保存都跑，
+         一 max 就把 2300 永久改成 3000（改杯数后）并写回库。读取时由 waterGoalMl 兜底即可。 */
+      out.goalMl = clamp(Math.round(Number(m.goalMl) || d.goalMl), 200, 8000);
       /* 喝水通知：渠道多选 + 频率双模式（v173） */
       const CH = ['browser', 'wecom', 'mail'];
       const ch = Array.isArray(m.notifyChannels) ? m.notifyChannels.filter(function (x) { return CH.indexOf(x) >= 0; }) : [];
@@ -3986,6 +3988,12 @@
     /* 运动 2.0（v175）：达标看「当天有任意运动完成」，见 moveMet()（含老数据回退） */
     if (h.id === 'h_move') {
       return moveMet(d);
+    }
+    /* v206（陛下定的口径）：喝水按**毫升**判达标。
+       实现上等价于「喝满 每天几杯」（waterMlOf 的最后一杯会补齐差额，喝满 N 杯正好 = 目标 ml），
+       但语义更明确 —— 以后改 waterMlOf 的分配公式时，不会再出现"杯数对了 ml 不对"的错位。 */
+    if (h.id === 'h_water') {
+      return waterMlOf(h, countOf(d, h.id)) >= waterGoalMl(h);
     }
     /* 戒烟（smoke）看事件不看计数：今天只要有一条「抽了」就不算达标。
        老数据里 checks 的残值不再参与判断（v5 迁移时已转成事件）。 */
@@ -16775,13 +16783,24 @@
       const num = function (el, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(Number(el.value) || 0))); };
       const syncHint = function () {
         const goal = num(g, 200, 8000), per = num(p, 50, 1000), cups = num(c, 1, 24);
-        const last = Math.max(0, goal - (cups - 1) * per);
-        if (hint) hint.innerHTML = '每天 <b>' + cups + '</b> 杯 · 每杯 <b>' + per + '</b> ml' + (last > 0 ? ' · 最后一杯 <b>' + last + '</b> ml' : '');
+        const total = cups * per;
+        const last = Math.max(per, goal - (cups - 1) * per);
+        let html = '每天 <b>' + cups + '</b> 杯 × 每杯 <b>' + per + '</b> ml = <b>' + total + '</b> ml';
+        if (goal >= total) {
+          html += ' · 总量 <b>' + goal + '</b> ml，最后一杯 <b>' + last + '</b> ml';
+        } else {
+          html += ' · <b>已超过设定的总量 ' + goal + ' ml</b>，实际按 ' + total + ' ml 算（最后一杯 ' + per + ' ml）';
+        }
+        if (hint) hint.innerHTML = html;
       };
       if (g && p && c) {
+        /* v206：把三向互相覆盖改成**单向**
+           · 改「总量」或「每杯」→ 杯数自动重算（杯数是派生量，重算不丢用户数据，这是原设计，保留）
+           · 改「杯数」→ **不再倒推覆盖总量**（那是主数据；原来一碰杯数，2300 就永久变成 2250，线上实测复现过）
+           真正的目标仍由 waterGoalMl() 读取时兜底（保证最后一杯不溢出）。 */
         g.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
         p.addEventListener('input', function () { c.value = Math.max(1, Math.ceil(num(g, 200, 8000) / num(p, 50, 1000))); syncHint(); });
-        c.addEventListener('input', function () { g.value = Math.max(200, num(c, 1, 24) * num(p, 50, 1000)); syncHint(); });
+        c.addEventListener('input', syncHint);
         syncHint();
       }
     }
@@ -16836,7 +16855,9 @@
     const m = state.modules.water || moduleDefaults('water');
     const per = clamp(Math.round(Number(get('perMl')) || 250), 50, 1000);
     const cups = clamp(Math.round(Number(get('cups')) || 9), 1, 24);
-    const goal = Math.max(clamp(Math.round(Number(get('goalMl')) || 2300), 200, 8000), cups * per);
+    /* v206：不再用 Math.max(goalMl, cups×per) 抬高用户填的值 —— 那会让「改杯数就吞掉自定义总量」。
+       存的就是用户填的；读取时 waterGoalMl() 会取 max 兜底（保证最后一杯不溢出）。 */
+    const goal = clamp(Math.round(Number(get('goalMl')) || 2300), 200, 8000);
     m.perMl = per; m.cups = cups; m.goalMl = goal;
     m.updatedAt = new Date().toISOString();
     state.modules.water = m;
@@ -19789,7 +19810,17 @@
       const sp = moveSportById(el.dataset.id);
       if (sp) moveRecListModal(sp, 'log');
     },
-    'move-add-rec': () => moveRecordModal({ add: true }),
+    /* v206：没有运动实例时先引导新建 —— 原来可以直接「添加记录」，记出来的数据挂在
+       一个不存在的运动上（孤儿记录）：统计能看到、首页却永远不算完成。
+       线上实测复现过（记了 4321 步，运动仍显示未完成）。 */
+    'move-add-rec': () => {
+      if (!moveSports().length) {
+        toast('先新建一个运动，再来记录数据');
+        if (typeof moveSportModal === 'function') moveSportModal('');
+        return;
+      }
+      moveRecordModal({ add: true });
+    },
     'move-edit-rec': el => moveEditRecord(el.dataset.id),
     'move-del-rec': el => moveDelRecord(el.dataset.id, false),
     'move-edit': el => moveSportModal(el.dataset.id),
@@ -20634,7 +20665,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=204', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=206', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

@@ -449,6 +449,12 @@ modules: {
 modulesAt: 1763000000000
 ```
 
+**喝水达标口径（v206 起）**：`met()` 对 `h_water` 按**毫升**判 —— `waterMlOf(h, count) >= waterGoalMl(h)`。
+这与原来的「杯数 ≥ cups」等价（`waterMlOf` 的最后一杯会补齐差额，喝满 N 杯正好 = `waterGoalMl`），
+但语义明确：以后改 `waterMlOf` 的分配公式时不会出现「杯数对了 ml 不对」。
+**同时**：`goalMl` 只存用户填的值，`saveWaterSettings` 与 `normalizeModule` 都**不再**用 `cups × perMl` 抬高它；
+「实际目标」由 `waterGoalMl()` 读取时取 max 兜底。设置区联动是单向的：改总量/每杯 → 重算杯数；改杯数 → 不动总量。
+
 **v196 新增 `modules.breathe.notifyTimes`** —— 478 的提醒改成「每天固定时间推送」：
 数组长度 =「每天几组」，每项是 `'HH:MM'`。**v200 起「每天几组」上限 5**（常量 `BREATHE_MAX_GROUPS`，
 后端同名 `LB_BREATHE_MAX_GROUPS`），且时间点**必须两两不同**（`breatheFillTimes()` 负责：按位置保留旧值、
