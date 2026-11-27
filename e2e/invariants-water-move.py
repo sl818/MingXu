@@ -297,9 +297,18 @@ with sync_playwright() as p:
         st['checks'].get('2026-10-24', {}).get('h_water') == 5,
         str(st['checks'].get('2026-10-24')))
 
+    # M7a 停用后：仪表盘不再出现该模块的常驻卡（线上实测漏过的路径：布局清单驱动 moduleAsHabit）
+    pg.evaluate("() => { document.querySelector('[data-nav=\"today\"]').click(); }")
+    pg.wait_for_timeout(1400)
+    m7 = pg.evaluate("() => ({ waterCard: /每天 9 杯/.test(document.body.innerText || ''), vital: document.querySelectorAll('.vital-card').length })")
+    rec('M7 停用后：仪表盘的「喝水」常驻卡消失',
+        not m7['waterCard'], json.dumps(m7, ensure_ascii=False))
+
     # M5 再开启：一切恢复
     saves = []
     pg.on('request', lambda req: saves.append(('water":{"on":True' in (req.post_data or '')) or ('water":{"on":true' in (req.post_data or ''))) if (req.method == 'POST' and 'save' in req.url) else None)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"modules\"]').click(); }")   # M7a 把页面带到了仪表盘，回功能模块页再点开关
+    pg.wait_for_timeout(1200)
     pg.click('[data-act="module-toggle"][data-key="water"]')   # M5：Playwright click（带自动重试）
     print('  [M5] console:', [c for c in pg.__cons__ if any(t in c for t in ('[save]', '[cloudOLC]', '[setModuleOn]'))][-8:], flush=True)
 
@@ -317,7 +326,15 @@ with sync_playwright() as p:
         st['checks'].get('2026-10-24', {}).get('h_water') == 5,
         str(st['checks'].get('2026-10-24')))
 
+    # M7b 再开启：仪表盘常驻卡恢复
+    pg.evaluate("() => { document.querySelector('[data-nav=\"today\"]').click(); }")
+    pg.wait_for_timeout(1400)
+    m7b = pg.evaluate("() => /每天 9 杯/.test(document.body.innerText || '')")
+    rec('M7 重新开启：仪表盘的「喝水」常驻卡恢复', bool(m7b), str(m7b))
+
     # M6 停用状态下刷新：view 兜底回仪表盘，不进停用页
+    pg.evaluate("() => { document.querySelector('[data-nav=\"modules\"]').click(); }")   # M7b 把页面带到了仪表盘，先回功能模块页
+    pg.wait_for_timeout(1200)
     pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"water\"]'); if(c) c.click(); }")
     pg.wait_for_timeout(1200)
     pg.evaluate("() => { localStorage.setItem('lifeboard.view', 'water'); }")

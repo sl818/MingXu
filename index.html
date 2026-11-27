@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=209">
+<link rel="stylesheet" href="assets/app.css?v=210">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=209">
+<link rel="stylesheet" href="assets/theme-v2.css?v=210">
 </head>
 <body>
 <div class="app landing">
@@ -310,7 +310,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v209';
+  const APP_VERSION = 'v210';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -6607,7 +6607,11 @@
        顺序仍由 orderedPinnedIds() 决定，用户的既有排序不受影响。 */
     const pinned = orderedPinnedIds().map(function (id) {
       const key = moduleKeyOf(id);
-      const h = key ? moduleAsHabit(key) : visibleHabits.find(x => x.id === id);
+      /* v210：停用的模块不出常驻卡 —— 这条路径由布局清单驱动、直接 moduleAsHabit，
+         不经过 moduleHabits/activeHabits 的过滤，线上实测停用后仪表盘仍出卡（陛下截图）。
+         返回 null 走下方既有的 filter(Boolean) 兜底。用药的锚点 h_med 不在 MODULE_KEYS，
+         走 visibleHabits 分支、由归档过滤自然隐藏。 */
+      const h = key ? (isModuleOn(key) ? moduleAsHabit(key) : null) : visibleHabits.find(x => x.id === id);
       return h ? { id: id, h: h } : null;
     }).filter(Boolean);
     const pinnedIds = pinned.map(s => s.id);
@@ -20791,7 +20795,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=209', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=210', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
