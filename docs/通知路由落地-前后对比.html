@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通知路由改版 · 前后对比（v210 → v212）</title>
+<style>
+  :root{
+    --bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--text:#1c2621;--muted:#6f7468;
+    --line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--bad:#b0473d;
+    --radius:14px;--shadow:0 1px 2px rgba(60,45,25,.06);--shadow-lg:0 18px 40px -24px rgba(28,38,33,.4);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 56px}
+  header h1{font-size:26px;margin:0 0 6px;letter-spacing:.5px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--accent-soft);
+    color:var(--accent);font-size:11px;font-weight:700;margin-right:6px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 14px}
+  .toolbar button{border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);
+    border-radius:999px;padding:6px 14px;font:inherit;font-size:12.5px;cursor:pointer}
+  .toolbar button.on{background:var(--accent);border-color:var(--accent);color:#fdfaf2;font-weight:700}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .stage.only-before{grid-template-columns:1fr}
+  .stage.only-before .card.after{display:none}
+  .stage.only-after{grid-template-columns:1fr}
+  .stage.only-after .card.before{display:none}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;min-width:0}
+  .card h2{font-size:14px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px}
+  .card h2 .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .card.before h2 .dot{background:var(--bad)}
+  .card.after h2 .dot{background:var(--accent)}
+  .card h2 small{color:var(--muted);font-weight:400;font-size:11.5px;margin-left:auto}
+  .shot{display:block;width:100%;height:auto;background:var(--surface-2)}
+  .scroll{max-height:720px;overflow:auto}
+  .sub{grid-column:1/-1;margin-top:8px}
+  .sub h2{font-size:14px;margin:0 0 8px;padding:0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  th{font-size:11.5px;color:var(--muted);background:var(--surface-2)}
+  td b{font-weight:700}
+  .ok{color:var(--accent);font-weight:700}
+  .note{margin-top:18px;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:12px;
+    background:var(--surface-2);color:var(--muted);font-size:12px;line-height:1.8}
+  .note b{color:var(--text)}
+  @media (max-width:860px){
+    .stage{grid-template-columns:1fr}
+    .scroll{max-height:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>通知路由改版 · 前后对比</h1>
+    <p><span class="tag">v210 → v215</span>旧版把「通知通道矩阵」和「今日推送计划」放在配置页；新版收进独立的「通知路由」页，按板块统一管理，并补上全局总开关、邮件样式与真实通知列表。</p>
+  </header>
+
+  <div class="toolbar">
+    <button type="button" data-mode="both" class="on">并排对比</button>
+    <button type="button" data-mode="before">只看改前</button>
+    <button type="button" data-mode="after">只看改后</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <section class="card before">
+      <h2><span class="dot"></span>改前 · v210 配置页<small>通知通道矩阵 7 行 × 2 渠道 + 今日推送计划</small></h2>
+      <div class="scroll"><img class="shot" src="images/notify-route-before.png" alt="改前：配置页"></div>
+    </section>
+    <section class="card after">
+      <h2><span class="dot"></span>改后 · v212 通知路由页<small>四块：总控 / 板块 / 模板 / 真实数据</small></h2>
+      <div class="scroll"><img class="shot" src="images/notify-route-after.png" alt="改后：通知路由页"></div>
+    </section>
+    <section class="sub card" style="grid-column:1/-1">
+      <h2 style="padding:12px 14px;border-bottom:1px solid var(--line)">改后 · 配置页（旧入口已移除）</h2>
+      <div class="scroll" style="max-height:none"><img class="shot" src="images/notify-route-config-after.png" alt="改后：配置页"></div>
+    </section>
+  </div>
+
+  <h2 class="sub" style="margin-top:24px">关键变化</h2>
+  <table>
+    <thead><tr><th style="width:22%">方面</th><th style="width:39%">改前（v210）</th><th>改后（v211）</th></tr></thead>
+    <tbody>
+      <tr><td><b>入口</b></td><td>全部塞在「配置」页底部，要往下滑很久</td><td>NAV「设置」组新增「通知路由」，手机「更多」抽屉可达</td></tr>
+      <tr><td><b>矩阵</b></td><td>7 类提醒 × 2 渠道（企微 / 邮件），浏览器不参与</td><td>11 板块 × 3 渠道（+ 浏览器）；模块类板块的启用跟随「功能模块」</td></tr>
+      <tr><td><b>今日计划</b></td><td>只读列表，和真实发送口径有差距（只合并两个调度源）</td><td>「用户通知数据列表」：五个调度源 + 本地提醒合并，标出会发送 / 板块停用 / 免打扰 / 本地</td></tr>
+      <tr><td><b>文案</b></td><td>写死在 <code>schedule.php</code>，用户改不了</td><td>11 个场景的标题 / 正文 / 浏览器文案可改，变量只读，右侧实时预览</td></tr>
+      <tr><td><b>免打扰</b></td><td>只有开关，时段写死 23:00–07:00</td><td>可配起止时间，支持跨夜；小结三个时刻同页可改</td></tr>
+      <tr><td><b>邮件</b></td><td>纯文本</td><td>纯文本 + HTML 卡片（multipart），配色与页脚可配</td></tr>
+      <tr><td><b>总开关</b></td><td>没有统一总闸，只能分别暂停企微 / 邮件</td><td>一键暂停全部通知，板块配置保持不变，重新打开立即恢复</td></tr>
+      <tr><td><b>浏览器渠道</b></td><td>矩阵里没有浏览器列，页面通知不受控</td><td>板块可单独关浏览器；关掉后本地通知不再弹</td></tr>
+      <tr><td><b>邮件样式</b></td><td>纯文本</td><td>纯文本 / HTML 卡片可切，主题色与页脚可配，可查看 HTML 源码</td></tr>
+      <tr><td><b>生效</b></td><td>矩阵只影响服务端推送；模块停用后仍可能收到</td><td>板块渠道真正参与发送判定；模块停用由排程层直接跳过</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>测试与发布</b>：`test-schedule.php` 154、`test-notify-prefs.php` 81、`test-mailer.php` 45/49（本地缺 openssl 的 4 项基线同样失败）、
+    `test-ics.php` 76、`test-push.php` 28、`test-push-tick.php` 44、`test-notify-channel.php` 27、
+    `verify-notify-route.py` 31、`regression-v3` 30、`verify-v15` 35、`verify-nav-order` 17、`verify-mobile-nav` 44 全绿。
+    <b>v215 包已生成，尚未上传线上（本版把数据列表换成设计稿的卡片网格 + 筛选栏）</b>；上传后请用测试账号实发一封邮件，确认 multipart 卡片在客户端正常显示。
+  </div>
+</div>
+
+<script>
+  var stage = document.getElementById('stage');
+  document.querySelectorAll('.toolbar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.toolbar button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      stage.className = 'stage' + (b.dataset.mode === 'before' ? ' only-before'
+        : b.dataset.mode === 'after' ? ' only-after' : '');
+    });
+  });
+</script>
+</body>
+</html>

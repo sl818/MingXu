@@ -2,7 +2,7 @@
 
 这个目录放所有说明文档；项目根目录只留 [README.md](../README.md)（入口）和代码。
 
-**当前版本 v119（2026-11-19）**：`index.html` 14,669 行 + `assets/app.css` 4,078 行 · 12 个页面 · 187 个 action · 6 套主题 × 明暗 · 27 个后端接口（含 4 个邮件接口，详见 [SMTP.md](SMTP.md)）。
+**当前版本 v215（2026-11-27，待上传）**：`index.html` 21,230 行 + `assets/app.css` 4,347 行 · 17 个页面 · 360+ 个 action · 1 套主题 × 明暗两态 · 后端 `api.php` 36 个动作 + `api/` 下 7 个接口文件（详见 [BACKEND.md](BACKEND.md) / [SMTP.md](SMTP.md)）。
 
 ---
 
@@ -11,7 +11,7 @@
 | 文档                                     | 回答什么问题                                      | 什么时候读           |
 | -------------------------------------- | ------------------------------------------- | --------------- |
 | [ARCHITECTURE.md](ARCHITECTURE.md)     | 整体怎么跑、文件职责、**四条不能破的规矩**                     | 第一次接触项目         |
-| [FRONTEND.md](FRONTEND.md)             | `index.html` 内部结构、12 个页面 / 15 个 view 函数、182 个 action 怎么分发、主题、移动端 | 改前端             |
+| [FRONTEND.md](FRONTEND.md)             | `index.html` 内部结构、17 个页面 / 18 个 view 函数、360+ 个 action 怎么分发、主题、移动端 | 改前端             |
 | [BACKEND.md](BACKEND.md)               | 23 个接口的鉴权、**三套提醒的过滤条件对照**、推送、备份、部署运维        | 改后端             |
 | [DATA-MODEL.md](DATA-MODEL.md)         | `state` 全部字段、迁移链、多端合并规则                     | 加字段 / 改合并 / 查数据 |
 | [REFACTOR-PLAN.md](REFACTOR-PLAN.md)   | **拆分评估**：实测规模、三阶段、成本与限制；第 8 节是按「AI 增删改效率」的重评 | 想动结构时 |
@@ -26,7 +26,7 @@
 | -------------------------------------- | ------------------------------------------- | --------------- |
 | [design/README.md](design/README.md)   | **设计文档索引 + 每份的时效与适用范围**（读设计文档先看这份）        | 动视觉层之前          |
 | [design/REVIEW-2026-11-23.md](design/REVIEW-2026-11-23.md) | 最近一次设计评审：23/40、13 条待办、复核记录、复评方法 | 做视觉层 / 想知道欠什么 |
-| [design/SITE-STRUCTURE.md](design/SITE-STRUCTURE.md) | 文档地图、三层职责、主题属性、PWA 缓存（2026-11-23 重写）  | 想知道视觉文件怎么分工     |
+| [design/SITE-STRUCTURE.md](design/SITE-STRUCTURE.md) | 17 页页面地图、导航与移动端槽位、主题与断点、PWA 缓存（2026-11-27 重写，v203）  | 查页面在哪 / 视觉文件怎么分工     |
 | [design/THEME-V2-PLAN.md](design/THEME-V2-PLAN.md)   | 主题 v2 的需求与逐版执行记录                        | 改主题           |
 | [design/BRAND.md](design/BRAND.md)     | logo、命名、slogan、语气、字体                        | 动品牌资产时          |
 | [design/DESIGN-LIB.md](design/DESIGN-LIB.md) | 设计参考库：Trackie / Yuvomi 的交互素材、成本与优先级      | 做大改版前          |

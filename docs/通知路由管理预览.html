@@ -1,0 +1,2070 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通知路由管理预览 · 明序</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#ffffff; --line:#e3e8f0; --line-strong:#cfd7e4;
+    --text:#1f2937; --muted:#6b7280; --soft:#9aa4b2;
+    --blue:#2c68ff; --blue-soft:#eaf1ff;
+    --green:#07a55a; --green-soft:#e8f7f0;
+    --amber:#d97706; --amber-soft:#fff5e6;
+    --red:#d92d20; --red-soft:#fff0ee;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  button,select,input{font:inherit;color:inherit}
+  button{cursor:pointer}
+  .app{max-width:1440px;margin:0 auto;padding:24px 28px 48px}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;background:var(--blue);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;letter-spacing:1px;
+    box-shadow:0 6px 14px rgba(44,104,255,.22);
+  }
+  .brand h1{margin:0;font-size:20px;line-height:1.25;font-weight:700}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+  .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .mode-switch{display:flex;background:#e9edf4;border-radius:10px;padding:4px;gap:2px}
+  .mode-switch button{
+    border:0;background:transparent;border-radius:7px;padding:7px 14px;color:var(--muted);
+    font-size:13px;font-weight:600;transition:.15s;
+  }
+  .mode-switch button.on{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(16,24,40,.1)}
+  .ghost-btn{
+    border:1px solid var(--line-strong);background:#fff;border-radius:9px;padding:7px 12px;
+    font-size:12px;color:var(--muted);transition:.15s;
+  }
+  .ghost-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+  .banner{
+    display:flex;align-items:flex-start;gap:12px;border-radius:12px;padding:13px 16px;margin-bottom:16px;
+    border:1px solid var(--amber-soft);background:var(--amber-soft);color:#7a4b06;font-size:13px;
+  }
+  .banner.target{border-color:var(--blue-soft);background:var(--blue-soft);color:#1749a8}
+  .banner .tag{
+    flex:none;font-weight:700;font-size:11px;letter-spacing:.5px;border-radius:6px;
+    padding:2px 8px;background:rgba(255,255,255,.75);
+  }
+  .banner b{font-weight:700}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  .panel-hd{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:15px 17px 12px;border-bottom:1px solid var(--line);
+  }
+  .panel-hd h2{margin:0;font-size:14px;font-weight:700}
+  .panel-hd span{font-size:11px;color:var(--soft)}
+  .panel-bd{padding:14px 17px 17px}
+
+  .channel-panel{margin-bottom:16px}
+  .global-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .global-label{font-size:12px;font-weight:700}
+  .global-note{font-size:11px;color:var(--muted)}
+  .global-line .spacer{flex:1}
+  .channel-toggle{
+    border:1px solid var(--line-strong);background:#fff;border-radius:999px;
+    padding:5px 14px;font-size:11px;font-weight:700;color:var(--muted);transition:.15s;
+  }
+  .channel-toggle.on{background:var(--green-soft);border-color:#a9dcc0;color:#0c6e42}
+  .channel-toggle.off{background:#f1f3f6;border-color:var(--line-strong);color:var(--muted)}
+  .channel-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .channel-card{
+    border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fff;
+    transition:.15s;text-align:left;min-width:0;
+  }
+  .channel-card:hover{border-color:#bcd3ff}
+  .channel-card.on{border-color:var(--blue);background:var(--blue-soft)}
+  .channel-card.wecom.on{border-color:#9ad9b9;background:var(--green-soft)}
+  .channel-card.mail.on{border-color:#f2cf94;background:var(--amber-soft)}
+  .channel-card.disabled{opacity:.5}
+  /* 复刻运动弹窗的亮度语义：选中=高亮、未选中=灰暗；配置状态用圆点表示 */
+  .channel-card.off{opacity:.62;background:#fbfcfe;border-color:var(--line)}
+  .channel-card.off:hover{opacity:.9;border-color:var(--line-strong)}
+  .cc-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .cc-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--soft)}
+  .cc-dot.ok{background:var(--green)}
+  .cc-dot.bad{background:var(--red)}
+  .cc-name{font-size:13px;font-weight:700;flex:1}
+  .channel-card.off .cc-name{color:var(--muted);font-weight:600}
+  .cc-state{font-size:11px;font-weight:700;color:var(--muted)}
+  .channel-card.on .cc-state{color:var(--blue)}
+  .channel-card.wecom.on .cc-state{color:#0c6e42}
+  .channel-card.mail.on .cc-state{color:#8a5808}
+  .cc-desc{font-size:11px;color:var(--muted);line-height:1.5}
+  .cc-check{display:block;margin-top:8px;padding-top:7px;border-top:1px solid var(--line);font-size:10.5px;line-height:1.45}
+  .cc-check.ok{color:#0c6e42}
+  .cc-check.bad{color:var(--red);font-weight:600}
+  .chan-check{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+  .chan-check-title{font-size:11.5px;font-weight:700;margin-bottom:6px}
+  .chan-check-line{display:flex;align-items:center;gap:10px;font-size:11px;padding:5px 0;line-height:1.5}
+  .chan-check-line.ok{color:#0c6e42}
+  .chan-check-line.bad{color:var(--red)}
+  .chan-check-line .cc-text{flex:1}
+  .cfg-btn{
+    border:1px solid var(--line-strong);background:#fff;border-radius:6px;
+    padding:3px 8px;font-size:10px;color:var(--muted);white-space:nowrap;
+  }
+  .cfg-btn:hover{border-color:var(--blue);color:var(--blue)}
+  .chan-check-empty{font-size:11px;color:var(--muted)}
+  .channel-note{
+    font-size:11px;color:var(--muted);margin-top:10px;padding-top:9px;
+    border-top:1px dashed var(--line);line-height:1.7;
+  }
+
+  /* 板块总控：功能模块页与通知矩阵的合并视图 */
+  .board-panel{margin-bottom:16px}
+  .board-tip{font-size:11px;color:var(--muted);line-height:1.7;margin:0 0 11px}
+  .board-tip b{color:var(--text)}
+  .board-table{width:100%;border-collapse:collapse;font-size:12px}
+  .board-table th,.board-table td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:center}
+  .board-table thead th{font-size:11px;color:var(--muted);font-weight:700;background:#f7f9fc}
+  .board-table th:first-child,.board-table td:first-child{text-align:left}
+  .board-table tbody tr:last-child td{border-bottom:0}
+  .board-table tbody tr.off{opacity:.56;background:#fbfcfe}
+  .board-name{display:flex;align-items:center;gap:8px}
+  .board-ico{
+    width:24px;height:24px;border-radius:7px;background:var(--blue-soft);color:#1749a8;
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;
+  }
+  .board-name small{display:block;font-size:10px;color:var(--muted);font-weight:400}
+  .board-switch{
+    border:1px solid var(--line-strong);background:#f1f3f6;border-radius:999px;
+    width:38px;height:20px;padding:0;position:relative;transition:.15s;
+  }
+  .board-switch::after{
+    content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:.15s;
+  }
+  .board-switch.on{background:var(--blue);border-color:var(--blue)}
+  .board-switch.on::after{left:20px}
+  .board-chk{
+    width:17px;height:17px;border:1px solid var(--line-strong);border-radius:5px;background:#fff;
+    color:#fff;font-size:11px;font-weight:700;line-height:15px;padding:0;transition:.15s;
+  }
+  /* 功能模块开关同步条：与正式版功能模块页同一份状态 */
+  .mod-sync{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    padding:10px 12px;margin:0 0 12px;border:1px dashed var(--line-strong);border-radius:10px;background:#f8fafd;
+  }
+  .mod-sync-tag{font-size:11px;font-weight:700;color:var(--muted);margin-right:2px}
+  .mod-chip{
+    display:inline-flex;align-items:center;gap:7px;padding:4px 9px;
+    border:1px solid var(--line-strong);border-radius:999px;background:#fff;font-size:11.5px;
+  }
+  .mod-chip .mi{font-size:13px;line-height:1}
+  .mod-chip.off{opacity:.62}
+  .mod-count{font-size:10.5px;color:var(--muted);margin-left:auto}
+  /* 模块类板块的启用开关：派生自功能模块，视觉上加描边区分 */
+  .board-switch.sync{box-shadow:0 0 0 2px #dbe7ff}
+  .sync-tag{
+    display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;
+    font-size:9.5px;font-weight:700;background:#e8efff;color:#2c5fc4;vertical-align:1px;
+  }
+  .board-chk.on{background:var(--green);border-color:var(--green)}
+  .board-chk.mail.on{background:var(--amber);border-color:var(--amber)}
+  .board-chk.browser.on{background:var(--blue);border-color:var(--blue)}
+  .board-chk:disabled{cursor:not-allowed;opacity:.45}
+  .board-global{
+    margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .board-global .bg-title{font-size:12px;font-weight:700;min-width:96px}
+  .board-global label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .board-global input[type=time]{
+    border:1px solid var(--line-strong);border-radius:7px;padding:4px 7px;font-size:11px;background:#fff;
+  }
+  .board-global .bg-note{font-size:10.5px;color:var(--soft);flex-basis:100%}
+  .board-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+
+  .data-panel{margin-bottom:16px}
+  .data-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .data-toolbar label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .data-toolbar select{
+    border:1px solid var(--line-strong);background:#fff;border-radius:7px;padding:5px 8px;font-size:11px;
+  }
+  .data-toolbar .spacer{flex:1}
+  .data-list{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:9px;
+    max-height:430px;overflow:auto;padding-right:3px;
+  }
+  .data-group{
+    grid-column:1 / -1;font-size:12px;font-weight:700;color:var(--text);
+    padding:7px 10px;background:#f5f7fb;border-radius:8px;margin-top:3px;
+  }
+  .data-item{
+    border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 11px;text-align:left;
+    transition:.15s;min-width:0;
+  }
+  .data-item:hover{border-color:#bcd3ff;background:#fbfdff}
+  .data-item.on{border-color:var(--blue);background:var(--blue-soft);box-shadow:0 0 0 2px rgba(44,104,255,.08)}
+  .di-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+  .badge{border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700;border:1px solid}
+  .badge.p1{background:var(--red-soft);border-color:#f2b5ae;color:var(--red)}
+  .badge.p2{background:var(--amber-soft);border-color:#f2cf94;color:#8a5808}
+  .badge.p3{background:var(--blue-soft);border-color:#bcd3ff;color:#1749a8}
+  .badge.p9{background:#f1f3f6;border-color:var(--line-strong);color:var(--muted)}
+  .badge.cat{background:#f5f7fb;border-color:var(--line);color:var(--muted)}
+  .badge.st{background:#f5f7fb;border-color:var(--line);color:var(--muted)}
+  .badge.st.warn{background:var(--red-soft);border-color:#f2b5ae;color:var(--red)}
+  .di-time{margin-left:auto;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .di-title{display:block;font-size:12px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .di-body{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .di-meta{display:block;font-size:10px;color:var(--soft);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .grid{display:grid;grid-template-columns:250px minmax(0,1fr) minmax(340px,400px);gap:16px;align-items:start}
+  .scenario{
+    display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+    border:1px solid transparent;background:transparent;border-radius:10px;padding:9px 10px;margin-bottom:3px;
+    transition:.15s;
+  }
+  .scenario:hover{background:#f7f9fc}
+  .scenario.on{background:var(--blue-soft);border-color:#cfe0ff}
+  .scenario .ico{
+    flex:none;width:30px;height:30px;border-radius:9px;background:#eef2f8;color:#526071;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+  }
+  .scenario.on .ico{background:var(--blue);color:#fff}
+  .scenario .txt{min-width:0}
+  .scenario .txt strong{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scenario .txt small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-note{margin-top:14px;padding-top:13px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted);line-height:1.7}
+
+  .chain{display:flex;align-items:center;gap:6px;margin-bottom:16px}
+  .chain-node{
+    flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 6px;text-align:center;
+    font-size:11px;color:var(--muted);background:#fafbfd;transition:.15s;
+  }
+  .chain-node b{display:block;font-size:12px;color:var(--text);font-weight:600}
+  .chain-node.active{border-color:var(--blue);background:var(--blue-soft);color:#1749a8}
+  .chain-node.active b{color:#1749a8}
+  .chain-arrow{color:var(--soft);font-size:11px;flex:none}
+
+  .cfg-block{border:1px solid var(--line);border-radius:11px;margin-bottom:12px;overflow:hidden}
+  .cfg-hd{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:9px 12px;background:#fafbfd;border-bottom:1px solid var(--line);
+  }
+  .cfg-hd strong{font-size:12px;font-weight:700}
+  .cfg-hd small{font-size:11px;color:var(--soft)}
+  .cfg-bd{padding:10px 12px}
+  .cfg-block.relevant{border-color:#bcd3ff;box-shadow:0 0 0 2px rgba(44,104,255,.06)}
+  .cfg-block.relevant .cfg-hd{background:var(--blue-soft)}
+
+  .kind-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px dashed #edf0f5}
+  .kind-row:last-child{border-bottom:0}
+  .kind-row.cur .kind-name{color:var(--blue);font-weight:700}
+  .kind-name{flex:1;font-size:12px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chips{display:flex;gap:5px;flex:none}
+  .chip{
+    border:1px solid var(--line-strong);background:#fff;border-radius:7px;padding:3px 9px;
+    font-size:11px;color:var(--muted);transition:.15s;
+  }
+  .chip.on{border-color:var(--blue);background:var(--blue-soft);color:#1749a8;font-weight:600}
+  .chip.wecom.on{border-color:#9ad9b9;background:var(--green-soft);color:#0c6e42}
+  .chip.mail.on{border-color:#f2cf94;background:var(--amber-soft);color:#8a5808}
+  .chip.browser.on{border-color:#bcd3ff}
+  .chip.dashed{border-style:dashed}
+
+  .module-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:1px dashed #edf0f5}
+  .module-row:last-child{border-bottom:0}
+  .module-row.dim{opacity:.55}
+  .module-row .m-name{width:56px;flex:none;font-size:12px;font-weight:600}
+  .module-row .m-note{font-size:10px;color:var(--muted);margin-left:auto}
+  .switch-line{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .switch-line .s-label{font-size:12px;font-weight:600}
+  .switch{
+    border:1px solid var(--line-strong);background:#fff;border-radius:999px;padding:4px 12px;
+    font-size:11px;color:var(--muted);transition:.15s;
+  }
+  .switch.on{background:var(--red-soft);border-color:#f2b5ae;color:var(--red);font-weight:600}
+  .switch.off{background:var(--green-soft);border-color:#a9dcc0;color:var(--green);font-weight:600}
+
+  .result-hero{
+    display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px;border-radius:10px;
+    background:#f8fafc;border:1px solid var(--line);margin-bottom:12px;
+  }
+  .route-pill{border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;border:1px solid}
+  .route-pill.wecom{background:var(--green-soft);border-color:#a9dcc0;color:#0c6e42}
+  .route-pill.mail{background:var(--amber-soft);border-color:#f2cf94;color:#8a5808}
+  .route-pill.browser{background:var(--blue-soft);border-color:#bcd3ff;color:#1749a8}
+  .route-pill.none{background:#f1f3f6;border-color:var(--line-strong);color:var(--muted)}
+  .rule-line{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.8}
+  .rule-line b{color:var(--text)}
+  .warn-line{
+    font-size:11px;color:#8a5808;background:var(--amber-soft);border-radius:8px;
+    padding:8px 10px;margin-bottom:10px;
+  }
+  .warn-line.ok{color:#0c6e42;background:var(--green-soft)}
+
+  .sub-hd{font-size:12px;font-weight:700;margin:16px 0 8px;display:flex;align-items:center;gap:7px}
+  .sub-hd:before{content:"";width:3px;height:12px;border-radius:2px;background:var(--blue)}
+  .msg{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px;background:#fff}
+  .msg-top{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .msg-name{font-size:11px;font-weight:700;color:var(--muted)}
+  .msg-title{font-size:13px;font-weight:700;margin-bottom:3px}
+  .msg-body{font-size:12px;color:#374151;white-space:pre-wrap;word-break:break-word}
+  .msg.mail .msg-title{color:#8a5808}
+  .msg.wecom .msg-title{color:#0c6e42}
+  .msg.browser{background:#f8fafc}
+  .msg.browser .msg-title{color:#1749a8}
+  .msg.empty{border-style:dashed;background:#fafbfd}
+  .msg.empty .msg-body{color:var(--soft)}
+
+  /* 文案模板编辑器（预览版） */
+  .tpl-panel{margin:16px 0}
+  .tpl-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+  .tpl-form{display:grid;gap:8px}
+  .tpl-field label{display:block;font-size:12px;font-weight:700;margin-bottom:4px}
+  .tpl-field small{font-size:10px;color:var(--muted);font-weight:400;margin-left:6px}
+  .tpl-field input,.tpl-field textarea,.tpl-field select{
+    width:100%;border:1px solid var(--line-strong);border-radius:9px;background:#fff;
+    padding:8px 10px;font-size:12px;line-height:1.6;resize:vertical;
+  }
+  .tpl-field textarea{min-height:46px}
+  .tpl-field input:focus,.tpl-field textarea:focus,.tpl-field select:focus{
+    outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(44,104,255,.1);
+  }
+  .tpl-field.disabled{opacity:.5}
+  .tpl-vars{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+  .var-chip{
+    border:1px dashed var(--line-strong);background:#fafbfd;border-radius:7px;
+    padding:3px 8px;font-size:11px;color:var(--muted);
+  }
+  .var-chip:hover{border-color:var(--blue);color:#1749a8;background:var(--blue-soft)}
+  .tpl-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mail-opts{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    border-top:1px dashed var(--line);padding-top:10px;margin-top:2px;
+  }
+  .mail-opts label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .mail-opts select{border:1px solid var(--line-strong);border-radius:8px;padding:5px 8px;font-size:11px;background:#fff}
+  .mail-opts input[type=text]{
+    border:1px solid var(--line-strong);border-radius:8px;padding:5px 8px;font-size:11px;min-width:180px;
+  }
+  .mail-opts span{display:inline-flex;gap:5px;align-items:center}
+  .color-chip{
+    width:22px;height:22px;border-radius:50%;border:2px solid #fff;
+    box-shadow:0 0 0 1px var(--line-strong);padding:0;
+  }
+  .color-chip.on{box-shadow:0 0 0 2px var(--blue)}
+  .tpl-side{border:1px solid var(--line);border-radius:11px;background:#fafbfd;padding:12px}
+  .tpl-side h3{margin:0 0 8px;font-size:12px}
+  .tpl-side p{margin:0 0 10px;font-size:11px;color:var(--muted);line-height:1.7}
+  .var-block{margin-top:2px;border-top:1px dashed var(--line);padding-top:9px}
+  .var-block h3{margin:0 0 6px;font-size:12px}
+  .var-block p{margin:6px 0 0;font-size:10px;color:var(--muted);line-height:1.6}
+  .var-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;font-size:11px;max-height:132px;overflow:auto;padding-right:2px}
+  .var-row{border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px 7px}
+  .var-row .vr-hd{display:flex;align-items:baseline;gap:6px;margin-bottom:2px}
+  .var-row b{color:#1749a8;font-weight:700;white-space:nowrap}
+  .var-row span{color:var(--muted);font-size:10px}
+  .var-row .vr-val{
+    border:1px solid var(--line);border-radius:6px;background:#fafbfd;
+    padding:3px 6px;font-size:11px;line-height:1.5;color:var(--text);
+    white-space:pre-wrap;word-break:break-all;user-select:text;
+    max-height:38px;overflow:auto;
+  }
+  .live-box{
+    border:1px solid var(--line);border-radius:9px;background:#fff;
+    padding:8px 10px;margin-bottom:7px;
+  }
+  .live-box .live-tag{font-size:10px;color:var(--muted);margin-bottom:4px}
+  .live-box .live-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.5}
+  .live-box .live-body{font-size:11px;color:var(--text);line-height:1.7;white-space:pre-wrap;word-break:break-all}
+  .live-box.browser{background:#f8fafc}
+  .live-empty{font-size:11px;color:var(--muted)}
+  .src-box{margin-top:10px}
+  .src-box summary{cursor:pointer;font-size:11px;color:var(--blue);font-weight:600}
+  .src-box pre{
+    margin:8px 0 0;max-height:170px;overflow:auto;background:#fff;border:1px solid var(--line);
+    border-radius:8px;padding:9px;font-size:10px;line-height:1.5;color:#374151;
+    white-space:pre-wrap;word-break:break-all;
+  }
+  .mail-wrap{margin-bottom:9px}
+  .mail-wrap .msg-name{margin-bottom:6px}
+  .mail-card{max-width:480px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;font-size:12px}
+  .mail-card .mc-head{padding:14px 16px;color:#fff}
+  .mail-card .mc-kicker{font-size:10px;opacity:.85;letter-spacing:1px}
+  .mail-card .mc-title{font-size:15px;font-weight:700;margin-top:4px}
+  .mail-card .mc-body{padding:14px 16px;line-height:1.8;color:#374151;white-space:pre-wrap;border-left:4px solid}
+  .mail-card .mc-foot{padding:8px 16px;background:#f8fafc;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+
+  .primary-btn{
+    width:100%;border:0;border-radius:10px;background:var(--blue);color:#fff;
+    padding:11px 14px;font-size:13px;font-weight:700;transition:.15s;
+    box-shadow:0 4px 12px rgba(44,104,255,.2);
+  }
+  .primary-btn:hover{background:#1f57e6}
+  .primary-btn:disabled{background:#c8d2e2;box-shadow:none;cursor:not-allowed}
+
+  .log-panel{margin-top:16px}
+  .log-list{max-height:190px;overflow:auto;padding:6px 17px 15px}
+  .log-item{
+    display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12px;
+  }
+  .log-item:last-child{border-bottom:0}
+  .log-time{flex:none;color:var(--soft);font-variant-numeric:tabular-nums}
+  .log-main{min-width:0;flex:1}
+  .log-main strong{font-weight:600}
+  .log-main span{color:var(--muted)}
+  .log-ch{flex:none;color:var(--blue);font-size:11px}
+  .log-empty{color:var(--soft);font-size:12px;padding:12px 0}
+
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);
+    background:#111827;color:#fff;border-radius:10px;padding:10px 18px;font-size:13px;
+    opacity:0;pointer-events:none;transition:.2s;z-index:20;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:1180px){
+    .grid{grid-template-columns:220px minmax(0,1fr)}
+    .result-col{grid-column:1 / -1}
+  }
+  @media (max-width:760px){
+    .app{padding:16px 14px 36px}
+    .grid{grid-template-columns:1fr}
+    .result-col{grid-column:auto}
+    .topbar{align-items:flex-start}
+    .mode-switch{width:100%}
+    .mode-switch button{flex:1}
+    .data-list{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">通</div>
+      <div>
+        <h1>通知路由管理预览</h1>
+        <p>明序 · 方案模拟页，不连接线上数据，不会真的发送任何消息</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="mode-switch" id="modeSwitch">
+        <button type="button" data-mode="current" class="on">现状（代码真实行为）</button>
+        <button type="button" data-mode="target">目标方案（建议）</button>
+      </div>
+      <button type="button" class="ghost-btn" id="resetBtn">恢复默认</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="panel channel-panel">
+    <div class="panel-hd">
+      <h2>通知渠道总控</h2>
+      <span id="channelStats"></span>
+    </div>
+    <div class="panel-bd">
+      <div class="global-line">
+        <span class="global-label">全局通知</span>
+        <button type="button" class="channel-toggle on" id="globalSwitch">全局开启</button>
+        <span class="global-note">总闸门关闭后，任何层级的渠道勾选都不发送</span>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" id="allOnBtn">三渠道全开</button>
+        <button type="button" class="ghost-btn" id="allOffBtn">三渠道全关</button>
+      </div>
+      <div class="channel-cards" id="channelCards"></div>
+      <div class="chan-check" id="chanCheck"></div>
+      <div class="channel-note" id="channelNote"></div>
+    </div>
+  </section>
+
+  <section class="panel board-panel">
+    <div class="panel-hd">
+      <h2>板块总控 · 模块启用 + 通知通道矩阵</h2>
+      <span id="boardStats"></span>
+    </div>
+    <div class="panel-bd">
+      <p class="board-tip">
+        这张表把「功能模块页的启用开关」和设置页的「通知通道矩阵」合并成<b>一处</b>：前两列是板块是否启用，后三列是走哪些渠道。
+        模块类板块（用药 / 喝水 / 运动 / 478 / 戒烟）的<b>启用列由功能模块开关自动同步</b>——上面一排就是那五个开关，
+        停用 = 导航入口隐藏 + 提醒停止 + 数据保留（正式版 v209 已落地，正式页直接读 isModuleOn()）；
+        <b>渠道留空</b>则功能照常用、只是不推送。两种诉求分开满足。
+      </p>
+      <div class="mod-sync" id="modSync"></div>
+      <table class="board-table">
+        <thead><tr>
+          <th>通知板块</th><th>启用</th><th>企业微信</th><th>邮件</th><th>浏览器</th>
+        </tr></thead>
+        <tbody id="boardRows"></tbody>
+      </table>
+      <div class="board-actions">
+        <button type="button" class="ghost-btn" id="boardAllOn">全部启用</button>
+        <button type="button" class="ghost-btn" id="boardAllOff">全部停用</button>
+        <button type="button" class="ghost-btn" id="boardChAll">全部渠道全开</button>
+        <button type="button" class="ghost-btn" id="boardChNone">全部渠道留空</button>
+      </div>
+      <div class="board-global">
+        <span class="bg-title">免打扰时间段</span>
+        <button type="button" class="channel-toggle off" id="dndSwitch">未开启</button>
+        <label>从 <input type="time" id="dndStart" value="23:00"></label>
+        <label>到 <input type="time" id="dndEnd" value="07:00"></label>
+        <label>模拟当前 <input type="time" id="dndNow" value="08:30"></label>
+        <span class="bg-note">全局设置，优先于所有板块与渠道；命中时段跳过、不补发。开始晚于结束即为跨夜。改「模拟当前」可当场看拦截效果。</span>
+      </div>
+      <div class="board-global">
+        <span class="bg-title">每日小结时刻</span>
+        <label>早报 <input type="time" id="repMorning" value="08:20"></label>
+        <label>午报 <input type="time" id="repNoon" value="12:30"></label>
+        <label>小结 <input type="time" id="repEvening" value="20:00"></label>
+        <span class="bg-note">留空即不发那一条；时刻只影响"每日小结"板块。</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel data-panel">
+    <div class="panel-hd">
+      <h2>示例用户数据</h2>
+      <span id="dataStats"></span>
+    </div>
+    <div class="panel-bd">
+      <div class="data-toolbar">
+        <label>通知类目 <select id="filterCat"></select></label>
+        <label>优先级 <select id="filterPri"></select></label>
+        <label>状态 <select id="filterStatus"></select></label>
+        <label>排序 <select id="sortBy">
+          <option value="priority">按优先级</option>
+          <option value="time">按触发时间</option>
+          <option value="category">按通知类目</option>
+        </select></label>
+        <span class="spacer"></span>
+        <button type="button" class="ghost-btn" id="clearItemBtn">清除数据项选择</button>
+      </div>
+      <div class="data-list" id="dataList"></div>
+    </div>
+  </section>
+
+  <section class="panel tpl-panel">
+    <div class="panel-hd">
+      <h2>文案模板编辑器</h2>
+      <span>预览版 · 改动只在本次页面内生效</span>
+    </div>
+    <div class="panel-bd tpl-grid">
+      <div>
+        <div class="tpl-form">
+          <div class="tpl-field">
+            <label>编辑场景
+              <select id="tplScope"></select>
+            </label>
+          </div>
+          <div class="tpl-field" id="tplTitleField">
+            <label>服务端标题<small>邮件主题取第一行</small></label>
+            <input type="text" id="tplTitle" maxlength="80">
+          </div>
+          <div class="tpl-field" id="tplBodyField">
+            <label>服务端正文<small>支持下方的变量占位符</small></label>
+            <textarea id="tplBody" maxlength="500"></textarea>
+          </div>
+          <div class="tpl-field" id="tplBrowserField">
+            <label>浏览器本地文案<small>第一行是通知标题；留空表示不弹</small></label>
+            <textarea id="tplBrowser" maxlength="300"></textarea>
+          </div>
+          <div>
+            <div class="tpl-vars" id="tplVarChips"></div>
+          </div>
+          <div class="var-block">
+            <h3>变量取值（跟随场景 / 数据项 · 只读）</h3>
+            <div class="var-list" id="tplVarList"></div>
+            <p>切换场景或点击示例数据，这里显示对应真实取值。上线后由原始记录自动生成、不可单独改；可编辑的是上方模板句式。</p>
+          </div>
+          <div class="mail-opts">
+            <label>邮件样式
+              <select id="mailStyle">
+                <option value="plain">纯文本（当前线上）</option>
+                <option value="html">HTML 卡片（建议）</option>
+              </select>
+            </label>
+            <label>卡片主题色
+              <span id="mailColors"></span>
+            </label>
+            <label>页脚文字
+              <input type="text" id="mailFooter" maxlength="40">
+            </label>
+          </div>
+          <div class="tpl-actions">
+            <button type="button" class="ghost-btn" id="tplResetOne">恢复本场景默认</button>
+            <button type="button" class="ghost-btn" id="tplResetAll">恢复全部默认</button>
+            <span style="font-size:11px;color:var(--muted)" id="tplStatus"></span>
+          </div>
+        </div>
+      </div>
+      <div class="tpl-side">
+        <h3>实时通知预览</h3>
+        <p style="margin-bottom:8px">改模板时这里立刻更新；完整路由解析仍在页面下方。</p>
+        <div class="live-box" id="liveServer"></div>
+        <div class="live-box browser" id="liveBrowser"></div>
+        <div class="sub-hd" style="margin-top:12px">邮件卡片预览</div>
+        <div id="mailCardPreview"></div>
+        <details class="src-box">
+          <summary>查看生成的 HTML 源码</summary>
+          <pre id="mailHtmlCode"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <main class="grid">
+    <aside class="panel">
+      <div class="panel-hd"><h2>提醒场景</h2><span>十二类</span></div>
+      <div class="panel-bd">
+        <div id="scenarioList"></div>
+        <div class="side-note">
+          喝水、运动、478 在服务端都归入“习惯提醒”这一账号类别；<br>
+          戒烟 / 戒除类不排程、不推送，作为对照项列入。
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel">
+      <div class="panel-hd"><h2>路由配置</h2><span id="configHint">点击开关观察解析变化</span></div>
+      <div class="panel-bd">
+        <div class="chain" id="chain"></div>
+
+        <div class="cfg-block" id="accountBlock">
+          <div class="cfg-hd"><strong>账号级矩阵</strong><small>已生效 · 账号级配置</small></div>
+          <div class="cfg-bd" id="accountRows"></div>
+        </div>
+
+        <div class="cfg-block" id="moduleBlock">
+          <div class="cfg-hd"><strong>模块级渠道</strong><small id="moduleState">已保存</small></div>
+          <div class="cfg-bd" id="moduleRows"></div>
+        </div>
+
+        <div class="cfg-block" id="instanceBlock">
+          <div class="cfg-hd"><strong>实例级设置 · 晨跑</strong><small>运动实例</small></div>
+          <div class="cfg-bd">
+            <div class="switch-line">
+              <span class="s-label">实例提醒</span>
+              <button type="button" class="switch on" id="instSwitch">开启提醒</button>
+              <span style="font-size:11px;color:var(--muted)" id="instStat">实例开关：开启</span>
+            </div>
+            <div class="module-row" id="instChannels"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel result-col">
+      <div class="panel-hd"><h2>解析结果</h2><span>实时计算</span></div>
+      <div class="panel-bd">
+        <div class="result-hero" id="resultHero"></div>
+        <div class="rule-line" id="ruleLine"></div>
+        <div class="warn-line" id="warnLine"></div>
+
+        <div class="sub-hd">服务端文案</div>
+        <div id="serverPreview"></div>
+
+        <div class="sub-hd">浏览器本地文案</div>
+        <div id="browserPreview"></div>
+
+        <div class="sub-hd">模拟发送</div>
+        <button type="button" class="primary-btn" id="simulateBtn">按解析结果模拟发送一次</button>
+      </div>
+    </section>
+  </main>
+
+  <section class="panel log-panel">
+    <div class="panel-hd">
+      <h2>模拟发送记录</h2>
+      <button type="button" class="ghost-btn" id="clearLogBtn">清空记录</button>
+    </div>
+    <div class="log-list" id="logList"><div class="log-empty">尚无记录，点击上方“模拟发送”开始。</div></div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="application/json" id="dataset">{
+  "说明": "本文件是为通知路由预览生成的示例用户数据，不是线上数据；仅用于演示功能分类、优先级排序与路由解析。",
+  "生成日期": "2026-11-27",
+  "示例用户": {
+    "显示名": "示例用户",
+    "账号": "example@sl00.top",
+    "时区": "Asia/Shanghai"
+  },
+  "排序规则": "先按优先级（紧急 → 当日 → 日常），同级按触发时间，同时间按通知类目顺序",
+  "优先级定义": {
+    "紧急": "错过有实际后果或时间窗口不可补，建议企微与邮件双发",
+    "当日": "当天有效、过期意义下降，建议企微为主、邮件按账号矩阵",
+    "日常": "周期性节奏养成，单条遗漏可容忍，建议默认只走企微"
+  },
+  "通知项": [
+    {
+      "id": "med-001", "功能": "用药提醒", "类目": "med", "类目名称": "用药提醒", "来源": "med",
+      "优先级": "紧急", "优先级序": 1, "时间": "08:00", "状态": "待触发", "场景": "med",
+      "标题": "该吃药了", "正文": "维生素D 1粒（每天 08:00）",
+      "浏览器文案": "明序\n1 次用药待服", "备注": "同一时刻多种药在发送端合并为一条"
+    },
+    {
+      "id": "med-002", "功能": "用药提醒", "类目": "med", "类目名称": "用药提醒", "来源": "med",
+      "优先级": "紧急", "优先级序": 1, "时间": "09:00", "状态": "待触发", "场景": "med",
+      "标题": "该吃药了", "正文": "降压药 1片（每天 09:00）",
+      "浏览器文案": "明序\n1 次用药待服", "备注": ""
+    },
+    {
+      "id": "med-003", "功能": "用药提醒", "类目": "med", "类目名称": "用药提醒", "来源": "med",
+      "优先级": "紧急", "优先级序": 1, "时间": "21:00", "状态": "待触发", "场景": "med",
+      "标题": "该吃药了", "正文": "钙片 2片（每天 21:00）",
+      "浏览器文案": "明序\n1 次用药待服", "备注": ""
+    },
+    {
+      "id": "task-001", "功能": "待办到点", "类目": "task", "类目名称": "待办到点", "来源": "task",
+      "优先级": "当日", "优先级序": 2, "时间": "09:00", "状态": "待触发", "场景": "task",
+      "标题": "该做这件事了", "正文": "提交周报 · 今天 09:00 · 记得附上数据",
+      "浏览器文案": "明序\n「提交周报」到时间了", "备注": "任务设置了 notifyTime"
+    },
+    {
+      "id": "task-002", "功能": "待办到点", "类目": "task", "类目名称": "待办到点", "来源": "task",
+      "优先级": "当日", "优先级序": 2, "时间": "12:00", "状态": "待触发", "场景": "task",
+      "标题": "该做这件事了", "正文": "取快递 · 今天 12:00 · 取件码 8823",
+      "浏览器文案": "明序\n「取快递」到时间了", "备注": ""
+    },
+    {
+      "id": "task-003", "功能": "待办到点", "类目": "task", "类目名称": "待办到点", "来源": "task",
+      "优先级": "当日", "优先级序": 2, "时间": "15:30", "状态": "待触发", "场景": "task",
+      "标题": "该做这件事了", "正文": "牙医预约 · 今天 15:30 · 带医保卡",
+      "浏览器文案": "明序\n「牙医预约」到时间了", "备注": ""
+    },
+    {
+      "id": "task-004", "功能": "待办到点", "类目": "task", "类目名称": "待办到点", "来源": "task",
+      "优先级": "当日", "优先级序": 2, "时间": "18:00", "状态": "已逾期", "场景": "task",
+      "标题": "该做这件事了", "正文": "还书 · 今天 18:00 · 图书馆闭馆前",
+      "浏览器文案": "明序\n1 件待办已逾期", "备注": "浏览器端会合并逾期任务"
+    },
+    {
+      "id": "habit-001", "功能": "普通习惯", "类目": "habit", "类目名称": "习惯提醒", "来源": "habit",
+      "优先级": "日常", "优先级序": 3, "时间": "07:00", "状态": "待触发", "场景": "habit",
+      "标题": "早起打卡", "正文": "今天的习惯还没打卡",
+      "浏览器文案": "明序\n「早起」还没打卡", "备注": "每日频率"
+    },
+    {
+      "id": "habit-002", "功能": "普通习惯", "类目": "habit", "类目名称": "习惯提醒", "来源": "habit",
+      "优先级": "日常", "优先级序": 3, "时间": "20:00", "状态": "待触发", "场景": "habit",
+      "标题": "冥想打卡", "正文": "今天的习惯还没打卡",
+      "浏览器文案": "明序\n「冥想」还没打卡", "备注": "每日频率"
+    },
+    {
+      "id": "habit-003", "功能": "普通习惯", "类目": "habit", "类目名称": "习惯提醒", "来源": "habit",
+      "优先级": "日常", "优先级序": 3, "时间": "22:00", "状态": "待触发", "场景": "habit",
+      "标题": "阅读打卡", "正文": "今天的习惯还没打卡",
+      "浏览器文案": "明序\n「阅读」还没打卡", "备注": "每日频率，附自定义备注"
+    },
+    {
+      "id": "habit-004", "功能": "普通习惯", "类目": "habit", "类目名称": "习惯提醒", "来源": "habit",
+      "优先级": "日常", "优先级序": 3, "时间": "19:00", "状态": "待触发", "场景": "habit",
+      "标题": "每周跑步打卡", "正文": "今天还差 1 次",
+      "浏览器文案": "明序\n「每周跑步」还没打卡", "备注": "每周频率，按周内应打卡日过滤"
+    },
+    {
+      "id": "water-001", "功能": "喝水提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "water",
+      "优先级": "日常", "优先级序": 3, "时间": "09:30", "状态": "待触发", "场景": "water",
+      "标题": "该喝水了 · 今天还差 4 杯", "正文": "目标 8 杯，已喝 4 杯",
+      "浏览器文案": "明序\n喝水还差 4 杯，今天还没记", "备注": "模块渠道已保存但未参与路由"
+    },
+    {
+      "id": "water-002", "功能": "喝水提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "water",
+      "优先级": "日常", "优先级序": 3, "时间": "14:00", "状态": "待触发", "场景": "water",
+      "标题": "该喝水了 · 今天还差 3 杯", "正文": "目标 8 杯，已喝 5 杯",
+      "浏览器文案": "明序\n已 2 小时没记喝水", "备注": ""
+    },
+    {
+      "id": "water-003", "功能": "喝水提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "water",
+      "优先级": "日常", "优先级序": 3, "时间": "17:30", "状态": "待触发", "场景": "water",
+      "标题": "今天还差最后一杯", "正文": "目标 8 杯，已喝 7 杯",
+      "浏览器文案": "明序\n喝水还差 1 杯，今天还没记", "备注": ""
+    },
+    {
+      "id": "move-001", "功能": "运动提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "move",
+      "优先级": "日常", "优先级序": 3, "时间": "07:00", "状态": "待触发", "场景": "move",
+      "标题": "晨跑", "正文": "该开始运动了 · 目标 5 公里",
+      "浏览器文案": "明序\n「运动」还没打卡", "备注": "实例开关已开启，渠道只勾企业微信"
+    },
+    {
+      "id": "move-002", "功能": "运动提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "move",
+      "优先级": "日常", "优先级序": 3, "时间": "19:00", "状态": "待触发", "场景": "move",
+      "标题": "力量训练", "正文": "该开始运动了 · 每周三、五",
+      "浏览器文案": "明序\n「运动」还没打卡", "备注": ""
+    },
+    {
+      "id": "move-003", "功能": "运动提醒", "类目": "habit", "类目名称": "习惯提醒", "来源": "move",
+      "优先级": "日常", "优先级序": 3, "时间": "20:30", "状态": "已下线", "场景": "move",
+      "标题": "瑜伽", "正文": "该开始运动了",
+      "浏览器文案": "明序\n「运动」还没打卡", "备注": "模式已下线但保留渲染，新建列表不会出现"
+    },
+    {
+      "id": "breathe-001", "功能": "478 呼吸", "类目": "habit", "类目名称": "习惯提醒", "来源": "breathe",
+      "优先级": "日常", "优先级序": 3, "时间": "10:00", "状态": "待触发", "场景": "breathe",
+      "标题": "478呼吸法 · 第 2 组", "正文": "该做 478 呼吸了 · 今天还差 3 组",
+      "浏览器文案": "明序\n「478呼吸法」今天还差 5 组", "备注": "每组一个提醒点，最多 5 组"
+    },
+    {
+      "id": "breathe-002", "功能": "478 呼吸", "类目": "habit", "类目名称": "习惯提醒", "来源": "breathe",
+      "优先级": "日常", "优先级序": 3, "时间": "15:00", "状态": "待触发", "场景": "breathe",
+      "标题": "478呼吸法 · 第 4 组", "正文": "该做 478 呼吸了 · 今天还差 1 组",
+      "浏览器文案": "明序\n「478呼吸法」今天还差 1 组", "备注": ""
+    },
+    {
+      "id": "quit-001", "功能": "戒烟 / 戒除", "类目": "无", "类目名称": "不推送", "来源": "quit",
+      "优先级": "不参与", "优先级序": 9, "时间": "全天", "状态": "不推送", "场景": "quit",
+      "标题": "", "正文": "戒烟 / 戒除类不排程、不推送",
+      "浏览器文案": "", "备注": "作为对照项列入，验证路由不会误发"
+    },
+    {
+      "id": "report-001", "功能": "每日小结", "类目": "report", "类目名称": "每日小结", "来源": "report",
+      "优先级": "日常", "优先级序": 3, "时间": "08:20", "状态": "待触发", "场景": "report",
+      "标题": "今日早报", "正文": "未完成 3 项 · 逾期 1 项 · 今日待办 5 项",
+      "浏览器文案": "", "备注": "账号矩阵默认只走企业微信"
+    },
+    {
+      "id": "report-002", "功能": "每日小结", "类目": "report", "类目名称": "每日小结", "来源": "report",
+      "优先级": "日常", "优先级序": 3, "时间": "12:30", "状态": "待触发", "场景": "report",
+      "标题": "今日午报", "正文": "已完成 2 项 · 未完成 3 项",
+      "浏览器文案": "", "备注": ""
+    },
+    {
+      "id": "report-003", "功能": "每日小结", "类目": "report", "类目名称": "每日小结", "来源": "report",
+      "优先级": "日常", "优先级序": 3, "时间": "20:00", "状态": "待触发", "场景": "report",
+      "标题": "今日晚报", "正文": "今日完成 6 项 · 明日待办 4 项",
+      "浏览器文案": "", "备注": ""
+    },
+    {
+      "id": "notice-001", "功能": "自定义通知", "类目": "notice", "类目名称": "自定义提醒", "来源": "notice",
+      "优先级": "当日", "优先级序": 2, "时间": "11:00", "状态": "待触发", "场景": "notice",
+      "标题": "🔔 自定义提醒", "正文": "记得取快递",
+      "浏览器文案": "", "备注": "一次性提醒"
+    },
+    {
+      "id": "notice-002", "功能": "自定义通知", "类目": "notice", "类目名称": "自定义提醒", "来源": "notice",
+      "优先级": "当日", "优先级序": 2, "时间": "09:00", "状态": "待触发", "场景": "notice",
+      "标题": "🔔 自定义提醒", "正文": "每周一项目周会",
+      "浏览器文案": "", "备注": "每周重复"
+    },
+    {
+      "id": "notice-003", "功能": "自定义通知", "类目": "notice", "类目名称": "自定义提醒", "来源": "notice",
+      "优先级": "当日", "优先级序": 2, "时间": "10:00", "状态": "待触发", "场景": "notice",
+      "标题": "🔔 自定义提醒", "正文": "每月 1 号交房租",
+      "浏览器文案": "", "备注": "每月重复"
+    },
+    {
+      "id": "countdown-001", "功能": "倒数日", "类目": "countdown", "类目名称": "倒数日", "来源": "countdown",
+      "优先级": "当日", "优先级序": 2, "时间": "08:00", "状态": "待触发", "场景": "countdown",
+      "标题": "📅 体检", "正文": "还有 7 天 · 2026-12-04 · 记得空腹",
+      "浏览器文案": "", "备注": "只对未来日期排程"
+    },
+    {
+      "id": "countdown-002", "功能": "倒数日", "类目": "countdown", "类目名称": "倒数日", "来源": "countdown",
+      "优先级": "当日", "优先级序": 2, "时间": "08:00", "状态": "待触发", "场景": "countdown",
+      "标题": "📅 生日", "正文": "还有 30 天 · 2026-12-27 · 准备礼物",
+      "浏览器文案": "", "备注": ""
+    },
+    {
+      "id": "countdown-003", "功能": "倒数日", "类目": "countdown", "类目名称": "倒数日", "来源": "countdown",
+      "优先级": "当日", "优先级序": 2, "时间": "08:00", "状态": "待触发", "场景": "countdown",
+      "标题": "📅 签证到期", "正文": "还有 60 天 · 2027-01-26 · 预约续签",
+      "浏览器文案": "", "备注": ""
+    },
+    {
+      "id": "debt-001", "功能": "还款提醒", "类目": "debt", "类目名称": "还款提醒", "来源": "debt",
+      "优先级": "紧急", "优先级序": 1, "时间": "09:00", "状态": "待触发", "场景": "debt",
+      "标题": "💳 还款 · 信用卡", "正文": "还有 3 天 · 2026-11-30 · 还剩 ¥1,280.00 · 最低 ¥128.00",
+      "浏览器文案": "", "备注": "还款提醒默认关闭，示例中已开启"
+    },
+    {
+      "id": "debt-002", "功能": "还款提醒", "类目": "debt", "类目名称": "还款提醒", "来源": "debt",
+      "优先级": "紧急", "优先级序": 1, "时间": "09:00", "状态": "待触发", "场景": "debt",
+      "标题": "💳 还款 · 房贷", "正文": "还有 10 天 · 2026-12-07 · 还剩 ¥4,600.00 · 最低 ¥4,600.00",
+      "浏览器文案": "", "备注": ""
+    },
+    {
+      "id": "test-001", "功能": "测试消息", "类目": "notice", "类目名称": "自定义提醒", "来源": "test",
+      "优先级": "当日", "优先级序": 2, "时间": "手动", "状态": "待触发", "场景": "test",
+      "标题": "明序 测试消息", "正文": "时间是 15:00 · 收到这条就说明推送通道是通的",
+      "浏览器文案": "", "备注": "手动触发，不参与排程去重"
+    }
+  ]
+}</script>
+<script>
+(function(){
+  'use strict';
+
+  var DATASET = JSON.parse(document.getElementById('dataset').textContent);
+  var ITEMS = DATASET['通知项'];
+
+  var CHANNELS = [
+    {id:'wecom', name:'企业微信'},
+    {id:'mail', name:'邮件'},
+    {id:'browser', name:'浏览器（本地）'}
+  ];
+  var KINDS = [
+    {id:'med', name:'用药提醒'},
+    {id:'task', name:'待办到点'},
+    {id:'habit', name:'习惯提醒'},
+    {id:'countdown', name:'倒数日'},
+    {id:'notice', name:'自定义提醒'},
+    {id:'debt', name:'还款提醒'},
+    {id:'report', name:'每日小结'}
+  ];
+  var SOURCE_CN = {
+    med:'用药', task:'待办', habit:'习惯', water:'喝水', move:'运动', breathe:'呼吸',
+    quit:'戒除', report:'小结', notice:'自定义', countdown:'倒数日', debt:'还款', test:'测试'
+  };
+  /* 板块 = 原「功能模块」+ 原「通知通道矩阵」的合并单位。
+     moduleKey 指向 v209 功能模块页的开关（isModuleOn / setModuleOn）：
+     模块类板块的「启用」不再单独存，一律派生自模块开关 —— 停用 = 导航隐藏 + 提醒停止 + 数据保留。
+     戒烟模块可以开着，但戒烟板块永不推送，作路由对照项。 */
+  var BOARDS = [
+    {id:'med', name:'用药', icon:'药', moduleKey:'meds', note:'对应功能模块 · 用药'},
+    {id:'water', name:'喝水', icon:'水', moduleKey:'water', note:'对应功能模块 · 喝水'},
+    {id:'move', name:'运动', icon:'动', moduleKey:'move', note:'对应功能模块 · 运动'},
+    {id:'breathe', name:'478 呼吸', icon:'呼', moduleKey:'breathe', note:'对应功能模块 · 478'},
+    {id:'quit', name:'戒烟', icon:'戒', moduleKey:'quit', note:'对应功能模块 · 不推送'},
+    {id:'task', name:'待办', icon:'办', note:'基础功能 · 不隐藏页面'},
+    {id:'habit', name:'普通习惯', icon:'习', note:'基础功能 · 不隐藏页面'},
+    {id:'notice', name:'自定义提醒', icon:'通', note:'含手动测试消息'},
+    {id:'countdown', name:'倒数日', icon:'日', note:'基础功能 · 不隐藏页面'},
+    {id:'debt', name:'还款提醒', icon:'款', note:'默认关闭 · 需主动开启'},
+    {id:'report', name:'每日小结', icon:'结', note:'时刻在下方设置'}
+  ];
+  /* 功能模块开关（同步源）：与正式版 v209 的 isModuleOn() 同一套键名。
+     预览默认值对齐陛下截图的实测状态：已启用 1 / 5，仅戒烟。 */
+  var MODULE_DEFS = [
+    {key:'meds',    name:'用药',      icon:'💊'},
+    {key:'breathe', name:'478呼吸法', icon:'🌬️'},
+    {key:'water',   name:'喝水',      icon:'💧'},
+    {key:'move',    name:'运动',      icon:'🏃'},
+    {key:'quit',    name:'戒烟',      icon:'🚭'}
+  ];
+  function moduleBoard(bid){
+    for(var i=0;i<BOARDS.length;i++) if(BOARDS[i].id === bid) return BOARDS[i].moduleKey || null;
+    return null;
+  }
+  /* 板块启用的唯一取值口：模块类板块读 S.modOn，基础板块读 S.boards[x].on */
+  function boardOn(bid){
+    var mk = moduleBoard(bid);
+    if(mk) return !!S.modOn[mk];
+    return !!(S.boards[bid] && S.boards[bid].on);
+  }
+  /* 场景 → 板块：测试消息归到自定义提醒板块 */
+  function boardOf(s){
+    if(s.id === 'test') return 'notice';
+    return s.id;
+  }
+  function boardName(id){
+    for(var i=0;i<BOARDS.length;i++) if(BOARDS[i].id === id) return BOARDS[i].name;
+    return id;
+  }
+  var SCENARIOS = [
+    {id:'med', name:'用药提醒', icon:'药', kind:'med',
+     server:'该吃药了\n维生素D 1粒（每天 08:00）', browser:'明序\n1 次用药待服',
+     tip:'同一时刻有多种药时，发送端合并为「该吃药了（N 种）」。'},
+    {id:'task', name:'待办到点', icon:'办', kind:'task',
+     server:'该做这件事了\n提交周报 · 今天 09:00 · 记得附上数据', browser:'明序\n「提交周报」到时间了',
+     tip:'服务端只看当天到期与任务提醒时间；浏览器端只看重复任务的滚动时间与逾期。'},
+    {id:'habit', name:'普通习惯', icon:'习', kind:'habit',
+     server:'早起打卡\n今天的习惯还没打卡', browser:'明序\n「早起」还没打卡',
+     tip:'按日 / 周 / 月频率与当天打卡状态过滤；服务端会附加自定义备注，浏览器不展示。'},
+    {id:'water', name:'喝水提醒', icon:'水', kind:'habit', module:'water',
+     server:'该喝水了 · 今天还差 4 杯', browser:'明序\n喝水还差 4 杯，今天还没记',
+     tip:'服务端按喝水提醒模式生成多个时间点；浏览器不看提醒模式。模块渠道目前只存不用。'},
+    {id:'move', name:'运动提醒', icon:'动', kind:'habit', module:'move',
+     server:'晨跑\n该开始运动了', browser:'明序\n「运动」还没打卡',
+     tip:'按实例开始时间与频率排程，当天已有记录则跳过；实例开关目前被完全忽略。'},
+    {id:'breathe', name:'478 呼吸', icon:'呼', kind:'habit', module:'breathe',
+     server:'478呼吸法 · 第 2 组\n该做 478 呼吸了 · 今天还差 3 组', browser:'明序\n「478呼吸法」今天还差 3 组',
+     tip:'每组一个提醒点，最多 5 组；模块渠道勾选在界面上已注明“仅作记录”。'},
+    {id:'quit', name:'戒烟 / 戒除', icon:'戒', kind:'none',
+     server:'', browser:'', tip:'不排程、不推送，作为路由对照项验证不会误发。'},
+    {id:'report', name:'每日小结', icon:'结', kind:'report',
+     server:'今日小结\n已完成 6 项 · 未完成 3 项 · 逾期 1 项', browser:'',
+     tip:'默认 08:20 / 12:30 / 20:00 三次；时刻可配，留空即不发。无浏览器本地文案。'},
+    {id:'notice', name:'自定义通知', icon:'通', kind:'notice',
+     server:'🔔 自定义提醒\n记得取快递', browser:'',
+     tip:'支持一次 / 每天 / 每周 / 每月；可在配置页重发测试。'},
+    {id:'countdown', name:'倒数日', icon:'日', kind:'countdown',
+     server:'📅 体检\n还有 7 天 · 2026-12-04 · 记得空腹', browser:'',
+     tip:'只对未来日期排程，过期不再提醒。'},
+    {id:'debt', name:'还款提醒', icon:'款', kind:'debt',
+     server:'💳 还款 · 信用卡\n还有 3 天 · 2026-11-30 · 还剩 ¥1,280.00 · 最低 ¥128.00', browser:'',
+     tip:'还款提醒默认关闭，需在清债设置里主动开启。'},
+    {id:'test', name:'测试消息', icon:'测', kind:'notice',
+     server:'明序 测试消息\n时间是 15:00 · 收到这条就说明推送通道是通的', browser:'',
+     tip:'手动触发，用于验证企业微信与邮件通道是否连通。'}
+  ];
+  var MODULES = [
+    {id:'water', name:'喝水'}, {id:'breathe', name:'478'}, {id:'move', name:'运动'}
+  ];
+  var MAIL_COLORS = [
+    {id:'blue', name:'蓝色', main:'#2C68FF', soft:'#EAF1FF'},
+    {id:'green', name:'绿色', main:'#07A55A', soft:'#E8F7F0'},
+    {id:'amber', name:'橙色', main:'#D97706', soft:'#FFF5E6'},
+    {id:'violet', name:'紫色', main:'#7C3AED', soft:'#F3EAFF'}
+  ];
+  var TPL_VARS = [
+    {name:'标题', desc:'当前提醒标题'},
+    {name:'正文', desc:'当前提醒正文'},
+    {name:'浏览器文案', desc:'浏览器本地完整文案'},
+    {name:'功能', desc:'所属功能名'},
+    {name:'类目', desc:'账号类别名'},
+    {name:'场景', desc:'提醒场景名'},
+    {name:'时间', desc:'触发时刻'},
+    {name:'来源', desc:'来源标识'},
+    {name:'优先级', desc:'紧急 / 当日 / 日常'}
+  ];
+
+  /* 模板默认值：固定句式保留在标题里，会把文案写死的部分直接暴露给用户改；
+     正文与浏览器文案用变量占位，切换数据项时自动带出该项的真实内容。 */
+  function defaultTemplates(){
+    var t = {};
+    SCENARIOS.forEach(function(s){
+      var title = '{标题}';
+      if(s.id === 'med') title = '该吃药了';
+      if(s.id === 'task') title = '该做这件事了';
+      t[s.id] = {
+        title: title,
+        body: '{正文}',
+        browser: s.browser ? '{浏览器文案}' : ''
+      };
+    });
+    return t;
+  }
+
+  function defaultState(){
+    var account = {};
+    KINDS.forEach(function(k){
+      account[k.id] = {wecom:true, mail:(k.id !== 'habit' && k.id !== 'report')};
+    });
+    var boards = {};
+    BOARDS.forEach(function(b){
+      boards[b.id] = {
+        on: b.id !== 'debt',
+        channels:{wecom:true, mail:(b.id !== 'habit' && b.id !== 'report' && b.id !== 'quit'), browser:(b.id !== 'quit')}
+      };
+    });
+    return {
+      mode:'current', scenario:'med', activeItemId:null,
+      boards: boards,
+      /* 功能模块开关（同步源）：模块类板块的启用派生自这里，与正式版 isModuleOn() 同键名。
+         默认对齐实测截图：已启用 1 / 5，仅戒烟。 */
+      modOn:{meds:false, water:false, move:false, breathe:false, quit:true},
+      dnd:{on:false, start:'23:00', end:'07:00', now:'08:30'},
+      reportTimes:{morning:'08:20', noon:'12:30', evening:'20:00'},
+      account: account,
+      globalOn:true,
+      globalChannels:{wecom:true, mail:true, browser:true},
+      /* 用户是否完成了对应渠道的配置：企微要填机器人地址，邮件要配 SMTP，浏览器要授予通知权限。
+         勾选渠道只是“想走这条路”，配置检测通过才真的能发。 */
+      channelCfg:{wecom:true, mail:true, browser:true},
+      modules:{
+        water:{wecom:true, mail:true, browser:false},
+        breathe:{wecom:true, mail:false, browser:false},
+        move:{wecom:true, mail:true, browser:false}
+      },
+      instance:{on:true, channels:{wecom:true, mail:false, browser:false}},
+      filters:{cat:'全部', pri:'全部', status:'全部', sort:'priority'},
+      templates: defaultTemplates(),
+      mailStyle:'plain',
+      mailColor:'blue',
+      mailFooter:'明序 · 个人生活提醒',
+      log:[]
+    };
+  }
+
+  var S = defaultState();
+  var $ = function(id){ return document.getElementById(id); };
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function mailColor(id){
+    for(var i=0;i<MAIL_COLORS.length;i++) if(MAIL_COLORS[i].id === id) return MAIL_COLORS[i];
+    return MAIL_COLORS[0];
+  }
+  function nl2br(s){
+    return esc(s).replace(/\r?\n/g, '<br>');
+  }
+  /* 真实邮件要用内联样式，不能依赖 <style> 标签；这里的源码就是按内联样式生成的。 */
+  function mailCardSource(title, body, footer, colorId){
+    var c = mailColor(colorId);
+    return '<div class="mail-card" style="max-width:480px;margin:0 auto;border:1px solid #E3E8F0;border-radius:16px;overflow:hidden;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">'+
+      '<div class="mc-head" style="padding:18px 20px;background:'+c.main+';color:#FFFFFF;">'+
+        '<div class="mc-kicker" style="font-size:11px;opacity:.85;letter-spacing:1px;">明序 · 生活提醒</div>'+
+        '<div class="mc-title" style="font-size:17px;font-weight:700;margin-top:4px;">'+esc(title || '提醒')+'</div>'+
+      '</div>'+
+      '<div class="mc-body" style="padding:18px 20px;border-left:4px solid '+c.main+';background:'+c.soft+';">'+
+        '<div style="font-size:13px;line-height:1.8;color:#374151;">'+nl2br(body || '')+'</div>'+
+      '</div>'+
+      '<div class="mc-foot" style="padding:10px 20px;background:#F8FAFC;border-top:1px solid #E3E8F0;font-size:11px;color:#6B7280;">'+esc(footer || '')+'</div>'+
+    '</div>';
+  }
+  function chName(id){
+    for(var i=0;i<CHANNELS.length;i++) if(CHANNELS[i].id === id) return CHANNELS[i].name;
+    return id;
+  }
+  function kindName(id){
+    for(var i=0;i<KINDS.length;i++) if(KINDS[i].id === id) return KINDS[i].name;
+    return '不推送';
+  }
+  function selected(map){
+    return CHANNELS.filter(function(c){ return !!map[c.id]; }).map(function(c){ return c.id; });
+  }
+  function activeItem(){
+    if(!S.activeItemId) return null;
+    for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id === S.activeItemId) return ITEMS[i];
+    return null;
+  }
+  function currentScenario(){
+    var id = S.scenario;
+    for(var i=0;i<SCENARIOS.length;i++) if(SCENARIOS[i].id === id) return SCENARIOS[i];
+    return SCENARIOS[0];
+  }
+  /* 模板系统的原始数据层：先取出“没套模板前”的标题、正文与浏览器文案。
+     选中数据项时用该项的真实内容，没选中时用左侧场景的示例内容。 */
+  function rawContent(){
+    var item = activeItem();
+    if(item){
+      return {
+        title: String(item['标题'] || ''),
+        body: String(item['正文'] || ''),
+        browser: String(item['浏览器文案'] || '')
+      };
+    }
+    var s = currentScenario();
+    var lines = String(s.server || '').split('\n');
+    return {
+      title: lines[0] || '',
+      body: lines.slice(1).join('\n'),
+      browser: String(s.browser || '')
+    };
+  }
+  /* 没选数据项时，用第一条同场景示例数据做变量来源，
+     这样纯切场景也能看到时间 / 来源 / 优先级等字段，而不是空白。 */
+  function refItem(s){
+    for(var i=0;i<ITEMS.length;i++) if(ITEMS[i]['场景'] === s.id) return ITEMS[i];
+    return null;
+  }
+  function baseTemplateVars(){
+    var raw = rawContent();
+    var item = activeItem();
+    var s = currentScenario();
+    var ref = item || refItem(s);
+    return {
+      '标题': raw.title,
+      '正文': raw.body,
+      '浏览器文案': raw.browser,
+      '功能': item ? String(item['功能'] || '') : s.name,
+      '类目': item ? String(item['类目名称'] || '') : kindName(s.kind),
+      '场景': s.name,
+      '时间': ref ? String(ref['时间'] || '') : '',
+      '来源': ref ? String(ref['来源'] || '') : s.id,
+      '优先级': ref ? String(ref['优先级'] || '') : ''
+    };
+  }
+  /* 变量值只读：始终由当前场景 / 数据项的原始记录生成，不提供独立编辑入口。 */
+  function templateVars(){
+    return baseTemplateVars();
+  }
+  function applyTemplate(tpl, vars){
+    return String(tpl == null ? '' : tpl).replace(/\{([^{}]+)\}/g, function(m, k){
+      k = String(k).trim();
+      return Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m;
+    });
+  }
+  function currentContent(){
+    var raw = rawContent();
+    var tpl = S.templates[S.scenario] || {title:'{标题}', body:'{正文}', browser:'{浏览器文案}'};
+    var vars = templateVars();
+    var title = applyTemplate(tpl.title, vars);
+    var body = applyTemplate(tpl.body, vars);
+    var browser = applyTemplate(tpl.browser, vars);
+    var item = activeItem();
+    return {
+      server: title ? (title + '\n' + body) : body,
+      browser: browser,
+      tip: item ? (item['备注'] || '') : currentScenario().tip
+    };
+  }
+
+  /* 复刻运动弹窗的渠道能力检测：能不能收到，看的不是勾没勾，而是配置有没有完成。
+     企微要填机器人地址，邮件要配 SMTP 与授权码，浏览器要授予通知权限。 */
+  function channelState(id){
+    if(S.channelCfg[id]) return {ok:true, text:'已配置，服务正常'};
+    var reasons = {
+      wecom:'未配置：还没有填企业微信机器人地址，请到「配置」页开通',
+      mail:'未配置：还没有设置邮箱与授权码，请到「配置」页开通',
+      browser:'未开启：浏览器通知权限还没授予，请到「配置」页开启'
+    };
+    return {ok:false, text:reasons[id] || '未配置'};
+  }
+
+  function renderChannelPanel(){
+    var sw = $('globalSwitch');
+    sw.className = 'channel-toggle ' + (S.globalOn ? 'on' : 'off');
+    sw.textContent = S.globalOn ? '全局开启' : '全局关闭';
+    var onCount = CHANNELS.filter(function(c){ return S.globalChannels[c.id]; }).length;
+    $('channelStats').textContent = '已开启 ' + onCount + ' / 3 个渠道' + (S.globalOn ? '' : ' · 全局已关闭');
+
+    var desc = {
+      wecom:'企业微信群机器人，服务端排程后推送',
+      mail:'账号邮箱，服务端排程后发送',
+      browser:'页面打开时的本地通知，不是服务端推送'
+    };
+    $('channelCards').innerHTML = CHANNELS.map(function(c){
+      var on = !!S.globalChannels[c.id];
+      var st = channelState(c.id);
+      var stateText = !S.globalOn ? '被全局关闭' : (on ? '已开启' : '已关闭');
+      return '<button type="button" class="channel-card '+c.id+(on && S.globalOn ? ' on' : ' off')+(S.globalOn ? '' : ' disabled')+'" '+
+        'data-global-ch="'+c.id+'" aria-pressed="'+(on && S.globalOn)+'">'+
+        '<span class="cc-top"><span class="cc-dot '+(st.ok?'ok':'bad')+'" title="'+(st.ok?'已配置':'未配置')+'"></span>'+
+        '<span class="cc-name">'+c.name+'</span><span class="cc-state">'+stateText+'</span></span>'+
+        '<span class="cc-desc">'+desc[c.id]+'</span>'+
+        '<span class="cc-check '+(st.ok?'ok':'bad')+'">'+(st.ok?'✓ ':'⚠ ')+st.text+'</span></button>';
+    }).join('');
+
+    var picked = CHANNELS.filter(function(c){ return S.globalChannels[c.id]; });
+    $('chanCheck').innerHTML = '<div class="chan-check-title">渠道配置检测（勾选时当场检测，未完成的渠道不会发送）</div>' +
+      (picked.length ? picked.map(function(c){
+        var st = channelState(c.id);
+        return '<div class="chan-check-line '+(st.ok?'ok':'bad')+'">'+
+          '<span class="cc-text">'+(st.ok?'✓ ':'⚠ ')+esc(c.name)+'：'+esc(st.text)+'</span>'+
+          '<button type="button" class="cfg-btn" data-cfg-ch="'+c.id+'">'+(st.ok?'模拟未配置':'模拟已配置')+'</button></div>';
+      }).join('') : '<div class="chan-check-empty">当前没有勾选任何渠道。</div>');
+
+    $('channelNote').textContent = S.mode === 'current'
+      ? '现状代码：服务端渠道表只有企业微信与邮件，浏览器是页面本地通知；也没有统一的三渠道全局开关。' +
+        '运动弹窗的渠道能力检测（配置状态）真实存在，但只影响提示、不影响实际发送。本面板是方案模拟，不代表线上已生效。'
+      : '目标方案：全局开关是总闸门，关闭后任何层级的勾选都不发送；渠道勾选后还要通过配置检测才真的发送，' +
+        '未完成配置只提示、不发送，检测结论与运动弹窗一致。';
+  }
+
+  /* 板块总控：功能模块启用 + 通知通道矩阵合并后的单一视图 */
+  function renderModSync(){
+    var onN = MODULE_DEFS.filter(function(m){ return S.modOn[m.key]; }).length;
+    $('modSync').innerHTML =
+      '<span class="mod-sync-tag">功能模块开关 · 同步源</span>' +
+      MODULE_DEFS.map(function(m){
+        var on = !!S.modOn[m.key];
+        return '<button type="button" class="mod-chip'+(on?'':' off')+'" data-mod="'+m.key+'" '+
+          'title="与正式版功能模块页同一份开关（isModuleOn）">'+
+          '<span class="mi">'+m.icon+'</span>'+esc(m.name)+
+          '<span class="board-switch '+(on?'on':'')+'"></span></button>';
+      }).join('') +
+      '<span class="mod-count">已启用 '+onN+' / '+MODULE_DEFS.length+' · 停用 = 导航隐藏 + 提醒停止 + 数据保留</span>';
+  }
+  function renderBoardPanel(){
+    var onCount = BOARDS.filter(function(b){ return boardOn(b.id); }).length;
+    var modN = MODULE_DEFS.filter(function(m){ return S.modOn[m.key]; }).length;
+    $('boardStats').textContent = '已启用 ' + onCount + ' / ' + BOARDS.length +
+      ' 个板块（模块 ' + modN + ' / 5 自动同步）';
+    renderModSync();
+    $('boardRows').innerHTML = BOARDS.map(function(b){
+      var st = S.boards[b.id];
+      var mk = b.moduleKey || null;
+      var on = boardOn(b.id);
+      var nameCell = '<span class="board-name"><span class="board-ico">'+esc(b.icon)+'</span>'+
+        '<span><b>'+esc(b.name)+'</b>'+(mk?'<span class="sync-tag">模块同步</span>':'')+
+        '<small>'+esc(b.note)+(mk ? (on?'':' · 已停用，提醒自动停止') : '')+'</small></span></span>';
+      return '<tr class="'+(on?'':'off')+'">'+
+        '<td>'+nameCell+'</td>'+
+        '<td><button type="button" class="board-switch '+(on?'on':'')+(mk?' sync':'')+'" data-board="'+b.id+'" '+
+          'aria-label="'+esc(b.name)+(on?'已启用':'已停用')+'" title="'+esc(b.name)+(mk?'（跟随功能模块开关）':(on?'已启用':'已停用'))+'"></button></td>'+
+        CHANNELS.map(function(c){
+          var onCh = !!st.channels[c.id];
+          return '<td><button type="button" class="board-chk '+c.id+(onCh?' on':'')+'" data-bch="'+b.id+'" '+
+            'data-bch-ch="'+c.id+'"'+(on?'':' disabled')+' title="'+esc(b.name)+' · '+esc(c.name)+(onCh?'已勾选':'未勾选')+'">'+
+            (onCh?'✓':'')+'</button></td>';
+        }).join('')+'</tr>';
+    }).join('');
+
+    var ds = $('dndSwitch');
+    ds.className = 'channel-toggle ' + (S.dnd.on?'on':'off');
+    ds.textContent = S.dnd.on ? '已开启' : '未开启';
+    $('dndStart').value = S.dnd.start;
+    $('dndEnd').value = S.dnd.end;
+    $('dndNow').value = S.dnd.now;
+    $('repMorning').value = S.reportTimes.morning;
+    $('repNoon').value = S.reportTimes.noon;
+    $('repEvening').value = S.reportTimes.evening;
+  }
+
+  function renderBanner(){
+    var b = $('banner');
+    if(S.mode === 'current'){
+      b.className = 'banner';
+      b.innerHTML = '<span class="tag">现状</span><div><b>服务端只认账号级矩阵。</b>'+
+        '喝水渠道、478 渠道、运动实例开关与渠道、三个场景开关，'+
+        '全部只是存下来了，没有参与实际发送；浏览器通知另走本地轮询，口径与服务端不同。</div>';
+    }else{
+      b.className = 'banner target';
+      b.innerHTML = '<span class="tag">目标</span><div><b>优先级：实例渠道 &gt; 模块渠道 &gt; 账号级矩阵。</b>'+
+        '浏览器继续定义为“本地页面通知”，只在显式勾选或全局开关命中时出现，不混入服务端渠道。</div>';
+    }
+  }
+
+  function uniqueValues(field){
+    var out = [], seen = {};
+    ITEMS.forEach(function(it){
+      var v = it[field];
+      if(!seen[v]){ seen[v] = true; out.push(v); }
+    });
+    return out;
+  }
+  function fillSelect(el, values, current){
+    el.innerHTML = ['<option value="全部">全部</option>'].concat(values.map(function(v){
+      return '<option value="'+esc(v)+'"'+(v===current?' selected':'')+'>'+esc(v)+'</option>';
+    })).join('');
+  }
+  function renderFilterOptions(){
+    fillSelect($('filterCat'), uniqueValues('类目名称'), S.filters.cat);
+    fillSelect($('filterPri'), ['紧急','当日','日常','不参与'], S.filters.pri);
+    fillSelect($('filterStatus'), uniqueValues('状态'), S.filters.status);
+  }
+
+  function timeRank(t){
+    if(t === '手动') return 9999;
+    if(t === '全天') return 9998;
+    var p = String(t).split(':');
+    return p.length === 2 ? (parseInt(p[0],10)*60 + parseInt(p[1],10)) : 9997;
+  }
+  function categoryRank(cat){
+    var names = ['用药提醒','待办到点','习惯提醒','倒数日','自定义提醒','还款提醒','每日小结','不推送'];
+    var i = names.indexOf(cat);
+    return i < 0 ? 99 : i;
+  }
+  function filteredItems(){
+    var f = S.filters;
+    var list = ITEMS.filter(function(it){
+      return (f.cat === '全部' || it['类目名称'] === f.cat) &&
+             (f.pri === '全部' || it['优先级'] === f.pri) &&
+             (f.status === '全部' || it['状态'] === f.status);
+    });
+    list.sort(function(a,b){
+      if(f.sort === 'time'){
+        return timeRank(a['时间']) - timeRank(b['时间']) || a['优先级序'] - b['优先级序'];
+      }
+      if(f.sort === 'category'){
+        return categoryRank(a['类目名称']) - categoryRank(b['类目名称']) ||
+               a['优先级序'] - b['优先级序'] || timeRank(a['时间']) - timeRank(b['时间']);
+      }
+      return a['优先级序'] - b['优先级序'] || timeRank(a['时间']) - timeRank(b['时间']) ||
+             categoryRank(a['类目名称']) - categoryRank(b['类目名称']);
+    });
+    return list;
+  }
+  function priClass(p){
+    return p === '紧急' ? 'p1' : (p === '当日' ? 'p2' : (p === '日常' ? 'p3' : 'p9'));
+  }
+  function renderData(){
+    var list = filteredItems();
+    var funcs = {}, cats = {};
+    ITEMS.forEach(function(it){ funcs[it['功能']] = true; cats[it['类目名称']] = true; });
+    $('dataStats').textContent = ITEMS.length + ' 条 · ' + Object.keys(funcs).length + ' 个功能 · ' +
+      Object.keys(cats).length + ' 个类目 · 当前显示 ' + list.length + ' 条';
+
+    var html = '', lastGroup = null;
+    list.forEach(function(it){
+      var group = S.filters.sort === 'category' ? it['类目名称'] : (S.filters.sort === 'priority' ? it['优先级'] : null);
+      if(group && group !== lastGroup){
+        html += '<div class="data-group">' + esc(group) + '</div>';
+        lastGroup = group;
+      }
+      var stWarn = (it['状态'] === '已逾期' || it['状态'] === '不推送' || it['状态'] === '已下线') ? ' warn' : '';
+      html += '<button type="button" class="data-item'+(S.activeItemId===it.id?' on':'')+'" data-item="'+esc(it.id)+'">'+
+        '<span class="di-top">'+
+          '<span class="badge '+priClass(it['优先级'])+'">'+esc(it['优先级'])+'</span>'+
+          '<span class="badge cat">'+esc(it['类目名称'])+'</span>'+
+          '<span class="di-time">'+esc(it['时间'])+'</span>'+
+          '<span class="badge st'+stWarn+'">'+esc(it['状态'])+'</span>'+
+        '</span>'+
+        '<span class="di-title">'+esc(it['标题'] || it['功能'])+'</span>'+
+        '<span class="di-body">'+esc(it['正文'])+'</span>'+
+        '<span class="di-meta">功能：'+esc(it['功能'])+' · 来源：'+esc(SOURCE_CN[it['来源']] || it['来源'])+
+          ' · '+esc(it.id)+'</span>'+
+      '</button>';
+    });
+    if(!list.length) html = '<div class="log-empty">没有符合条件的数据项，请调整筛选条件。</div>';
+    $('dataList').innerHTML = html;
+  }
+
+  function renderScenarios(){
+    $('scenarioList').innerHTML = SCENARIOS.map(function(s){
+      var sub = '账号类别：' + kindName(s.kind) + (s.module ? ' · 有模块渠道' : '');
+      return '<button type="button" class="scenario'+(S.scenario===s.id?' on':'')+'" data-scenario="'+s.id+'">'+
+        '<span class="ico">'+s.icon+'</span>'+
+        '<span class="txt"><strong>'+s.name+'</strong><small>'+sub+'</small></span></button>';
+    }).join('');
+  }
+  function chipHtml(scope, key, ch){
+    var on = scope === 'account' ? !!S.account[key][ch.id] :
+             (scope === 'module' ? !!S.modules[key][ch.id] : !!S.instance.channels[ch.id]);
+    var ignored = S.mode === 'current' && scope !== 'account';
+    return '<button type="button" class="chip '+ch.id+(on?' on':'')+(ignored?' dashed':'')+'" '+
+      'data-scope="'+scope+'" data-key="'+esc(key)+'" data-ch="'+ch.id+'" aria-pressed="'+on+'" '+
+      'title="'+(ignored?'现状下此勾选不参与发送决策':'点击切换')+'">'+chName(ch.id)+'</button>';
+  }
+  function renderAccount(){
+    var s = currentScenario();
+    $('accountRows').innerHTML = KINDS.map(function(k){
+      return '<div class="kind-row'+(k.id===s.kind?' cur':'')+'"><span class="kind-name">'+k.name+'</span>'+
+        '<span class="chips">'+CHANNELS.slice(0,2).map(function(c){ return chipHtml('account',k.id,c); }).join('')+
+        '</span></div>';
+    }).join('');
+  }
+  function renderModules(){
+    var s = currentScenario();
+    $('moduleState').textContent = S.mode === 'current' ? '已保存，但不参与发送' : '按优先级覆盖账号级';
+    $('moduleRows').innerHTML = MODULES.map(function(m){
+      var dim = s.module !== m.id;
+      return '<div class="module-row'+(dim?' dim':'')+'" data-module="'+m.id+'">'+
+        '<span class="m-name">'+m.name+'</span>'+
+        '<span class="chips">'+CHANNELS.map(function(c){ return chipHtml('module',m.id,c); }).join('')+'</span>'+
+        '<span class="m-note">'+(dim?'非当前场景':'当前场景')+'</span></div>';
+    }).join('');
+  }
+  function renderInstance(){
+    var s = currentScenario();
+    var relevant = s.id === 'move';
+    $('instanceBlock').style.opacity = relevant ? '1' : '.55';
+    var sw = $('instSwitch');
+    sw.className = 'switch ' + (S.instance.on ? 'on' : 'off');
+    sw.textContent = S.instance.on ? '开启提醒' : '关闭提醒';
+    $('instStat').textContent = '实例开关：' + (S.instance.on ? '开启' : '关闭') +
+      (S.mode === 'current' && relevant ? '（现状下被忽略）' : '');
+    $('instChannels').innerHTML = CHANNELS.map(function(c){ return chipHtml('instance','move',c); }).join('');
+  }
+
+  function applyGlobalGate(out){
+    var cut = [];
+    if(!S.globalOn){
+      cut = out.channels.map(chName).concat(out.local ? ['浏览器（本地）'] : []);
+      out.channels = [];
+      out.local = false;
+      out.blocked = cut;
+      out.reasons.push('全局通知已关闭，所有渠道被拦截。');
+      return;
+    }
+    var kept = [], unconfigured = [];
+    out.channels.forEach(function(c){
+      if(!S.globalChannels[c]) { cut.push(chName(c)); return; }
+      if(!channelState(c).ok) { unconfigured.push(chName(c)); return; }
+      kept.push(c);
+    });
+    out.channels = kept;
+    if(out.local && !S.globalChannels.browser){
+      out.local = false;
+      cut.push('浏览器（本地）');
+    }else if(out.local && !channelState('browser').ok){
+      out.local = false;
+      unconfigured.push('浏览器（本地）');
+    }
+    out.blocked = cut;
+    out.unconfigured = unconfigured;
+    if(cut.length) out.reasons.push('被渠道总控关闭：' + cut.join(' / ') + '。');
+    if(unconfigured.length) out.reasons.push('渠道未完成配置，已拦截：' + unconfigured.join(' / ') + '。');
+  }
+
+  /* 免打扰时段：开始晚于结束即跨夜；起止相同视为不生效 */
+  function inDnd(now, start, end){
+    if(!start || !end || start === end) return false;
+    if(start < end) return now >= start && now < end;
+    return now >= start || now < end;
+  }
+  /* 板块闸门：合并后的板块启用与渠道，是实例/模块/账号之上的一层总控。
+     启用值走 boardOn()：模块类板块自动跟随功能模块开关（v209 语义），
+     停用模块 = 导航隐藏 + 提醒停止 + 数据保留。 */
+  function applyBoardGate(out, s){
+    var bid = boardOf(s);
+    var b = S.boards[bid];
+    if(!b) return;
+    if(S.mode === 'current'){
+      out.ignored.push('板块总控（启用与渠道）');
+      out.reasons.push('现状代码里模块开关与通知矩阵分两处存，板块总控按目标方案模拟，此处不参与发送。');
+      return;
+    }
+    if(!boardOn(bid)){
+      var lost = out.channels.map(chName).concat(out.local ? ['浏览器（本地）'] : []);
+      out.channels = []; out.local = false;
+      out.blocked = out.blocked.concat(lost.length ? lost : ['该板块']);
+      out.reasons.push(moduleBoard(bid)
+        ? '功能模块「' + boardName(bid) + '」已停用：页面隐藏、提醒停止，数据保留。'
+        : '板块「' + boardName(bid) + '」已停用，整块不排程、本地通知也不弹。');
+      return;
+    }
+    var kept = [], cut = [];
+    out.channels.forEach(function(c){
+      if(!b.channels[c]) cut.push(chName(c)); else kept.push(c);
+    });
+    out.channels = kept;
+    if(out.local && !b.channels.browser){ out.local = false; cut.push('浏览器（本地）'); }
+    out.blocked = out.blocked.concat(cut);
+    if(cut.length) out.reasons.push('板块「' + boardName(bid) + '」未勾选：' + cut.join(' / ') + '。');
+  }
+  function applyDndGate(out){
+    if(!S.dnd.on || !inDnd(S.dnd.now, S.dnd.start, S.dnd.end)) return;
+    var lost = out.channels.map(chName).concat(out.local ? ['浏览器（本地）'] : []);
+    out.channels = []; out.local = false;
+    out.blocked = out.blocked.concat(lost.length ? lost : ['免打扰时段']);
+    out.reasons.push('命中全局免打扰时段 ' + S.dnd.start + '–' + S.dnd.end + '，本次跳过且不补发。');
+  }
+
+  function resolve(){
+    var s = currentScenario();
+    var out = {channels:[], local:false, source:'', reasons:[], ignored:[], blocked:[], unconfigured:[]};
+    var accountCh = S.account[s.kind] ? selected(S.account[s.kind]) : [];
+
+    if(s.id === 'quit'){
+      out.source = '明确排除';
+      out.reasons.push('戒烟 / 戒除类不排程、不推送，不生成任何渠道。');
+      return out;
+    }
+    if(S.mode === 'current'){
+      out.channels = accountCh;
+      out.source = '账号级矩阵';
+      out.reasons.push('只读取账号级矩阵的「' + kindName(s.kind) + '」一行。');
+      if(s.module){
+        var mc = selected(S.modules[s.module]);
+        out.ignored.push(({water:'喝水',breathe:'478',move:'运动'})[s.module] + '模块渠道');
+        if(mc.length) out.reasons.push('模块级勾选「' + mc.map(chName).join(' / ') + '」已保存，但发送端不读取。');
+      }
+      if(s.id === 'move'){
+        out.ignored.push('实例开关与渠道');
+        out.reasons.push('实例开关与渠道未参与排程，前端日历与服务端照常生成。');
+      }
+      out.local = !!currentContent().browser;
+      if(out.local) out.reasons.push('浏览器本地通知另走页面轮询，不看渠道矩阵。');
+    }else{
+      var instRelevant = s.id === 'move';
+      var moduleCh = s.module ? selected(S.modules[s.module]) : [];
+      if(instRelevant && !S.instance.on){
+        out.source = '实例级：已关闭提醒';
+        out.reasons.push('实例开关已关闭，按目标语义直接停止推送。');
+      }else if(instRelevant && selected(S.instance.channels).length){
+        out.channels = selected(S.instance.channels);
+        out.source = '实例级（晨跑）';
+        out.reasons.push('实例渠道优先级最高，覆盖模块与账号级。');
+        if(moduleCh.length) out.reasons.push('模块级勾选被实例级覆盖。');
+      }else if(moduleCh.length){
+        out.channels = moduleCh;
+        out.source = '模块级';
+        out.reasons.push('模块渠道覆盖了账号级矩阵。');
+      }else{
+        out.channels = accountCh;
+        out.source = '账号级矩阵';
+        out.reasons.push('没有模块 / 实例覆盖，回落到账号级「' + kindName(s.kind) + '」一行。');
+      }
+      var declared = out.channels.filter(function(c){ return c === 'browser'; });
+      out.channels = out.channels.filter(function(c){ return c !== 'browser'; });
+      var hasBrowserText = !!currentContent().browser;
+      out.local = declared.length > 0 || (!s.module && hasBrowserText);
+      if(declared.length) out.reasons.push('渠道里勾选了浏览器，按本地通知处理。');
+      else if(out.local) out.reasons.push('无模块覆盖的场景，浏览器通知由渠道总控单独决定。');
+    }
+    applyGlobalGate(out);
+    applyBoardGate(out, s);
+    applyDndGate(out);
+    return out;
+  }
+
+  function renderChain(){
+    var r = resolve();
+    var nodes = [
+      {t:'实例级', d:'开关与渠道'}, {t:'模块级', d:'模块渠道'},
+      {t:'账号级', d:'账号矩阵'}, {t:'实际发送', d:'企微 / 邮件 / 本地'}
+    ];
+    var active = 3;
+    if(r.source.indexOf('实例级') === 0) active = 0;
+    else if(r.source === '模块级') active = 1;
+    else if(r.source === '账号级矩阵') active = 2;
+    $('chain').innerHTML = nodes.map(function(n,i){
+      return (i ? '<span class="chain-arrow">›</span>' : '') +
+        '<div class="chain-node'+(i===active?' active':'')+'"><b>'+n.t+'</b>'+n.d+'</div>';
+    }).join('');
+  }
+
+  function updateMailCard(){
+    var content = currentContent();
+    var lines = content.server.split('\n');
+    if(S.mailStyle === 'html'){
+      var source = mailCardSource(lines[0] || '提醒', lines.slice(1).join('\n'), S.mailFooter, S.mailColor);
+      $('mailCardPreview').innerHTML = source;
+      $('mailHtmlCode').textContent = source;
+    }else{
+      $('mailCardPreview').innerHTML =
+        '<div class="msg empty"><div class="msg-body">当前是纯文本邮件：正文就是服务端文案，没有卡片效果。</div></div>';
+      $('mailHtmlCode').textContent = content.server;
+    }
+  }
+
+  function renderTemplateEditor(){
+    var sel = $('tplScope');
+    if(!sel.options.length){
+      SCENARIOS.forEach(function(s){
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+      });
+    }
+    sel.value = S.scenario;
+    var tpl = S.templates[S.scenario] || {title:'', body:'', browser:''};
+    $('tplTitle').value = tpl.title;
+    $('tplBody').value = tpl.body;
+    $('tplBrowser').value = tpl.browser;
+
+    var off = S.scenario === 'quit';
+    ['tplTitleField','tplBodyField','tplBrowserField'].forEach(function(id){
+      $(id).className = 'tpl-field' + (off ? ' disabled' : '');
+    });
+    $('tplTitle').disabled = off;
+    $('tplBody').disabled = off;
+    $('tplBrowser').disabled = off;
+    $('tplStatus').textContent = off ? '戒除类不排程，模板不生效' : '改动立即反映到右侧解析结果';
+
+    $('tplVarChips').innerHTML = TPL_VARS.map(function(v){
+      return '<button type="button" class="var-chip" data-var="'+v.name+'">'+v.name+'</button>';
+    }).join('');
+    var vars = templateVars();
+    $('tplVarList').innerHTML = TPL_VARS.map(function(v){
+      return '<div class="var-row"><div class="vr-hd"><b>{'+v.name+'}</b><span>'+esc(v.desc)+
+        '</span></div><div class="vr-val">'+esc(vars[v.name])+'</div></div>';
+    }).join('');
+
+    $('mailStyle').value = S.mailStyle;
+    $('mailFooter').value = S.mailFooter;
+    $('mailColors').innerHTML = MAIL_COLORS.map(function(c){
+      return '<button type="button" class="color-chip'+(S.mailColor === c.id ? ' on' : '')+
+        '" data-color="'+c.id+'" title="'+c.name+'" style="background:'+c.main+'"></button>';
+    }).join('');
+    updateMailCard();
+  }
+
+  /* 编辑器右侧的实时文案：和下方解析结果共用同一份 currentContent()，
+     改模板时不必往下翻就能看到效果。 */
+  function renderLivePreview(content){
+    var lines = String(content.server || '').split('\n');
+    $('liveServer').innerHTML = content.server
+      ? '<div class="live-tag">服务端通知 · 企业微信 / 邮件</div>'+
+        '<div class="live-title">'+esc(lines[0] || '（无标题）')+'</div>'+
+        '<div class="live-body">'+esc(lines.slice(1).join('\n') || '（无正文）')+'</div>'
+      : '<div class="live-tag">服务端通知 · 企业微信 / 邮件</div><div class="live-empty">这一类不排程，服务端不会发送</div>';
+    $('liveBrowser').innerHTML = content.browser
+      ? '<div class="live-tag">浏览器本地通知</div><div class="live-body">'+esc(content.browser)+'</div>'
+      : '<div class="live-tag">浏览器本地通知</div><div class="live-empty">该项无浏览器文案，不会弹本地通知</div>';
+  }
+
+  function renderResult(){
+    var s = currentScenario();
+    var item = activeItem();
+    var content = currentContent();
+    renderLivePreview(content);
+    var r = resolve();
+    var pills = r.channels.map(function(c){ return '<span class="route-pill '+c+'">'+chName(c)+'</span>'; });
+    if(r.local) pills.push('<span class="route-pill browser">浏览器（本地）</span>');
+    if(!pills.length) pills.push('<span class="route-pill none">不发送任何通知</span>');
+    $('resultHero').innerHTML = pills.join('');
+
+    var extra = '';
+    if(item){
+      extra = ' · <b>来源标识：</b>' + esc(SOURCE_CN[item['来源']] || item['来源']) +
+              ' · <b>优先级：</b>' + esc(item['优先级']) +
+              ' · <b>触发时间：</b>' + esc(item['时间']);
+    }
+    $('ruleLine').innerHTML = '<b>命中规则：</b>'+esc(r.source)+' · <b>板块：</b>'+esc(boardName(boardOf(s)))+
+      ' · <b>账号类别：</b>'+esc(kindName(s.kind))+
+      ' · <b>全局通知：</b>'+(S.globalOn ? '开启' : '关闭')+
+      ' · <b>免打扰：</b>'+(S.dnd.on ? (S.dnd.start+'–'+S.dnd.end) : '未开启')+extra;
+    if(s.id === 'report'){
+      var rt = S.reportTimes;
+      var times = '早报 '+(rt.morning || '不发')+' / 午报 '+(rt.noon || '不发')+' / 小结 '+(rt.evening || '不发');
+      $('ruleLine').innerHTML += ' · <b>小结时刻：</b>'+esc(times);
+    }
+
+    var gateLines = [];
+    if(r.blocked && r.blocked.length) gateLines.push('<b>被上层规则拦截：</b>'+esc(r.blocked.join('、')));
+    if(r.unconfigured && r.unconfigured.length) gateLines.push('<b>配置检测未通过：</b>'+esc(r.unconfigured.join('、'))+'，请到「配置」页开通');
+    if(gateLines.length){
+      $('warnLine').className = 'warn-line';
+      $('warnLine').innerHTML = gateLines.join('；')+
+        (r.channels.length || r.local ? '，其余渠道仍会发送。' : '，该项当前不会发送任何通知。');
+    }else if(r.ignored.length && S.mode === 'current'){
+      $('warnLine').className = 'warn-line';
+      $('warnLine').innerHTML = '<b>设置被忽略：</b>'+esc(r.ignored.join('、'))+
+        ' 在本模式下不参与发送决策。切换到“目标方案”查看建议行为。';
+    }else{
+      $('warnLine').className = 'warn-line ok';
+      $('warnLine').textContent = r.reasons.join(' ');
+    }
+
+    var sv = '';
+    if(!content.server){
+      sv = '<div class="msg empty"><div class="msg-body">该项不排程、不推送，服务端不生成任何文案。</div></div>';
+    }else if(r.channels.length){
+      r.channels.forEach(function(c){
+        var lines = content.server.split('\n');
+        if(c === 'mail' && S.mailStyle === 'html'){
+          sv += '<div class="mail-wrap"><div class="msg-name">邮件 · HTML 卡片</div>'+
+            mailCardSource(lines[0] || '提醒', lines.slice(1).join('\n'), S.mailFooter, S.mailColor)+'</div>';
+          return;
+        }
+        var color = c === 'wecom' ? 'var(--green)' : 'var(--amber)';
+        sv += '<div class="msg '+c+'"><div class="msg-top"><span class="dot" style="background:'+color+'"></span>'+
+          '<span class="msg-name">'+chName(c)+'</span></div>'+
+          '<div class="msg-title">'+esc(lines[0])+'</div>'+
+          '<div class="msg-body">'+esc(lines.slice(1).join('\n'))+'</div></div>';
+      });
+    }else{
+      sv = '<div class="msg empty"><div class="msg-body">'+
+        (r.unconfigured && r.unconfigured.length ? '渠道配置未通过检测，服务端不会发出消息。'
+          : r.blocked && r.blocked.length ? '渠道被总控关闭，服务端不会发出消息。'
+          : '当前解析结果下，服务端不会发出消息。')+
+        '</div></div>';
+    }
+    $('serverPreview').innerHTML = sv;
+
+    if(content.browser){
+      $('browserPreview').innerHTML = r.local
+        ? '<div class="msg browser"><div class="msg-top"><span class="dot" style="background:var(--blue)"></span>'+
+          '<span class="msg-name">仅页面打开时可见</span></div>'+
+          '<div class="msg-title">'+esc(content.browser.split('\n')[0])+'</div>'+
+          '<div class="msg-body">'+esc(content.browser.split('\n').slice(1).join('\n'))+'</div></div>'
+        : '<div class="msg empty"><div class="msg-body">'+
+          (r.unconfigured && r.unconfigured.indexOf('浏览器（本地）') >= 0
+            ? '浏览器通知未开启或权限未授予，本地通知不会弹出。'
+            : r.blocked && r.blocked.indexOf('浏览器（本地）') >= 0
+            ? '浏览器渠道被上层规则拦截，本地通知不会弹出。'
+            : '浏览器本地通知未命中；该类提醒在浏览器端也不一定有对应文案。')+
+          '</div></div>';
+    }else{
+      $('browserPreview').innerHTML = '<div class="msg empty"><div class="msg-body">该类提醒没有浏览器本地文案，服务端三条路由不受影响。</div></div>';
+    }
+    $('simulateBtn').disabled = !r.channels.length && !r.local;
+  }
+
+  function renderLog(){
+    if(!S.log.length){
+      $('logList').innerHTML = '<div class="log-empty">尚无记录，点击上方“模拟发送”开始。</div>';
+      return;
+    }
+    $('logList').innerHTML = S.log.map(function(e){
+      return '<div class="log-item"><span class="log-time">'+esc(e.time)+'</span>'+
+        '<span class="log-main"><strong>'+esc(e.name)+'</strong> · <span>'+esc(e.title)+'</span></span>'+
+        '<span class="log-ch">'+esc(e.ch)+'</span></div>';
+    }).join('');
+  }
+
+  function renderAll(){
+    renderBanner(); renderChannelPanel(); renderBoardPanel(); renderFilterOptions(); renderData(); renderScenarios();
+    renderTemplateEditor(); renderAccount(); renderModules(); renderInstance(); renderChain();
+    renderResult(); renderLog();
+  }
+
+  function toast(msg){
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show';
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function(){ t.className = 'toast'; }, 1800);
+  }
+
+  $('modeSwitch').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    S.mode = btn.getAttribute('data-mode');
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.toggle('on', b === btn); });
+    renderAll();
+  });
+
+  $('globalSwitch').addEventListener('click', function(){
+    S.globalOn = !S.globalOn;
+    renderAll();
+    toast(S.globalOn ? '全局通知已开启' : '全局通知已关闭，所有渠道拦截');
+  });
+
+  /* 功能模块开关（同步源）：点击与正式版功能模块页同语义 */
+  $('modSync').addEventListener('click', function(e){
+    var chip = e.target.closest('button[data-mod]');
+    if(!chip) return;
+    var key = chip.getAttribute('data-mod');
+    S.modOn[key] = !S.modOn[key];
+    renderAll();
+    var name = (MODULE_DEFS.filter(function(m){ return m.key === key; })[0] || {}).name || key;
+    toast(name + (S.modOn[key] ? ' 模块已启用，数据与提醒恢复' : ' 模块已停用：导航隐藏、提醒停止，数据保留'));
+  });
+
+  /* 板块总控：启用开关与渠道勾选。模块类板块的启用列是派生值，点击等同切功能模块开关 */
+  $('boardRows').addEventListener('click', function(e){
+    var onBtn = e.target.closest('button[data-board]');
+    if(onBtn){
+      var bid = onBtn.getAttribute('data-board');
+      var mk = moduleBoard(bid);
+      if(mk){
+        S.modOn[mk] = !S.modOn[mk];
+        renderAll();
+        var name = boardName(bid);
+        toast(name + (S.modOn[mk] ? ' 模块已启用，数据与提醒恢复' : ' 模块已停用：导航隐藏、提醒停止，数据保留'));
+      }else{
+        S.boards[bid].on = !S.boards[bid].on;
+        renderAll();
+        toast(boardName(bid) + (S.boards[bid].on ? ' 已启用' : ' 已停用'));
+      }
+      return;
+    }
+    var chBtn = e.target.closest('button[data-bch]');
+    if(!chBtn) return;
+    var id = chBtn.getAttribute('data-bch');
+    var ch = chBtn.getAttribute('data-bch-ch');
+    if(!boardOn(id)){
+      toast(moduleBoard(id)
+        ? '模块已停用，先在上方功能模块开关里启用才能配渠道'
+        : '板块已停用，先启用板块才能配渠道');
+      return;
+    }
+    S.boards[id].channels[ch] = !S.boards[id].channels[ch];
+    renderAll();
+  });
+
+  /* 批量按钮只作用于基础板块：模块类板块的启用归功能模块开关管，批量误伤会让导航入口整排消失 */
+  $('boardAllOn').addEventListener('click', function(){
+    BOARDS.forEach(function(b){ if(!b.moduleKey) S.boards[b.id].on = true; });
+    renderAll(); toast('基础板块已全部启用（模块类板块跟随功能模块开关）');
+  });
+  $('boardAllOff').addEventListener('click', function(){
+    BOARDS.forEach(function(b){ if(!b.moduleKey) S.boards[b.id].on = false; });
+    renderAll(); toast('基础板块已全部停用，数据仍保留（模块类板块跟随功能模块开关）');
+  });
+  $('boardChAll').addEventListener('click', function(){
+    BOARDS.forEach(function(b){
+      CHANNELS.forEach(function(c){ S.boards[b.id].channels[c.id] = true; });
+    });
+    renderAll(); toast('所有板块的三个渠道已全部勾选');
+  });
+  $('boardChNone').addEventListener('click', function(){
+    BOARDS.forEach(function(b){
+      CHANNELS.forEach(function(c){ S.boards[b.id].channels[c.id] = false; });
+    });
+    renderAll(); toast('所有板块渠道已留空：功能照常用，只是不推送');
+  });
+
+  $('dndSwitch').addEventListener('click', function(){
+    S.dnd.on = !S.dnd.on;
+    renderAll();
+    toast(S.dnd.on ? '免打扰时间段已开启' : '免打扰时间段已关闭');
+  });
+  [['dndStart','start'],['dndEnd','end'],['dndNow','now']].forEach(function(p){
+    $(p[0]).addEventListener('change', function(){ S.dnd[p[1]] = this.value; renderAll(); });
+  });
+  [['repMorning','morning'],['repNoon','noon'],['repEvening','evening']].forEach(function(p){
+    $(p[0]).addEventListener('change', function(){
+      S.reportTimes[p[1]] = this.value;
+      renderAll();
+      toast('每日小结时刻已改为 ' + (this.value || '留空不发'));
+    });
+  });
+
+  $('channelCards').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-global-ch]');
+    if(!btn) return;
+    if(!S.globalOn){ toast('请先开启全局通知'); return; }
+    var id = btn.getAttribute('data-global-ch');
+    S.globalChannels[id] = !S.globalChannels[id];
+    renderAll();
+  });
+
+  $('chanCheck').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-cfg-ch]');
+    if(!btn) return;
+    var id = btn.getAttribute('data-cfg-ch');
+    S.channelCfg[id] = !S.channelCfg[id];
+    renderAll();
+    toast(S.channelCfg[id] ? chName(id)+' 已模拟完成配置' : chName(id)+' 已模拟清除配置');
+  });
+
+  $('allOnBtn').addEventListener('click', function(){
+    S.globalOn = true;
+    CHANNELS.forEach(function(c){ S.globalChannels[c.id] = true; });
+    renderAll();
+    toast('三个渠道已全部开启');
+  });
+
+  $('allOffBtn').addEventListener('click', function(){
+    CHANNELS.forEach(function(c){ S.globalChannels[c.id] = false; });
+    renderAll();
+    toast('三个渠道已全部关闭');
+  });
+
+  $('dataList').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-item]');
+    if(!btn) return;
+    var id = btn.getAttribute('data-item');
+    S.activeItemId = (S.activeItemId === id) ? null : id;
+    if(S.activeItemId){
+      for(var i=0;i<ITEMS.length;i++){
+        if(ITEMS[i].id === S.activeItemId){ S.scenario = ITEMS[i]['场景']; break; }
+      }
+    }
+    renderAll();
+  });
+
+  $('clearItemBtn').addEventListener('click', function(){
+    S.activeItemId = null;
+    renderAll();
+    toast('已清除数据项选择，恢复场景模板');
+  });
+
+  ['filterCat','filterPri','filterStatus','sortBy'].forEach(function(id){
+    $(id).addEventListener('change', function(){
+      if(id === 'filterCat') S.filters.cat = this.value;
+      else if(id === 'filterPri') S.filters.pri = this.value;
+      else if(id === 'filterStatus') S.filters.status = this.value;
+      else S.filters.sort = this.value;
+      renderData();
+    });
+  });
+
+  $('scenarioList').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-scenario]');
+    if(!btn) return;
+    S.scenario = btn.getAttribute('data-scenario');
+    S.activeItemId = null;
+    renderAll();
+  });
+
+  $('tplScope').addEventListener('change', function(){
+    S.scenario = this.value;
+    S.activeItemId = null;
+    renderAll();
+  });
+
+  var lastTplField = 'tplBody';
+  ['tplTitle','tplBody','tplBrowser'].forEach(function(id){
+    $(id).addEventListener('focus', function(){ lastTplField = id; });
+    $(id).addEventListener('input', function(){
+      var key = id === 'tplTitle' ? 'title' : (id === 'tplBody' ? 'body' : 'browser');
+      if(!S.templates[S.scenario]) S.templates[S.scenario] = {title:'', body:'', browser:''};
+      S.templates[S.scenario][key] = this.value;
+      renderResult();
+      updateMailCard();
+      $('tplStatus').textContent = '已修改，刷新页面即恢复默认';
+    });
+  });
+
+  $('tplVarChips').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-var]');
+    if(!btn) return;
+    var el = $(lastTplField);
+    if(!el || el.disabled){ toast('当前场景没有可编辑的模板'); return; }
+    var name = btn.getAttribute('data-var');
+    var pos = typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+    var val = el.value;
+    el.value = val.slice(0, pos) + '{' + name + '}' + val.slice(pos);
+    el.focus();
+    el.setSelectionRange(pos + name.length + 2, pos + name.length + 2);
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+
+  $('mailStyle').addEventListener('change', function(){
+    S.mailStyle = this.value;
+    renderResult();
+    updateMailCard();
+  });
+  $('mailColors').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-color]');
+    if(!btn) return;
+    S.mailColor = btn.getAttribute('data-color');
+    renderAll();
+  });
+  $('mailFooter').addEventListener('input', function(){
+    S.mailFooter = this.value;
+    renderResult();
+    updateMailCard();
+  });
+
+  $('tplResetOne').addEventListener('click', function(){
+    S.templates[S.scenario] = defaultTemplates()[S.scenario];
+    renderAll();
+    toast('本场景模板已恢复默认');
+  });
+  $('tplResetAll').addEventListener('click', function(){
+    S.templates = defaultTemplates();
+    renderAll();
+    toast('全部场景模板已恢复默认');
+  });
+
+  function chipClick(e){
+    var btn = e.target.closest('button[data-scope]');
+    if(!btn) return;
+    var scope = btn.getAttribute('data-scope');
+    var key = btn.getAttribute('data-key');
+    var ch = btn.getAttribute('data-ch');
+    var map = scope === 'account' ? S.account[key] : (scope === 'module' ? S.modules[key] : S.instance.channels);
+    map[ch] = !map[ch];
+    renderAll();
+  }
+  $('accountRows').addEventListener('click', chipClick);
+  $('moduleRows').addEventListener('click', chipClick);
+  $('instChannels').addEventListener('click', chipClick);
+
+  $('instSwitch').addEventListener('click', function(){
+    S.instance.on = !S.instance.on;
+    renderAll();
+  });
+
+  $('simulateBtn').addEventListener('click', function(){
+    var r = resolve();
+    var content = currentContent();
+    var item = activeItem();
+    var chs = r.channels.slice();
+    if(r.local) chs.push('browser');
+    if(!chs.length) return;
+    var now = new Date();
+    var time = [now.getHours(), now.getMinutes(), now.getSeconds()].map(function(n){
+      return n < 10 ? '0'+n : ''+n;
+    }).join(':');
+    chs.forEach(function(c){
+      S.log.unshift({
+        time: time,
+        name: item ? item['功能'] : currentScenario().name,
+        title: content.server.split('\n')[0],
+        ch: c === 'browser' ? '浏览器（本地）' : chName(c)
+      });
+    });
+    if(S.log.length > 30) S.log.length = 30;
+    renderLog();
+    toast('已模拟 ' + chs.length + ' 条，未发送真实消息');
+  });
+
+  $('clearLogBtn').addEventListener('click', function(){ S.log = []; renderLog(); });
+
+  $('resetBtn').addEventListener('click', function(){
+    var mode = S.mode;
+    S = defaultState();
+    S.mode = mode;
+    Array.prototype.forEach.call($('modeSwitch').querySelectorAll('button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-mode') === mode);
+    });
+    renderAll();
+    toast('已恢复默认设置');
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

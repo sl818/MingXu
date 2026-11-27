@@ -1,0 +1,678 @@
+<!DOCTYPE html><html lang=zh-CN><head><meta charset=utf-8><title>改动地图 · 前后对比</title>
+<style>
+:root{--bg:#fbf3e7;--surface:#fff;--text:#2b2013;--muted:#7a6a55;--line:#e8dcc8;--accent:#dc2626;--add:#e8f5e9;--del:#fdecea}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:28px}
+.wrap{max-width:1180px;margin:auto}h1{font-size:20px;margin:0 0 6px}.sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+.bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+button{font:13px inherit;padding:7px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.stat{display:flex;gap:18px;margin-bottom:14px;font-size:12px;color:var(--muted)}
+.stat b{color:var(--text)}
+.panel{display:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:72vh}
+.panel.on{display:block}
+table{border-collapse:collapse;width:100%;font:12px/1.55 ui-monospace,Consolas,monospace}
+td{padding:3px 10px;vertical-align:top;border-bottom:1px solid #f4eee3}
+td.ln{width:48px;color:#a99b86;text-align:right;user-select:none;border-right:1px solid var(--line)}
+tr.add td:last-child{background:var(--add)}tr.del td:last-child{background:var(--del)}tr.chg td:last-child{background:#fff8e1}
+tr.eq td:last-child{color:#5c5142}ins.a{background:#b7e4c7;text-decoration:none}del.d{background:#f5b7b1}
+pre{margin:0;padding:16px;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,Consolas,monospace}
+</style></head><body><div class=wrap>
+<h1>改动地图 · 前后对比</h1>
+<div class=sub>docs/CHANGE-MAP.md · 改前 293 行 → 改后 355 行 · 2026-11-27</div>
+<div class=stat><span>新增 <b>62 行</b></span><span>修订 <b>4 处过时表述</b></span><span>新增章节 <b>运动模块 / 升级判断</b></span></div>
+<div class=bar><button class=on data-p=diff>差异视图</button><button data-p=before>改前全文</button><button data-p=after>改后全文</button></div>
+<div class="panel on" id=diff><table><tr class=eq><td class=ln>1</td><td class=ln>1</td><td># 改动地图</td></tr><tr class=add><td class=ln></td><td class=ln>7</td><td><ins class=a>**最后更新**：2026-11-27 · 对应代码版本 **v202**（`service-worker.js` 的 `CACHE`）。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>8</td><td><ins class=a>下文出现的 `v31` / `v88` / `v127` 等是历史版本锚点，不是当前版本。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>9</td><td><ins class=a>测试项数会随版本变化，**以脚本实测输出为准**，括号里的数字仅作量级参考。</ins></td></tr><tr class=eq><td class=ln>7</td><td class=ln>10</td><td></td></tr><tr class=chg><td class=ln>33</td><td class=ln>36</td><td>|<del class=d> `normalizeHabits` /</del> `normalizeState` | <ins class=a>习惯清洗**就在它内部**（约 1384 行起）：</ins>频率、截止时刻、目标数<ins class=a>；没有单独</ins>的<del class=d>清洗</del><ins class=a> `normalizeHabits`</ins> |</td></tr><tr class=eq><td class=ln>34</td><td class=ln>37</td><td></td></tr><tr class=chg><td class=ln>104</td><td class=ln>107</td><td>| `viewMeds` / `medById` / `<ins class=a>me</ins>d<del class=d>os</del><ins class=a>Sch</ins>e<ins class=a>duled</ins>Count` / `medScheduled<ins class=a>For` | 用药；用药清洗走 `migrateMeds`，没有单独的 `normalizeMeds` / `dose</ins>Count` |<del class=d> 用药 |</del></td></tr><tr class=chg><td class=ln>105</td><td class=ln>108</td><td>| `normalize<del class=d>M</del><ins class=a>Stat</ins>e<ins class=a>`（`</ins>d<ins class=a>ose</ins>s` <ins class=a>原样带过）</ins>/ `mergeStates`（`doses` 三层并集） | 用药合并单独写，不能和 `checks` 混在一起 |</td></tr><tr class=eq><td class=ln>106</td><td class=ln>109</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>115</td><td><ins class=a>## 6.1 运动（v179 起，当前最复杂的模块）</ins></td></tr><tr class=add><td class=ln></td><td class=ln>116</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>117</td><td><ins class=a>数据在 `state.modules.move`，含 `sports[]` 与 `records[]` 两个数组。**改动前先看 `docs/MOVE-FIX-PLAN-v197.md`**。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>118</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>119</td><td><ins class=a>### 清洗与白名单</ins></td></tr><tr class=add><td class=ln></td><td class=ln>120</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>121</td><td><ins class=a>| 位置 | 说明 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>122</td><td><ins class=a>| --- | --- |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>123</td><td><ins class=a>| `normalizeMoveSport` | 实例字段白名单：`tIdx`/`tVal`（目标档与值）、`freqKind`/`freqN`/`perDay`/`weekSel`、`recMode`/`fixedSteps`、`fields[]`、`distLocked`、`notifyOn`/`channels` |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>124</td><td><ins class=a>| `normalizeMoveRecord` | 记录字段白名单 + **真实日期校验**；带 `updatedAt`（合并比新）、`deletedAt`（软删除墓碑，30 天后清理）、`pending`/`skipped` |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>125</td><td><ins class=a>| `normalizeModule` / `normalizeModules` | 模块层清洗；外键原样带过，别被洗掉 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>126</td><td><ins class=a>| `MOVE_TYPES` / `MOVE_PICKABLE` | 模式库；`retired:true` 仍保留渲染（游泳/瑜伽），新建列表用 `MOVE_PICKABLE` 过滤 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>127</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>128</td><td><ins class=a>加模式 / 加字段要同步四处：`MOVE_TYPES`、记录白名单、补数据 `fieldsHtml`（已动态化）、统计 `moveStatsHtml`。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>129</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>130</td><td><ins class=a>### 合并（并发口径，v198）</ins></td></tr><tr class=add><td class=ln></td><td class=ln>131</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>132</td><td><ins class=a>`mergeMoveModule(remote, local)` 单独写，**不能整块取新**：</ins></td></tr><tr class=add><td class=ln></td><td class=ln>133</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>134</td><td><ins class=a>- `sports` / `records` 都按 `id` 并集合并；只有一端有的直接保留。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>135</td><td><ins class=a>- `records` 墓碑优先：任一端有 `deletedAt`，合并后就是删掉的，不会被旧数据复活。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>136</td><td><ins class=a>- 两端都有时比 `updatedAt`，新的一侧胜出。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>137</td><td><ins class=a>- 模块级配置字段整体取较新的一侧。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>138</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>139</td><td><ins class=a>### 打卡状态机（v181）</ins></td></tr><tr class=add><td class=ln></td><td class=ln>140</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>141</td><td><ins class=a>非步数打卡先落一条 `pending` 记录并弹数据表单；`movePendingRec()` 找到待填记录时主按钮锁成「记录数据」，「补数据」入口换成「撤销这一次」。填完或点「跳过不记录」（二次确认后置 `skipped`）才放行下一次。记录字段的 `pending` / `skipped` 老数据默认 false。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>142</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>143</td><td><ins class=a>- `moveRecords()` 过滤墓碑；页面一律用它，不直接读 `m.records`。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>144</td><td><ins class=a>- `moveStalePendings` / `moveUnfinishedRecs`：跨天 pending 与「跳过 + 待填」近 30 天列表。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>145</td><td><ins class=a>- `closeModal()` 对 `data-must-settle=&quot;1&quot;` 的待填弹窗禁止 ESC / 遮罩关闭。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>146</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>147</td><td><ins class=a>### 统计口径（v197，改前必读）</ins></td></tr><tr class=add><td class=ln></td><td class=ln>148</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>149</td><td><ins class=a>- `moveStatAgg`：步数是**打卡数据**，跳过也计；时长 / 距离 / 心率等是**运动后数据**，跳过不计。`pending` 单列，不算「有详细数据」。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>150</td><td><ins class=a>- `moveStatBounds`：all 范围的起点按**当前模式**最早记录，不用全局最早。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>151</td><td><ins class=a>- `moveStatDayScore`：有详细时长按时长；纯步数按 100 步 ≈ 1 分钟折算（否则步数和时长画进同一张热力图会整片全红）。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>152</td><td><ins class=a>- 非步数达标 = 当天记录数 ≥ `weekly ? perDay : freqN`；步数按累计步数 ≥ `tVal`。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>153</td><td><ins class=a>- 休息日不纳入考核（`moveMet`）：所有实例当天都按计划休息时返回 true。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>154</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>155</td><td><ins class=a>改 `met` / `dayStats` / `rateOver` / `habitDayAcc` 相关口径时，**同步 `algoModal`**，运动统计也一样。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>156</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>157</td><td><ins class=a>测试：`verify-move`(基础) / `verify-move-compat-v176` / `verify-move-chan-v177` /</ins></td></tr><tr class=add><td class=ln></td><td class=ln>158</td><td><ins class=a>`verify-move-freq-notify-v178` / `verify-move-modes-v179` / `verify-move-flow-v181` /</ins></td></tr><tr class=add><td class=ln></td><td class=ln>159</td><td><ins class=a>`verify-move-lock-v183` / `verify-move-rules-v184` / `verify-move-full-v185` /</ins></td></tr><tr class=add><td class=ln></td><td class=ln>160</td><td><ins class=a>`verify-move-fixes-v197`；合并逻辑另有 `e2e/test-merge.mjs`。</ins></td></tr><tr class=add><td class=ln></td><td class=ln>161</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>162</td><td><ins class=a>---</ins></td></tr><tr class=add><td class=ln></td><td class=ln>163</td><td></td></tr><tr class=eq><td class=ln>112</td><td class=ln>164</td><td>## 7. 日历与提醒（三处口径）</td></tr><tr class=chg><td class=ln>116</td><td class=ln>168</td><td>1. 前端 `buildICS`（下载 .ics）与页面日历 `dayDebts`<del class=d> /</del><ins class=a>（还款日）；**没有</ins> `dayHabits`<ins class=a>**，习惯提醒不进页面日历</ins></td></tr><tr class=eq><td class=ln>117</td><td class=ln>169</td><td>2. `api/ics.php`（订阅地址）</td></tr><tr class=chg><td class=ln>146</td><td class=ln>198</td><td>| 明暗切换 | `&lt;html data-theme=&quot;light\|dark&quot;&gt;`，首屏内联脚本按<del class=d>时间或</del> localStorage 设置<ins class=a>（v2 起**取消按时间自动判断**）</ins>，防闪白 |</td></tr><tr class=eq><td class=ln>147</td><td class=ln>199</td><td>| 主题样式位置 | `assets/theme-v2.css`（唯一主题，加载在 `app.css` 之后） |</td></tr><tr class=add><td class=ln></td><td class=ln>332</td><td><ins class=a>## 13. 升级判断与待办（2026-11-27）</ins></td></tr><tr class=add><td class=ln></td><td class=ln>333</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>334</td><td><ins class=a>| 文档 | 用途 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>335</td><td><ins class=a>| --- | --- |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>336</td><td><ins class=a>| `docs/架构升级评估对照.md` | 外部《明序架构升级建议书》的逐条评估：哪些前提错了、哪些可采纳 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>337</td><td><ins class=a>| `docs/两万行单文件对策.md` | 单文件规模问题的三条路径与推荐做法 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>338</td><td><ins class=a>| `docs/组件规范与日期控件待办.md` | 组件规范 / 日期控件 / 动效规范的实施待办；落地后回头补进本表 |</ins></td></tr><tr class=add><td class=ln></td><td class=ln>339</td><td></td></tr><tr class=add><td class=ln></td><td class=ln>340</td><td><ins class=a>---</ins></td></tr><tr class=add><td class=ln></td><td class=ln>341</td><td></td></tr><tr class=eq><td class=ln>280</td><td class=ln>342</td><td>## 附：回归脚本分层</td></tr></table></div>
+<div class=panel id=before><pre># 改动地图
+
+&gt; 改某个功能之前先查这张表：**要动哪几处、跑哪个测试**。
+&gt; 目的不是给人看的说明书，是省掉每次从头 grep 的探索。
+&gt; 加功能时顺手补一行；表里的函数名都能在代码里搜到，对不上就说明表过期了。
+
+
+---
+
+## 0. 通用铁律
+
+| 改了什么 | 必须同时改 | 验证 |
+| --- | --- | --- |
+| 新增**顶层字段**（`state.xxx`） | `normalizeState` / `mergeStates` / `repairBackup` 三处 | `verify-import-keep`(13) |
+| 新增**可编辑实体** | 合并按 id 并集、带 `updatedAt`；单值比较时间戳 | 同上 |
+| 新增前端会调的**接口** | 所有 e2e mock 都要加路由 | `verify-api-http`(33) |
+| 改 CSS / JS / HTML | `service-worker.js` 的 `CACHE` 递增 | — |
+| 删 UI | 先 grep `e2e/` 里的选择器与文案 | 相关 verify |
+| 改列 / 加列（数据库） | 先跑 SQL 再传代码，检测函数要容错 | `verify-api-http` |
+
+**行尾**：全仓库 LF（`.gitattributes` 锁定）。写文件一率用 `\n`，不要掺 `\r`。
+
+---
+
+## 1. 习惯
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewToday` / `habitCard(h,d,compact)` | 今日页卡片；`compact` 分支是常驻区窄卡，改卡片结构要保住它 |
+| `viewHabits` / `habitManageRows` | 习惯管理页 |
+| `habitMonthOverview` / `habitDueOn` / `habitMonthRow` | 本月概览；统计页「本月」分段也调同一个函数 |
+| `met(h,d)` / `dayStats` / `rateOver` / `habitDayAcc` | 达标与完成率口径 |
+| `normalizeHabits` / `normalizeState` | 频率、截止时刻、目标数的清洗 |
+
+**改判定必须同步** `algoModal`（考核算法弹窗是代码镜像，不同步就等于文档在撒谎）。
+
+测试：`verify-habit-btn`(31)、`verify-quit-multi`(32)、`verify-habit-month`(38)、
+`verify-habit-deadline`(16)、`verify-habit-feedback`(16)。
+
+---
+
+## 2. 戒烟
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewQuit` / `quitCard` | 页面与卡片；汇总 12 格的数据全现算 |
+| `normalizePacks` | `packs` 只有 `{id,at,name,price,size,cf}`，**加字段必须同步这个白名单** |
+| `packSpans` / `openAt` | 库存与当前包，全是派生量，一个字段都不存 |
+| `quitStartAvg` / `quitNowAvg` / `quitWeekAvgs` | 减量进度与近 4 周 |
+
+测试：`verify-quit-page`(32)、`verify-quit-pack`、`verify-quit-multi`(32)。
+
+---
+
+## 3. 待办
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewBoard` / `taskCard` | 看板与卡片 |
+| `taskStats` | 任务统计；改它要同步 `algoModal` |
+| `taskArchViewModal` | 已归档任务的只读弹窗（备注全文） |
+| `liveTasks` / `orderedNav` | 取数范围与导航顺序 |
+
+测试：`verify-archive`(52)、`verify-batch3`(60)、`verify-task-detail`。
+
+---
+
+## 4. 清债
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewMoney` + `moneyOverviewView` / `moneyDebtsView` / `moneyBudgetView` / `moneyPlanView` / `moneyLogView` / `moneyToolsView` | 六个子页 |
+| `subTab` 字典 | 子页状态**不进 state**，进了就要改三处清洗，且两端会互相覆盖 |
+| `normalizeMoney` | `state.money` 的清洗；`due = 0` 表示没有具体还款日 |
+| `moneyDebtsSummaryHtml` | 债务页底部汇总；分母是初始总额，平均年化按余额加权 |
+
+**还款日四处口径必须一致**：`dayDebts`（页面日历）、`buildICS`（导出）、
+`api/ics.php`（订阅）、`lb_schedule_debts`（企微提醒）。`due = 0` 四处都跳过。
+
+测试：`verify-money-v88`(20) / `v89`(24) / `v90`(29) / `v91`(34) / `v92`(23) / `v94`(32) / `v95`(24)、
+`verify-debt-card`(22)、`verify-budget-actions`(25)、`verify-money-intro`(24)。
+
+---
+
+## 5. 体重
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewWeight` | 页面：档案卡 → hero → 两栏（折线图 + 统计/体脂） |
+| `weightLineChart` / `weightSummaryHtml` / `weightFatPanel` / `weightFatSpark` | 图表与右栏两块 |
+| `normalizeWeightRecord` | 记录清洗；`fat` 可选、0 表示没量 |
+
+折线图 viewBox 是 600×340。**改高度会让写死坐标的断言失效**，测试里从 viewBox 推边界。
+
+测试：`verify-weight-chart`(27)、`verify-weight-fat`(21)、`audit-weight`(18)。
+
+---
+
+## 6. 随笔 / 用药
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewEssays` / `essayModal` / `saveEssayForm` | 随笔；正文是 `text` 字段 |
+| `viewMeds` / `medById` / `doseCount` / `medScheduledCount` | 用药 |
+| `normalizeMeds` / `mergeStates`（`doses` 三层并集） | 用药合并单独写，不能和 `checks` 混在一起 |
+
+测试：`verify-med-page` / `verify-med-form` / `verify-med-card` / `verify-med-collapse`、
+`verify-stock-v31`、`verify-stockcheck-v40`。
+
+---
+
+## 7. 日历与提醒（三处口径）
+
+同一条规则要在**三个地方**成立，改一处必须改另两处：
+
+1. 前端 `buildICS`（下载 .ics）与页面日历 `dayDebts` / `dayHabits`
+2. `api/ics.php`（订阅地址）
+3. `api/schedule.php` 的 `lb_schedule_notices` / `lb_schedule_debts`（企微推送）
+
+`lb_schedule_day` 被前两处复用，**不要把提醒塞进去**，否则订阅里会多条目。
+
+测试：`e2e/test-ics.php`(64)、`e2e/test-schedule.php`(130)、`verify-ics-subscribe`(9)、`verify-ics-ui`。
+
+---
+
+## 8. 统计
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewStats` | 6 块：总览 / 习惯 / 用药 / 戒烟 / 体重 / 任务完成度 |
+| `statsSegHtml` | 分段控件；`stats-habit-tab` 与 `stats-med-tab` 的选项在 `viewStats` 里 |
+| `monthReviewBody` | 本月回顾 |
+
+**改 `met` / `dayStats` / `rateOver` / `habitDayAcc` / `taskStats` 必须同步 `algoModal`**。
+
+测试：`verify-stats-v80`、`verify-batch3`(60)、`verify-algo-modal`、`audit-contrast-v33`。
+
+---
+
+## 9. 导航 / 布局 / 主题
+
+| 位置 | 说明 |
+| --- | --- |
+| `NAV` / `MORE_PAGES` / `orderedNav` | 12 个页面；手机上部分进「更多」抽屉 |
+| 主题 | **只有 1 套**（暖纸 / 白卡 / 一支红笔），分浅色与深色两态；v135 起六套皮肤机制已全部删除 |
+| 明暗切换 | `&lt;html data-theme=&quot;light\|dark&quot;&gt;`，首屏内联脚本按时间或 localStorage 设置，防闪白 |
+| 主题样式位置 | `assets/theme-v2.css`（唯一主题，加载在 `app.css` 之后） |
+
+**CSS 顺序**：`assets/app.css` → `assets/theme-v2.css`。主题层在后加载，会压掉 `app.css` 的裸类名，
+自定义按钮样式要考虑这层覆盖（旧皮肤时代要带 `:root[data-skin]` 前缀，该机制已删除）。
+
+对比度：`audit-contrast-v33`（页面）、`audit-stock-contrast`（弹窗）、`audit-cmd-contrast`（命令卡）。
+
+---
+
+## 8.9 主题层的约定
+
+| 规则 | 说明 |
+| --- | --- |
+| 主题**只改令牌与笔触** | 在 `assets/theme-v2.css` 覆盖变量与必要组件，不写页面结构和数据逻辑 |
+| 规范出处 | 根目录 `DESIGN.md`（v2）；`docs/design/THEME-V2-PLAN.md` 是需求与执行记录 |
+| 焦点轮廓 | **只在 `app.css` 定义一次**，不要在主题层复制 |
+| 新增组件 | 样式只写 `app.css`；改完跑三套对比度审计 + 明暗两态截图比对 |
+| 历史教训 | 旧皮肤层曾有 76 条重绘组件的规则，所以现在禁止在主题层重绘组件 |
+
+## 9.0 静态资源缓存（v128）
+
+| 位置 | 说明 |
+| --- | --- |
+| `index.html` 的 `&lt;link&gt;` | 全部带 `?v=NNN`，与 SW 版本一致。**改版本时必须同步改这里** |
+| `service-worker.js` 的 `VER` | ASSETS 里统一拼 `?v=&#x27; + VER` |
+| SW `install` | 逐个 `fetch(..., {cache:&#x27;reload&#x27;})` + `cache.put`，**不能用 `cache.addAll`**（会吃 HTTP 缓存） |
+| `tools/make_release.py` | 打包前校验 HTML 的 `?v=` 与 SW 的 `CACHE`/`VER` 一致，不一致直接拒绝 |
+| `index.html` 的 SW 注册 | **必须带 `?v=NNN` 和 `updateViaCache:&#x27;none&#x27;`**，裸地址会因 HTTP 缓存永不更新（v131 踩过） |
+
+踩坑：v127 发版后，同一账号在两个浏览器上一个样式正常、一个全丢——因为旧 CSS 被重新缓存进了新 SW。
+
+## 9.1 任务编辑与子任务（v127）
+
+| 位置 | 说明 |
+| --- | --- |
+| `taskModal()` | 三段式弹窗。类名统一 `tk-` 前缀，**别用 `ts-`**（与「任务完成度」组件冲突） |
+| `taskSubs` / `taskSubsHtml` / `bindTaskSubs` | 子任务渲染与增删勾；数据在 `task.subtasks` |
+| `taskSubsBar()` | 卡片上的进度条，`1/2` + 进度 |
+| `taskFoldOpen()` | 折叠区默认展开的判定：有开始时间/时长/重复/通知变化就展开 |
+| 卡片点击 | **单击**开弹窗；原来的双击内联展开已移除 |
+| `normalizeState` | 子任务规整：非数组补空、去空标题、补 id |
+
+测试：`verify-task-subtasks.py`(28)。
+
+## 9.2 注册
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_reg_mode()` / `lb_reg_public()`（`api/bootstrap.php`） | 三种注册方式；兼容旧 `registration_open` |
+| `api.php` 的 `register_code` | 发注册验证码；限流 60 秒 / 每天 10 条 / IP 20 条 |
+| `api.php` 的 `register` | 按模式校验邀请码或验证码；验证码校验在 INSERT 之前 |
+| `email_codes` 表 | 迁移 `2026-11-20_email_codes.sql`；只存 sha256、10 分钟、一次性 |
+| 前端 | `cloudRegisterModal`（按 `data-mode` 渲两套字段）、`registerSendCode`、`regLabel()` |
+
+测试：`verify-register-code.py`(22)。
+
+## 9.3 站点邮件与找回密码
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_site_mail_cfg_load` / `_save`（`api/mailer.php`） | 站点级发信配置，存 `app_settings` 的 `site_mail_*` |
+| `lb_site_mail_send()` | **只给注册确认和找回密码用**，别接到提醒调度里 |
+| `api.php` 的 `password_forgot` / `password_reset` | token 存 sha256、30 分钟、一次性；防枚举 |
+| `password_resets` 表 | 迁移 `2026-11-20_password_reset.sql` |
+| 前端 | `forgotPasswordModal` / `passwordResetModal` / `checkResetToken` / `siteMailPanelHtml` |
+
+测试：`verify-site-mail.py`(25)。
+
+## 9.4 通知与提醒
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_schedule_day` 等（`api/schedule.php`） | 算出「某天几点该提醒什么」；只产出事件，不发 |
+| `lb_push_tick_run()`（`api/push.php`） | 每分钟调度。`$senders` 可以是单个 callable 或 `[[&#x27;channel&#x27;,&#x27;fn&#x27;], ...]` |
+| 通道 | `wecom`（企业微信）、`mail`（邮件）。加通道只需往 `$senders` 里加一项，不动调度核心 |
+| 去重 | `push_sent` 唯一键 `(user_id, slot_key, channel)`。**channel 列必须迁移**，否则多通道互相顶掉 |
+| `tools/push_tick.php` | cron 入口，传两个通道；输出带通道标记 |
+| `lb_notify_prefs_load` / `_save` | 通道矩阵，存 `app_settings` 的 `notify_prefs_&lt;uid&gt;`（零迁移） |
+| `lb_notify_kinds()` | 七种事件类型，**必须与 `schedule.php` 产出的 kind 一致**（notice / debt 容易写错） |
+| `lb_notify_merge_med()` | 同时刻的用药合并成一条；只动 `med`，合并后 id 为 `batch_&lt;time&gt;` |
+| `lb_notify_quiet_load` / `_save` | 夜间静默开关，**默认关**；`lb_notify_in_quiet()` 判断 23:00–07:00 |
+| `lb_notify_report_load` / `_save` | 每日小结三个时刻，空串 = 不发；非法值拒绝写入 |
+| `lb_schedule_reports($state, $date, $times)` | 第三参数可选，不传用默认 08:20/12:30/20:00（旧调用不受影响） |
+
+测试：`test-push-tick.php`(44) / `test-notify-channel.php`(18) / `test-mailer.php`(44)。
+
+## 9.5 账号与资料
+
+| 位置 | 说明 |
+| --- | --- |
+| `cloudAccountModal` | 账号资料弹窗：名称、邮箱、改密两段。**不是 `&lt;form&gt;`**，两个按钮各自 `data-act` |
+| `cloudDoSaveProfile` / `cloudDoChangePassword` | 分别读卡片里的字段，各自校验 |
+| `api.php` 的 `profile_save` | 名称 1–40 字、邮箱格式 + 唯一性；改邮箱不踢会话 |
+| `api.php` 的 `change_password` | 旧密码校验 + 新密码 ≥8 位 + `session_epoch` 递增（其他设备失效） |
+| 入口 | 三区左下角 `.su-card`（整卡可点）、设置页「资料」按钮 |
+
+测试：`verify-profile.py`(20)。
+
+## 10. 云同步 / 备份
+
+| 位置 | 说明 |
+| --- | --- |
+| `cloudPush` / `base_rev` | 乐观锁；冲突时 `mergeStates` 自动合并，**界面无提示** |
+| `mergeStates` | `habits` 以云端为主、本地只补新增 id；`checks` 按天取较大值 |
+| `repairBackup` | 导入时的清洗；不认识顶层键要原样带过（别退回白名单） |
+| 导出 | 全量 `JSON.stringify(state)`，设置页那个就是完整备份 |
+
+测试：`verify-import-keep`(13)、`e2e/test-backup.php`。
+
+---
+
+## 11. 推送
+
+| 位置 | 说明 |
+| --- | --- |
+| `api/push.php` | `lb_push_send(webhook, content, &amp;$err, $type)`，签名被反射测试锁死 |
+| `tools/push_tick.php` | 宝塔每分钟调用，**不能带 `--dry`** |
+| `pushLoad` / `pushSave` | 面板在两处（设置 + 配置），搬家要同步重绘条件 |
+
+测试：`e2e/test-push.php`、`e2e/test-push-tick.php`、`verify-push-ui`、`verify-push-lock`。
+
+---
+
+## 12. 发布清单
+
+1. `service-worker.js` 的 `CACHE` 递增（改 CSS / JS / HTML 就必须）
+2. 含 `db/migrations/` → **先跑 SQL 再传代码**
+3. 含 `api/` → 同时传 PHP
+4. `Todo-update.zip` 按 23 个文件重打（2026-11-18 起含 `assets/app.css`）
+5. 线上核对 md5，不看部署记录
+
+---
+
+## 附：回归脚本分层
+
+| 层 | 脚本 | 项数 |
+| --- | --- | --- |
+| 语法 | `node _check_script.mjs` | — |
+| 后端单测 | `e2e/test-ics.php` / `test-schedule.php` / `test-push.php` / `test-push-tick.php` | 64 / 130 / — / — |
+| 集成 | `verify-ics-subscribe.py` / `verify-api-http.py` | 9 / 33 |
+| 主回归 | `regression-v3.py` / `verify-v15.py` / `verify-mobile-nav.py` | 28 / 35 / 44 |
+| 批次 | `verify-batch2.py` / `verify-batch3.py` / `verify-batch4.py` | 51 / 60 / 20 |
+| 视觉 | `audit-contrast-v33.py` / `audit-stock-contrast.py` / `audit-cmd-contrast.py` | 2532 取样 |
+| 文档 | `e2e/check-doc-anchors.py` | — |
+
+跑法见 `docs/DEPLOY.md`；本机解释器与 PHP 路径写在 `HANDOFF.md` 的验证段。
+</pre></div>
+<div class=panel id=after><pre># 改动地图
+
+&gt; 改某个功能之前先查这张表：**要动哪几处、跑哪个测试**。
+&gt; 目的不是给人看的说明书，是省掉每次从头 grep 的探索。
+&gt; 加功能时顺手补一行；表里的函数名都能在代码里搜到，对不上就说明表过期了。
+
+**最后更新**：2026-11-27 · 对应代码版本 **v202**（`service-worker.js` 的 `CACHE`）。
+下文出现的 `v31` / `v88` / `v127` 等是历史版本锚点，不是当前版本。
+测试项数会随版本变化，**以脚本实测输出为准**，括号里的数字仅作量级参考。
+
+---
+
+## 0. 通用铁律
+
+| 改了什么 | 必须同时改 | 验证 |
+| --- | --- | --- |
+| 新增**顶层字段**（`state.xxx`） | `normalizeState` / `mergeStates` / `repairBackup` 三处 | `verify-import-keep`(13) |
+| 新增**可编辑实体** | 合并按 id 并集、带 `updatedAt`；单值比较时间戳 | 同上 |
+| 新增前端会调的**接口** | 所有 e2e mock 都要加路由 | `verify-api-http`(33) |
+| 改 CSS / JS / HTML | `service-worker.js` 的 `CACHE` 递增 | — |
+| 删 UI | 先 grep `e2e/` 里的选择器与文案 | 相关 verify |
+| 改列 / 加列（数据库） | 先跑 SQL 再传代码，检测函数要容错 | `verify-api-http` |
+
+**行尾**：全仓库 LF（`.gitattributes` 锁定）。写文件一率用 `\n`，不要掺 `\r`。
+
+---
+
+## 1. 习惯
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewToday` / `habitCard(h,d,compact)` | 今日页卡片；`compact` 分支是常驻区窄卡，改卡片结构要保住它 |
+| `viewHabits` / `habitManageRows` | 习惯管理页 |
+| `habitMonthOverview` / `habitDueOn` / `habitMonthRow` | 本月概览；统计页「本月」分段也调同一个函数 |
+| `met(h,d)` / `dayStats` / `rateOver` / `habitDayAcc` | 达标与完成率口径 |
+| `normalizeState` | 习惯清洗**就在它内部**（约 1384 行起）：频率、截止时刻、目标数；没有单独的 `normalizeHabits` |
+
+**改判定必须同步** `algoModal`（考核算法弹窗是代码镜像，不同步就等于文档在撒谎）。
+
+测试：`verify-habit-btn`(31)、`verify-quit-multi`(32)、`verify-habit-month`(38)、
+`verify-habit-deadline`(16)、`verify-habit-feedback`(16)。
+
+---
+
+## 2. 戒烟
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewQuit` / `quitCard` | 页面与卡片；汇总 12 格的数据全现算 |
+| `normalizePacks` | `packs` 只有 `{id,at,name,price,size,cf}`，**加字段必须同步这个白名单** |
+| `packSpans` / `openAt` | 库存与当前包，全是派生量，一个字段都不存 |
+| `quitStartAvg` / `quitNowAvg` / `quitWeekAvgs` | 减量进度与近 4 周 |
+
+测试：`verify-quit-page`(32)、`verify-quit-pack`、`verify-quit-multi`(32)。
+
+---
+
+## 3. 待办
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewBoard` / `taskCard` | 看板与卡片 |
+| `taskStats` | 任务统计；改它要同步 `algoModal` |
+| `taskArchViewModal` | 已归档任务的只读弹窗（备注全文） |
+| `liveTasks` / `orderedNav` | 取数范围与导航顺序 |
+
+测试：`verify-archive`(52)、`verify-batch3`(60)、`verify-task-detail`。
+
+---
+
+## 4. 清债
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewMoney` + `moneyOverviewView` / `moneyDebtsView` / `moneyBudgetView` / `moneyPlanView` / `moneyLogView` / `moneyToolsView` | 六个子页 |
+| `subTab` 字典 | 子页状态**不进 state**，进了就要改三处清洗，且两端会互相覆盖 |
+| `normalizeMoney` | `state.money` 的清洗；`due = 0` 表示没有具体还款日 |
+| `moneyDebtsSummaryHtml` | 债务页底部汇总；分母是初始总额，平均年化按余额加权 |
+
+**还款日四处口径必须一致**：`dayDebts`（页面日历）、`buildICS`（导出）、
+`api/ics.php`（订阅）、`lb_schedule_debts`（企微提醒）。`due = 0` 四处都跳过。
+
+测试：`verify-money-v88`(20) / `v89`(24) / `v90`(29) / `v91`(34) / `v92`(23) / `v94`(32) / `v95`(24)、
+`verify-debt-card`(22)、`verify-budget-actions`(25)、`verify-money-intro`(24)。
+
+---
+
+## 5. 体重
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewWeight` | 页面：档案卡 → hero → 两栏（折线图 + 统计/体脂） |
+| `weightLineChart` / `weightSummaryHtml` / `weightFatPanel` / `weightFatSpark` | 图表与右栏两块 |
+| `normalizeWeightRecord` | 记录清洗；`fat` 可选、0 表示没量 |
+
+折线图 viewBox 是 600×340。**改高度会让写死坐标的断言失效**，测试里从 viewBox 推边界。
+
+测试：`verify-weight-chart`(27)、`verify-weight-fat`(21)、`audit-weight`(18)。
+
+---
+
+## 6. 随笔 / 用药
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewEssays` / `essayModal` / `saveEssayForm` | 随笔；正文是 `text` 字段 |
+| `viewMeds` / `medById` / `medScheduledCount` / `medScheduledFor` | 用药；用药清洗走 `migrateMeds`，没有单独的 `normalizeMeds` / `doseCount` |
+| `normalizeState`（`doses` 原样带过）/ `mergeStates`（`doses` 三层并集） | 用药合并单独写，不能和 `checks` 混在一起 |
+
+测试：`verify-med-page` / `verify-med-form` / `verify-med-card` / `verify-med-collapse`、
+`verify-stock-v31`、`verify-stockcheck-v40`。
+
+---
+
+## 6.1 运动（v179 起，当前最复杂的模块）
+
+数据在 `state.modules.move`，含 `sports[]` 与 `records[]` 两个数组。**改动前先看 `docs/MOVE-FIX-PLAN-v197.md`**。
+
+### 清洗与白名单
+
+| 位置 | 说明 |
+| --- | --- |
+| `normalizeMoveSport` | 实例字段白名单：`tIdx`/`tVal`（目标档与值）、`freqKind`/`freqN`/`perDay`/`weekSel`、`recMode`/`fixedSteps`、`fields[]`、`distLocked`、`notifyOn`/`channels` |
+| `normalizeMoveRecord` | 记录字段白名单 + **真实日期校验**；带 `updatedAt`（合并比新）、`deletedAt`（软删除墓碑，30 天后清理）、`pending`/`skipped` |
+| `normalizeModule` / `normalizeModules` | 模块层清洗；外键原样带过，别被洗掉 |
+| `MOVE_TYPES` / `MOVE_PICKABLE` | 模式库；`retired:true` 仍保留渲染（游泳/瑜伽），新建列表用 `MOVE_PICKABLE` 过滤 |
+
+加模式 / 加字段要同步四处：`MOVE_TYPES`、记录白名单、补数据 `fieldsHtml`（已动态化）、统计 `moveStatsHtml`。
+
+### 合并（并发口径，v198）
+
+`mergeMoveModule(remote, local)` 单独写，**不能整块取新**：
+
+- `sports` / `records` 都按 `id` 并集合并；只有一端有的直接保留。
+- `records` 墓碑优先：任一端有 `deletedAt`，合并后就是删掉的，不会被旧数据复活。
+- 两端都有时比 `updatedAt`，新的一侧胜出。
+- 模块级配置字段整体取较新的一侧。
+
+### 打卡状态机（v181）
+
+非步数打卡先落一条 `pending` 记录并弹数据表单；`movePendingRec()` 找到待填记录时主按钮锁成「记录数据」，「补数据」入口换成「撤销这一次」。填完或点「跳过不记录」（二次确认后置 `skipped`）才放行下一次。记录字段的 `pending` / `skipped` 老数据默认 false。
+
+- `moveRecords()` 过滤墓碑；页面一律用它，不直接读 `m.records`。
+- `moveStalePendings` / `moveUnfinishedRecs`：跨天 pending 与「跳过 + 待填」近 30 天列表。
+- `closeModal()` 对 `data-must-settle=&quot;1&quot;` 的待填弹窗禁止 ESC / 遮罩关闭。
+
+### 统计口径（v197，改前必读）
+
+- `moveStatAgg`：步数是**打卡数据**，跳过也计；时长 / 距离 / 心率等是**运动后数据**，跳过不计。`pending` 单列，不算「有详细数据」。
+- `moveStatBounds`：all 范围的起点按**当前模式**最早记录，不用全局最早。
+- `moveStatDayScore`：有详细时长按时长；纯步数按 100 步 ≈ 1 分钟折算（否则步数和时长画进同一张热力图会整片全红）。
+- 非步数达标 = 当天记录数 ≥ `weekly ? perDay : freqN`；步数按累计步数 ≥ `tVal`。
+- 休息日不纳入考核（`moveMet`）：所有实例当天都按计划休息时返回 true。
+
+改 `met` / `dayStats` / `rateOver` / `habitDayAcc` 相关口径时，**同步 `algoModal`**，运动统计也一样。
+
+测试：`verify-move`(基础) / `verify-move-compat-v176` / `verify-move-chan-v177` /
+`verify-move-freq-notify-v178` / `verify-move-modes-v179` / `verify-move-flow-v181` /
+`verify-move-lock-v183` / `verify-move-rules-v184` / `verify-move-full-v185` /
+`verify-move-fixes-v197`；合并逻辑另有 `e2e/test-merge.mjs`。
+
+---
+
+## 7. 日历与提醒（三处口径）
+
+同一条规则要在**三个地方**成立，改一处必须改另两处：
+
+1. 前端 `buildICS`（下载 .ics）与页面日历 `dayDebts`（还款日）；**没有 `dayHabits`**，习惯提醒不进页面日历
+2. `api/ics.php`（订阅地址）
+3. `api/schedule.php` 的 `lb_schedule_notices` / `lb_schedule_debts`（企微推送）
+
+`lb_schedule_day` 被前两处复用，**不要把提醒塞进去**，否则订阅里会多条目。
+
+测试：`e2e/test-ics.php`(64)、`e2e/test-schedule.php`(130)、`verify-ics-subscribe`(9)、`verify-ics-ui`。
+
+---
+
+## 8. 统计
+
+| 位置 | 说明 |
+| --- | --- |
+| `viewStats` | 6 块：总览 / 习惯 / 用药 / 戒烟 / 体重 / 任务完成度 |
+| `statsSegHtml` | 分段控件；`stats-habit-tab` 与 `stats-med-tab` 的选项在 `viewStats` 里 |
+| `monthReviewBody` | 本月回顾 |
+
+**改 `met` / `dayStats` / `rateOver` / `habitDayAcc` / `taskStats` 必须同步 `algoModal`**。
+
+测试：`verify-stats-v80`、`verify-batch3`(60)、`verify-algo-modal`、`audit-contrast-v33`。
+
+---
+
+## 9. 导航 / 布局 / 主题
+
+| 位置 | 说明 |
+| --- | --- |
+| `NAV` / `MORE_PAGES` / `orderedNav` | 12 个页面；手机上部分进「更多」抽屉 |
+| 主题 | **只有 1 套**（暖纸 / 白卡 / 一支红笔），分浅色与深色两态；v135 起六套皮肤机制已全部删除 |
+| 明暗切换 | `&lt;html data-theme=&quot;light\|dark&quot;&gt;`，首屏内联脚本按 localStorage 设置（v2 起**取消按时间自动判断**），防闪白 |
+| 主题样式位置 | `assets/theme-v2.css`（唯一主题，加载在 `app.css` 之后） |
+
+**CSS 顺序**：`assets/app.css` → `assets/theme-v2.css`。主题层在后加载，会压掉 `app.css` 的裸类名，
+自定义按钮样式要考虑这层覆盖（旧皮肤时代要带 `:root[data-skin]` 前缀，该机制已删除）。
+
+对比度：`audit-contrast-v33`（页面）、`audit-stock-contrast`（弹窗）、`audit-cmd-contrast`（命令卡）。
+
+---
+
+## 8.9 主题层的约定
+
+| 规则 | 说明 |
+| --- | --- |
+| 主题**只改令牌与笔触** | 在 `assets/theme-v2.css` 覆盖变量与必要组件，不写页面结构和数据逻辑 |
+| 规范出处 | 根目录 `DESIGN.md`（v2）；`docs/design/THEME-V2-PLAN.md` 是需求与执行记录 |
+| 焦点轮廓 | **只在 `app.css` 定义一次**，不要在主题层复制 |
+| 新增组件 | 样式只写 `app.css`；改完跑三套对比度审计 + 明暗两态截图比对 |
+| 历史教训 | 旧皮肤层曾有 76 条重绘组件的规则，所以现在禁止在主题层重绘组件 |
+
+## 9.0 静态资源缓存（v128）
+
+| 位置 | 说明 |
+| --- | --- |
+| `index.html` 的 `&lt;link&gt;` | 全部带 `?v=NNN`，与 SW 版本一致。**改版本时必须同步改这里** |
+| `service-worker.js` 的 `VER` | ASSETS 里统一拼 `?v=&#x27; + VER` |
+| SW `install` | 逐个 `fetch(..., {cache:&#x27;reload&#x27;})` + `cache.put`，**不能用 `cache.addAll`**（会吃 HTTP 缓存） |
+| `tools/make_release.py` | 打包前校验 HTML 的 `?v=` 与 SW 的 `CACHE`/`VER` 一致，不一致直接拒绝 |
+| `index.html` 的 SW 注册 | **必须带 `?v=NNN` 和 `updateViaCache:&#x27;none&#x27;`**，裸地址会因 HTTP 缓存永不更新（v131 踩过） |
+
+踩坑：v127 发版后，同一账号在两个浏览器上一个样式正常、一个全丢——因为旧 CSS 被重新缓存进了新 SW。
+
+## 9.1 任务编辑与子任务（v127）
+
+| 位置 | 说明 |
+| --- | --- |
+| `taskModal()` | 三段式弹窗。类名统一 `tk-` 前缀，**别用 `ts-`**（与「任务完成度」组件冲突） |
+| `taskSubs` / `taskSubsHtml` / `bindTaskSubs` | 子任务渲染与增删勾；数据在 `task.subtasks` |
+| `taskSubsBar()` | 卡片上的进度条，`1/2` + 进度 |
+| `taskFoldOpen()` | 折叠区默认展开的判定：有开始时间/时长/重复/通知变化就展开 |
+| 卡片点击 | **单击**开弹窗；原来的双击内联展开已移除 |
+| `normalizeState` | 子任务规整：非数组补空、去空标题、补 id |
+
+测试：`verify-task-subtasks.py`(28)。
+
+## 9.2 注册
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_reg_mode()` / `lb_reg_public()`（`api/bootstrap.php`） | 三种注册方式；兼容旧 `registration_open` |
+| `api.php` 的 `register_code` | 发注册验证码；限流 60 秒 / 每天 10 条 / IP 20 条 |
+| `api.php` 的 `register` | 按模式校验邀请码或验证码；验证码校验在 INSERT 之前 |
+| `email_codes` 表 | 迁移 `2026-11-20_email_codes.sql`；只存 sha256、10 分钟、一次性 |
+| 前端 | `cloudRegisterModal`（按 `data-mode` 渲两套字段）、`registerSendCode`、`regLabel()` |
+
+测试：`verify-register-code.py`(22)。
+
+## 9.3 站点邮件与找回密码
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_site_mail_cfg_load` / `_save`（`api/mailer.php`） | 站点级发信配置，存 `app_settings` 的 `site_mail_*` |
+| `lb_site_mail_send()` | **只给注册确认和找回密码用**，别接到提醒调度里 |
+| `api.php` 的 `password_forgot` / `password_reset` | token 存 sha256、30 分钟、一次性；防枚举 |
+| `password_resets` 表 | 迁移 `2026-11-20_password_reset.sql` |
+| 前端 | `forgotPasswordModal` / `passwordResetModal` / `checkResetToken` / `siteMailPanelHtml` |
+
+测试：`verify-site-mail.py`(25)。
+
+## 9.4 通知与提醒
+
+| 位置 | 说明 |
+| --- | --- |
+| `lb_schedule_day` 等（`api/schedule.php`） | 算出「某天几点该提醒什么」；只产出事件，不发 |
+| `lb_push_tick_run()`（`api/push.php`） | 每分钟调度。`$senders` 可以是单个 callable 或 `[[&#x27;channel&#x27;,&#x27;fn&#x27;], ...]` |
+| 通道 | `wecom`（企业微信）、`mail`（邮件）。加通道只需往 `$senders` 里加一项，不动调度核心 |
+| 去重 | `push_sent` 唯一键 `(user_id, slot_key, channel)`。**channel 列必须迁移**，否则多通道互相顶掉 |
+| `tools/push_tick.php` | cron 入口，传两个通道；输出带通道标记 |
+| `lb_notify_prefs_load` / `_save` | 通道矩阵，存 `app_settings` 的 `notify_prefs_&lt;uid&gt;`（零迁移） |
+| `lb_notify_kinds()` | 七种事件类型，**必须与 `schedule.php` 产出的 kind 一致**（notice / debt 容易写错） |
+| `lb_notify_merge_med()` | 同时刻的用药合并成一条；只动 `med`，合并后 id 为 `batch_&lt;time&gt;` |
+| `lb_notify_quiet_load` / `_save` | 夜间静默开关，**默认关**；`lb_notify_in_quiet()` 判断 23:00–07:00 |
+| `lb_notify_report_load` / `_save` | 每日小结三个时刻，空串 = 不发；非法值拒绝写入 |
+| `lb_schedule_reports($state, $date, $times)` | 第三参数可选，不传用默认 08:20/12:30/20:00（旧调用不受影响） |
+
+测试：`test-push-tick.php`(44) / `test-notify-channel.php`(18) / `test-mailer.php`(44)。
+
+## 9.5 账号与资料
+
+| 位置 | 说明 |
+| --- | --- |
+| `cloudAccountModal` | 账号资料弹窗：名称、邮箱、改密两段。**不是 `&lt;form&gt;`**，两个按钮各自 `data-act` |
+| `cloudDoSaveProfile` / `cloudDoChangePassword` | 分别读卡片里的字段，各自校验 |
+| `api.php` 的 `profile_save` | 名称 1–40 字、邮箱格式 + 唯一性；改邮箱不踢会话 |
+| `api.php` 的 `change_password` | 旧密码校验 + 新密码 ≥8 位 + `session_epoch` 递增（其他设备失效） |
+| 入口 | 三区左下角 `.su-card`（整卡可点）、设置页「资料」按钮 |
+
+测试：`verify-profile.py`(20)。
+
+## 10. 云同步 / 备份
+
+| 位置 | 说明 |
+| --- | --- |
+| `cloudPush` / `base_rev` | 乐观锁；冲突时 `mergeStates` 自动合并，**界面无提示** |
+| `mergeStates` | `habits` 以云端为主、本地只补新增 id；`checks` 按天取较大值 |
+| `repairBackup` | 导入时的清洗；不认识顶层键要原样带过（别退回白名单） |
+| 导出 | 全量 `JSON.stringify(state)`，设置页那个就是完整备份 |
+
+测试：`verify-import-keep`(13)、`e2e/test-backup.php`。
+
+---
+
+## 11. 推送
+
+| 位置 | 说明 |
+| --- | --- |
+| `api/push.php` | `lb_push_send(webhook, content, &amp;$err, $type)`，签名被反射测试锁死 |
+| `tools/push_tick.php` | 宝塔每分钟调用，**不能带 `--dry`** |
+| `pushLoad` / `pushSave` | 面板在两处（设置 + 配置），搬家要同步重绘条件 |
+
+测试：`e2e/test-push.php`、`e2e/test-push-tick.php`、`verify-push-ui`、`verify-push-lock`。
+
+---
+
+## 12. 发布清单
+
+1. `service-worker.js` 的 `CACHE` 递增（改 CSS / JS / HTML 就必须）
+2. 含 `db/migrations/` → **先跑 SQL 再传代码**
+3. 含 `api/` → 同时传 PHP
+4. `Todo-update.zip` 按 23 个文件重打（2026-11-18 起含 `assets/app.css`）
+5. 线上核对 md5，不看部署记录
+
+---
+
+## 13. 升级判断与待办（2026-11-27）
+
+| 文档 | 用途 |
+| --- | --- |
+| `docs/架构升级评估对照.md` | 外部《明序架构升级建议书》的逐条评估：哪些前提错了、哪些可采纳 |
+| `docs/两万行单文件对策.md` | 单文件规模问题的三条路径与推荐做法 |
+| `docs/组件规范与日期控件待办.md` | 组件规范 / 日期控件 / 动效规范的实施待办；落地后回头补进本表 |
+
+---
+
+## 附：回归脚本分层
+
+| 层 | 脚本 | 项数 |
+| --- | --- | --- |
+| 语法 | `node _check_script.mjs` | — |
+| 后端单测 | `e2e/test-ics.php` / `test-schedule.php` / `test-push.php` / `test-push-tick.php` | 64 / 130 / — / — |
+| 集成 | `verify-ics-subscribe.py` / `verify-api-http.py` | 9 / 33 |
+| 主回归 | `regression-v3.py` / `verify-v15.py` / `verify-mobile-nav.py` | 28 / 35 / 44 |
+| 批次 | `verify-batch2.py` / `verify-batch3.py` / `verify-batch4.py` | 51 / 60 / 20 |
+| 视觉 | `audit-contrast-v33.py` / `audit-stock-contrast.py` / `audit-cmd-contrast.py` | 2532 取样 |
+| 文档 | `e2e/check-doc-anchors.py` | — |
+
+跑法见 `docs/DEPLOY.md`；本机解释器与 PHP 路径写在 `HANDOFF.md` 的验证段。
+</pre></div>
+</div><script>
+document.querySelectorAll(".bar button").forEach(function(b){b.onclick=function(){
+document.querySelectorAll(".bar button").forEach(function(x){x.classList.remove("on")});b.classList.add("on");
+document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("on")});
+document.getElementById(b.dataset.p).classList.add("on");}});
+</script></body></html>

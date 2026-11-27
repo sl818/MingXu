@@ -1,10 +1,10 @@
 # 前端结构 · index.html
 
-> 单文件，17,772 行 / 约 880 KB。这份文档是它的**内部地图**。
+> 单文件，20,655 行 / 约 1.0 MB。这份文档是它的**内部地图**。
 >
 > 配套阅读：`ARCHITECTURE.md`（整体）、`DATA-MODEL.md`（字段含义）。
 
-最后更新：v119（2026-11-19）
+最后更新：v205（2026-11-27）
 
 ---
 
@@ -17,7 +17,7 @@
 
 | 位置 | 内容 | 说明 |
 |---|---|---|
-| `<head>` 里第一个 | 主题预置 | 同步执行，读 `localStorage` 设 `data-skin` / `data-layout` / `data-theme`，**防首屏闪白** |
+| `<head>` 里第一个 | 主题预置 | 同步执行，读 `localStorage` 设 `data-theme`（明暗）/ `data-layout`（布局），**防首屏闪白**（v135 起 `data-skin` 已删） |
 | `<head>` 里第二个 | 安装检测 | `fetch('api.php?action=status')`，未安装就跳 `install/` |
 | 文件末尾 | **主脚本（全部业务逻辑）** | 一个巨大的 IIFE；用 `const ACTIONS = {` 定位 |
 
@@ -35,13 +35,13 @@
 |---|---|---|---|
 | 1 | 基础层 | 786 | 设计变量、布局骨架、通用组件、各页面雏形、弹窗、提示、响应式 |
 | 2 | `visual-v2` | 1,599 | 视觉重构：侧栏、主区、按钮、今日 Hero、习惯卡、待办、看板、日历、统计、设置、深色 |
-| 3 | `skins` | 403 | 内置皮肤变量（paper / slate）+ 组件改用主题变量 + 主题选择 UI |
+| 3 | `skins` | 403 | 历史层：旧皮肤变量与主题选择 UI（v135 起机制已删，代码留作历史） |
 | 4 | `new-pages` | 438 | 统计卡、本月回顾、体重折线、更多抽屉、移动新建面板、悬浮 ＋、呼吸卡 |
 | 5 | `layout-v3` | 342 | 三布局、Hero 战报、导航分组、按钮三档、柱状三态、同步指示器 |
 | 6 | `notify-v33` | 492 | 提醒面板、安装提示、推送中心 |
 
-`<link rel="stylesheet" href="assets/app.css">` 放在 `themes/*.css` **之前**，
-所以主题仍能覆盖它（顺序反了会让内联样式压死主题）。
+`<link rel="stylesheet" href="assets/app.css">` 放在 `assets/theme-v2.css` **之前**，
+所以主题层仍能覆盖它（顺序反了会让基础样式压死主题）。
 
 **同名规则被定义多次是正常的**（`.main` 9 处、`.sidebar` 9 处），最后一条生效。
 同上下文内共 166 组重复，但**不要手动合并**——它们是跨层覆盖，合并会移动规则位置、
@@ -56,7 +56,7 @@
 1. HTML 解析 → script#1 设主题（同步，防闪烁）
 2. script#2 检查安装状态
 3. script#3 执行：
-   ├─ 常量定义（TAGS / PRIO / SKINS / NAV / VIEWS / ACTIONS ...）
+   ├─ 常量定义（TAGS / PRIO / NAV / VIEWS / ACTIONS ...；SKINS 已随六皮肤删除）
    ├─ let state = seedState()
    ├─ cloudInit()            ← 异步：探测云端、拉数据
    │    ├─ cloudProbing = true  → render() 画骨架屏
@@ -154,7 +154,7 @@ render()
 
 ---
 
-## 5. 十二个视图
+## 5. 十八个视图
 
 `VIEWS` 常量把 key 映射到函数。`data-nav` 的值就是这里的 key。
 
@@ -170,6 +170,8 @@ render()
 | `essays` | `viewEssays()` | 随笔 | `.essay-card` |
 | `calendar` | `viewCalendar()` | 日历（月 / 周两种）+ 倒数日 | `.cal-layout` `.cal-grid` `.cal-cell` · 周视图 `.wk-*` · `.cd-*` |
 | `stats` | `viewStats()` | 统计 | `.panel` `.chart` `.adh-*` `.sum-table` `.ts-*` |
+| `modules` | `viewModules()` | 功能模块（v208） | `.mdl-row` `.mdl-ico` `.mdl-txt` `.w-switch` |
+| `notifyroute` | `viewNotifyRoute()` | 通知路由（v211） | `.nr-panel` `.nr-table` `.nr-sw` `.nr-chk` `.nr-ch` |
 | `config` | `viewConfig()` | 配置（v71） | `.notice-row` `.notice-warn` `.ntf-box` |
 | `settings` | `viewSettings()` | 设置 | `.layout-grid` `.theme-grid` |
 | `more` | `viewMore()` | 「更多」页 | `.more-grid` `.more-card` |
@@ -198,7 +200,7 @@ render()
 **判到分钟、不只比日期**：今天 11:40 那条，到 12:13 就已经发完，只比日期会让它整天
 都显示成还有效（v73 修）。重复通知永远不会过期。
 过期行加 `.past`：底色退到 `--surface`、边框改虚线、正文 `line-height` 划掉且用 `--muted`。
-**不给整行加 `opacity`**——会把底色一起压淡，深色皮肤下更糊，对比度也测不准。
+**不给整行加 `opacity`**——会把底色一起压淡，深色模式下更糊，对比度也测不准。
 `<560px` 时 `.notice-acts` 整体落到下一行右对齐，否则「重发」+ 三个图标会把正文压成三行。
 走 `push_test` 带 `text` 参数直接把原文再发一次。
 
@@ -237,7 +239,7 @@ render()
 **导航相关常量**（都在主脚本顶部附近）：
 
 ```js
-NAV         // PC 侧栏（15 项）：仪表盘 · 用药 · 戒烟 · 喝水 · 运动 · 478呼吸法 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 配置 · 设置
+NAV         // PC 侧栏（17 项）：仪表盘 · 用药 · 戒烟 · 喝水 · 运动 · 478呼吸法 · 待办 · 清债 · 习惯 · 体重 · 随笔 · 日历 · 统计 · 模块 · 通知路由 · 配置 · 设置
 MOBILE_NAV  // 手机底部：[今日, 用药, ＋(__add), 待办, 更多(__more)]
 MORE_KEYS   // 手机「更多」抽屉里的 key 列表
 MORE_PAGES  // 「更多」抽屉的内容（含 label / desc）
@@ -419,7 +421,7 @@ document.addEventListener('click', e => {
     点一次加一条；撤销是旁边那颗 `.quit-undo`，**只退最后一条，不清整天**。
     action 拆成 `quit-add` / `quit-dec`，**不要在 `quit-mark` 里 if 分支**——
     一个 toggle 语义、一个累加语义，混在一起最容易写成「点第二下就清零」。
-    `.quit-add` 跟 `.habit-done` 一样自己定义背景，不继承 `.pip` 的皮肤渐变。
+    `.quit-add` 跟 `.habit-done` 一样自己定义背景，不继承 `.pip` 的渐变。
     `addCraving` 的 1 秒去重对 `multi` 必须跳过（否则一秒内连点只能记一次）。
 - **保持类目标 1 次走 `.habit-done`（v74）**：以前这里也是 `pips`，但只有一格时 `flex:1` 会把它
   拉成整条，看不出是按钮。现在是一颗通栏按钮：未打卡写「今天完成」，打卡后变
@@ -427,9 +429,9 @@ document.addEventListener('click', e => {
   **不做「已完成 / 未完成」两个并列按钮**：没打卡时「未完成」没有语义（本来就是未完成），
   只会常年白占一半宽度。滴答清单的「完成全部」、Loop / Streaks 的 toggle 都是单一主动作 + 二次撤销。
   目标 ≥2 仍是格子、>6 仍是 stepper，都没动。
-  `.habit-done` **背景自己定义、不继承 `.pip` 的皮肤渐变**：渐变上白字的对比度算不出来
-  （`bgOf` 遇到渐变整组跳过），这颗按钮上有真文字必须能真测。所以六套皮肤下它的观感
-  来自 `--surface-2` / `--hc`，不是皮肤那套 `.pip` 覆盖。
+  `.habit-done` **背景自己定义、不继承 `.pip` 的渐变**：渐变上白字的对比度算不出来
+  （`bgOf` 遇到渐变整组跳过），这颗按钮上有真文字必须能真测。所以它的观感
+  来自 `--surface-2` / `--hc`，不是 `.pip` 那套覆盖。
 - 右上角（v100）小习惯卡改成 `.habit-state` 文字（「已完成 / 待打卡 / 今天守住了 / 今天失守了」），
   不再用没有图例的圆圈；`compact` 常驻窄卡仍用 `.quit-dot` 状态灯。
   `.quit-dot`（`span`）**只是状态灯，不可点**：守住跟保持卡的 `✓` 一样是实心，
@@ -452,8 +454,8 @@ document.addEventListener('click', e => {
 - `smoke` 不出现在「添加习惯」的类型下拉里（它是内置常驻卡），编辑时给一个固定的展示项。
 - 表单里烟专属字段用 `data-smoke-only` 控制，只有 `smoke` 显示；`quit` 只剩「开始日期」。
 - **`.quit-dot.broken` 的选择器必须写成 `.habit-card .habit-check.quit-dot.broken`**：
-  `themes/skin-*.css` 里是 `:root[data-skin="xxx"] .habit-check`（0,3,1），
-  裸类名（0,2,0）会被皮肤样式压掉，破了看不出红边。
+  旧皮肤层曾有 `:root[data-skin="xxx"] .habit-check`（0,3,1）会压掉裸类名（0,2,0），
+  破了看不出红边。皮肤层已删，但高特异性写法保留，防止主题层回归时踩同一个坑。
 
 **常驻卡 `quitCard(h,d)`**（v50 起戒烟是第 5 张常驻卡，`PINNED_IDS` 把它排在最后）：
 
@@ -519,7 +521,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
   `medCard` / `vitalCard` / `quitCard` 三个函数（它们结构各不相同，改三处风险更大）
 - 排序态隐藏 `.pin-tag`（让位给 ↑↓），并给卡片内所有 `button/input/select` 关掉
   `pointer-events`，只放行排序条自己
-- 标题栏的按钮**不能塞进 `.muted-sm`**：会继承那层灰字，浅色皮肤下只有 2.4–3.8 的对比度
+- 标题栏的按钮**不能塞进 `.muted-sm`**：会继承那层灰字，浅色模式下只有 2.4–3.8 的对比度
   （审计抓的），而且透明底的 ghost 按钮背景判定会落到页面渐变上，永远算不过。
   所以按钮单独放 `.sec-acts`、用实底 `.btn`
 
@@ -559,9 +561,9 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
   → `craveClearModal`，列出有记录的日期，每天一行一个「清空」。删的是当天全部 `cravings`
   （**含「忍一次」**，用户定的），点删除会 `confirm` 并报条数。只动 `cravings`，
   包靠区间重算自动变少，不用同步任何字段
-- `.btn.danger-red` 必须带 `:root[data-skin]` 前缀。皮肤 CSS 的 `:root[data-skin="paper"] .btn`
+- `.btn.danger-red` 要留意主题层的覆盖。旧皮肤 CSS 的 `:root[data-skin="paper"] .btn`
   是 (0,3,0) 且加载在 index.html 之后，裸类名 (0,2,0) 会被压掉——颜色写上去了但不生效。
-  跟 `.habit-check` 那次是同一个坑
+  皮肤层已删，但 `theme-v2.css` 仍加载在 `app.css` 之后，同类问题要查主题层。
 - **补记昨天（v72）**：戒烟页今天会挂一条 `.pack-cf`「昨天这包还剩 N 支 · 补记」，
   点开 `backfillModal` 填数量（支数 + 忍的次数），一次生成多条记录。
   上限 = `backfillLeft(h, 昨天)`，即那包在昨天 23:59 的剩余，补不出第 21 支。
@@ -694,7 +696,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 `.minc-name` / `.mcat-name` / `.mspend-cat`（收入 / 分类 / 流水里的名称）`700 / 13px`——
 **不要用 600**：中文系统字体（微软雅黑 / 苹方）经常把 600 渲染成常规体，等于没加粗。
 「这个月怎么分」的 `.mbud-bar` 四段用**固定图表色** `--chart-1..4`（蓝/绿/红/黄），
-**不要挂 `--accent` / `--good` 这类语义色**——paper 皮肤里 accent 是鼠尾草绿、跟 good 撞色；
+**不要挂 `--accent` / `--good` 这类语义色**——旧 paper 皮肤里 accent 是鼠尾草绿、跟 good 撞色（历史教训）；
 也不要退回 accent 的深浅 mix（62% 和 30% 实机不可辨）。任何「需要同时对比多段」的图形都用 `--chart-*`。
 `moneyDebtModal(d)` `saveMoneyDebt(form)` `subTabOf(pageKey,tabs)` `subTabsHtml(pageKey,tabs,cur)`
 `quitPacksPanel(h)`
@@ -843,17 +845,17 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 
 - **色板**：`--lp-*` 这一层只是别名，值全部取自主题令牌 ——
   `--bg` / `--surface` / `--surface-2` / `--text` / `--muted` / `--line` / `--accent` / `--gold-soft`。
-  所以换皮肤、切深色都会自动跟着变，**不要写死十六进制**。
+  所以切深色会自动跟着变，**不要写死十六进制**。
 - **底色是混出来的**：`color-mix(in srgb, var(--bg) 65%, var(--gold-soft))`。
   直接用 `--bg` 会偏冷白偏绿（paper 的 `--bg` 是 `#f2f5f1`），只有右上角一团金色光斑压不住整页；
   混 35% 暖色之后才是米色。深色模式下 `--gold-soft` 是暖深棕，同样成立。
 - **次要文字不能直接用 `--muted`**：`#727a90` 在浅底上只有 3.9:1，11.5px 小字不达标。
   用 `color-mix(in srgb, var(--muted) 78%, var(--text))`（5.2:1）与 85%（4.8:1），
   深色下混入的 `--text` 变浅，方向同样正确。
-- **主按钮前景用 `var(--on-accent)`**：深色皮肤下 `--accent` 是浅绿，写死 `#fff` 只有 1.9:1。
+- **主按钮前景用 `var(--on-accent)`**：旧皮肤深色下 `--accent` 曾是浅绿，写死 `#fff` 只有 1.9:1。
 - **截图做 5% 暖化**（`filter:sepia(.05) saturate(1.04)`）：应用界面是冷白偏蓝，直接贴在暖底上色温打架。
 - **类名统一 `lp-` 前缀**：`.lp-nav` / `.lp-hero` / `.lp-pages` / `.lp-notify` / `.lp-shot` …
-  不要复用站内 `.card` / `.btn` / `.panel`，否则会被主题的 `:root[data-skin]` 规则压掉。
+  不要复用站内 `.card` / `.btn` / `.panel`，否则可能被主题层的高特异性规则压掉。
 - **必须盖掉站内布局**：`:root[data-layout="wide"] .sidebar` 也是 (0,3,0) 且加载更晚，
   只写 `.app.landing .sidebar` 会被它按顺序反压回来。所以用
   `body[data-view="landing"] .app.landing .sidebar{display:none}`（(0,3,1)）。
@@ -861,7 +863,7 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 - **截图是真实截图**，放在 `images/landing/`：`today.jpg`（1212×700）、`stats.jpg`（1212×600），
   用演示数据截取（不含任何真实记录）。**不要改成懒加载**：懒加载在长截图/慢网下会先留一块空白。
   截图由 `#main` 的 boundingBox 裁出来，所以只有主内容区、没有侧栏。
-  底部用 `mask-image` 淡出（不是盖一层渐变）——遮罩不需要知道背景色，换皮肤不会露馅。
+  底部用 `mask-image` 淡出（不是盖一层渐变）——遮罩不需要知道背景色，切明暗不会露馅。
 - **登录/注册是弹窗**：页面顶部右上角两个 `data-act="cloud-login"` / `cloud-register"` 按钮，
   页面中间不再有登录卡片。
 - **标题走衬线体**（`var(--font-serif)`）：这是暖调观感的一部分，换成无衬线会立刻变成"工具官网"。
@@ -869,20 +871,20 @@ v68 之后陆续加的 `cravings` / `packs`（v68）、`notices`（v71）、`car
 
 ## 8. 主题系统
 
-### 8.1 三层
+### 8.1 两个属性
 
 ```
-dataset.theme  = light | dark      ← 明暗
-dataset.skin   = paper | slate | mist | neu | retro        // v87 删掉 mono/clay/forest/cyber
-                                      ← 9 套皮肤（4 套内置 + 5 套外部 CSS）
-dataset.layout = top | side | wide  ← 三种 PC 布局
+dataset.theme  = light | dark      ← 明暗两态（v135 起唯一主题）
+dataset.layout = top | side | wide ← 三种 PC 布局
 ```
 
-三个属性都挂在 `<html>` 上。CSS 里用 `[data-skin="paper"]` 选择器覆盖变量。
+两个属性都挂在 `<html>` 上，由 `<head>` 里的首屏同步脚本按 localStorage 和时间设置。
+**v135 起只有一套主题**（暖纸底 / 白卡 / 一支红笔），`data-skin` 属性与 `SKINS` 常量已删除；
+旧六套皮肤的文件不在 `themes/` 里，那里只剩一份指路 README。
 
 ### 8.2 变量契约
 
-皮肤只改 CSS 变量，不改组件规则：
+主题层只覆盖令牌与必要组件笔触，不改页面结构和数据逻辑，位置在 `assets/theme-v2.css`：
 
 ```
 --bg  --surface  --surface-2  --text  --muted  --line
@@ -890,17 +892,19 @@ dataset.layout = top | side | wide  ← 三种 PC 布局
 --sidebar-bg  --sidebar-text  --radius  --shadow
 ```
 
-组件规则一律写 `var(--accent)` 这种形式。**新皮肤只需提供一套变量值。**
+组件规则一律写 `var(--accent)` 这种形式，这样切明暗时自动跟随，不要写死十六进制。
 
-### 8.3 加一套新皮肤
+### 8.3 改主题
 
-1. 在 `SKINS` 常量里加一项（key / name / desc / 预览色）
-2. 新建 `themes/skin-<key>.css`，写 `html[data-skin="<key>"] { --bg: ...; }`
-3. 在 `index.html` 的 `<head>` 加 `<link>`
-4. **加进 `service-worker.js` 的 `ASSETS`**（否则离线时皮肤丢失）
-5. 跑对比度审计：`e2e/audit-contrast-v33.py`
+v135 起不再「新增皮肤」，只有一套主题、明暗两态：
 
-详见 `design/THEME-SPEC.md`（已失效，六皮肤已下线，见 `design/README.md` 的时效表）。
+1. 改令牌与组件笔触只动 `assets/theme-v2.css`；骨架与结构动 `assets/app.css`。
+2. `theme-v2.css` 加载在 `app.css` 之后，注意覆盖顺序。
+3. 改完 bump `index.html` 的 `?v=` 与 `service-worker.js` 的 `CACHE` / `VER`（四处同步）。
+4. 跑三套对比度审计 + 明暗两态截图比对。
+
+规范见根目录 `DESIGN.md`；需求与执行记录见 `docs/design/THEME-V2-PLAN.md`。
+旧文档 `design/THEME-SPEC.md` / `AI-THEME-GUIDE.md` 已失效，不要照着改代码。
 
 ---
 

@@ -82,7 +82,7 @@ php -r "define('LIFEBOARD_API',1); require 'api/bootstrap.php'; require 'api/bac
 | `push_save` | POST | auth | ✓ | 保存 webhook / 开关 | `webhook` `enabled` |
 | `push_test` | POST | auth | ✓ | 立刻发一条测试消息 | — |
 | `push_off` | POST | auth | ✓ | 暂停推送 | — |
-| `push_preview` | GET | auth | — | 今日推送计划（只读） | — |
+| `push_preview` | GET | auth | — | 今日通知数据列表（五源合并：提醒 / 小结 / 自定义 / 倒数日 / 还款；只读，供「通知路由」页） | — |
 | `admin_users` | GET | admin | — | 用户列表 | — |
 | `admin_user_update` | POST | admin | ✓ | 改状态 / 重置密码 | `id` `action` `value` |
 | `admin_settings` | GET | admin | — | 站点设置 | — |

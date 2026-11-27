@@ -101,7 +101,7 @@
 | `api/backup.php` | 168 | 每日快照写入 `../backups/` | 低。整段 try/catch 包住 |
 | `service-worker.js` | 99 | PWA 缓存策略 | **低行数，高影响**。改前端必须动它 |
 | `manifest.json` | — | PWA 清单 | 低 |
-| `themes/*.css` | — | 6 个补充皮肤 + custom | 低。只写变量 |
+| `assets/theme-v2.css` | — | 唯一主题的令牌与组件笔触（v135 起六皮肤已删） | 中。app.css 之后加载 |
 | `icons/*.png` | — | 3 个尺寸图标 | 低 |
 
 ### 4.2 只在服务器上跑，不经浏览器
@@ -250,7 +250,7 @@ grep -n "^\\.med-row{" index.html               # 定位样式
 | `e2e/verify-batch4.py` | 20 | 第四批功能 |
 | `e2e/verify-api-http.py` | 33 | 后端 HTTP 层（鉴权、方法、404） |
 | `e2e/verify-ics-subscribe.py` | 9 | 前后端日历等价性 |
-| `e2e/audit-*.py` | 468 取样 | 9 皮肤 × 明暗对比度 |
+| `e2e/audit-*.py` | 468 取样 | 明暗两态对比度（部分旧脚本仍列已删皮肤，见 `e2e/` 时效说明） |
 
 ---
 

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>戒除类主动打卡 · 前后对比</title>
+<style>
+:root{--bg:#fbf3e7;--surface:#fff;--text:#2b2013;--muted:#7a6a55;--line:#e8dcc8;--accent:#dc2626;--card:#1c2230;--cardline:#313a4c;--tick:#e8f5e9;--cross:#fdecea}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:28px}
+.wrap{max-width:1180px;margin:auto}
+h1{font-size:22px;margin:0 0 6px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.stat{display:flex;gap:22px;margin-bottom:20px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.stat b{color:var(--text)}
+.bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+button{font:13px inherit;padding:7px 16px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{display:none}
+.panel.on{display:block}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.hcard{background:var(--card);border:1px solid var(--cardline);border-radius:12px;padding:16px 18px;color:#eef2f8;position:relative;overflow:hidden;min-height:210px}
+.hcard:before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,#7b8fa8,#b9c6d6)}
+.hhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hhead b{font-size:16px}
+.badge{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid #7a3b3b;background:#4a2626;color:#ff9c9c;white-space:nowrap}
+.badge.ok{border-color:#2f6f5e;background:#1d4038;color:#8fd9c3}
+.badge.wait{border-color:#8a6a2f;background:#40371d;color:#f0cd85}
+.meta{font-size:12px;color:#9fb0c4;margin:6px 0 14px}
+.week{display:flex;justify-content:space-between;gap:6px;margin-bottom:14px}
+.day{text-align:center;font-size:12px;color:#8b9ab0}
+.dot{width:26px;height:26px;border-radius:50%;border:2px solid #3c475c;margin:5px auto 0;display:flex;align-items:center;justify-content:center;background:transparent;font-size:13px;color:transparent}
+.dot.done{background:#f2f6fb;border-color:#f2f6fb;color:#1c2230}
+.dot.fail{border-color:#e05a5a;color:#e05a5a}
+.subrow{display:flex;justify-content:space-between;font-size:12px;color:#b8c4d4;border-top:1px solid #313a4c;padding-top:10px}
+.subrow b{color:#fff}
+.acts{display:flex;gap:10px;margin-top:14px}
+.act{flex:1;text-align:center;padding:9px;border:1px solid #3c475c;border-radius:8px;font-size:13px;color:#c7d2e0}
+.act.no{border-color:#7a3b3b;background:#402424;color:#ff9c9c}
+.act.yes{border-color:#2f6f5e;color:#8fd9c3}
+.act.hl{box-shadow:0 0 0 2px #2f6f5e inset}
+.note{margin-top:24px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px}
+.note h3{margin:0 0 10px;font-size:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;width:150px}
+code{font:12px ui-monospace,Consolas,monospace;background:#f3ead9;padding:1px 5px;border-radius:4px}
+.ok-tag{color:#2f6f5e;font-weight:700}
+.warn-tag{color:var(--accent);font-weight:700}
+.script{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend{margin-top:14px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>戒除类主动打卡 · 前后对比</h1>
+  <div class="sub">习惯卡片「不喝含糖饮料」 · v203 改前 → v204 改后 · 2026-11-27 · 生效日 2026-11-27</div>
+  <div class="stat">
+    <span>戒烟（smoke）：<b>完全不变</b></span>
+    <span>戒除（quit）：<b>必须主动打卡</b></span>
+    <span>历史数据：<b>沿用旧口径不受影响</b></span>
+    <span>新验证：<b>15 / 15 通过</b></span>
+  </div>
+  <div class="bar">
+    <button class="on" data-p="side">并排对比</button>
+    <button data-p="before">改前</button>
+    <button data-p="after">改后</button>
+    <button data-p="logic">判定逻辑</button>
+  </div>
+
+  <div class="panel on" id="side">
+    <div class="cards">
+      <div class="hcard">
+        <div class="hhead"><b>不喝含糖饮料</b><span class="badge ok">今日已完成</span></div>
+        <div class="meta">戒除 · 每天保持 0 次 · 本周 3/7</div>
+        <div class="week">
+          <div class="day">一<div class="dot done">✓</div></div>
+          <div class="day">二<div class="dot done">✓</div></div>
+          <div class="day">三<div class="dot fail">✕</div></div>
+          <div class="day">四<div class="dot done">✓</div></div>
+          <div class="day">五<div class="dot done">✓</div></div>
+          <div class="day">六<div class="dot"></div></div>
+          <div class="day">日<div class="dot"></div></div>
+        </div>
+        <div class="subrow"><span>今日失守 1 次</span><span>连续 <b>0</b> 天 · 最长 3 天</span></div>
+        <div class="acts"><div class="act no">✕ 未完成</div><div class="act yes">✓ 完成</div></div>
+        <div class="legend">改前：凌晨零点一过，新的一天自动变「今日已完成」——用户什么都没做。</div>
+      </div>
+      <div class="hcard">
+        <div class="hhead"><b>不喝含糖饮料</b><span class="badge wait">今日待打卡</span></div>
+        <div class="meta">戒除 · 每天打卡守住 · 本周 3/7</div>
+        <div class="week">
+          <div class="day">一<div class="dot done">✓</div></div>
+          <div class="day">二<div class="dot done">✓</div></div>
+          <div class="day">三<div class="dot fail">✕</div></div>
+          <div class="day">四<div class="dot done">✓</div></div>
+          <div class="day">五<div class="dot"></div></div>
+          <div class="day">六<div class="dot"></div></div>
+          <div class="day">日<div class="dot"></div></div>
+        </div>
+        <div class="subrow"><span>今日还没打卡</span><span>连续 <b>0</b> 天 · 最长 3 天</span></div>
+        <div class="acts"><div class="act no">✕ 未完成</div><div class="act yes hl">✓ 完成</div></div>
+        <div class="legend">改后：不打卡就是「今日待打卡」、周条空圈；点「完成」才打勾并开始累计连续。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="before">
+    <div class="cards">
+      <div class="hcard" style="grid-column:1/-1">
+        <div class="hhead"><b>不喝含糖饮料 · 凌晨状态</b><span class="badge ok">今日已完成</span></div>
+        <div class="meta">戒除 · 每天保持 0 次 · 本周 3/7</div>
+        <div class="subrow"><span>没有失守记录</span><span>连续 <b>1</b> 天 · 最长 3 天</span></div>
+        <div class="acts"><div class="act no">✕ 未完成</div><div class="act yes">✓ 完成</div></div>
+        <div class="legend">判定：<code>met()</code> 对戒除类只查当天有没有 <code>k='s'</code> 事件；没有 = 完成。跨天后自然成立，没有任何后台写入。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="after">
+    <div class="cards">
+      <div class="hcard" style="grid-column:1/-1">
+        <div class="hhead"><b>不喝含糖饮料 · 凌晨状态</b><span class="badge wait">今日待打卡</span></div>
+        <div class="meta">戒除 · 每天打卡守住 · 本周 3/7</div>
+        <div class="subrow"><span>今天还没打卡</span><span>连续 <b>0</b> 天 · 最长 3 天</span></div>
+        <div class="acts"><div class="act no">✕ 未完成</div><div class="act yes hl">✓ 完成</div></div>
+        <div class="legend">判定：生效日起，戒除类当天必须有 <code>checks[d][id] ≥ 1</code> 且没有失守事件才算完成。点「完成」写打卡，再点撤销。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="logic">
+    <div class="note">
+      <h3>判定与影响范围</h3>
+      <table>
+        <tr><th>习惯类型</th><td><span class="ok-tag">戒烟 smoke</span>：保持原样，没点一根就算守住；<span class="warn-tag">戒除 quit</span>：生效日起必须点「完成」打卡。</td></tr>
+        <tr><th>生效日</th><td><code>QUIT_CHECKIN_FROM = '2026-11-27'</code>。之前的历史沿用「没记失守即守住」，统计与连续纪录不翻旧账。</td></tr>
+        <tr><th>判定函数</th><td><code>met()</code> / <code>habitDayMark()</code> / <code>streakOn()</code> / <code>quitStreak()</code> / <code>habitBest()</code> 五处同步拆分支。</td></tr>
+        <tr><th>按钮</th><td><code>habit-ok</code> 打卡 toggle；<code>habit-no</code> 记失守并清掉当天打卡；<code>quit-mark</code> 旧骨架同步。</td></tr>
+        <tr><th>数据存储</th><td>打卡复用 <code>checks</code>（已有 normalize / merge / repair 三处支持），<b>不新增顶层字段</b>，备份与云同步零改动。</td></tr>
+        <tr><th>文案</th><td>算法弹窗、表单类型选项、表单提示、卡片节奏、帮助说明全部同步。</td></tr>
+      </table>
+      <div class="script" style="margin-top:18px">
+        <span>新增验证：<code>e2e/verify-quit-checkin.py</code> · 15 项通过</span>
+        <span>既有回归：后端 76+143、主回归 28、移动导航 44、ICS 9、HTTP 33 全通过</span>
+      </div>
+      <div class="legend">说明：既有脚本中 <code>verify-quit-multi.py</code> / <code>verify-habit-btn.py</code> / <code>verify-habit-deadline.py</code> / <code>verify-habit-feedback.py</code> 因寻找已废弃的 <code>.pips .pip</code> / <code>.habit-done</code> 旧骨架而失败，改前版本同样失败，属脚本腐化，本次未改动。</div>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.bar button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.bar button').forEach(function(x){x.classList.remove('on');});
+    document.querySelectorAll('.panel').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    document.getElementById(b.dataset.p).classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
