@@ -332,6 +332,22 @@ with sync_playwright() as p:
         rec('v204 3→%d 组：时间点升序' % target, ts == sorted(ts), str(ts))
         ctx.close()
 
+    # v204：线上实测的那个具体场景 —— 1 组 15:00 改成 3 组，必须排成 07:00/14:00/15:00，
+    # 不能是 15:00/07:00/14:00（否则「第 N 个时间点 = 第 N 组」就反了）
+    set_board(make_board(modules={'breathe': breathe_module(groups=1, notifyTimes=['15:00'], suggestTime='15:00')}))
+    ctx, pg, errs = open_page(br)
+    pg.evaluate("() => { document.querySelector('[data-nav=\"breathe\"]').click(); }")
+    pg.wait_for_timeout(900)
+    pg.fill('#breathe-settings-form input[name="groups"]', '3')
+    pg.wait_for_timeout(400)
+    pg.click('#breathe-settings-form button[type="submit"]')
+    pg.wait_for_timeout(1600)
+    m = board['data']['modules']['breathe']
+    ts = m.get('notifyTimes') or []
+    rec('v204 1 组 15:00 → 3 组 = 07:00/14:00/15:00（线上实测场景）',
+        ts == ['07:00', '14:00', '15:00'], str(ts))
+    ctx.close()
+
     # 改 5 组不保存设置 → 保存提醒不丢点
     set_board(make_board())
     ctx, pg, errs = open_page(br)
