@@ -10,7 +10,7 @@
 跑法：python e2e/invariants-water-move.py
       全绿 = 这两块的数据是自洽的；红 = 下面「未通过」那几条就是待修的点。
 """
-import http.server, threading, json, socketserver, secrets, sys
+import http.server, threading, json, socketserver, secrets, sys, re, time
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
@@ -112,10 +112,13 @@ def open_page(br, nav):
     pg = ctx.new_page()
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
+    cons = []
+    pg.on('console', lambda m: cons.append(m.text) if m.type in ('log','info') else None)
+    pg.__cons__ = cons
     pg.clock.install(time=datetime(2026, 10, 24, 14, 0, 0))
     pg.add_init_script("try{localStorage.setItem('lifeboard.layout','top');localStorage.setItem('lifeboard.skin','paper');"
                        "localStorage.setItem('lifeboard.theme.mode','light')}catch(e){}")
-    pg.goto('http://127.0.0.1:%d/index.html' % PORT, wait_until='networkidle')
+    pg.goto('http://127.0.0.1:%d/index.html?_t=%d' % (PORT, int(time.time()*1000)), wait_until='networkidle')
     pg.wait_for_timeout(700)
     pg.click('[data-act="cloud-login"]'); pg.wait_for_timeout(450)
     pg.fill('input[name="email"]', USER['email']); pg.fill('input[name="password"]', '12345678')
@@ -273,6 +276,55 @@ with sync_playwright() as p:
         .map(x => x.textContent.replace(/\\s+/g, ' ').trim())""")
     rec('M3 没有运动实例时，筛选只应有「全部」（不列模式库全量）',
         chips == ['全部'], '实际=%r' % (chips,))
+    ctx.close()
+
+    # ========== v209 模块启停链路 ==========
+    BOARD['data'] = water_board(checks={'2026-10-24': {'h_water': 5}})
+    BOARD['rev'] += 1
+    ctx, pg, errs = open_page(br, 'modules')
+    # M4 停用喝水：开关落库 + 锚点归档 + 导航隐藏，但 checks 数据保留
+    pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"water\"]'); if(c) c.click(); }")
+    pg.wait_for_timeout(1800)
+    m4 = pg.evaluate("() => ({ navWater: Array.from(document.querySelectorAll('[data-nav=\"water\"]')).length, rowOff: document.querySelectorAll('.mdl-row.off').length })")
+    st = BOARD['data']
+    rec('M4 停用后：开关落库（on=false）',
+        st['modules']['water'].get('on') is False, str(st['modules']['water'].get('on')))
+    rec('M4 停用后：锚点习惯被归档（archivedAt 非空）',
+        bool((st['habits'][1] or {}).get('archivedAt')),
+        str((st['habits'][1] or {}).get('archivedAt'))[:30])
+    rec('M4 停用后：导航里不再有「喝水」入口', m4['navWater'] == 0, '入口数=%d' % m4['navWater'])
+    rec('M4 停用后：打卡数据一个字节不动',
+        st['checks'].get('2026-10-24', {}).get('h_water') == 5,
+        str(st['checks'].get('2026-10-24')))
+
+    # M5 再开启：一切恢复
+    saves = []
+    pg.on('request', lambda req: saves.append(('water":{"on":True' in (req.post_data or '')) or ('water":{"on":true' in (req.post_data or ''))) if (req.method == 'POST' and 'save' in req.url) else None)
+    pg.click('[data-act="module-toggle"][data-key="water"]')   # M5：Playwright click（带自动重试）
+    print('  [M5] console:', [c for c in pg.__cons__ if any(t in c for t in ('[save]', '[cloudOLC]', '[setModuleOn]'))][-8:], flush=True)
+
+    pg.wait_for_timeout(1800)
+    m5 = pg.evaluate("() => Array.from(document.querySelectorAll('[data-nav=\"water\"]')).length")
+    pg.wait_for_timeout(1500)   # save() 有 600ms 防抖，落库晚于 UI —— 给它发出去的时间
+    print('  [M5] save 请求数=%d，其中含启用=%s' % (len(saves), any(saves)), flush=True)
+    st = BOARD['data']   # mock 的 save 是整体替换 BOARD['data']，必须重新取引用
+    rec('M5 重新开启：开关恢复（on=true）',
+        st['modules']['water'].get('on') is True, str(st['modules']['water'].get('on')))
+    rec('M5 重新开启：锚点归档清空', not (st['habits'][1] or {}).get('archivedAt'),
+        str((st['habits'][1] or {}).get('archivedAt')))
+    rec('M5 重新开启：导航恢复「喝水」入口', m5 >= 1, '入口数=%d' % m5)
+    rec('M5 重新开启：数据仍在（checks 未丢）',
+        st['checks'].get('2026-10-24', {}).get('h_water') == 5,
+        str(st['checks'].get('2026-10-24')))
+
+    # M6 停用状态下刷新：view 兜底回仪表盘，不进停用页
+    pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"water\"]'); if(c) c.click(); }")
+    pg.wait_for_timeout(1200)
+    pg.evaluate("() => { localStorage.setItem('lifeboard.view', 'water'); }")
+    pg.reload(wait_until='networkidle'); pg.wait_for_timeout(2200)
+    m6 = pg.evaluate("() => ({ hasWaterCard: /每天喝水量/.test(document.body.innerText || '') })")
+    rec('M6 停用状态下刷新，view 兜底回仪表盘（不进停用页）',
+        not m6['hasWaterCard'], str(m6))
     ctx.close()
 
     br.close()

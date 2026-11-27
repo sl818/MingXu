@@ -40,8 +40,20 @@ function lb_schedule_day(array $state, string $date): array
         $checks = $state['checks'][$date];
     }
 
+    /* v209：模块启停 —— 与前端 isModuleOn 同语义（四模块 modules[key].on；用药 modulePrefs.meds.on） */
+    $modOn = function (array $state, string $key): bool {
+        if ($key === 'meds') {
+            $mp = isset($state['modulePrefs']['meds']) && is_array($state['modulePrefs']['meds']) ? $state['modulePrefs']['meds'] : [];
+            return ($mp['on'] ?? true) !== false;
+        }
+        $m = isset($state['modules'][$key]) && is_array($state['modules'][$key]) ? $state['modules'][$key] : [];
+        return ($m['on'] ?? true) !== false;
+    };
     /* ---------------------------------------------------------------- 用药 */
     foreach ((array)($state['meds'] ?? []) as $m) {
+        if (!$modOn($state, 'meds')) {
+            continue;   // v209：用药停用后不排提醒
+        }
         if (!is_array($m)) {
             continue;
         }
@@ -238,6 +250,9 @@ function lb_schedule_day(array $state, string $date): array
     $modRec = ['water' => 'h_water', 'move' => 'h_move', 'breathe' => 'h_breathe'];
     foreach ($modRec as $mkey => $hid) {
         $m = $modules[$mkey] ?? null;
+        if (!$modOn($state, $mkey)) {
+            continue;   // v209：停用的模块不排提醒
+        }
         if (!is_array($m)) {
             continue;
         }

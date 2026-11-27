@@ -3483,7 +3483,9 @@ body.modal-open{overflow:hidden;}
 .w-toggle-row b{display:block;font-size:14px}
 .w-toggle-row small{color:var(--muted);font-size:11.5px}
 .w-switch{position:relative;display:inline-block;width:44px;height:24px;flex:none}
-.w-switch input{opacity:0;width:0;height:0}
+.w-switch input{opacity:0;width:100%;height:100%;position:absolute;inset:0;margin:0;pointer-events:none}
+/* v209：input 直接覆盖整个开关接收点击 —— 原来尺寸为 0、靠 label 转发 click，
+   一次点击会派发两次事件（input 一次 + label 冒泡一次），模块开关因此开一下又弹回。 */
 .w-switch i{position:absolute;inset:0;background:var(--surface-3);border-radius:99px;transition:.2s;cursor:pointer}
 .w-switch i:before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .w-switch input:checked + i{background:var(--accent)}

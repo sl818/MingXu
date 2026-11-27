@@ -293,9 +293,21 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
     $out[] = implode("\r\n", array_map('lb_ics_fold', $head));
     $out[] = lb_ics_vtimezone();
 
+    /* v209：模块启停 —— 与前端 isModuleOn 同语义（四模块 modules[key].on；用药 modulePrefs.meds.on） */
+    $modOn = function (array $state, string $key): bool {
+        if ($key === 'meds') {
+            $mp = isset($state['modulePrefs']['meds']) && is_array($state['modulePrefs']['meds']) ? $state['modulePrefs']['meds'] : [];
+            return ($mp['on'] ?? true) !== false;
+        }
+        $m = isset($state['modules'][$key]) && is_array($state['modules'][$key]) ? $state['modules'][$key] : [];
+        return ($m['on'] ?? true) !== false;
+    };
     /* ---- 用药：每个服用时刻一条每日重复，有停药日就截止到那天 ---- */
     $meds = isset($state['meds']) && is_array($state['meds']) ? $state['meds'] : [];
     foreach ($meds as $m) {
+        if (!$modOn($state, 'meds')) {
+            continue;   // v209：用药停用后不产生日历条目
+        }
         if (!is_array($m) || ($m['status'] ?? '') !== 'active') {
             continue;
         }
@@ -483,6 +495,9 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
     $modRec = ['water' => 'h_water', 'move' => 'h_move', 'breathe' => 'h_breathe'];
     foreach ($modRec as $mkey => $hid) {
         $m = $modules[$mkey] ?? null;
+        if (!$modOn($state, $mkey)) {
+            continue;   // v209：停用的模块不出日历条目
+        }
         if (!is_array($m)) {
             continue;
         }
