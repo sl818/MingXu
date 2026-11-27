@@ -562,22 +562,30 @@ try {
             lb_json(['ok' => true]);
             break;
 
-        /* 今日推送计划：把这一天所有会推的时间点列出来，供「推送中心」预览。
-           只读，不写库、不发消息、不消耗去重记录——纯粹回答「今天几点会推什么」。 */
+        /* 今日推送计划：把这一天所有会推的时间点列出来，供「推送中心」与通知路由页预览。
+           只读，不写库、不发消息、不消耗去重记录——纯粹回答「今天几点会推什么」。
+           v211：五个调度源与 lb_push_tick_run 对齐（day/reports/notices/countdowns/debts），
+           并补 id/source/priority 等模板字段；time/kind/title/body 四键保持原样。 */
         case 'push_preview':
             if ($method !== 'GET') {
                 lb_fail('请使用 GET', 405, 'method_not_allowed');
             }
             $user = lb_auth();
+            $uid = (int)$user['id'];
             $bd = lb_db()->prepare('SELECT data FROM boards WHERE user_id = ? LIMIT 1');
-            $bd->execute([(int)$user['id']]);
+            $bd->execute([$uid]);
             $state = json_decode((string)$bd->fetchColumn(), true);
             $today = (new DateTimeImmutable('now', lb_ics_tz()))->format('Y-m-d');
             $plan = [];
             if (is_array($state)) {
+                /* 小结时刻跟用户设置走，不能再用函数内置默认值 */
+                $reportTimes = lb_notify_report_load(lb_db(), $uid);
                 $plan = array_merge(
                     lb_schedule_day($state, $today),
-                    lb_schedule_reports($state, $today)
+                    lb_schedule_reports($state, $today, $reportTimes),
+                    lb_schedule_notices($state, $today),
+                    lb_schedule_countdowns($state, $today),
+                    lb_schedule_debts($state, $today)
                 );
             }
             usort($plan, static function ($a, $b) {
@@ -586,10 +594,18 @@ try {
             $items = [];
             foreach ($plan as $it) {
                 $items[] = [
+                    'id' => (string)($it['id'] ?? ''),
                     'time' => (string)($it['time'] ?? ''),
                     'kind' => (string)($it['kind'] ?? ''),
+                    'source' => (string)($it['source'] ?? ''),
+                    'priority' => (string)($it['priority'] ?? ''),
                     'title' => (string)($it['title'] ?? ''),
                     'body' => (string)($it['body'] ?? ''),
+                    'tag' => (string)($it['tag'] ?? ''),
+                    'taskPriority' => (string)($it['taskPriority'] ?? ''),
+                    'habitType' => (string)($it['habitType'] ?? ''),
+                    'sport' => (string)($it['sport'] ?? ''),
+                    'due' => (string)($it['due'] ?? ''),
                 ];
             }
             lb_json(['ok' => true, 'date' => $today, 'items' => $items]);
@@ -794,13 +810,23 @@ try {
         case 'notify_prefs':
             $user = lb_auth();
             $uid = (int)$user['id'];
+            $pdo = lb_db();
+            $boards = lb_notify_boards_load($pdo, $uid);
+            $quietCfg = lb_notify_quiet_cfg($pdo, $uid);
             lb_json([
                 'ok' => true,
                 'kinds' => lb_notify_kinds(),
                 'channels' => lb_notify_channels(),
-                'prefs' => lb_notify_prefs_load(lb_db(), $uid),
-                'quiet' => lb_notify_quiet_load(lb_db(), $uid),
-                'report' => lb_notify_report_load(lb_db(), $uid),
+                /* prefs / quiet 保持旧格式：v210 页面还在读，不能破坏 */
+                'prefs' => lb_notify_prefs_flat($boards),
+                'quiet' => $quietCfg['on'],
+                'report' => lb_notify_report_load($pdo, $uid),
+                /* v211 新增：11 板块矩阵、免打扰时段、文案模板 */
+                'boards' => $boards,
+                'quietCfg' => $quietCfg,
+                'templates' => lb_notify_tpl_load($pdo, $uid),
+                /* v212：全局通知总闸（默认开） */
+                'global' => lb_notify_global_load($pdo, $uid),
             ]);
             break;
 
@@ -810,17 +836,49 @@ try {
             lb_require_csrf();
             $in = lb_body();
             $uid = (int)$user['id'];
-            $res = lb_notify_prefs_save(lb_db(), $uid, (array)($in['prefs'] ?? []));
+            $pdo = lb_db();
+            /* 新页面传 boards，旧页面传 prefs；两种入参都接受 */
+            $payload = (isset($in['boards']) && is_array($in['boards']))
+                ? ['boards' => $in['boards']]
+                : (array)($in['prefs'] ?? []);
+            $res = lb_notify_prefs_save($pdo, $uid, $payload);
             if (!$res['ok']) {
                 lb_fail($res['error'], 400, 'prefs_save_failed');
             }
-            lb_notify_quiet_save(lb_db(), $uid, !empty($in['quiet']));
-            $rep = lb_notify_report_save(lb_db(), $uid, (array)($in['report'] ?? []));
+            /* quiet 兼容布尔（旧）与 {on,start,end}（新） */
+            if (array_key_exists('quiet', $in)) {
+                lb_notify_quiet_save($pdo, $uid, $in['quiet']);
+            }
+            $rep = lb_notify_report_save($pdo, $uid, (array)($in['report'] ?? []));
             if (!$rep['ok']) {
                 lb_fail($rep['error'], 400, 'report_save_failed');
             }
-            lb_json(['ok' => true, 'prefs' => $res['prefs'],
-                     'quiet' => !empty($in['quiet']), 'report' => $rep['report']]);
+            /* v212：全局总闸；旧调用方不传就不动 */
+            if (array_key_exists('global', $in)) {
+                lb_notify_global_save($pdo, $uid, !empty($in['global']));
+            }
+            $quietCfg = lb_notify_quiet_cfg($pdo, $uid);
+            lb_json([
+                'ok' => true,
+                'prefs' => $res['prefs'],
+                'boards' => $res['boards'],
+                'quiet' => $quietCfg['on'],
+                'quietCfg' => $quietCfg,
+                'report' => $rep['report'],
+                'global' => lb_notify_global_load($pdo, $uid),
+            ]);
+            break;
+
+        case 'notify_templates_save':
+            lb_require_post();
+            $user = lb_auth();
+            lb_require_csrf();
+            $in = lb_body();
+            $res = lb_notify_tpl_save(lb_db(), (int)$user['id'], (array)($in['templates'] ?? []));
+            if (!$res['ok']) {
+                lb_fail($res['error'], 400, 'templates_save_failed');
+            }
+            lb_json(['ok' => true, 'templates' => $res['templates']]);
             break;
 
         case 'mail_off':

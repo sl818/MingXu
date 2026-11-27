@@ -114,6 +114,9 @@ function lb_schedule_day(array $state, string $date): array
                 'id' => $mid,
                 'title' => '该吃药了',
                 'body' => $name . ' ' . $amt . $unit . '（每天 ' . $slot . '）',
+                /* v211：模板变量用的来源/优先级。只增不改，去重键仍是 日期|kind|id|时间 */
+                'source' => 'med',
+                'priority' => '紧急',
             ];
         }
     }
@@ -174,6 +177,11 @@ function lb_schedule_day(array $state, string $date): array
             'id' => $tid,
             'title' => '该做这件事了',
             'body' => $body,
+            /* v211：tag/priority 是任务自身字段；priority 与通知级 priority 不同义 */
+            'source' => 'task',
+            'priority' => '当日',
+            'tag' => (string)($t['tag'] ?? ''),
+            'taskPriority' => (string)($t['priority'] ?? ''),
         ];
     }
 
@@ -241,6 +249,10 @@ function lb_schedule_day(array $state, string $date): array
             'id' => $hid,
             'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
             'body' => $body,
+            /* v211：普通习惯（build/smoke）——quit 已在上面跳过 */
+            'source' => 'habit',
+            'priority' => '日常',
+            'habitType' => (string)($h['type'] ?? 'build'),
         ];
     }
 
@@ -286,6 +298,9 @@ function lb_schedule_day(array $state, string $date): array
                     'id' => $hid,
                     'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
                     'body' => $body,
+                    /* v211：喝水不再与普通习惯共用 source */
+                    'source' => 'water',
+                    'priority' => '日常',
                 ];
             }
             continue;
@@ -338,6 +353,7 @@ function lb_schedule_day(array $state, string $date): array
                     'name' => trim((string)($sp['name'] ?? '')) ?: '运动',
                     'icon' => (string)($sp['icon'] ?? ''),
                     'id' => $spid !== '' ? ('sport-' . $spid) : $hid,
+                    'sport' => $spkey,
                 ];
             }
             if ($instSlots) {
@@ -348,6 +364,10 @@ function lb_schedule_day(array $state, string $date): array
                         'id' => $is['id'],
                         'title' => ($is['icon'] !== '' ? $is['icon'] . ' ' : '') . $is['name'],
                         'body' => '该开始运动了',
+                        /* v211：运动实例带自己的模式 key，模板/板块映射要用 */
+                        'source' => 'move',
+                        'priority' => '日常',
+                        'sport' => $is['sport'],
                     ];
                 }
                 continue;
@@ -402,6 +422,9 @@ function lb_schedule_day(array $state, string $date): array
                     'id' => $hid,
                     'title' => ($icon !== '' ? $icon . ' ' : '') . $name . ' · 第 ' . (string)$slotNo . ' 组',
                     'body' => $body,
+                    /* v211：478 独立来源 */
+                    'source' => 'breathe',
+                    'priority' => '日常',
                 ];
             }
             if ($any) {
@@ -441,6 +464,9 @@ function lb_schedule_day(array $state, string $date): array
             'id' => $hid,
             'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
             'body' => $body,
+            /* v211：模块兜底路径按 $mkey 给来源，别退回 habit */
+            'source' => $mkey,
+            'priority' => '日常',
         ];
     }
 
@@ -559,17 +585,20 @@ function lb_schedule_reports(array $state, string $date, ?array $times = null): 
     $out = [];
     if ($tMorning !== '') {
         $out[] = ['time' => $tMorning, 'kind' => 'report', 'id' => 'morning',
-                  'title' => '今日待办早报', 'body' => $summary];
+                  'title' => '今日待办早报', 'body' => $summary,
+                  'source' => 'report', 'priority' => '日常'];
     }
     if ($tNoon !== '') {
         $out[] = ['time' => $tNoon, 'kind' => 'report', 'id' => 'noon',
-                  'title' => '待办进度午报', 'body' => $summary];
+                  'title' => '待办进度午报', 'body' => $summary,
+                  'source' => 'report', 'priority' => '日常'];
     }
     if ($tEvening !== '') {
         $out[] = ['time' => $tEvening, 'kind' => 'report', 'id' => 'evening',
                   'title' => '今日小结',
                   'body' => '今日完成 ' . $doneToday . ' 项待办' . "\n"
-                      . '明日待办 ' . $tomorrow . ' 条'];
+                      . '明日待办 ' . $tomorrow . ' 条',
+                  'source' => 'report', 'priority' => '日常'];
     }
     return $out;
 }
@@ -636,6 +665,8 @@ function lb_schedule_notices(array $state, string $date): array
             'id' => $id,
             'title' => '🔔 自定义提醒',
             'body' => $text,
+            'source' => 'notice',
+            'priority' => '当日',
         ];
     }
     return $out;
@@ -703,6 +734,8 @@ function lb_schedule_countdowns(array $state, string $date): array
             'id' => $id,
             'title' => '📅 ' . $name,
             'body' => $body,
+            'source' => 'countdown',
+            'priority' => '当日',
         ];
     }
     return $out;
@@ -786,6 +819,10 @@ function lb_schedule_debts(array $state, string $date): array
             'id' => $id,
             'title' => '💳 还款 · ' . $name,
             'body' => $body,
+            'source' => 'debt',
+            'priority' => '紧急',
+            /* 本次提醒对应的还款日（不是每月的号数） */
+            'due' => $dueDay,
         ];
     }
     return $out;

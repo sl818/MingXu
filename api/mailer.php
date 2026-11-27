@@ -205,7 +205,7 @@ function lb_mail_clip(string $s, int $limit): string
  *
  * 刻意不抛异常：调用方可能是每分钟一次的定时任务，一封坏信不该中断整轮。
  */
-function lb_mail_smtp_send(array $cfg, string $to, string $subject, string $body, ?string &$err): bool
+function lb_mail_smtp_send(array $cfg, string $to, string $subject, string $body, ?string &$err, string $html = ''): bool
 {
     $err = '';
     $host = (string)$cfg['host'];
@@ -361,10 +361,28 @@ function lb_mail_smtp_send(array $cfg, string $to, string $subject, string $body
         'Subject: ' . lb_mail_header_text($subject),
         'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $domain . '>',
         'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: base64',
     ];
-    $message = implode("\r\n", $headers) . "\r\n\r\n" . lb_mail_body_b64($body) . "\r\n.\r\n";
+    $html = trim($html);
+    if ($html !== '') {
+        /* v211：纯文本 + HTML 卡片两个 part，客户端自己挑能显示的。
+           boundary 随机，避免与正文内容撞上。 */
+        $boundary = 'lb-' . bin2hex(random_bytes(12));
+        $headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
+        $message = implode("\r\n", $headers) . "\r\n\r\n"
+            . '--' . $boundary . "\r\n"
+            . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"
+            . 'Content-Transfer-Encoding: base64' . "\r\n\r\n"
+            . lb_mail_body_b64($body) . "\r\n"
+            . '--' . $boundary . "\r\n"
+            . 'Content-Type: text/html; charset=UTF-8' . "\r\n"
+            . 'Content-Transfer-Encoding: base64' . "\r\n\r\n"
+            . lb_mail_body_b64($html) . "\r\n"
+            . '--' . $boundary . '--' . "\r\n.\r\n";
+    } else {
+        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+        $headers[] = 'Content-Transfer-Encoding: base64';
+        $message = implode("\r\n", $headers) . "\r\n\r\n" . lb_mail_body_b64($body) . "\r\n.\r\n";
+    }
     if (fwrite($fp, $message) === false) {
         fclose($fp);
         $err = '发送正文失败';
@@ -380,7 +398,7 @@ function lb_mail_smtp_send(array $cfg, string $to, string $subject, string $body
 }
 
 /** 对外的底层发送入口：先按官方限制校验，再真正连接 SMTP。 */
-function lb_mail_send(array $cfg, string $to, string $subject, string $body, ?string &$err): bool
+function lb_mail_send(array $cfg, string $to, string $subject, string $body, ?string &$err, string $html = ''): bool
 {
     $err = '';
     $host = trim((string)($cfg['host'] ?? ''));
@@ -418,7 +436,7 @@ function lb_mail_send(array $cfg, string $to, string $subject, string $body, ?st
     return lb_mail_smtp_send([
         'host' => $host, 'port' => $port, 'secure' => $secure,
         'user' => $user, 'from' => $from, 'name' => $name, 'secret' => $secret,
-    ], $to, $subject, $body, $err);
+    ], $to, $subject, $body, $err, $html);
 }
 
 /* ───────────────── 配置读写（每用户一份，授权码只存密文） ───────────────── */
@@ -560,7 +578,7 @@ function lb_mail_cfg_mark(PDO $pdo, int $uid, bool $ok, string $error): void
  *
  * 没配置、没开启、没授权码时返回 false 并写清楚原因，绝不静默吞掉。
  */
-function lb_mail_send_to_user(PDO $pdo, int $uid, string $subject, string $body, ?string &$err): bool
+function lb_mail_send_to_user(PDO $pdo, int $uid, string $subject, string $body, ?string &$err, string $html = ''): bool
 {
     $err = '';
     $cfg = lb_mail_cfg_load($pdo, $uid);
@@ -572,7 +590,28 @@ function lb_mail_send_to_user(PDO $pdo, int $uid, string $subject, string $body,
         $err = '授权码无法解密，请在配置页重新填写';
         return false;
     }
-    return lb_mail_send($cfg, $cfg['user'], $subject, $body, $err);
+    return lb_mail_send($cfg, $cfg['user'], $subject, $body, $err, $html);
+}
+
+/** 通知邮件的 HTML 卡片：内联样式为主，客户端兼容性优先；调用方传入的 title/body/footer 会先转义 */
+function lb_notify_mail_card(string $title, string $body, string $footer = '', string $color = 'blue'): string
+{
+    $palette = ['blue' => '#2C68FF', 'green' => '#0c6e42', 'amber' => '#8a5808', 'red' => '#b3261e'];
+    $c = $palette[$color] ?? $palette['blue'];
+    $t = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    $b = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
+    $f = htmlspecialchars($footer, ENT_QUOTES, 'UTF-8');
+    $foot = $f !== ''
+        ? '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #e6e9ef;font-size:12px;color:#7a8494">' . $f . '</div>'
+        : '';
+    return '<div style="margin:0;padding:18px;background:#f4f6fa;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">'
+        . '<div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e6e9ef">'
+        . '<div style="height:4px;background:' . $c . '"></div>'
+        . '<div style="padding:20px 22px">'
+        . '<div style="font-size:17px;font-weight:700;color:#1c2430;margin-bottom:10px">' . $t . '</div>'
+        . '<div style="font-size:14px;line-height:1.7;color:#333b48">' . $b . '</div>'
+        . $foot
+        . '</div></div></div>';
 }
 
 /* ===== 站点邮件（v125）=====

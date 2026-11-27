@@ -332,10 +332,42 @@ function lb_notify_defaults(): array
     return $out;
 }
 
-/** 读矩阵。没配过就返回默认值（不能返回全关，否则老用户升级后一条都不发） */
-function lb_notify_prefs_load(PDO $pdo, int $uid): array
+/* ===== 通知板块矩阵（v211，方案 B）=====
+   11 个板块 × 3 个渠道。浏览器只是数据列（服务端不发送），不进 lb_notify_channels()。
+   模块类五板块（med/water/move/breathe/quit）**不存 on**：启用真源是
+   state.modules.<key>.on / state.modulePrefs.meds.on（前端 isModuleOn、服务端 $modOn）。
+   老数据是 7 类扁平结构（med/task/habit/…）：读取时原地迁移，habit 的渠道继承给
+   water/move/breathe，保证升级后「该发的照发」。 */
+
+function lb_notify_boards(): array
 {
-    $out = lb_notify_defaults();
+    return [
+        'med' => ['channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
+        'water' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
+        'move' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
+        'breathe' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
+        'quit' => ['channels' => ['wecom' => false, 'mail' => false, 'browser' => false]],
+        'task' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
+        'habit' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => false, 'browser' => true]],
+        'notice' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
+        'countdown' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
+        /* debt 的「默认关」由 money.notify.on 控制；板块 on 保持 true，避免升级后
+           用户已经打开还款提醒却因为板块默认关而收不到。 */
+        'debt' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => true, 'browser' => false]],
+        'report' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => false, 'browser' => true]],
+    ];
+}
+
+/** 模块类板块：不存 on、也不接受 on 入参 */
+function lb_notify_board_is_module(string $bid): bool
+{
+    return in_array($bid, ['med', 'water', 'move', 'breathe', 'quit'], true);
+}
+
+/** 读 11 板块矩阵；旧扁平结构在这里原地迁移（不写库，保存时自然升级） */
+function lb_notify_boards_load(PDO $pdo, int $uid): array
+{
+    $out = lb_notify_boards();
     $raw = '';
     try {
         $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
@@ -351,70 +383,238 @@ function lb_notify_prefs_load(PDO $pdo, int $uid): array
     if (!is_array($j)) {
         return $out;
     }
-    foreach ($out as $kind => $row) {
-        if (!isset($j[$kind]) || !is_array($j[$kind])) {
-            continue;
-        }
-        foreach ($row as $ch => $def) {
-            if (array_key_exists($ch, $j[$kind])) {
-                $out[$kind][$ch] = (bool)$j[$kind][$ch];
+
+    if (isset($j['boards']) && is_array($j['boards'])) {
+        foreach ($out as $bid => $row) {
+            $src = isset($j['boards'][$bid]) && is_array($j['boards'][$bid]) ? $j['boards'][$bid] : null;
+            if (!is_array($src)) {
+                continue;
+            }
+            $chIn = isset($src['channels']) && is_array($src['channels']) ? $src['channels'] : [];
+            foreach ($row['channels'] as $ch => $def) {
+                if (array_key_exists($ch, $chIn)) {
+                    $out[$bid]['channels'][$ch] = (bool)$chIn[$ch];
+                }
+            }
+            if (!lb_notify_board_is_module($bid) && array_key_exists('on', $src)) {
+                $out[$bid]['on'] = (bool)$src['on'];
             }
         }
+        return $out;
+    }
+
+    /* 旧扁平结构：键就是板块 id。旧矩阵里 habit 同时管着喝水/运动/478，
+       迁移时把它的两个服务端渠道继承过去，否则升级后这三类的邮件行为会变。 */
+    foreach (['med', 'task', 'habit', 'notice', 'countdown', 'debt', 'report'] as $bid) {
+        if (!isset($j[$bid]) || !is_array($j[$bid])) {
+            continue;
+        }
+        foreach (['wecom', 'mail'] as $ch) {
+            if (array_key_exists($ch, $j[$bid])) {
+                $out[$bid]['channels'][$ch] = (bool)$j[$bid][$ch];
+            }
+        }
+    }
+    foreach (['water', 'move', 'breathe'] as $bid) {
+        $out[$bid]['channels']['wecom'] = $out['habit']['channels']['wecom'];
+        $out[$bid]['channels']['mail'] = $out['habit']['channels']['mail'];
     }
     return $out;
 }
 
-function lb_notify_prefs_save(PDO $pdo, int $uid, array $in): array
+/** 把 11 板块投影回旧 7 类扁平结构（旧前端 / 旧调用方继续可用） */
+function lb_notify_prefs_flat(array $boards): array
 {
-    $prefs = lb_notify_defaults();
-    foreach ($prefs as $kind => $row) {
-        foreach ($row as $ch => $def) {
-            if (isset($in[$kind]) && is_array($in[$kind]) && array_key_exists($ch, $in[$kind])) {
-                $prefs[$kind][$ch] = !empty($in[$kind][$ch]);
+    $out = [];
+    /* 顺序与 lb_notify_kinds() 对齐：旧调用方可能用 === 比较整个矩阵 */
+    foreach (['med', 'task', 'habit', 'countdown', 'notice', 'debt', 'report'] as $bid) {
+        $row = isset($boards[$bid]) && is_array($boards[$bid]) ? $boards[$bid] : [];
+        $ch = isset($row['channels']) && is_array($row['channels']) ? $row['channels'] : [];
+        $out[$bid] = ['wecom' => !empty($ch['wecom']), 'mail' => !empty($ch['mail'])];
+    }
+    return $out;
+}
+
+/** 存 11 板块矩阵（入库格式 {"boards":{...}}，方便以后加字段） */
+function lb_notify_boards_save(PDO $pdo, int $uid, array $in): array
+{
+    $boards = lb_notify_boards();
+    $srcBoards = isset($in['boards']) && is_array($in['boards']) ? $in['boards'] : $in;
+
+    if (isset($in['boards']) && is_array($in['boards'])) {
+        foreach ($boards as $bid => $row) {
+            $src = isset($srcBoards[$bid]) && is_array($srcBoards[$bid]) ? $srcBoards[$bid] : null;
+            if (!is_array($src)) {
+                continue;
+            }
+            $chIn = isset($src['channels']) && is_array($src['channels']) ? $src['channels'] : [];
+            foreach ($row['channels'] as $ch => $def) {
+                if (array_key_exists($ch, $chIn)) {
+                    $boards[$bid]['channels'][$ch] = !empty($chIn[$ch]);
+                }
+            }
+            if (!lb_notify_board_is_module($bid) && array_key_exists('on', $src)) {
+                $boards[$bid]['on'] = !empty($src['on']);
             }
         }
+    } else {
+        /* 旧扁平入参：只认 7 类；habit 同步到 water/move/breathe */
+        foreach (['med', 'task', 'habit', 'notice', 'countdown', 'debt', 'report'] as $bid) {
+            if (!isset($in[$bid]) || !is_array($in[$bid])) {
+                continue;
+            }
+            foreach (['wecom', 'mail'] as $ch) {
+                if (array_key_exists($ch, $in[$bid])) {
+                    $boards[$bid]['channels'][$ch] = !empty($in[$bid][$ch]);
+                }
+            }
+        }
+        foreach (['water', 'move', 'breathe'] as $bid) {
+            $boards[$bid]['channels']['wecom'] = $boards['habit']['channels']['wecom'];
+            $boards[$bid]['channels']['mail'] = $boards['habit']['channels']['mail'];
+        }
     }
-    /* SQLite 不认 MySQL 的 ON DUPLICATE KEY，测试要跑在真库上，两种都留 */
+
     $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
         ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
         : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
     try {
-        $pdo->prepare($sql)->execute(['notify_prefs_' . $uid, json_encode($prefs, JSON_UNESCAPED_UNICODE)]);
+        $pdo->prepare($sql)->execute([
+            'notify_prefs_' . $uid,
+            json_encode(['boards' => $boards], JSON_UNESCAPED_UNICODE),
+        ]);
     } catch (PDOException $e) {
         return ['ok' => false, 'error' => '保存失败：' . $e->getMessage()];
     }
-    return ['ok' => true, 'prefs' => $prefs];
+    return ['ok' => true, 'boards' => $boards];
 }
 
-/* ===== 夜间静默与小结时刻（v124）=====
+/** 读矩阵。没配过就返回默认值（不能返回全关，否则老用户升级后一条都不发） */
+function lb_notify_prefs_load(PDO $pdo, int $uid): array
+{
+    /* 兼容层：返回旧 7 类扁平结构，内部读 11 板块。
+       旧前端（v210 配置页矩阵）和旧调用方不用改一行。 */
+    return lb_notify_prefs_flat(lb_notify_boards_load($pdo, $uid));
+}
+
+function lb_notify_prefs_save(PDO $pdo, int $uid, array $in): array
+{
+    /* 同时接受旧扁平（prefs）与新结构（boards）；保存后两种视图都返回。
+       落库永远是 {"boards":{...}}，下次读取走新结构。 */
+    $res = lb_notify_boards_save($pdo, $uid, $in);
+    if (empty($res['ok'])) {
+        return ['ok' => false, 'error' => (string)($res['error'] ?? '保存失败')];
+    }
+    $boards = $res['boards'];
+    return ['ok' => true, 'prefs' => lb_notify_prefs_flat($boards), 'boards' => $boards];
+}
+
+/* ===== 免打扰时间段（v124 起为布尔，v211 扩成 {on,start,end}）=====
    静默**默认关**：绝大多数提醒的时间是用户自己设的，系统替他屏蔽就是违背意图。
-   只有用户主动打开，才在 23:00–07:00 停止推送（跳过，不补发——补发会让
-   早上的第一条推送挤满昨晚的内容）。 */
+   只有用户主动打开，才在这段时间停止推送（跳过，不补发——补发会让
+   早上的第一条推送挤满昨晚的内容）。开始晚于结束即跨夜。 */
 
-function lb_notify_in_quiet(string $hm): bool
+function lb_notify_quiet_defaults(): array
 {
-    /* 跨夜：23:00–23:59 与 00:00–06:59 都算夜里 */
-    return $hm >= '23:00' || $hm < '07:00';
+    return ['on' => false, 'start' => '23:00', 'end' => '07:00'];
 }
 
-function lb_notify_quiet_load(PDO $pdo, int $uid): bool
+/** 读完整配置；旧的 '1' / '0' 照样能读 */
+function lb_notify_quiet_cfg(PDO $pdo, int $uid): array
 {
+    $out = lb_notify_quiet_defaults();
     try {
         $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
         $st->execute(['notify_quiet_' . $uid]);
         $raw = (string)$st->fetchColumn();
     } catch (PDOException $e) {
-        return false;
+        return $out;
     }
-    return $raw === '1';
+    if ($raw === '') {
+        return $out;
+    }
+    if ($raw === '1') {
+        $out['on'] = true;
+        return $out;
+    }
+    if ($raw === '0') {
+        return $out;
+    }
+    $j = json_decode($raw, true);
+    if (!is_array($j)) {
+        return $out;
+    }
+    $out['on'] = !empty($j['on']);
+    foreach (['start', 'end'] as $k) {
+        $v = (string)($j[$k] ?? '');
+        /* 非法值不覆盖默认，脏数据不能让调度挂掉 */
+        if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) === 1) {
+            $out[$k] = $v;
+        }
+    }
+    return $out;
 }
 
-function lb_notify_quiet_save(PDO $pdo, int $uid, bool $on): void
+/** 旧调用方继续可用（只关心开关） */
+function lb_notify_quiet_load(PDO $pdo, int $uid): bool
+{
+    return lb_notify_quiet_cfg($pdo, $uid)['on'];
+}
+
+/** 跨夜判定：start > end 时 23:00–23:59 与 00:00–06:59 都算夜里；起止相同视为不生效 */
+function lb_notify_in_quiet(string $hm, string $start = '23:00', string $end = '07:00'): bool
+{
+    if ($start === '' || $end === '' || $start === $end) {
+        return false;
+    }
+    if ($start < $end) {
+        return $hm >= $start && $hm < $end;
+    }
+    return $hm >= $start || $hm < $end;
+}
+
+/** 接受布尔（旧）或 {on,start,end}（新） */
+function lb_notify_quiet_save(PDO $pdo, int $uid, $in): void
+{
+    $cfg = lb_notify_quiet_defaults();
+    if (is_array($in)) {
+        $cfg['on'] = !empty($in['on']);
+        foreach (['start', 'end'] as $k) {
+            $v = (string)($in[$k] ?? '');
+            if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) === 1) {
+                $cfg[$k] = $v;
+            }
+        }
+    } else {
+        $cfg['on'] = (bool)$in;
+    }
+    $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
+        : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
+    $pdo->prepare($sql)->execute(['notify_quiet_' . $uid, json_encode($cfg, JSON_UNESCAPED_UNICODE)]);
+}
+
+/* ===== 全局通知总闸（v212）=====
+   用户级一键暂停：关掉后所有板块、所有渠道都不发送；不改动板块配置本身。
+   默认开——没配过不能变成「一条都不发」。 */
+function lb_notify_global_load(PDO $pdo, int $uid): bool
+{
+    try {
+        $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
+        $st->execute(['notify_global_' . $uid]);
+        $raw = (string)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return true;
+    }
+    return $raw !== '0';
+}
+
+function lb_notify_global_save(PDO $pdo, int $uid, $on): void
 {
     $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
         ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
         : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
-    $pdo->prepare($sql)->execute(['notify_quiet_' . $uid, $on ? '1' : '0']);
+    $pdo->prepare($sql)->execute(['notify_global_' . $uid, $on ? '1' : '0']);
 }
 
 /** 每日小结三个时刻。空串 = 不发那一条；默认 08:20 / 12:30 / 20:00 */
@@ -470,6 +670,187 @@ function lb_notify_report_save(PDO $pdo, int $uid, array $in): array
     return ['ok' => true, 'report' => $out];
 }
 
+/* ===== 文案模板（v211）=====
+   存 app_settings 的 notify_tpl_<uid>，结构：
+     { "scenes": { "med": {"title":"…","body":"…","browser":"…"}, … },
+       "mail": {"color":"blue","footer":"明序 · 个人生活提醒"} }
+   场景键 = source（med/task/habit/water/move/breathe/report/notice/countdown/debt/test），
+   渲染时 source 找不到再回退 kind。企微/纯文本不转义，转义只在邮件 HTML 分支做。 */
+
+function lb_notify_tpl_scenes(): array
+{
+    return ['med', 'task', 'habit', 'water', 'move', 'breathe', 'report', 'notice', 'countdown', 'debt', 'test'];
+}
+
+/** 限长截断：优先按字符，没 mbstring 时按字节兜底（不依赖 mbstring 是项目约定） */
+function lb_notify_clip(string $s, int $limit): string
+{
+    if (function_exists('mb_substr')) {
+        return mb_substr($s, 0, $limit, 'UTF-8');
+    }
+    return lb_push_clip($s, $limit * 4);
+}
+
+function lb_notify_tpl_defaults(): array
+{
+    $scenes = [];
+    foreach (lb_notify_tpl_scenes() as $id) {
+        $title = '{标题}';
+        if ($id === 'med') {
+            $title = '该吃药了';
+        } elseif ($id === 'task') {
+            $title = '该做这件事了';
+        }
+        $scenes[$id] = ['title' => $title, 'body' => '{正文}', 'browser' => '{浏览器文案}'];
+    }
+    return [
+        'scenes' => $scenes,
+        'mail' => ['color' => 'blue', 'footer' => '明序 · 个人生活提醒', 'mode' => 'html'],
+    ];
+}
+
+/** 只接受白名单场景与限长字符串；脏值回退默认，不让渲染层拿到奇怪结构 */
+function lb_notify_tpl_load(PDO $pdo, int $uid): array
+{
+    $out = lb_notify_tpl_defaults();
+    try {
+        $st = $pdo->prepare('SELECT v FROM app_settings WHERE k = ? LIMIT 1');
+        $st->execute(['notify_tpl_' . $uid]);
+        $raw = (string)$st->fetchColumn();
+    } catch (PDOException $e) {
+        return $out;
+    }
+    if ($raw === '') {
+        return $out;
+    }
+    $j = json_decode($raw, true);
+    if (!is_array($j)) {
+        return $out;
+    }
+    $sc = isset($j['scenes']) && is_array($j['scenes']) ? $j['scenes'] : [];
+    foreach ($out['scenes'] as $id => $row) {
+        if (!isset($sc[$id]) || !is_array($sc[$id])) {
+            continue;
+        }
+        foreach (['title', 'body', 'browser'] as $k) {
+            if (array_key_exists($k, $sc[$id])) {
+                $v = (string)$sc[$id][$k];
+                $out['scenes'][$id][$k] = lb_notify_clip($v, 200);
+            }
+        }
+    }
+    $mail = isset($j['mail']) && is_array($j['mail']) ? $j['mail'] : [];
+    if (isset($mail['color']) && preg_match('/^[a-z]{1,16}$/', (string)$mail['color']) === 1) {
+        $out['mail']['color'] = (string)$mail['color'];
+    }
+    if (isset($mail['footer'])) {
+        $out['mail']['footer'] = lb_notify_clip((string)$mail['footer'], 60);
+    }
+    if (isset($mail['mode']) && in_array((string)$mail['mode'], ['plain', 'html'], true)) {
+        $out['mail']['mode'] = (string)$mail['mode'];
+    }
+    return $out;
+}
+
+function lb_notify_tpl_save(PDO $pdo, int $uid, array $in): array
+{
+    /* 基于已存值：只传部分字段时不会把其他场景/邮件设置重置成默认 */
+    $cur = lb_notify_tpl_load($pdo, $uid);
+    $sc = isset($in['scenes']) && is_array($in['scenes']) ? $in['scenes'] : [];
+    foreach ($cur['scenes'] as $id => $row) {
+        if (!isset($sc[$id]) || !is_array($sc[$id])) {
+            continue;
+        }
+        foreach (['title', 'body', 'browser'] as $k) {
+            if (array_key_exists($k, $sc[$id])) {
+                $cur['scenes'][$id][$k] = lb_notify_clip((string)$sc[$id][$k], 200);
+            }
+        }
+    }
+    $mail = isset($in['mail']) && is_array($in['mail']) ? $in['mail'] : [];
+    if (isset($mail['color']) && preg_match('/^[a-z]{1,16}$/', (string)$mail['color']) === 1) {
+        $cur['mail']['color'] = (string)$mail['color'];
+    }
+    if (isset($mail['footer'])) {
+        $cur['mail']['footer'] = lb_notify_clip((string)$mail['footer'], 60);
+    }
+    if (isset($mail['mode']) && in_array((string)$mail['mode'], ['plain', 'html'], true)) {
+        $cur['mail']['mode'] = (string)$mail['mode'];
+    }
+    $sql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v'
+        : 'INSERT INTO app_settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)';
+    try {
+        $pdo->prepare($sql)->execute([
+            'notify_tpl_' . $uid,
+            json_encode($cur, JSON_UNESCAPED_UNICODE),
+        ]);
+    } catch (PDOException $e) {
+        return ['ok' => false, 'error' => '保存失败：' . $e->getMessage()];
+    }
+    return ['ok' => true, 'templates' => $cur];
+}
+
+/** source 的中文名（模板变量 {场景}/{来源}/{功能} 共用） */
+function lb_notify_source_cn(): array
+{
+    return [
+        'med' => '用药', 'task' => '待办', 'habit' => '习惯', 'water' => '喝水',
+        'move' => '运动', 'breathe' => '478呼吸', 'report' => '每日小结',
+        'notice' => '自定义提醒', 'countdown' => '倒数日', 'debt' => '还款',
+        'test' => '测试消息',
+    ];
+}
+
+/** 事件 → 板块 id。habit 三兄弟靠 source 区分，其余按 kind。 */
+function lb_notify_board_of(array $ev): string
+{
+    $src = (string)($ev['source'] ?? '');
+    if (in_array($src, ['water', 'move', 'breathe', 'quit'], true)) {
+        return $src;
+    }
+    $kind = (string)($ev['kind'] ?? '');
+    $map = [
+        'med' => 'med', 'task' => 'task', 'habit' => 'habit', 'notice' => 'notice',
+        'countdown' => 'countdown', 'debt' => 'debt', 'report' => 'report',
+    ];
+    return $map[$kind] ?? 'habit';
+}
+
+/** 渲染成最终发送文本（标题 + 换行 + 正文），未知占位符原样保留 */
+function lb_notify_text_render(array $tpl, array $ev): string
+{
+    $src = (string)($ev['source'] ?? '');
+    $kind = (string)($ev['kind'] ?? '');
+    $key = $src !== '' ? $src : $kind;
+    $scene = isset($tpl['scenes'][$key]) && is_array($tpl['scenes'][$key]) ? $tpl['scenes'][$key] : null;
+    if (!is_array($scene) && $kind !== '' && isset($tpl['scenes'][$kind]) && is_array($tpl['scenes'][$kind])) {
+        $scene = $tpl['scenes'][$kind];
+    }
+    if (!is_array($scene)) {
+        $scene = ['title' => '{标题}', 'body' => '{正文}'];
+    }
+    $cn = lb_notify_source_cn();
+    $label = $cn[$src] ?? (lb_notify_kinds()[$kind] ?? $kind);
+    $vars = [
+        '{标题}' => (string)($ev['title'] ?? ''),
+        '{正文}' => (string)($ev['body'] ?? ''),
+        '{时间}' => (string)($ev['time'] ?? ''),
+        '{类目}' => (string)(lb_notify_kinds()[$kind] ?? $kind),
+        '{场景}' => $label,
+        '{来源}' => $label,
+        '{功能}' => $label,
+        '{优先级}' => (string)($ev['priority'] ?? ''),
+        '{浏览器文案}' => (string)($ev['browser'] ?? ''),
+    ];
+    $title = trim(strtr((string)($scene['title'] ?? '{标题}'), $vars));
+    $body = trim(strtr((string)($scene['body'] ?? '{正文}'), $vars));
+    if ($body === '') {
+        return $title;
+    }
+    return $title === '' ? $body : $title . "\n" . $body;
+}
+
 /** 把旧的企业微信发送函数包成统一签名 ($row, $text, &$why) */
 function lb_push_wecom_adapter(callable $fn): callable
 {
@@ -479,17 +860,29 @@ function lb_push_wecom_adapter(callable $fn): callable
     };
 }
 
-/** 邮件通道：把「标题 + 正文」拆成主题与正文，收件人固定为账号邮箱 */
-function lb_mail_channel_sender(PDO $pdo): callable
+/** 邮件通道：把「标题 + 正文」拆成主题与正文，收件人固定为账号邮箱。
+    v211 起附带 HTML 卡片（纯文本 part 仍在，客户端自己挑）；模板取不到时退回纯文本。 */
+function lb_mail_channel_sender(PDO $pdo, bool $card = true): callable
 {
-    return function (array $row, string $text, ?string &$why) use ($pdo) {
+    return function (array $row, string $text, ?string &$why) use ($pdo, $card) {
         $lines = preg_split('/\r?\n/', trim($text), 2);
         $subject = trim((string)($lines[0] ?? ''));
         $body = (string)($lines[1] ?? '');
         if ($subject === '') {
             $subject = '提醒';
         }
-        return lb_mail_send_to_user($pdo, (int)$row['id'], '【明序】' . $subject, $body, $why);
+        $html = '';
+        if ($card && function_exists('lb_notify_tpl_load') && function_exists('lb_notify_mail_card')) {
+            $tpl = lb_notify_tpl_load($pdo, (int)$row['id']);
+            $mode = (string)($tpl['mail']['mode'] ?? 'html');
+            $html = $mode === 'plain' ? '' : lb_notify_mail_card(
+                $subject,
+                $body,
+                (string)($tpl['mail']['footer'] ?? ''),
+                (string)($tpl['mail']['color'] ?? 'blue')
+            );
+        }
+        return lb_mail_send_to_user($pdo, (int)$row['id'], '【明序】' . $subject, $body, $why, $html);
     };
 }
 
@@ -532,6 +925,9 @@ function lb_notify_merge_med(array $due): array
             'title' => '该吃药了（' . count($group) . ' 种）',
             'body' => implode("\n", $lines),
             'merged' => count($group),
+            /* v211：合并后仍要带来源/优先级，否则模板渲染成空白 */
+            'source' => (string)($group[0]['source'] ?? 'med'),
+            'priority' => (string)($group[0]['priority'] ?? '紧急'),
             '_pos' => $group[0]['_pos'],
         ];
     }
@@ -629,13 +1025,19 @@ function lb_push_tick_run(
         $uid = (int)$r['id'];
         $hook = (string)($r['push_webhook'] ?? '');
         $mailOn = !empty($r['mail_on']);
-        /* 静默期内整段跳过。跳过不补发：早上的第一条若塞满昨晚的内容，
-           反而比不发更糟。用户开了这个开关，就是接受「这段时间不响」。 */
-        if (lb_notify_quiet_load($pdo, $uid) && lb_notify_in_quiet($hm)) {
+        /* v212：全局总闸关掉就整段跳过（不改板块配置，重新打开立即恢复） */
+        if (!lb_notify_global_load($pdo, $uid)) {
+            $out['global_skipped'] = ($out['global_skipped'] ?? 0) + 1;
+            continue;
+        }
+        /* 免打扰：v211 起时段可配（{on,start,end}），旧的布尔存储照样能读 */
+        $quiet = lb_notify_quiet_cfg($pdo, $uid);
+        if ($quiet['on'] && lb_notify_in_quiet($hm, $quiet['start'], $quiet['end'])) {
             $out['quiet_skipped'] = ($out['quiet_skipped'] ?? 0) + 1;
             continue;
         }
-        $prefs = lb_notify_prefs_load($pdo, $uid);
+        $boards = lb_notify_boards_load($pdo, $uid);
+        $tpl = lb_notify_tpl_load($pdo, $uid);
         $reportTimes = lb_notify_report_load($pdo, $uid);
         $state = json_decode((string)$r['data'], true);
         if (!is_array($state)) {
@@ -651,7 +1053,10 @@ function lb_push_tick_run(
 
         foreach ($due as $item) {
             $key = $date . '|' . $item['kind'] . '|' . $item['id'] . '|' . $item['time'];
-            $text = $item['title'] . "\n" . $item['body'];
+            /* 文案模板：source 优先、kind 兜底；模板没配过时长这样与原「标题\n正文」等价 */
+            $text = lb_notify_text_render($tpl, $item);
+            $bid = lb_notify_board_of($item);
+            $bset = isset($boards[$bid]) && is_array($boards[$bid]) ? $boards[$bid] : null;
 
             foreach ($senders as $ch) {
                 $chan = (string)($ch['channel'] ?? 'wecom');
@@ -662,10 +1067,15 @@ function lb_push_tick_run(
                 if ($chan === 'mail' && !$mailOn) {
                     continue;
                 }
-                /* 通道配了不代表这个类型要走它——矩阵说了算 */
-                $kindNow = (string)($item['kind'] ?? '');
-                if (isset($prefs[$kindNow][$chan]) && !$prefs[$kindNow][$chan]) {
-                    continue;
+                /* 板块闸门：基础板块停用整条跳过；渠道按 11 板块矩阵过滤。
+                   模块类板块的启停已在排程层处理（schedule.php 的 $modOn）。 */
+                if (is_array($bset)) {
+                    if (isset($bset['on']) && !$bset['on']) {
+                        continue;
+                    }
+                    if (isset($bset['channels'][$chan]) && !$bset['channels'][$chan]) {
+                        continue;
+                    }
                 }
 
                 $entry = ['user' => $uid, 'key' => $key, 'kind' => $item['kind'],

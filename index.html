@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=210">
+<link rel="stylesheet" href="assets/app.css?v=216">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=210">
+<link rel="stylesheet" href="assets/theme-v2.css?v=216">
 </head>
 <body>
 <div class="app landing">
@@ -310,7 +310,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v210';
+  const APP_VERSION = 'v216';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -5093,19 +5093,73 @@
   }
 
   /* force=true 时忽略「今天已经发过」，用于刚给权限时立刻验证一次 */
+  /* v211：浏览器通知也套同一份文案模板。remindItems 的条目只有 key/text/view，
+     这里按 key 前缀推断场景；没有模板时退回原来的「明序 + text」。 */
+  function remindKind(it) {
+    const k = String(it.key || '');
+    if (k.indexOf('med-') === 0) return 'med';
+    if (k.indexOf('task-') === 0) return 'task';
+    if (k.indexOf('h_water') >= 0) return 'water';
+    if (k.indexOf('h_move') >= 0) return 'move';
+    if (k.indexOf('h_breathe') >= 0) return 'breathe';
+    return 'habit';
+  }
+
+  /* 板块的浏览器渠道：关掉就不弹本地通知（服务端不发送，这一列只由前端消费） */
+  function notifyBrowserChannelOn(kind) {
+    const b = (notifyRoute && notifyRoute.boards) ? notifyRoute.boards[kind] : null;
+    if (!b || !b.channels) return true;
+    return b.channels.browser !== false;
+  }
+
+  function notifyBrowserTpl(it) {
+    const kind = remindKind(it);
+    const t = notifyRoute && notifyRoute.templates;
+    const scene = (t && t.scenes) ? t.scenes[kind] : null;
+    if (!scene) return { title: '明序', body: String(it.text || '') };
+    const vars = {
+      '{标题}': '明序',
+      '{正文}': String(it.text || ''),
+      '{时间}': '',
+      '{类目}': (notifyRoute.kinds && notifyRoute.kinds[kind]) || '',
+      '{场景}': notifyBoardName(kind),
+      '{来源}': kind,
+      '{功能}': notifyBoardName(kind),
+      '{优先级}': '',
+      '{浏览器文案}': String(it.text || '')
+    };
+    const apply = function (s) {
+      return String(s || '').replace(/\{[^{}]+\}/g, function (m) {
+        return vars[m] !== undefined ? vars[m] : m;
+      });
+    };
+    return {
+      title: apply(scene.title) || '明序',
+      body: apply(scene.browser || scene.body || '') || String(it.text || '')
+    };
+  }
+
   async function notifyPing(force) {
     if (!notifySupported() || !notifyWanted() || Notification.permission !== 'granted') return;
     if (mode === 'landing' || !cloud.user || remindDismissedOn()) return;
+    if (notifyRoute === undefined) {
+      await notifyRouteLoad();   /* 通知可能先于打开通知路由页，先静默取一次板块配置 */
+    }
     const sent = notifySentKeys();
-    const items = remindItems().filter(i => force || sent.indexOf(i.key) < 0);
+    const items = remindItems().filter(function (i) {
+      if (!force && sent.indexOf(i.key) >= 0) return false;
+      /* force = 授权后的验证推送，不受渠道开关限制；日常通知按板块浏览器渠道过滤 */
+      return force || notifyBrowserChannelOn(remindKind(i));
+    });
     if (!items.length) return;
     let reg = null;
     try { reg = await navigator.serviceWorker.ready; } catch (e) { return; }
     if (!reg || typeof reg.showNotification !== 'function') return;
     items.slice(0, 3).forEach(it => {
       try {
-        const p = reg.showNotification('明序', {
-          body: it.text,
+        const nt = notifyBrowserTpl(it);
+        const p = reg.showNotification(nt.title, {
+          body: nt.body,
           tag: it.key,
           icon: './icons/icon-192.png',
           badge: './icons/icon-192.png',
@@ -5242,7 +5296,7 @@
         ' title="记为今天未完成 · 再点一次撤销">' + HC_CROSS + '<span>未完成</span></button>' +
       '<button type="button" class="hc-btn yes' + (done ? ' on' : '') + '"' +
         ' data-act="habit-ok" data-id="' + esc(h.id) + '"' +
-        ' title="' + (isQ ? (broken ? '点一下撤销今天的失守记录' : '今天已经守住了')
+        ' title="' + (isQ ? (broken ? '点一下撤销 1 次失守（点几次撤几次）' : '今天已经守住了')
                          : (done ? '点一下撤销今天的打卡' : '记为今天已完成')) + '">' +
         HC_TICK + '<span>' + (done ? '已完成' : '完成') + '</span></button>' +
       '</div>';
@@ -13715,23 +13769,16 @@
         webhook: (r && typeof r.webhook === 'string') ? r.webhook : '',
         sentToday: (r && Number(r.sent_today)) || 0,
         lastSent: (r && r.last_sent) ? String(r.last_sent) : '',
-        recent: (r && Array.isArray(r.recent)) ? r.recent : [],
-        plan: []
+        recent: (r && Array.isArray(r.recent)) ? r.recent : []
       };
-      /* 今日计划是独立的只读接口；它失败不该影响配置区显示 */
-      try {
-        const p = await cloudApi('push_preview');
-        pushCfg.plan = (p && Array.isArray(p.items)) ? p.items : [];
-      } catch (e) {
-        pushCfg.plan = [];
-      }
+      /* 今日计划改由「通知路由」页自己拉 push_preview（v211），配置页不再重复请求 */
     } catch (e) {
       pushCfg = null;
     }
     pushLoading = false;
     /* v71 把这块搬到配置页之后忘了改这里：只在 settings 重绘，
        结果配置页的输入框永远停在渲染那一刻的空值。 */
-    if (view === 'settings' || view === 'config') render();
+    if (view === 'settings' || view === 'config' || view === 'notifyroute') render();
   }
 
   function pushHookInput() {
@@ -13794,25 +13841,10 @@
     /* 没填过就直接可编辑（没什么可保护的）；填过就锁住，点「修改链接」才放开。
        地址存在服务器，切设备也在——框里空着只是没加载出来，不代表没存。 */
     const editing = pushEditing || !hook;
-    const plan = (cfg && Array.isArray(cfg.plan)) ? cfg.plan : [];
     const recent = (cfg && Array.isArray(cfg.recent)) ? cfg.recent : [];
-    const KIND_LABEL = { med: '用药', task: '待办', habit: '习惯', report: '汇报' };
 
-    /* 今日计划：时间 + 类型 + 标题/正文 */
-    const planHtml = plan.length
-      ? plan.map(function (it) {
-          const k = String(it.kind || '');
-          const body = String(it.body || '').replace(/\n/g, ' · ');
-          return '<li class="pc-row">' +
-            '<span class="pc-time">' + esc(it.time) + '</span>' +
-            '<span class="pc-tag pc-tag-' + esc(k) + '">' + esc(KIND_LABEL[k] || k) + '</span>' +
-            '<span class="pc-txt"><b>' + esc(it.title) + '</b>' +
-              (body ? '<small>' + esc(body) + '</small>' : '') + '</span>' +
-          '</li>';
-        }).join('')
-      : '<li class="pc-empty">今天没有要推送的内容</li>';
-
-    /* 最近发送：只有时间 + 正文（正文依赖 content 列，旧库为空时退回 slot_key） */
+    /* 最近发送：只有时间 + 正文（正文依赖 content 列，旧库为空时退回 slot_key）
+       今日推送计划已迁到「通知路由」页的用户通知数据列表（v211）。 */
     const recentHtml = recent.length
       ? recent.map(function (r) {
           const txt = String(r.text || '').replace(/\n/g, ' · ');
@@ -13853,10 +13885,6 @@
       '<p class="ics-warn">⚠️ 这个地址等于往你群里发消息的钥匙，别贴到公开的地方。' +
       '万一泄露，在企业微信里删掉机器人再重新添加一个就是新地址。</p>' +
       '<div class="pc-sec">' +
-        '<div class="pc-sec-head">今日推送计划<span class="pc-count">' + plan.length + ' 条</span></div>' +
-        '<ul class="pc-list">' + planHtml + '</ul>' +
-      '</div>' +
-      '<div class="pc-sec">' +
         '<div class="pc-sec-head">最近发送' +
           (cfg && cfg.sentToday ? '<span class="pc-count">今天已发 ' + cfg.sentToday + ' 条</span>' : '') +
         '</div>' +
@@ -13869,17 +13897,16 @@
      mailCfg 三态：undefined = 还没问过；null = 没配置/读取失败；对象 = 已读到。
      授权码只进不出：后端不回显明文，输入框永远留空，留空 = 保留已存的。 */
   let mailCfg;
-  /* v122 通知通道矩阵：undefined=未加载 / null=加载失败 / 对象=矩阵 */
-  let notifyPrefs;
-  let notifyMeta = null;
-  let notifyLoading = false;
-  /* v124：夜间静默（默认关）与每日小结的三个时刻 */
-  let notifyQuiet = false;
+  /* v211 通知路由页：undefined=未加载 / null=加载失败 / 对象=已加载。
+     页面内状态（场景选择、展开项）一律用模块级变量，不进 state。 */
+  let notifyRoute;
+  let notifyPlan = null;
+  let notifyRouteLoading = false;
+  let notifyTplScene = 'med';
   /* v125 站点邮件：管理员配一次，全站用于注册确认与找回密码 */
   let siteMailCfg;
   let siteMailReady = false;
   let siteMailLoading = false;
-  let notifyReport = { morning: '08:20', noon: '12:30', evening: '20:00' };
   let mailLoading = false;
   let mailBusy = false;
   let mailRecipient = '';
@@ -13912,7 +13939,7 @@
       mailCfg = null;
     }
     mailLoading = false;
-    if (view === 'config' || view === 'settings') render();
+    if (view === 'config' || view === 'settings' || view === 'notifyroute') render();
   }
 
   function mailValues() {
@@ -14086,146 +14113,6 @@
       if (box) { box.hidden = false; box.className = 'mail-result ok'; box.textContent = '已发出，收件人 ' + ((r && r.to) || '管理员'); }
     } catch (e) {
       if (box) { box.hidden = false; box.className = 'mail-result bad'; box.textContent = e.message || '发送失败'; }
-    }
-  }
-
-  async function notifyLoad() {
-    if (notifyLoading || notifyPrefs !== undefined) return;
-    if (mode === 'landing' || !cloud.user) return;
-    notifyLoading = true;
-    try {
-      const r = await cloudApi('notify_prefs');
-      notifyPrefs = (r && r.prefs && typeof r.prefs === 'object') ? r.prefs : null;
-      notifyMeta = { kinds: (r && r.kinds) || {}, channels: (r && r.channels) || {} };
-      notifyQuiet = !!(r && r.quiet);
-      if (r && r.report && typeof r.report === 'object') {
-        notifyReport = {
-          morning: String(r.report.morning ?? ''),
-          noon: String(r.report.noon ?? ''),
-          evening: String(r.report.evening ?? '')
-        };
-      }
-    } catch (e) {
-      notifyPrefs = null;
-      notifyMeta = null;
-    }
-    notifyLoading = false;
-  }
-
-  /* 把矩阵翻译成一句人话：用户不该靠推理知道「谁会收到什么」 */
-  function notifySummary() {
-    if (!notifyPrefs || !notifyMeta) return '';
-    const kinds = notifyMeta.kinds || {};
-    const both = [];
-    const wecomOnly = [];
-    const mailOnly = [];
-    const none = [];
-    Object.keys(kinds).forEach(function (k) {
-      const w = !!(notifyPrefs[k] && notifyPrefs[k].wecom);
-      const m = !!(notifyPrefs[k] && notifyPrefs[k].mail);
-      if (w && m) both.push(kinds[k]);
-      else if (w) wecomOnly.push(kinds[k]);
-      else if (m) mailOnly.push(kinds[k]);
-      else none.push(kinds[k]);
-    });
-    if (none.length === Object.keys(kinds).length) {
-      return '全部关闭，不会收到任何提醒。';
-    }
-    const parts = [];
-    if (both.length) parts.push(both.join('、') + ' 发到企业微信和邮箱');
-    if (wecomOnly.length) parts.push(wecomOnly.join('、') + ' 只发企业微信');
-    if (mailOnly.length) parts.push(mailOnly.join('、') + ' 只发邮箱');
-    if (none.length) parts.push(none.join('、') + ' 不提醒');
-    return parts.length ? parts.join('；') + '。' : '全部关闭，不会收到任何提醒。';
-  }
-
-  function notifyMatrixHtml() {
-    if (!cloud.user) return '';
-    const head = '<div class="panel"><h3>通知通道矩阵</h3>';
-    if (notifyPrefs === undefined) {
-      return head + '<p class="muted-sm">正在读取…</p></div>';
-    }
-    if (notifyPrefs === null || !notifyMeta) {
-      return head + '<p class="muted-sm">读不到配置。可能没登录，或者服务器上的 `api/push.php` 还没更新。</p></div>';
-    }
-    const kinds = notifyMeta.kinds || {};
-    const chs = notifyMeta.channels || {};
-    const chKeys = Object.keys(chs);
-    const headRow = '<tr><th scope="col">提醒类型</th>' +
-      chKeys.map(function (c) { return '<th scope="col">' + esc(chs[c]) + '</th>'; }).join('') + '</tr>';
-    const bodyRows = Object.keys(kinds).map(function (k) {
-      const cells = chKeys.map(function (c) {
-        const on = !!(notifyPrefs[k] && notifyPrefs[k][c]);
-        return '<td><label class="mx-cell"><input type="checkbox" data-kind="' + esc(k) +
-          '" data-chan="' + esc(c) + '"' + (on ? ' checked' : '') + '>' +
-          '<span class="mx-box" aria-hidden="true"></span></label></td>';
-      }).join('');
-      return '<tr><th scope="row">' + esc(kinds[k]) + '</th>' + cells + '</tr>';
-    }).join('');
-    return head +
-      '<p class="muted-sm" style="margin:0 0 10px">勾选每种提醒走哪条通道。两条都取消，这类提醒就不会再打扰你。<br>同一时刻的多种药会合并成一条（比如 8:00 吃六种药只发一条）。</p>' +
-      '<table class="mx-table"><thead>' + headRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
-      '<p class="hint mx-summary">' + esc(notifySummary()) + '</p>' +
-      '<div class="mx-extra">' +
-        '<label class="mx-switch"><input type="checkbox" id="mx-quiet"' + (notifyQuiet ? ' checked' : '') + '>' +
-          '<span class="mx-box" aria-hidden="true"></span>' +
-          '<b>夜间静默</b><span class="muted-sm">23:00 – 07:00 不推送</span></label>' +
-        '<p class="hint" style="margin:6px 0 0">开启后这段时间的提醒会被跳过，<b>也不会补发</b>。默认关闭——' +
-        '你的用药和待办都是自己设的时间，系统不该替你决定哪条不重要。</p>' +
-        '<div class="mx-report">' +
-          '<span class="mx-report-label">每日小结时刻<span class="muted-sm">留空 = 不发那一条</span></span>' +
-          '<label class="mx-time"><span>早报</span><input type="time" id="mx-rep-morning" value="' + esc(notifyReport.morning) + '"></label>' +
-          '<label class="mx-time"><span>午报</span><input type="time" id="mx-rep-noon" value="' + esc(notifyReport.noon) + '"></label>' +
-          '<label class="mx-time"><span>小结</span><input type="time" id="mx-rep-evening" value="' + esc(notifyReport.evening) + '"></label>' +
-        '</div>' +
-      '</div>' +
-      '<div class="btn-row"><button type="button" class="btn primary" data-act="notify-save">保存通知设置</button></div>' +
-      '</div>';
-  }
-
-  /* 勾选时立刻更新摘要：让用户边点边看到「谁会收到什么」，不用先保存 */
-  function notifySyncSummary() {
-    const prefs = {};
-    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
-      const k = el.getAttribute('data-kind');
-      const c = el.getAttribute('data-chan');
-      prefs[k] = prefs[k] || {};
-      prefs[k][c] = !!el.checked;
-    });
-    notifyPrefs = prefs;
-    const box = document.querySelector('.mx-summary');
-    if (box) box.textContent = notifySummary();
-  }
-
-  async function notifySave() {
-    if (!notifyPrefs) return;
-    const prefs = {};
-    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
-      const k = el.getAttribute('data-kind');
-      const c = el.getAttribute('data-chan');
-      prefs[k] = prefs[k] || {};
-      prefs[k][c] = !!el.checked;
-    });
-    const qEl = document.getElementById('mx-quiet');
-    const quiet = !!(qEl && qEl.checked);
-    const readT = function (id) {
-      const el = document.getElementById(id);
-      return el ? el.value : '';
-    };
-    const report = {
-      morning: readT('mx-rep-morning'),
-      noon: readT('mx-rep-noon'),
-      evening: readT('mx-rep-evening')
-    };
-    try {
-      const r = await cloudApi('notify_prefs_save', { prefs: prefs, quiet: quiet, report: report });
-      if (r && r.prefs) notifyPrefs = r.prefs;
-      if (r && r.report) notifyReport = r.report;
-      notifyQuiet = !!(r && r.quiet);
-      toast('通知设置已保存');
-      render();
-    } catch (e) {
-      toast(e.message || '保存失败');
     }
   }
 
@@ -14490,17 +14377,643 @@
     pushLoad();
     mailLoad();
     siteMailLoad();
-    notifyLoad();
     return '' +
       '<div class="page-head"><div><h2>配置</h2><p>通知、订阅与数据。</p></div></div>' +
       '<div class="config-wrap">' +
       noticePanelHtml() +
       '<div class="panel"><h3>提醒</h3>' + remindPanelHtml() + '</div>' +
       mailPanelHtml() +
-      notifyMatrixHtml() +
       siteMailPanelHtml() +
       dataPanelHtml() +
       '</div>';
+  }
+
+  /* ---------- 通知路由（v211）----------
+     五块：全局总控 / 板块总控（含免打扰与小结时刻）/ 文案模板 / 用户通知数据列表。
+     数据：notify_prefs（boards/quietCfg/report/templates）+ push_preview（今日真实排程）
+     + 本地 remindItems()。页面内状态不进 state。 */
+  const NOTIFY_BOARDS = [
+    { id: 'med', name: '用药', icon: '💊', module: 'meds' },
+    { id: 'water', name: '喝水', icon: '💧', module: 'water' },
+    { id: 'move', name: '运动', icon: '🏃', module: 'move' },
+    { id: 'breathe', name: '478 呼吸', icon: '🌬️', module: 'breathe' },
+    { id: 'quit', name: '戒烟', icon: '🚭', module: 'quit' },
+    { id: 'task', name: '待办', icon: '📋' },
+    { id: 'habit', name: '普通习惯', icon: '🔁' },
+    { id: 'notice', name: '自定义提醒', icon: '🔔' },
+    { id: 'countdown', name: '倒数日', icon: '📅' },
+    { id: 'debt', name: '还款提醒', icon: '💳' },
+    { id: 'report', name: '每日小结', icon: '📊' }
+  ];
+  const NOTIFY_CHANNELS = [['wecom', '企业微信'], ['mail', '邮件'], ['browser', '浏览器']];
+  const NOTIFY_TPL_SCENES = [
+    ['med', '用药'], ['task', '待办'], ['habit', '习惯'], ['water', '喝水'], ['move', '运动'],
+    ['breathe', '478'], ['report', '小结'], ['notice', '自定义'], ['countdown', '倒数日'],
+    ['debt', '还款'], ['test', '测试消息']
+  ];
+
+  function notifyBoardName(id) {
+    if (id === 'browser') return '浏览器';
+    const hit = NOTIFY_BOARDS.filter(function (b) { return b.id === id; })[0];
+    return hit ? hit.name : (id || '其他');
+  }
+
+  async function notifyRouteLoad() {
+    if (notifyRouteLoading || notifyRoute !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    notifyRouteLoading = true;
+    try {
+      const r = await cloudApi('notify_prefs');
+      notifyRoute = {
+        boards: (r && r.boards) || null,
+        quiet: (r && r.quietCfg) || { on: false, start: '23:00', end: '07:00' },
+        report: (r && r.report) || { morning: '08:20', noon: '12:30', evening: '20:00' },
+        templates: (r && r.templates) || null,
+        kinds: (r && r.kinds) || {},
+        global: !(r && r.global === false)
+      };
+      try {
+        const p = await cloudApi('push_preview');
+        notifyPlan = (p && Array.isArray(p.items)) ? p.items : [];
+      } catch (e) {
+        notifyPlan = [];
+      }
+    } catch (e) {
+      notifyRoute = null;
+      notifyPlan = [];
+    }
+    notifyRouteLoading = false;
+    if (view === 'notifyroute') render();
+  }
+
+  function notifyRoutePanel(title, sub, body) {
+    return '<div class="panel nr-panel"><h3>' + esc(title) +
+      (sub ? '<span class="nr-sub">' + esc(sub) + '</span>' : '') + '</h3>' + body + '</div>';
+  }
+
+  function notifyRouteGlobalHtml() {
+    const on = !(notifyRoute && notifyRoute.global === false);
+    const pushOn = !!(pushCfg && pushCfg.enabled);
+    const mailOn = !!(mailCfg && mailCfg.enabled && mailCfg.hasSecret);
+    const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
+    const row = function (name, ok, okText, badText, act, actText) {
+      return '<div class="nr-ch"><b>' + name + '</b><span class="nr-dot ' + (ok ? 'ok' : 'bad') + '"></span>' +
+        '<span class="muted-sm">' + esc(ok ? okText : badText) + '</span>' +
+        (act ? '<button type="button" class="nr-ch-act" data-act="' + act + '">' + esc(actText) + '</button>' : '') +
+        '</div>';
+    };
+    return notifyRoutePanel('全局总控', '总闸门与渠道',
+      '<div class="nr-master">' +
+        '<span class="nr-gl">通知总开关</span>' +
+        '<button type="button" class="nr-sw' + (on ? ' on' : '') + '" data-act="notify-global-toggle"></button>' +
+        '<span class="nr-note-inline">' + (on ? '按下面的板块与渠道正常发送' : '已全部暂停，板块配置保持不变') + '</span>' +
+      '</div>' +
+      '<div class="nr-chs">' +
+        row('企业微信', pushOn, '已配置，服务正常', '未配置：去「配置」页填机器人地址',
+            pushOn ? 'nr-wecom-toggle' : '', pushOn ? '暂停' : '') +
+        row('邮件', mailOn, '已配置，服务正常', '未配置：去「配置」页配 SMTP',
+            'nr-mail-goto', mailOn ? '去调整' : '去配置') +
+        row('浏览器', perm === 'granted', '已授权', perm === 'denied' ? '被系统拦截' : '未授权',
+            perm === 'granted' ? '' : 'nr-browser-enable', perm === 'granted' ? '' : '开启通知') +
+      '</div>' +
+      '<p class="nr-note">浏览器是页面本地通知（关网页即失效）；企业微信与邮件由服务器到点发送。' +
+      '未通过配置检测的渠道不会发送。</p>');
+  }
+
+  function notifyBoardOn(def) {
+    if (def.module) return isModuleOn(def.module);
+    const row = notifyRoute && notifyRoute.boards ? notifyRoute.boards[def.id] : null;
+    return !row || row.on !== false;
+  }
+
+  function notifyRouteBoardsHtml() {
+    const boards = (notifyRoute && notifyRoute.boards) || {};
+    const rows = NOTIFY_BOARDS.map(function (def) {
+      const on = notifyBoardOn(def);
+      const ch = (boards[def.id] && boards[def.id].channels) || {};
+      const cells = NOTIFY_CHANNELS.map(function (c) {
+        const onCh = !!ch[c[0]];
+        return '<td><button type="button" class="nr-chk' + (onCh && on ? ' on' : '') + '"' +
+          (on ? '' : ' disabled') + ' data-act="notify-board-ch" data-b="' + def.id + '" data-ch="' + c[0] + '"' +
+          ' title="' + esc(def.name + ' · ' + c[1] + (onCh ? '已勾选' : '未勾选')) + '">' +
+          (onCh ? '✓' : '') + '</button></td>';
+      }).join('');
+      return '<tr class="' + (on ? '' : 'off') + '">' +
+        '<td><span class="nr-name"><span class="nr-ico">' + def.icon + '</span><span><b>' + esc(def.name) + '</b>' +
+          '<small>' + (def.module ? '跟随功能模块开关' : (on ? '已启用' : '已停用 · 数据保留')) + '</small></span></span></td>' +
+        '<td><button type="button" class="nr-sw' + (on ? ' on' : '') + '" data-act="notify-board-toggle" data-b="' + def.id + '"' +
+          ' title="' + (def.module ? '去「功能模块」页开关' : (on ? '停用' : '启用')) + '"></button></td>' +
+        cells + '</tr>';
+    }).join('');
+
+    const q = (notifyRoute && notifyRoute.quiet) || { on: false, start: '23:00', end: '07:00' };
+    const rep = (notifyRoute && notifyRoute.report) || { morning: '08:20', noon: '12:30', evening: '20:00' };
+    return notifyRoutePanel('板块总控 · 模块启用 + 通知通道矩阵', '模块类板块的启用跟随「功能模块」，这里只配渠道',
+      '<p class="nr-note">停用 = 导航入口隐藏 + 提醒停止 + 数据保留；渠道留空 = 功能照常用、只是不推送。</p>' +
+      '<table class="nr-table"><thead><tr><th>板块</th><th>启用</th>' +
+        NOTIFY_CHANNELS.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="nr-global">' +
+        '<span class="nr-gl">免打扰时间段</span>' +
+        '<button type="button" class="nr-sw' + (q.on ? ' on' : '') + '" data-act="notify-quiet-toggle"></button>' +
+        '<label>从 <input type="time" id="nr-quiet-start" value="' + esc(q.start) + '"></label>' +
+        '<label>到 <input type="time" id="nr-quiet-end" value="' + esc(q.end) + '"></label>' +
+        '<span class="nr-note-inline">命中时段跳过、不补发；开始晚于结束即跨夜</span>' +
+      '</div>' +
+      '<div class="nr-global">' +
+        '<span class="nr-gl">每日小结时刻</span>' +
+        '<label>早报 <input type="time" id="nr-rep-morning" value="' + esc(rep.morning) + '"></label>' +
+        '<label>午报 <input type="time" id="nr-rep-noon" value="' + esc(rep.noon) + '"></label>' +
+        '<label>小结 <input type="time" id="nr-rep-evening" value="' + esc(rep.evening) + '"></label>' +
+        '<span class="nr-note-inline">留空即不发那一条</span>' +
+      '</div>' +
+      '<div class="nr-actions"><button type="button" class="btn primary" data-act="notify-route-save">保存通知设置</button></div>');
+  }
+
+  function notifyRouteTplHtml() {
+    const t = notifyRoute && notifyRoute.templates;
+    if (!t || !t.scenes) {
+      return notifyRoutePanel('文案模板', '', '<p class="muted-sm">正在加载…</p>');
+    }
+    const row = t.scenes[notifyTplScene] || { title: '', body: '', browser: '' };
+    const mail = t.mail || { color: 'blue', footer: '', mode: 'html' };
+    const chips = NOTIFY_TPL_SCENES.map(function (s) {
+      return '<button type="button" class="nr-chip' + (s[0] === notifyTplScene ? ' on' : '') +
+        '" data-act="notify-tpl-scene" data-s="' + s[0] + '">' + s[1] + '</button>';
+    }).join('');
+    const vars = ['{标题}', '{正文}', '{时间}', '{类目}', '{场景}', '{来源}', '{功能}', '{优先级}', '{浏览器文案}'];
+    const vv = notifyTplVars();
+    const varRows = vars.map(function (v) {
+      return '<div class="nr-varrow"><code>' + v + '</code><span>' +
+        esc(String(vv[v] === undefined ? '' : vv[v])) + '</span></div>';
+    }).join('');
+    const colors = [['blue', '蓝'], ['green', '绿'], ['amber', '金'], ['red', '红']];
+    return notifyRoutePanel('文案模板', '改完点保存；变量只读，值由真实数据填充',
+      '<div class="nr-chips">' + chips + '</div>' +
+      '<div class="nr-tpl-grid">' +
+        '<div class="nr-tpl-form">' +
+          '<label>标题<textarea id="nr-tpl-title" rows="2">' + esc(row.title) + '</textarea></label>' +
+          '<label>正文<textarea id="nr-tpl-body" rows="4">' + esc(row.body) + '</textarea></label>' +
+          '<label>浏览器文案<textarea id="nr-tpl-browser" rows="2">' + esc(row.browser) + '</textarea></label>' +
+          '<div class="nr-varlabel">点变量插入光标处</div>' +
+          '<div class="nr-vars">' + vars.map(function (v) {
+            return '<button type="button" class="nr-var" data-act="notify-tpl-insert" data-v="' + v + '">' + v + '</button>';
+          }).join('') + '</div>' +
+          '<div class="nr-vartable">' + varRows + '</div>' +
+          '<div class="nr-mailrow">' +
+            '<span class="nr-gl">邮件样式</span>' +
+            '<button type="button" class="nr-chip' + (mail.mode !== 'plain' ? ' on' : '') +
+              '" data-act="notify-tpl-mailmode" data-m="html">HTML 卡片</button>' +
+            '<button type="button" class="nr-chip' + (mail.mode === 'plain' ? ' on' : '') +
+              '" data-act="notify-tpl-mailmode" data-m="plain">纯文本</button>' +
+            colors.map(function (c) {
+              return '<button type="button" class="nr-color c-' + c[0] + (mail.color === c[0] ? ' on' : '') +
+                '" data-act="notify-tpl-color" data-c="' + c[0] + '" title="主题色：' + c[1] + '"></button>';
+            }).join('') +
+            '<label class="nr-foot">页脚 <input type="text" id="nr-tpl-footer" maxlength="60" value="' +
+              esc(mail.footer || '') + '"></label>' +
+          '</div>' +
+          '<div class="nr-actions">' +
+            '<button type="button" class="btn primary" data-act="notify-tpl-save">保存模板</button>' +
+            '<button type="button" class="btn ghost" data-act="notify-tpl-reset">恢复本场景</button>' +
+            '<button type="button" class="btn ghost" data-act="notify-tpl-reset-all">恢复全部</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="nr-tpl-preview" id="nr-tpl-preview"></div>' +
+      '</div>');
+  }
+
+  function notifyTplVars() {
+    /* v214：优先用「数据列表」里点中的那一条，让模板预览能对照真实内容 */
+    let sample = null;
+    if (nrActiveItem) {
+      sample = notifyPlanRows().filter(function (r) { return r.id === nrActiveItem; })[0] || null;
+    }
+    if (!sample) {
+      sample = (notifyPlan || []).filter(function (it) {
+        return (it.source || it.kind) === notifyTplScene;
+      })[0] || null;
+    }
+    const kind = sample ? String(sample.kind || '') : notifyTplScene;
+    const src = sample ? String(sample.source || sample.kind || '') : notifyTplScene;
+    return {
+      '{标题}': sample ? String(sample.title || '') : '标题示例',
+      '{正文}': sample ? String(sample.body || '') : '正文示例',
+      '{时间}': sample && sample.time ? String(sample.time) : '08:00',
+      '{类目}': NOTIFY_KIND_CN[kind] || ((notifyRoute && notifyRoute.kinds && notifyRoute.kinds[kind]) || '类目'),
+      '{场景}': NOTIFY_KIND_CN[kind] || notifyBoardName(notifyTplScene),
+      '{来源}': NOTIFY_SRC_CN[src] || notifyBoardName(notifyTplScene),
+      '{功能}': NOTIFY_SRC_CN[src] || notifyBoardName(notifyTplScene),
+      '{优先级}': sample ? String(sample.priority || '日常') : '日常',
+      '{浏览器文案}': '浏览器文案示例'
+    };
+  }
+
+  function notifyTplApply(s, vars) {
+    return String(s || '').replace(/\{[^{}]+\}/g, function (m) {
+      return vars[m] !== undefined ? vars[m] : m;
+    });
+  }
+
+  /* 与后端 lb_notify_mail_card 同款（内联样式）；两边改一处必须同步另一处 */
+  function notifyMailCardHtml(title, body, footer, color) {
+    const palette = { blue: '#2C68FF', green: '#0c6e42', amber: '#8a5808', red: '#b3261e' };
+    const c = palette[color] || palette.blue;
+    const t = esc(title);
+    const b = esc(body).replace(/\n/g, '<br>');
+    const f = esc(footer || '');
+    const foot = f !== ''
+      ? '<div style="margin-top:18px;padding-top:12px;border-top:1px solid #e6e9ef;font-size:12px;color:#7a8494">' + f + '</div>'
+      : '';
+    return '<div style="padding:14px;background:#f4f6fa;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">' +
+      '<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e6e9ef">' +
+      '<div style="height:4px;background:' + c + '"></div>' +
+      '<div style="padding:20px 22px">' +
+      '<div style="font-size:17px;font-weight:700;color:#1c2430;margin-bottom:10px">' + t + '</div>' +
+      '<div style="font-size:14px;line-height:1.7;color:#333b48">' + b + '</div>' + foot +
+      '</div></div></div>';
+  }
+
+  function notifyTplPreview() {
+    const box = document.getElementById('nr-tpl-preview');
+    if (!box) return;
+    const t = notifyRoute && notifyRoute.templates;
+    const scene = (t && t.scenes && t.scenes[notifyTplScene]) || {};
+    const mail = (t && t.mail) || { color: 'blue', footer: '', mode: 'html' };
+    const elTitle = document.getElementById('nr-tpl-title');
+    const elBody = document.getElementById('nr-tpl-body');
+    const elFoot = document.getElementById('nr-tpl-footer');
+    const vars = notifyTplVars();
+    const title = notifyTplApply(elTitle ? elTitle.value : (scene.title || ''), vars);
+    const body = notifyTplApply(elBody ? elBody.value : (scene.body || ''), vars);
+    const browserText = notifyTplApply(scene.browser || '{浏览器文案}', vars) || body;
+    const footer = elFoot ? elFoot.value : (mail.footer || '');
+
+    let mailHtml = '';
+    if (mail.mode !== 'plain') {
+      const cardHtml = notifyMailCardHtml(title, body, footer, mail.color);
+      mailHtml = '<div class="nr-prev-label">邮件卡片</div>' +
+        '<div class="nr-mailprev">' + cardHtml + '</div>' +
+        '<details class="nr-src"><summary>查看 HTML 源码</summary><pre>' + esc(cardHtml) + '</pre></details>';
+    } else {
+      mailHtml = '<div class="nr-prev-label">邮件（纯文本）</div>' +
+        '<div class="nr-prev-b">' + esc(title + '\n' + body).replace(/\n/g, '<br>') + '</div>';
+    }
+
+    box.innerHTML =
+      '<div class="nr-prev-label">服务端通知</div>' +
+      '<div class="nr-prev-t">' + esc(title) + '</div>' +
+      '<div class="nr-prev-b">' + esc(body).replace(/\n/g, '<br>') + '</div>' +
+      '<div class="nr-prev-label">浏览器本地通知</div>' +
+      '<div class="nr-prev-t">明序</div>' +
+      '<div class="nr-prev-b">' + esc(browserText).replace(/\n/g, '<br>') + '</div>' +
+      mailHtml;
+  }
+
+  function notifyInQuietNow(q) {
+    if (!q || !q.on) return false;
+    const d = new Date();
+    const hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    const s = q.start || '23:00';
+    const e = q.end || '07:00';
+    if (s === e) return false;
+    return s < e ? (hm >= s && hm < e) : (hm >= s || hm < e);
+  }
+
+  function notifyRowState(r) {
+    if (notifyRoute && notifyRoute.global === false) return '总开关关闭';
+    const row = (notifyRoute && notifyRoute.boards) ? notifyRoute.boards[r.board] : null;
+    if (r.local) {
+      const bch = (row && row.channels) || null;
+      if (bch && bch.browser === false) return '渠道停用';
+      return '本地';
+    }
+    if (row && row.on === false) return '板块停用';
+    const ch = (row && row.channels) || null;
+    if (ch && ch.wecom === false && ch.mail === false) return '渠道留空';
+    if (notifyInQuietNow(notifyRoute && notifyRoute.quiet)) return '免打扰';
+    return '会发送';
+  }
+
+  /* v214：数据列表对齐设计稿（卡片网格 + 类目/优先级/状态筛选）——
+     展示口径集中在这里，后端 push_preview 只要给 id/kind/source/priority 就够。 */
+  const NOTIFY_KIND_CN = {
+    med: '用药提醒', task: '待办到点', habit: '习惯提醒',
+    water: '习惯提醒', move: '习惯提醒', breathe: '习惯提醒', quit: '习惯提醒',
+    notice: '自定义提醒', countdown: '倒数日', debt: '还款提醒', report: '每日小结'
+  };
+  const NOTIFY_SRC_CN = {
+    med: '用药', task: '待办', habit: '习惯', water: '喝水', move: '运动',
+    breathe: '478', quit: '戒除', report: '小结', notice: '自定义',
+    countdown: '倒数日', debt: '还款', browser: '浏览器', test: '测试'
+  };
+  const NOTIFY_PRI_RANK = { '紧急': 0, '当日': 1, '日常': 2 };
+
+  /* 筛选与选中都只活在本次页面里，不进 state（刷新回到默认，和模板场景选择一致） */
+  let nrFilter = { cat: '', pri: '', st: '', sort: 'priority' };
+  let nrActiveItem = '';
+
+  /* 浏览器本地提醒没有 kind，靠 key 与文案反推——只用于类目展示与板块判定 */
+  function notifyLocalKind(it) {
+    const k = String((it && it.key) || '');
+    const t = String((it && it.text) || '');
+    if (k.indexOf('med') === 0) return 'med';
+    if (k.indexOf('task') === 0) return 'task';
+    if (t.indexOf('喝水') >= 0) return 'water';
+    if (t.indexOf('478') >= 0) return 'breathe';
+    if (t.indexOf('运动') >= 0) return 'move';
+    return 'habit';
+  }
+
+  function notifyPlanRows() {
+    const rows = [];
+    (notifyPlan || []).forEach(function (it) {
+      const src = String(it.source || it.kind || '');
+      rows.push({
+        id: String(it.id || '') || (String(it.kind || '') + '-' + String(it.time || '')),
+        time: String(it.time || ''),
+        kind: String(it.kind || ''),
+        source: src,
+        board: src,
+        priority: String(it.priority || '日常'),
+        title: String(it.title || ''),
+        body: String(it.body || ''),
+        local: false
+      });
+    });
+    if (typeof remindItems === 'function') {
+      let local = [];
+      try { local = remindItems() || []; } catch (e) { local = []; }
+      local.forEach(function (it) {
+        const b = notifyLocalKind(it);
+        /* 类目跟服务端口径一致：喝水/运动/478 都属于「习惯提醒」，细分放 source */
+        const kind = (b === 'med' || b === 'task') ? b : 'habit';
+        rows.push({
+          id: 'local-' + String(it.key || ''),
+          time: '',
+          kind: kind,
+          source: b,
+          board: b,
+          priority: b === 'med' ? '紧急' : '日常',
+          title: '浏览器本地提醒',
+          body: String(it.text || ''),
+          local: true
+        });
+      });
+    }
+    /* 有时刻的按时间升序；本地条目没有时刻，固定排最后 */
+    rows.sort(function (a, b) {
+      if (a.time === b.time) return 0;
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+    return rows;
+  }
+
+  function notifyPlanFiltered(rows) {
+    const out = rows.filter(function (r) {
+      if (nrFilter.cat && r.kind !== nrFilter.cat) return false;
+      if (nrFilter.pri && r.priority !== nrFilter.pri) return false;
+      if (nrFilter.st && notifyRowState(r) !== nrFilter.st) return false;
+      return true;
+    });
+    const rank = function (p) {
+      return NOTIFY_PRI_RANK[p] === undefined ? 9 : NOTIFY_PRI_RANK[p];
+    };
+    out.sort(function (a, b) {
+      const ta = a.time || '99:99';
+      const tb = b.time || '99:99';
+      if (nrFilter.sort === 'time') return ta.localeCompare(tb) || rank(a.priority) - rank(b.priority);
+      if (nrFilter.sort === 'category') {
+        return String(a.kind).localeCompare(String(b.kind)) ||
+          rank(a.priority) - rank(b.priority) || ta.localeCompare(tb);
+      }
+      return rank(a.priority) - rank(b.priority) || ta.localeCompare(tb);
+    });
+    return out;
+  }
+
+  function notifyPriClass(p) {
+    return p === '紧急' ? 'p1' : (p === '当日' ? 'p2' : (p === '日常' ? 'p3' : ''));
+  }
+
+  function notifyPlanCardsHtml(list) {
+    if (!list.length) {
+      return '<p class="nr-empty">没有符合条件的数据项，请调整筛选条件。</p>';
+    }
+    let html = '';
+    let lastGroup = null;
+    list.forEach(function (r) {
+      let group = null;
+      if (nrFilter.sort === 'priority') group = r.priority || '其他';
+      else if (nrFilter.sort === 'category') group = NOTIFY_KIND_CN[r.kind] || r.kind || '其他';
+      if (group && group !== lastGroup) {
+        html += '<div class="nr-group">' + esc(group) + '</div>';
+        lastGroup = group;
+      }
+      const st = notifyRowState(r);
+      const off = (st === '板块停用' || st === '免打扰' || st === '总开关关闭' ||
+        st === '渠道留空' || st === '渠道停用');
+      html += '<button type="button" class="nr-card' + (off ? ' off' : '') +
+          (nrActiveItem && nrActiveItem === r.id ? ' on' : '') +
+          '" data-act="notify-plan-item" data-id="' + esc(r.id) + '">' +
+        '<span class="nr-ctop">' +
+          '<span class="nr-badge ' + notifyPriClass(r.priority) + '">' + esc(r.priority || '日常') + '</span>' +
+          '<span class="nr-badge quiet">' + esc(NOTIFY_KIND_CN[r.kind] || r.kind || '提醒') + '</span>' +
+          '<span class="nr-ctime">' + esc(r.local ? '手动' : (r.time || '—')) + '</span>' +
+          '<span class="nr-badge' + (off ? ' warn' : ' quiet') + '">' + esc(st) + '</span>' +
+        '</span>' +
+        '<span class="nr-ctitle">' + esc(r.title || NOTIFY_SRC_CN[r.source] || '提醒') + '</span>' +
+        '<span class="nr-cbody">' + esc(String(r.body || '').replace(/\n/g, ' · ')) + '</span>' +
+        '<span class="nr-cmeta">功能：' + esc(NOTIFY_SRC_CN[r.source] || '—') +
+          ' · 来源：' + esc(r.local ? '浏览器本地' : '服务端排程') +
+          ' · ' + esc(r.id || '—') + '</span>' +
+      '</button>';
+    });
+    return html;
+  }
+
+  /* 只重绘网格与统计，不整页 render（否则下拉会丢焦点） */
+  function renderNotifyPlanList() {
+    const box = document.getElementById('nr-grid');
+    if (!box) return;
+    const all = notifyPlanRows();
+    const list = notifyPlanFiltered(all);
+    box.innerHTML = notifyPlanCardsHtml(list);
+    const stat = document.getElementById('nr-plan-stat');
+    if (stat) {
+      const cats = {};
+      all.forEach(function (r) { cats[r.kind] = true; });
+      stat.textContent = all.length + ' 条 · ' + Object.keys(cats).length +
+        ' 个类目 · 当前显示 ' + list.length + ' 条';
+    }
+  }
+
+  function notifyRoutePlanHtml() {
+    const all = notifyPlanRows();
+    const cats = {};
+    all.forEach(function (r) { cats[r.kind] = true; });
+    const catOpt = '<option value="">全部</option>' + Object.keys(cats).map(function (k) {
+      return '<option value="' + esc(k) + '"' + (nrFilter.cat === k ? ' selected' : '') + '>' +
+        esc(NOTIFY_KIND_CN[k] || k) + '</option>';
+    }).join('');
+    const priOpt = ['', '紧急', '当日', '日常'].map(function (v) {
+      return '<option value="' + v + '"' + (nrFilter.pri === v ? ' selected' : '') + '>' +
+        (v || '全部') + '</option>';
+    }).join('');
+    const stOpt = ['', '会发送', '本地', '板块停用', '渠道留空', '免打扰', '总开关关闭', '渠道停用']
+      .map(function (v) {
+        return '<option value="' + v + '"' + (nrFilter.st === v ? ' selected' : '') + '>' +
+          (v || '全部') + '</option>';
+      }).join('');
+    const sortOpt = [['priority', '按优先级'], ['time', '按触发时间'], ['category', '按通知类目']]
+      .map(function (o) {
+        return '<option value="' + o[0] + '"' + (nrFilter.sort === o[0] ? ' selected' : '') + '>' +
+          o[1] + '</option>';
+      }).join('');
+    const list = notifyPlanFiltered(all);
+
+    return notifyRoutePanel('用户通知数据列表', '今天真实排程 + 浏览器本地提醒',
+      '<p class="nr-note">服务端排程与浏览器本地提醒合并展示；标「板块停用」「免打扰」的条目实际不会发。' +
+        '点一张卡片，可以把它的真实内容套进上面的模板预览。</p>' +
+      '<div class="nr-toolbar">' +
+        '<label>通知类目<select id="nr-f-cat">' + catOpt + '</select></label>' +
+        '<label>优先级<select id="nr-f-pri">' + priOpt + '</select></label>' +
+        '<label>状态<select id="nr-f-st">' + stOpt + '</select></label>' +
+        '<label>排序<select id="nr-f-sort">' + sortOpt + '</select></label>' +
+        '<span class="nr-spacer"></span>' +
+        '<span class="nr-stat" id="nr-plan-stat">' + all.length + ' 条 · ' +
+          Object.keys(cats).length + ' 个类目 · 当前显示 ' + list.length + ' 条</span>' +
+        '<button type="button" class="btn ghost" data-act="notify-plan-clear">清除数据项选择</button>' +
+        '<button type="button" class="btn ghost" data-act="notify-plan-refresh">刷新</button>' +
+      '</div>' +
+      '<div class="nr-grid" id="nr-grid">' + notifyPlanCardsHtml(list) + '</div>');
+  }
+
+  function viewNotifyRoute() {
+    if (mode === 'landing' || !cloud.user) return '';
+    if (pushCfg === undefined) pushLoad();
+    if (mailCfg === undefined) mailLoad();
+    notifyRouteLoad();
+    if (notifyRoute === undefined) {
+      return '<div class="config-wrap"><header class="page-head"><h2>通知路由</h2>' +
+        '<p class="sub">板块开关、渠道矩阵、免打扰与文案模板。</p></header>' +
+        '<div class="panel"><p class="muted-sm">正在加载…</p></div></div>';
+    }
+    if (notifyRoute === null) {
+      return '<div class="config-wrap"><header class="page-head"><h2>通知路由</h2></header>' +
+        '<div class="panel"><p class="muted-sm">读取失败，请稍后重试。</p></div></div>';
+    }
+    return '<div class="config-wrap">' +
+      '<header class="page-head"><h2>通知路由</h2>' +
+        '<p class="sub">板块开关、渠道矩阵、免打扰与文案模板；下方是今天真实会发 / 被拦的通知。</p></header>' +
+      notifyRouteGlobalHtml() +
+      notifyRouteBoardsHtml() +
+      notifyRouteTplHtml() +
+      notifyRoutePlanHtml() +
+      '</div>';
+  }
+
+  async function notifyRouteSave() {
+    if (!notifyRoute || !notifyRoute.boards) return;
+    const val = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+    notifyRoute.quiet = {
+      on: !!(notifyRoute.quiet && notifyRoute.quiet.on),
+      start: val('nr-quiet-start') || '23:00',
+      end: val('nr-quiet-end') || '07:00'
+    };
+    notifyRoute.report = {
+      morning: val('nr-rep-morning'),
+      noon: val('nr-rep-noon'),
+      evening: val('nr-rep-evening')
+    };
+    try {
+      const r = await cloudApi('notify_prefs_save', {
+        boards: notifyRoute.boards,
+        quiet: notifyRoute.quiet,
+        report: notifyRoute.report,
+        global: notifyRoute.global !== false
+      });
+      if (r && r.boards) notifyRoute.boards = r.boards;
+      if (r && r.quietCfg) notifyRoute.quiet = r.quietCfg;
+      if (r && r.report) notifyRoute.report = r.report;
+      if (r && typeof r.global === 'boolean') notifyRoute.global = r.global;
+      toast('通知设置已保存');
+      render();
+    } catch (e) {
+      toast(e && e.message ? e.message : '保存失败');
+    }
+  }
+
+  async function notifyTplSave() {
+    const t = notifyRoute && notifyRoute.templates;
+    if (!t || !t.scenes) return;
+    const val = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+    t.scenes[notifyTplScene] = {
+      title: val('nr-tpl-title'),
+      body: val('nr-tpl-body'),
+      browser: val('nr-tpl-browser')
+    };
+    t.mail = {
+      color: (t.mail && t.mail.color) || 'blue',
+      footer: val('nr-tpl-footer'),
+      mode: (t.mail && t.mail.mode) === 'plain' ? 'plain' : 'html'
+    };
+    try {
+      const r = await cloudApi('notify_templates_save', { templates: t });
+      if (r && r.templates) notifyRoute.templates = r.templates;
+      toast('模板已保存');
+      render();
+    } catch (e) {
+      toast(e && e.message ? e.message : '保存失败');
+    }
+  }
+
+  async function notifyTplReset() {
+    const t = notifyRoute && notifyRoute.templates;
+    if (!t || !t.scenes) return;
+    t.scenes[notifyTplScene] = { title: '{标题}', body: '{正文}', browser: '{浏览器文案}' };
+    try {
+      const r = await cloudApi('notify_templates_save', { templates: t });
+      if (r && r.templates) notifyRoute.templates = r.templates;
+      toast('已恢复默认');
+      render();
+    } catch (e) {
+      toast(e && e.message ? e.message : '恢复失败');
+    }
+  }
+
+  async function notifyTplResetAll() {
+    const t = notifyRoute && notifyRoute.templates;
+    if (!t || !t.scenes) return;
+    if (!confirm('把所有场景的文案恢复默认？')) return;
+    const scenes = {};
+    NOTIFY_TPL_SCENES.forEach(function (s) {
+      scenes[s[0]] = { title: '{标题}', body: '{正文}', browser: '{浏览器文案}' };
+    });
+    scenes.med.title = '该吃药了';
+    scenes.task.title = '该做这件事了';
+    t.scenes = scenes;
+    try {
+      const r = await cloudApi('notify_templates_save', { templates: t });
+      if (r && r.templates) notifyRoute.templates = r.templates;
+      toast('已恢复全部默认');
+      render();
+    } catch (e) {
+      toast(e && e.message ? e.message : '恢复失败');
+    }
+  }
+
+  async function notifyRouteRefreshPlan() {
+    try {
+      const p = await cloudApi('push_preview');
+      notifyPlan = (p && Array.isArray(p.items)) ? p.items : [];
+    } catch (e) {
+      notifyPlan = [];
+    }
+    render();
+    toast('已刷新');
   }
 
   /* ---------- 通知表单 ---------- */
@@ -14725,7 +15238,7 @@
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, water: viewWater, move: viewMove, breathe: viewBreathe, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore, modules: viewModules };
+  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, water: viewWater, move: viewMove, breathe: viewBreathe, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore, modules: viewModules, notifyroute: viewNotifyRoute };
   const NAV = [
     /* 今日改名「仪表盘」，group 用不在 NAV_GROUPS 里的 '顶'：orderedNav 的 indexOf 返回 -1，
        天然排最前、且不落进任何分组（设置页排序里也不参与拖拽）。 */
@@ -14744,6 +15257,8 @@
     { key: 'stats', label: '统计', icon: 'stats', group: '回顾', wideLabel: '数据统计' },
     /* v208：功能模块独立入口（陛下定：设置页选项太多，不塞进去） */
     { key: 'modules', label: '模块', icon: 'modules', group: '设置', wideLabel: '功能模块' },
+    /* v211：通知路由——板块开关、渠道矩阵、免打扰与文案模板 */
+    { key: 'notifyroute', label: '通知路由', icon: 'config', group: '设置', wideLabel: '通知路由' },
     /* 通知配置与设置从「回顾」挪进新的「设置」分栏 */
     { key: 'config', label: '配置', icon: 'config', group: '设置', wideLabel: '通知配置' },
     { key: 'settings', label: '设置', icon: 'settings', group: '设置', wideLabel: '设置' }
@@ -14771,7 +15286,8 @@
     { key: 'calendar', label: '日历', icon: 'calendar', desc: '按天回看完成度' },
     { key: 'stats', label: '统计', icon: 'stats', desc: '完成率与习惯分布' },
     { key: 'config', label: '配置', icon: 'config', desc: '自定义通知、订阅与数据' },
-    { key: 'modules', label: '功能模块', icon: 'modules', desc: '按需启停用药 / 478 / 喝水 / 运动 / 戒烟' }
+    { key: 'modules', label: '功能模块', icon: 'modules', desc: '按需启停用药 / 478 / 喝水 / 运动 / 戒烟' },
+    { key: 'notifyroute', label: '通知路由', icon: 'config', desc: '板块开关、渠道矩阵与文案模板' }
   ];
 
   /* 导航顺序的清洗：只留字符串 + 去重。
@@ -15391,9 +15907,24 @@
   }
 
   function bindView() {
-    document.querySelectorAll('.mx-table input[data-kind]').forEach(function (el) {
-      el.addEventListener('change', notifySyncSummary);
-    });
+    /* v211 通知路由：模板输入即时刷新右侧预览（不重绘整页，避免丢焦点） */
+    if (view === 'notifyroute') {
+      ['nr-tpl-title', 'nr-tpl-body', 'nr-tpl-browser', 'nr-tpl-footer'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', notifyTplPreview);
+      });
+      /* v214：数据列表的四个筛选/排序——只重绘网格，不整页 render（否则下拉失焦） */
+      [['nr-f-cat', 'cat'], ['nr-f-pri', 'pri'], ['nr-f-st', 'st'], ['nr-f-sort', 'sort']]
+        .forEach(function (pair) {
+          const el = document.getElementById(pair[0]);
+          if (!el) return;
+          el.addEventListener('change', function () {
+            nrFilter[pair[1]] = el.value;
+            renderNotifyPlanList();
+          });
+        });
+      notifyTplPreview();
+    }
     if (view === 'water') bindWaterPage();
     if (view === 'move') bindMovePage();
     if (view === 'breathe') bindBreathePage();
@@ -19390,6 +19921,23 @@
       if (isMultiSlip(h)) return;
       const today = todayStr();
       if (quitNeedsCheckin(h, today)) {
+        /* 与「完成」按钮同一语义：有失守先撤销一条，无失守才打卡。
+           单次模式一天只有一条失守，撤一条即等于旧行为。 */
+        if (quitSlips(h, today) > 0) {
+          const list = craveList().filter(function (e) {
+            return e.h === h.id && e.k === 's' && tsDay(e.t) === today;
+          });
+          const last = list[list.length - 1];
+          if (last) {
+            state.cravings = craveList().filter(function (e) { return e.id !== last.id; });
+            save();
+            render();
+            const left = list.length - 1;
+            toast(left > 0 ? '已撤销 1 次失守 · 今天还有 ' + left + ' 次'
+                           : '已撤销最后一次失守 · 再点打卡');
+            return;
+          }
+        }
         setCount(today, h.id, countOf(today, h.id) >= 1 ? 0 : 1);
         render();
         toast(countOf(today, h.id) ? '已打卡 · 今天守住了' : '已撤销今天的打卡');
@@ -19558,7 +20106,26 @@
       if (!h) return;
       const d = selectedDate;
       if (quitNeedsCheckin(h, d)) {
-        /* 戒除新语义：主动打卡才算守住，再点一次撤销打卡 */
+        /* 当天有失守时，「完成」先逐次撤销失守（一次一条）：
+           点几次撤几次，撤完再点才是打卡。
+           本次修复前这里直接 setCount 就 return，而 met() 对戒除类先判失守短路，
+           于是多次模式下失守既撤不掉、点完成又毫无反应。 */
+        if (quitSlips(h, d) > 0) {
+          const list = craveList().filter(function (e) {
+            return e.h === h.id && e.k === 's' && tsDay(e.t) === d;
+          });
+          const last = list[list.length - 1];
+          if (last) {
+            state.cravings = craveList().filter(function (e) { return e.id !== last.id; });
+            save();
+            render();
+            const left = list.length - 1;
+            toast(left > 0 ? '已撤销 1 次失守 · 今天还有 ' + left + ' 次'
+                           : '已撤销最后一次失守 · 再点「完成」打卡');
+            return;
+          }
+        }
+        /* 没有失守：主动打卡才算守住，再点一次撤销打卡 */
         setCount(d, h.id, countOf(d, h.id) >= 1 ? 0 : 1);
         render();
         if (countOf(d, h.id)) habitPulse(h.id, 'on');
@@ -20169,7 +20736,98 @@
     /* 邮件提醒：取消 = 丢掉表单里没保存的值，重新读服务器配置 */
     'mail-test': () => { mailTest(); },
     'mail-save': () => { mailSave(true); },
-    'notify-save': () => { notifySave(); },
+    /* v211 通知路由页 */
+    'notify-route-save': () => { notifyRouteSave(); },
+    'notify-global-toggle': () => {
+      if (!notifyRoute) return;
+      notifyRoute.global = notifyRoute.global === false;
+      notifyRouteSave();
+    },
+    'nr-wecom-toggle': () => {
+      if (!pushCfg || !pushCfg.webhook) {
+        toast('先去「配置」页填企业微信机器人地址');
+        return;
+      }
+      pushSave(!pushCfg.enabled, false);
+    },
+    'nr-mail-goto': () => { goView('config'); },
+    'nr-browser-enable': () => { notifyEnable(); },
+    'notify-plan-refresh': () => { notifyRouteRefreshPlan(); },
+    /* v214：点一张卡片 → 高亮并把它的真实内容套进模板预览；再点一次取消 */
+    'notify-plan-item': el => {
+      const id = String((el && el.getAttribute('data-id')) || '');
+      nrActiveItem = (nrActiveItem === id) ? '' : id;
+      renderNotifyPlanList();
+      notifyTplPreview();
+    },
+    'notify-plan-clear': () => {
+      nrActiveItem = '';
+      renderNotifyPlanList();
+      notifyTplPreview();
+    },
+    'notify-quiet-toggle': () => {
+      if (!notifyRoute || !notifyRoute.quiet) return;
+      notifyRoute.quiet.on = !notifyRoute.quiet.on;
+      render();
+    },
+    'notify-board-toggle': el => {
+      const id = el.dataset.b;
+      const def = NOTIFY_BOARDS.filter(x => x.id === id)[0];
+      if (!def) return;
+      if (def.module) {
+        toast('这个板块的启停去「功能模块」页调整');
+        return;
+      }
+      if (!notifyRoute || !notifyRoute.boards || !notifyRoute.boards[id]) return;
+      notifyRoute.boards[id].on = notifyRoute.boards[id].on === false;
+      render();
+    },
+    'notify-board-ch': el => {
+      const id = el.dataset.b, ch = el.dataset.ch;
+      if (!notifyRoute || !notifyRoute.boards || !notifyRoute.boards[id]) return;
+      const row = notifyRoute.boards[id];
+      row.channels = row.channels || {};
+      row.channels[ch] = !row.channels[ch];
+      render();
+    },
+    'notify-tpl-scene': el => { notifyTplScene = el.dataset.s || 'med'; render(); },
+    'notify-tpl-save': () => { notifyTplSave(); },
+    'notify-tpl-reset': () => { notifyTplReset(); },
+    'notify-tpl-reset-all': () => { notifyTplResetAll(); },
+    'notify-tpl-insert': el => {
+      const v = el.dataset.v || '';
+      const ae = document.activeElement;
+      const target = (ae && ae.tagName === 'TEXTAREA' && String(ae.id).indexOf('nr-tpl-') === 0)
+        ? ae : document.getElementById('nr-tpl-body');
+      if (!target) return;
+      const s = target.selectionStart || 0;
+      const e2 = target.selectionEnd || 0;
+      const val = target.value;
+      target.value = val.slice(0, s) + v + val.slice(e2);
+      target.focus();
+      try { target.setSelectionRange(s + v.length, s + v.length); } catch (err) {}
+      notifyTplPreview();
+    },
+    'notify-tpl-mailmode': el => {
+      if (!notifyRoute || !notifyRoute.templates) return;
+      const t = notifyRoute.templates;
+      t.mail = t.mail || {};
+      t.mail.mode = el.dataset.m === 'plain' ? 'plain' : 'html';
+      document.querySelectorAll('[data-act="notify-tpl-mailmode"]').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.m === t.mail.mode);
+      });
+      notifyTplPreview();
+    },
+    'notify-tpl-color': el => {
+      if (!notifyRoute || !notifyRoute.templates) return;
+      const t = notifyRoute.templates;
+      t.mail = t.mail || {};
+      t.mail.color = el.dataset.c || 'blue';
+      document.querySelectorAll('[data-act="notify-tpl-color"]').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.c === t.mail.color);
+      });
+      notifyTplPreview();
+    },
     'reg-send-code': () => {
       const b = document.querySelector('[data-act="reg-send-code"]');
       if (b) registerSendCode(b);
@@ -20795,7 +21453,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=210', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=216', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

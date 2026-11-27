@@ -205,8 +205,8 @@ function lb_water_slots(array $m, int $cups): array
     }
     $start = (string)($m['notifyStart'] ?? '08:00');
     $end = (string)($m['notifyEnd'] ?? '21:00');
-    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start, $sm)
-        || !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end, $em)) {
+    if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $start, $sm)
+        || !preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $end, $em)) {
         return [];
     }
     $s = (int)$sm[1] * 60 + (int)$sm[2];
