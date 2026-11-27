@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=206">
+<link rel="stylesheet" href="assets/app.css?v=207">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=206">
+<link rel="stylesheet" href="assets/theme-v2.css?v=207">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v206';
+  const APP_VERSION = 'v207';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -8649,7 +8649,9 @@
     let totalMl = 0, met30 = 0, sum7 = 0;
     Object.keys(state.checks || {}).forEach(function (ds) { totalMl += waterMlOf(h, countOf(ds, h.id)); });
     for (let i = 0; i < 30; i++) { if (met(h, fmt(addDays(new Date(), -i)))) met30++; }
-    for (let i = 1; i <= 7; i++) { sum7 += waterMlOf(h, countOf(fmt(addDays(new Date(), -i)), h.id)); }
+    /* v207：改成 i = 0..6（**含今天**）。原来从昨天算起，刚喝完一杯、日均仍是 0，
+       看着像没记上；而同一块的 p7 / p30 / met30 都是含今天的，只有这一处不一致。 */
+    for (let i = 0; i < 7; i++) { sum7 += waterMlOf(h, countOf(fmt(addDays(new Date(), -i)), h.id)); }
     const avg7 = Math.round(sum7 / 7);
     const buckets = waterHourBuckets(h);
     const maxB = Math.max.apply(null, buckets.concat([1]));
@@ -8894,7 +8896,9 @@
       fhtml += '<span class="mv-ft"><b>记录方式</b>' + (s.recMode === 'fixed' ? ('每次 +' + s.fixedSteps + ' 步') : '手动输入') + '</span>';
     } else if (s.fields.length) {
       /* v179：字段最多 7 项，全铺在卡上会挤成一团，这里只报项数，具体去「补数据」看 */
-      fhtml += '<span class="mv-ft"><b>记录数据</b>' + s.fields.length + ' 项</span>';
+      /* v207：原来是「记录数据7 项」，读起来像「还有 7 项待填」，旁边还正好有个「记录数据」按钮，
+         线上实测我自己都被骗了。改成「含 7 项数据」，语义是"这个运动配置了 7 个记录项"。 */
+      fhtml += '<span class="mv-ft">含 <b>' + s.fields.length + '</b> 项数据</span>';
     }
     /* v184：运动开始时间（每日步数全天统计，没有这一项） */
     if (s.key !== 'steps' && s.startTime) {
@@ -9401,6 +9405,11 @@
             const t = MOVE_TYPES[k];
             /* 下线模式（游泳/瑜伽）只有存在历史记录时才占位置 */
             if (t.retired && !all.some(function (r) { return r.key === k; })) return '';
+            /* v207：只列「用户真有的」模式 —— 之前列的是模式库全量：一个运动都没建也能看到
+               7 个入口，点进去全是「这个周期还没有记录」（线上实测）。现在留两类：
+               ① 已建的运动实例；② 有历史记录的模式（让老数据还能看）。 */
+            if (!moveSports().some(function (sp) { return sp.key === k; }) &&
+                !all.some(function (r) { return r.key === k; })) return '';
             return '<button type="button" class="stt-chip' + (modeKey === k ? ' on' : '') +
               '" data-act="move-stat-mode" data-v="' + k + '">' + esc(t.icon) + ' ' + esc(t.name) + '</button>';
           }).join('') +
@@ -19358,6 +19367,8 @@
       setCount(selectedDate, h.id, c + 1);
       if (isQuitLike(h)) toast('已记录一次，明天重新开始');
       else if (c + 1 === Math.max(1, Number(h.target) || 1)) toast('完成：' + h.name + ' 🎉');
+      /* v207：喝水每记一杯给个反馈 —— 原来只有「刚好达标」才说话，中间几杯一声不吭（线上实测） */
+      else if (h.id === 'h_water') toast('已记录一杯 · 今天 ' + Math.round(waterMlOf(h, c + 1)) + ' ml');
       render();
       habitPulse(h.id, 'on');
     },
@@ -19371,6 +19382,7 @@
       /* v204：撤销原来一点反馈都没有（数字变了但没提示）。只给 478 补，
          不动其他习惯 —— 它们的撤销已有自己的视觉反馈，加 toast 反而吵。 */
       if (id === 'h_breathe') toast('已撤销一组');
+      else if (id === 'h_water') toast('已撤销一杯');
     },
     /* ---- 倒数日（v76） ---- */
     'cd-new': () => countdownModal(null),
@@ -20665,7 +20677,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=206', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=207', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

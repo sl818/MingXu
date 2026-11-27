@@ -208,6 +208,29 @@ with sync_playwright() as p:
     w10 = pg.evaluate(WATER)
     rec('W5 喝满目标毫升（10 杯 = 2500 ≥ 2300）必须判达标',
         w10['done'], '状态=%r 今日完成度=%r' % (w10['status'], w10['kpi'][0] if w10['kpi'] else ''))
+
+    # W6 日均必须含今天（同一块的 p7 / p30 / met30 都含今天，只有 sum7 曾经从昨天算起）
+    BOARD['data'] = water_board(checks={'2026-10-24': {'h_water': 4}})
+    BOARD['rev'] += 1
+    ctx.close()
+    ctx, pg, errs = open_page(br, 'water')
+    w6 = pg.evaluate("""() => {
+      const txt = e => e ? e.textContent.replace(/\\s+/g, ' ').trim() : '';
+      const items = Array.from(document.querySelectorAll('.w-mini'));
+      const hit = items.find(x => /近 7 天日均/.test(txt(x)));
+      return { avg: hit ? Number((hit.querySelector('b') || {}).textContent.replace(/,/g, '')) : null };
+    }""")
+    rec('W6 今天喝了 4 杯时，「近 7 天日均」必须 > 0（不能漏掉今天）',
+        (w6['avg'] or 0) > 0, '日均=%r' % w6['avg'])
+
+    # W7 每记一杯要有反馈
+    pg.evaluate("() => { const b=document.querySelector('[data-act=\"habit-inc\"][data-id=\"h_water\"]'); if(b) b.click(); }")
+    pg.wait_for_timeout(1600)
+    w7 = pg.evaluate("""() => {
+      const t = document.querySelector('#toast');
+      return { text: t ? t.textContent : '', on: t ? t.classList.contains('show') : false };
+    }""")
+    rec('W7 记录一杯要有 toast 反馈', w7['on'] and ('已记录一杯' in w7['text']), json.dumps(w7, ensure_ascii=False))
     ctx.close()
 
     # ========== 运动 ==========
@@ -241,6 +264,15 @@ with sync_playwright() as p:
     orphans = [r for r in recs if not any(s.get('key') == r.get('key') for s in sports)]
     rec('M2 不应产生「孤儿记录」（key 找不到对应运动实例）', len(orphans) == 0,
         'records=%d sports=%d 孤儿=%d' % (len(recs), len(sports), len(orphans)))
+    ctx.close()
+
+    # M3 筛选只列「用户真有的」模式（一个都没建时，除「全部」外不该有别的入口）
+    BOARD['data'] = move_board_no_sport(); BOARD['rev'] += 1
+    ctx, pg, errs = open_page(br, 'move')
+    chips = pg.evaluate("""() => Array.from(document.querySelectorAll('[data-act="move-stat-mode"]'))
+        .map(x => x.textContent.replace(/\\s+/g, ' ').trim())""")
+    rec('M3 没有运动实例时，筛选只应有「全部」（不列模式库全量）',
+        chips == ['全部'], '实际=%r' % (chips,))
     ctx.close()
 
     br.close()
