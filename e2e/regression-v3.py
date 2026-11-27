@@ -202,8 +202,8 @@ with sync_playwright() as p:
         rec(f'切换到 {target}', got['lay'] == target and got['app'] == chk, json.dumps(got))
     pg.reload(wait_until='networkidle'); pg.wait_for_timeout(2500)
     kept = pg.evaluate("() => ({lay: document.documentElement.dataset.layout, items: document.querySelectorAll('.nav-item').length})")
-    # v170 拆分健康模块后，导航从 12 项变成 15 项（新增喝水/运动/478）
-    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 15, json.dumps(kept))
+    # v170 拆分健康模块后，导航 15 项（v170）；v208 加「功能模块」→ 16 项
+    rec('刷新后布局保持', kept['lay'] == 'top' and kept['items'] == 16, json.dumps(kept))
     rec('排版选择器 3 张卡片', True, '已在上面校验')
     ctx.close()
 

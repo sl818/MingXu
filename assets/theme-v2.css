@@ -229,7 +229,9 @@
 :root[data-layout="top"] .brand-text small{display:none;}
 :root[data-layout="top"] .logo{width:24px;height:24px;border-radius:7px;font-size:11px;}
 :root[data-layout="top"] .nav{
-  flex:1 1 auto;min-width:0;flex-direction:row;justify-content:center;
+  flex:1 1 auto;min-width:0;flex-direction:row;
+  /* v208：去掉 justify-content:center —— 滚动容器居中在溢出时会把左侧的项挤进不可滚动区，
+     「仪表盘」被压在搜索按钮下点不到（regression-v3 卡死实测）。app.css 侧已同步靠左。 */
   gap:2px;overflow-x:auto;padding:0;
 }
 :root[data-layout="top"] .nav::-webkit-scrollbar{display:none;}

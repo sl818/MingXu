@@ -106,7 +106,7 @@ def login(pg, layout='top'):
     pg.wait_for_timeout(2600)
 
 # v61 起导航多了「戒烟」页，位置在用药之后
-EXPECT_NAV = ['仪表盘', '用药', '戒烟', '喝水', '运动', '478呼吸法', '待办', '清债', '习惯', '体重', '随笔', '日历', '统计', '配置', '设置']
+EXPECT_NAV = ['仪表盘', '用药', '戒烟', '喝水', '运动', '478呼吸法', '待办', '清债', '习惯', '体重', '随笔', '日历', '统计', '模块', '配置', '设置']
 
 with sync_playwright() as p:
     br = p.chromium.launch(channel='chrome', headless=True)
@@ -122,7 +122,7 @@ with sync_playwright() as p:
 
         nav = pg.evaluate("() => [...document.querySelectorAll('.nav-item')].map(e => e.textContent.trim())")
         # v61 加「戒烟」（用药后）；v71 加「配置」（统计后、设置前）
-        expect = EXPECT_NAV if layout != 'wide' else ['仪表盘', '用药管理', '戒烟', '喝水', '运动', '478呼吸法', '待办看板', '清债', '习惯', '体重与 BMI', '随笔', '打卡日历', '数据统计', '通知配置', '设置']
+        expect = EXPECT_NAV if layout != 'wide' else ['仪表盘', '用药管理', '戒烟', '喝水', '运动', '478呼吸法', '待办看板', '清债', '习惯', '体重与 BMI', '随笔', '打卡日历', '数据统计', '功能模块', '通知配置', '设置']
         rec(tag + ' 导航顺序正确', nav == expect, str(nav))
 
         # 用药卡：只剩一条

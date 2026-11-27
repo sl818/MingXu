@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=207">
+<link rel="stylesheet" href="assets/app.css?v=208">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=207">
+<link rel="stylesheet" href="assets/theme-v2.css?v=208">
 </head>
 <body>
 <div class="app landing">
@@ -274,7 +274,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v207';
+  const APP_VERSION = 'v208';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -4434,6 +4434,7 @@
     quit: '<rect x="3" y="9" width="3.5" height="7" rx="1.1"/><rect x="6.5" y="9" width="13" height="4" rx="1.1"/><path d="M8.5 7.2c0-1.6 1-2.4 2.2-2.4s1.3.9 2.6.9 1.4-.9 2.6-.9 2.2.8 2.2 2.4"/>',
     water: '<path d="M12 3.5c3.4 4 5.5 7.2 5.5 10a5.5 5.5 0 1 1-11 0c0-2.8 2.1-6 5.5-10z"/><path d="M8.6 16.2c1 1.3 2.1 2 3.4 2s2.4-.7 3.4-2"/>',
     move: '<path d="M3.5 9v6M20.5 9v6M6 12h12M6 10.5v3M18 10.5v3"/>',
+    modules: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8" opacity=".4"/>',
     breathe: '<circle cx="12" cy="12" r="7.5"/><path d="M8.5 12c1-1.7 2.5-1.7 3.5 0s2.5 1.7 3.5 0"/>',
     weight: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M8 9h8M12 9v3"/><circle cx="12" cy="15" r="2.2"/>',
     essay: '<path d="M5 4h10l4 4v12H5z"/><path d="M8 12h8M8 16h5"/>',
@@ -14395,6 +14396,40 @@
     '</div>';
   }
 
+  /* v208：功能模块页（预览版）—— 开关状态存本机 localStorage，停用的隐藏/过滤逻辑下一版接入 */
+  function viewModules() {
+    const DEFS = [
+      { key: 'meds',    icon: '💊', name: '用药',      desc: '服药排期、提醒与打卡记录' },
+      { key: 'breathe', icon: '🌬️', name: '478呼吸法', desc: '呼吸练习与每天几组' },
+      { key: 'water',   icon: '💧', name: '喝水',      desc: '每天喝水量与补水记录' },
+      { key: 'move',    icon: '🏃', name: '运动',      desc: '运动打卡、目标与统计' },
+      { key: 'quit',    icon: '🚭', name: '戒烟',      desc: '戒烟打卡、烟盒与买烟记录' }
+    ];
+    const pref = function (key) {
+      try { return localStorage.getItem('lifeboard.modulePref.' + key) !== '0'; } catch (e) { return true; }
+    };
+    const rows = DEFS.map(function (m) {
+      const on = pref(m.key);
+      return '<label class="mdl-row' + (on ? '' : ' off') + '">' +
+        '<span class="mdl-ico">' + m.icon + '</span>' +
+        '<span class="mdl-txt"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small>' +
+          (on ? '' : '<small class="mdl-off-tag">已停用 · 数据已保留</small>') + '</span>' +
+        '<span class="w-switch"><input type="checkbox" data-act="module-toggle" data-key="' + m.key + '"' + (on ? ' checked' : '') + '><i></i></span>' +
+      '</label>';
+    }).join('');
+    const onCount = DEFS.filter(function (m) { return pref(m.key); }).length;
+    return '<div class="config-wrap">' +
+      '<header class="page-head"><h2>功能模块</h2>' +
+        '<p class="sub">已启用 ' + onCount + ' / ' + DEFS.length + ' 个 · 按需启停，页面只留你在用的</p></header>' +
+      '<section class="panel">' +
+        '<p class="w-sec-lead">停用后：导航入口隐藏、不计入完成率、提醒停止。' +
+          '<b>所有数据原样保留</b>，重新开启即恢复。</p>' +
+        '<div class="mdl-list">' + rows + '</div>' +
+        '<p class="w-freq-note">预览版说明：开关状态暂存本机浏览器；停用后的导航隐藏与过滤逻辑将在下一版接入。</p>' +
+      '</section>' +
+    '</div>';
+  }
+
   function viewConfig() {
     icsLoad();
     pushLoad();
@@ -14635,7 +14670,7 @@
       '</div>';
   }
 
-  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, water: viewWater, move: viewMove, breathe: viewBreathe, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore };
+  const VIEWS = { today: viewToday, board: viewBoard, money: viewMoney, habits: viewHabits, meds: viewMeds, quit: viewQuit, water: viewWater, move: viewMove, breathe: viewBreathe, weight: viewWeight, essays: viewEssays, calendar: viewCalendar, stats: viewStats, settings: viewSettings, config: viewConfig, more: viewMore, modules: viewModules };
   const NAV = [
     /* 今日改名「仪表盘」，group 用不在 NAV_GROUPS 里的 '顶'：orderedNav 的 indexOf 返回 -1，
        天然排最前、且不落进任何分组（设置页排序里也不参与拖拽）。 */
@@ -14652,6 +14687,8 @@
     { key: 'essays', label: '随笔', icon: 'essay', group: '记录', wideLabel: '随笔' },
     { key: 'calendar', label: '日历', icon: 'calendar', group: '回顾', wideLabel: '打卡日历' },
     { key: 'stats', label: '统计', icon: 'stats', group: '回顾', wideLabel: '数据统计' },
+    /* v208：功能模块独立入口（陛下定：设置页选项太多，不塞进去） */
+    { key: 'modules', label: '模块', icon: 'modules', group: '设置', wideLabel: '功能模块' },
     /* 通知配置与设置从「回顾」挪进新的「设置」分栏 */
     { key: 'config', label: '配置', icon: 'config', group: '设置', wideLabel: '通知配置' },
     { key: 'settings', label: '设置', icon: 'settings', group: '设置', wideLabel: '设置' }
@@ -14678,7 +14715,8 @@
     { key: 'weight', label: '体重', icon: 'weight', desc: '身体档案、BMI 和趋势' },
     { key: 'calendar', label: '日历', icon: 'calendar', desc: '按天回看完成度' },
     { key: 'stats', label: '统计', icon: 'stats', desc: '完成率与习惯分布' },
-    { key: 'config', label: '配置', icon: 'config', desc: '自定义通知、订阅与数据' }
+    { key: 'config', label: '配置', icon: 'config', desc: '自定义通知、订阅与数据' },
+    { key: 'modules', label: '功能模块', icon: 'modules', desc: '按需启停用药 / 478 / 喝水 / 运动 / 戒烟' }
   ];
 
   /* 导航顺序的清洗：只留字符串 + 去重。
@@ -19825,6 +19863,11 @@
     /* v206：没有运动实例时先引导新建 —— 原来可以直接「添加记录」，记出来的数据挂在
        一个不存在的运动上（孤儿记录）：统计能看到、首页却永远不算完成。
        线上实测复现过（记了 4321 步，运动仍显示未完成）。 */
+    /* v208 预览：模块开关只存本机偏好；正式版接 modules.xxx.on 与停用过滤 */
+    'module-toggle': el => {
+      try { localStorage.setItem('lifeboard.modulePref.' + el.dataset.key, el.checked ? '1' : '0'); } catch (e) {}
+      render();
+    },
     'move-add-rec': () => {
       if (!moveSports().length) {
         toast('先新建一个运动，再来记录数据');
@@ -20677,7 +20720,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=207', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=208', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

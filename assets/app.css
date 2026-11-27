@@ -2775,7 +2775,13 @@ body.modal-open{overflow:hidden;}
 }
 :root[data-layout="top"] .brand{flex:none;padding:0 0 0 4px;border-bottom:none;gap:11px}
 :root[data-layout="top"] .logo{width:36px;height:36px}
-:root[data-layout="top"] .nav{flex:1 1 auto;min-width:0;flex-direction:row;justify-content:center;gap:4px;overflow-x:auto;padding:0 8px}
+:root[data-layout="top"] .nav{flex:1 1 auto;min-width:0;flex-direction:row;gap:4px;overflow-x:auto;padding:0 8px}
+/* v208：安全居中 —— 原 justify-content:center 在内容溢出时会把**左侧**的项挤进不可滚动区
+   （flex 居中溢出的经典坑），「仪表盘」就被压在搜索按钮下面点不到（regression-v3 卡死实测）。
+   改用首尾 margin:auto：不满宽时照样居中，溢出时从左开始、可滚动到任意项。 */
+/* v208 二次修正：margin:auto 的"安全居中"在 Chrome 的滚动容器里同样不安全——
+   溢出时首项会跑到容器左外（诊断实测 today.l=63 < nav.l=132），压在搜索按钮上。
+   最终方案：不居中，靠左排（flex-start）。16 项在 1440/1280 都能放下。 */
 :root[data-layout="top"] .nav::-webkit-scrollbar{display:none}
 :root[data-layout="top"] .nav-item{flex:none;padding:8px 15px;border-radius:999px;white-space:nowrap}
 :root[data-layout="top"] .side-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:8px;flex:none}
@@ -4265,3 +4271,15 @@ body.modal-open{overflow:hidden;}
 .stt-bars.fill{flex:1;min-height:104px;height:auto;align-items:flex-end}
 .stt-bars.fill .stt-bar{justify-content:flex-end}
 .stt-bars.fill .stt-bar i{max-width:44px}
+
+/* v208：功能模块页 */
+.mdl-list{display:flex;flex-direction:column}
+.mdl-row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid var(--line);cursor:pointer;transition:opacity .18s}
+.mdl-row:last-child{border-bottom:0}
+.mdl-row:hover{background:var(--surface-2);border-radius:10px}
+.mdl-row.off{opacity:.55}
+.mdl-ico{font-size:21px;width:34px;text-align:center;flex:none}
+.mdl-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mdl-txt b{font-size:14.5px;font-weight:600;color:var(--text)}
+.mdl-txt small{font-size:12px;color:var(--muted);line-height:1.5}
+.mdl-off-tag{color:var(--text)!important;font-weight:600}  /* 小字不用 --bad（对比度规则） */
