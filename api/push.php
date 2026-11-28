@@ -274,6 +274,127 @@ function lb_table_exists(PDO $pdo, string $table): bool
     }
 }
 
+/* ===== 历史推送记录（v216）=====
+   push_log 是给人看的观测日志：ok / fail / skip 三态，不参与去重。
+   表不存在时静默降级（不写、接口返回空），与 content 列的兼容思路一致。 */
+
+function lb_push_log_ready(PDO $pdo): bool
+{
+    /* 不能用 static 缓存：同一进程会先后打开多个连接（测试/多租户），表有无是 per-连接的事 */
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $row = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='push_log'")->fetch();
+        } else {
+            $row = $pdo->query("SHOW TABLES LIKE 'push_log'")->fetch();
+        }
+        $cache = (bool)$row;
+    } catch (PDOException $e) {
+        $cache = false;
+    }
+    return $cache;
+}
+
+function lb_push_log_has_board(PDO $pdo): bool
+{
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            foreach ($pdo->query('PRAGMA table_info(push_log)')->fetchAll() as $c) {
+                if (($c['name'] ?? '') === 'board') {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return $pdo->query("SHOW COLUMNS FROM push_log LIKE 'board'")->fetchAll() !== [];
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function lb_push_log_add(PDO $pdo, int $uid, string $at, string $channel, string $kind,
+                         string $key, string $content, string $status, string $error = '',
+                         string $board = ''): void
+{
+    if (!lb_push_log_ready($pdo) || !in_array($status, ['ok', 'fail', 'skip'], true)) {
+        return;
+    }
+    try {
+        if (lb_push_log_has_board($pdo)) {
+            $pdo->prepare('INSERT INTO push_log (user_id, at, channel, board, kind, slot_key, content, status, error) '
+                . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$uid, $at, $channel, $board, $kind, $key, $content, $status,
+                           $error !== '' ? lb_notify_clip($error, 500) : null]);
+        } else {
+            /* 老表没有 board 列：照常落日志，只是历史面板标不了浏览器渠道 */
+            $pdo->prepare('INSERT INTO push_log (user_id, at, channel, kind, slot_key, content, status, error) '
+                . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$uid, $at, $channel, $kind, $key, $content, $status,
+                           $error !== '' ? lb_notify_clip($error, 500) : null]);
+        }
+    } catch (PDOException $e) {
+        /* 日志写不进去不影响发送主链路 */
+    }
+}
+
+/** 读最近 N 组历史记录（按 slot_key 聚合：一张卡 = 一次提醒，组内逐渠道状态） */
+function lb_push_log_list(PDO $pdo, int $uid, int $limit = 50): array
+{
+    if (!lb_push_log_ready($pdo)) {
+        return [];
+    }
+    try {
+        $hasBoard = lb_push_log_has_board($pdo);
+        $cols = 'at, channel, kind, slot_key, content, status, error' . ($hasBoard ? ', board' : '');
+        $st = $pdo->prepare('SELECT ' . $cols . ' FROM push_log WHERE user_id = ? '
+            . 'ORDER BY at DESC, id DESC LIMIT ' . max(1, min(500, $limit * 4)));
+        $st->execute([$uid]);
+        $groups = [];
+        foreach ($st->fetchAll() as $r) {
+            $key = (string)$r['slot_key'];
+            if (!isset($groups[$key])) {
+                $groups[$key] = [
+                    'key' => $key,
+                    'at' => (string)$r['at'],
+                    'kind' => (string)$r['kind'],
+                    'board' => $hasBoard ? (string)($r['board'] ?? '') : '',
+                    'content' => (string)($r['content'] ?? ''),
+                    'rows' => [],
+                ];
+            }
+            $groups[$key]['rows'][] = [
+                'channel' => (string)$r['channel'],
+                'status' => (string)$r['status'],
+                'error' => (string)($r['error'] ?? ''),
+            ];
+        }
+        /* 聚合状态：有 ok 无 fail=ok；混合=part；全 fail=fail；只有 skip=skip */
+        $out = [];
+        foreach ($groups as $g) {
+            $nOk = 0;
+            $nFail = 0;
+            $nSkip = 0;
+            foreach ($g['rows'] as $row) {
+                if ($row['status'] === 'ok') {
+                    $nOk++;
+                } elseif ($row['status'] === 'fail') {
+                    $nFail++;
+                } else {
+                    $nSkip++;
+                }
+            }
+            $g['status'] = ($nOk > 0 && $nFail === 0) ? 'ok'
+                : ($nOk > 0 ? 'part' : ($nFail > 0 ? 'fail' : 'skip'));
+            $out[] = $g;
+            if (count($out) >= max(1, min(200, $limit))) {
+                break;
+            }
+        }
+        return $out;
+    } catch (PDOException $e) {
+        return [];
+    }
+}
+
 /** 列存在性：push_sent.channel 是 v121 才加的，老库要能降级运行 */
 function lb_column_exists(PDO $pdo, string $table, string $col): bool
 {
@@ -344,7 +465,9 @@ function lb_notify_boards(): array
     return [
         'med' => ['channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
         'water' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
-        'move' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
+        /* v216：instances = 每个运动实例自己的通知设置（运动弹窗写入）。
+           结构：{<sportId>: {on: bool, channels: {wecom,mail,browser}}}；没有实例配置时回落板块。 */
+        'move' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false], 'instances' => []],
         'breathe' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => false]],
         'quit' => ['channels' => ['wecom' => false, 'mail' => false, 'browser' => false]],
         'task' => ['on' => true, 'channels' => ['wecom' => true, 'mail' => true, 'browser' => true]],
@@ -399,6 +522,9 @@ function lb_notify_boards_load(PDO $pdo, int $uid): array
             if (!lb_notify_board_is_module($bid) && array_key_exists('on', $src)) {
                 $out[$bid]['on'] = (bool)$src['on'];
             }
+            if ($bid === 'move') {
+                $out['move']['instances'] = lb_notify_instances_norm(isset($src['instances']) && is_array($src['instances']) ? $src['instances'] : []);
+            }
         }
         return $out;
     }
@@ -438,7 +564,9 @@ function lb_notify_prefs_flat(array $boards): array
 /** 存 11 板块矩阵（入库格式 {"boards":{...}}，方便以后加字段） */
 function lb_notify_boards_save(PDO $pdo, int $uid, array $in): array
 {
-    $boards = lb_notify_boards();
+    /* v216 起基于已存值合并：入参里没出现的板块/字段一律保持不变。
+       模块页（喝水/478/运动）只提交自己那一个板块，绝不能把路由页其他板块冲回默认。 */
+    $boards = lb_notify_boards_load($pdo, $uid);
     $srcBoards = isset($in['boards']) && is_array($in['boards']) ? $in['boards'] : $in;
 
     if (isset($in['boards']) && is_array($in['boards'])) {
@@ -455,6 +583,11 @@ function lb_notify_boards_save(PDO $pdo, int $uid, array $in): array
             }
             if (!lb_notify_board_is_module($bid) && array_key_exists('on', $src)) {
                 $boards[$bid]['on'] = !empty($src['on']);
+            }
+            if ($bid === 'move' && isset($src['instances']) && is_array($src['instances'])) {
+                foreach (lb_notify_instances_norm($src['instances']) as $sid => $irow) {
+                    $boards['move']['instances'][$sid] = $irow;
+                }
             }
         }
     } else {
@@ -817,6 +950,57 @@ function lb_notify_board_of(array $ev): string
     return $map[$kind] ?? 'habit';
 }
 
+/** 清洗 move 板块的实例设置：id 键任意（sportId），值只认 on + 三渠道布尔 */
+function lb_notify_instances_norm(array $in): array
+{
+    $out = [];
+    foreach ($in as $sid => $row) {
+        $sid = (string)$sid;
+        if ($sid === '' || !is_array($row)) {
+            continue;
+        }
+        $item = ['on' => !isset($row['on']) || !empty($row['on'])];
+        $ch = [];
+        foreach (['wecom', 'mail', 'browser'] as $chName) {
+            $ch[$chName] = !isset($row['channels'][$chName]) || !empty($row['channels'][$chName]);
+        }
+        $item['channels'] = $ch;
+        $out[$sid] = $item;
+    }
+    return $out;
+}
+
+/** 这条事件的生效配置：move 板块且事件带 sport 且该运动存过实例设置 → 用实例；否则回落板块。
+    返回 {on, channels, level}；on=false 表示这条不推（也不补）。 */
+function lb_notify_effective_row(array $boards, array $item): array
+{
+    $bid = lb_notify_board_of($item);
+    $row = isset($boards[$bid]) && is_array($boards[$bid]) ? $boards[$bid] : [];
+    $ch = is_array($row['channels'] ?? null) ? $row['channels'] : [];
+    $on = !isset($row['on']) || !empty($row['on']);
+    $level = 'board';
+    if ($bid === 'move' && !empty($item['sport'])
+        && isset($row['instances'][$item['sport']])
+        && is_array($row['instances'][$item['sport']])) {
+        $inst = $row['instances'][$item['sport']];
+        $on = !isset($inst['on']) || !empty($inst['on']);
+        $ch = is_array($inst['channels'] ?? null) ? $inst['channels'] : $ch;
+        $level = 'instance';
+    }
+    /* 小习惯 2.0：事件自带习惯级渠道（notifyPlan.channels）→ 与板块渠道取交集，
+       交集空则全关。板块是账号级总闸，习惯级是单习惯微调，两者都开才发。 */
+    if ($bid === 'habit' && isset($item['channels']) && is_array($item['channels']) && $item['channels']) {
+        foreach (['wecom', 'mail', 'browser'] as $chName) {
+            if (!empty($ch[$chName]) && in_array($chName, array_map('strval', $item['channels']), true)) {
+                continue;
+            }
+            $ch[$chName] = false;
+        }
+        $level = 'habit';
+    }
+    return ['on' => $on, 'channels' => $ch, 'level' => $level, 'board' => $bid];
+}
+
 /** 渲染成最终发送文本（标题 + 换行 + 正文），未知占位符原样保留 */
 function lb_notify_text_render(array $tpl, array $ev): string
 {
@@ -1055,27 +1239,38 @@ function lb_push_tick_run(
             $key = $date . '|' . $item['kind'] . '|' . $item['id'] . '|' . $item['time'];
             /* 文案模板：source 优先、kind 兜底；模板没配过时长这样与原「标题\n正文」等价 */
             $text = lb_notify_text_render($tpl, $item);
-            $bid = lb_notify_board_of($item);
-            $bset = isset($boards[$bid]) && is_array($boards[$bid]) ? $boards[$bid] : null;
+            /* v216：生效配置 = 实例（运动弹窗存的）优先，回落板块矩阵 */
+            $eff = lb_notify_effective_row($boards, $item);
+            /* 板块/实例停用是 item 级判定：整条跳过，skip 日志只记一条 */
+            if (!$eff['on']) {
+                if ($eff['level'] === 'instance') {
+                    $out['instance_skipped'] = ($out['instance_skipped'] ?? 0) + 1;
+                    lb_push_log_add($pdo, $uid, $stamp, '', (string)$item['kind'], $key,
+                        $text, 'skip', '该运动的通知已关闭', $eff['board']);
+                } else {
+                    lb_push_log_add($pdo, $uid, $stamp, '', (string)$item['kind'], $key,
+                        $text, 'skip', '板块已停用', $eff['board']);
+                }
+                continue;
+            }
 
             foreach ($senders as $ch) {
                 $chan = (string)($ch['channel'] ?? 'wecom');
-                /* 通道没配就不发：省掉一次必然失败的调用，也免得占位后又被撤掉 */
+                /* 板块没勾这个渠道 = 用户不想走它，静默跳过、不记日志 */
+                if (isset($eff['channels'][$chan]) && !$eff['channels'][$chan]) {
+                    continue;
+                }
+                /* v223：渠道勾了但没配置 = 该发没发，记一条 fail（用户能在历史里看到原因）。
+                   判定顺序不能反——先过滤「没勾」，再记「勾了但没配」。 */
                 if ($chan === 'wecom' && $hook === '') {
+                    lb_push_log_add($pdo, $uid, $stamp, $chan, (string)$item['kind'], $key,
+                        $text, 'fail', '企业微信未配置：去「配置」页填机器人地址', $eff['board']);
                     continue;
                 }
                 if ($chan === 'mail' && !$mailOn) {
+                    lb_push_log_add($pdo, $uid, $stamp, $chan, (string)$item['kind'], $key,
+                        $text, 'fail', '邮件未开启：去「配置」页配置 SMTP 与授权码', $eff['board']);
                     continue;
-                }
-                /* 板块闸门：基础板块停用整条跳过；渠道按 11 板块矩阵过滤。
-                   模块类板块的启停已在排程层处理（schedule.php 的 $modOn）。 */
-                if (is_array($bset)) {
-                    if (isset($bset['on']) && !$bset['on']) {
-                        continue;
-                    }
-                    if (isset($bset['channels'][$chan]) && !$bset['channels'][$chan]) {
-                        continue;
-                    }
                 }
 
                 $entry = ['user' => $uid, 'key' => $key, 'kind' => $item['kind'],
@@ -1115,9 +1310,11 @@ function lb_push_tick_run(
                 if ($ok) {
                     $out['sent']++;
                     $entry['ok'] = true;
+                    lb_push_log_add($pdo, $uid, $stamp, $chan, (string)$item['kind'], $key, $text, 'ok');
                 } else {
                     $out['failed']++;
                     $entry['why'] = $why;
+                    lb_push_log_add($pdo, $uid, $stamp, $chan, (string)$item['kind'], $key, $text, 'fail', $why, $eff['board']);
                     /* 发失败必须撤掉占位，否则这条永远不会再试，提醒就永久丢了 */
                     $del->execute($hasChannel ? [$uid, $key, $chan] : [$uid, $key]);
                 }
@@ -1131,6 +1328,10 @@ function lb_push_tick_run(
         try {
             $pdo->prepare('DELETE FROM push_sent WHERE sent_at < ?')
                 ->execute([date('Y-m-d H:i:s', strtotime($stamp . ' -7 days'))]);
+            if (lb_push_log_ready($pdo)) {
+                $pdo->prepare('DELETE FROM push_log WHERE at < ?')
+                    ->execute([date('Y-m-d H:i:s', strtotime($stamp . ' -14 days'))]);
+            }
         } catch (PDOException $e) {
             /* 忽略：清理失败不该让推送停摆 */
         }

@@ -359,6 +359,10 @@ function lb_schedule_day(array $state, string $date): array
                 'source' => 'habit',
                 'priority' => '日常',
                 'habitType' => (string)($h['type'] ?? 'build'),
+                /* 批 4：习惯级渠道随事件下发，push.php 的 effective_row 与板块矩阵取交集；
+                   无配置时不带该字段（回落板块默认） */
+                'channels' => (isset($np['channels']) && is_array($np['channels']) && $np['channels'])
+                    ? array_values($np['channels']) : null,
             ];
         }
     }

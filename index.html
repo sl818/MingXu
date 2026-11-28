@@ -5005,9 +5005,34 @@
 
     /* 习惯：只有填了「建议时间」的才会被催
        v201：478 有多个提醒点，按 notifyTimes 的**全部**判断（任一已过且当天没达标就催），
-       文案也说清是「还差 N 组」而不是笼统的「还没打卡」（做了 1/3 组时那样写是错的）。 */
+       文案也说清是「还差 N 组」而不是笼统的「还没打卡」（做了 1/3 组时那样写是错的）。
+       批 4：有 notifyPlan 的习惯（含戒除类）按时间矩阵催——任一时间已过且当日未做满；
+       无 notifyPlan 的维持老路径。 */
+    (state.habits || []).forEach(function (h) {
+      if (!h || h.archivedAt || h.optional || h.med || isModuleAnchor(h)) return;
+      if (!h.notifyPlan) return;                       // 无计划的走下面老逻辑
+      if (!habitDueOn(h, d)) return;                   // 今天不是要求日
+      const plan = notifyPlanOf(h);
+      const times = plan.wd ? (plan.wd[String(new Date().getDay())] || [])
+        : (plan.daily || [plan.intervalTime || '09:00']);
+      const target = Math.max(1, Number(h.target) || 1);
+      const count = countOf(d, h.id);
+      if (count >= target) return;                     // 今日已做满
+      const hit = times.some(function (t) {
+        const s = String(t || '');
+        return /^\d{2}:\d{2}$/.test(s) && s <= hm;
+      });
+      if (!hit) return;
+      items.push({
+        key: 'habit2-' + h.id,
+        text: '「' + String(h.name || '习惯') + '」' +
+          (target > 1 ? '已完成 ' + count + '/' + target + ' · 还差 ' + (target - count)
+                      : '还没打卡'),
+        view: 'habits'
+      });
+    });
     const habitDue = assessmentHabits(d).filter(function (h) {
-      if (h.med || isQuitSemantics(h)) return false;
+      if (h.med || isQuitSemantics(h) || h.notifyPlan) return false;
       const target = Number(h.target) || 1;
       if (countOf(d, h.id) >= target) return false;
       if (h.id === 'h_breathe') {
