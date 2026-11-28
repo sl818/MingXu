@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=219">
+<link rel="stylesheet" href="assets/app.css?v=220">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=219">
+<link rel="stylesheet" href="assets/theme-v2.css?v=220">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v219';
+  const APP_VERSION = 'v220';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -4282,6 +4282,13 @@
     /* 小习惯 2.0：这一天不需要做（周一三五型在周二）——周条画虚线，不画叉，
        否则用户会把空白误读成「漏打卡」。纯函数判断，不看是否已达成。 */
     if (!schedDueRaw(h, ds)) return 'off';
+    /* interval：本轮已经做过 → 本轮剩余天数全部 off（「哪天做都行」的天然结果）；
+       轮内没做的日子不画叉（历史轮未做也不追账，只在本轮内滚动要求）。 */
+    if (schedOf(h).kind === 'interval') {
+      if (met(h, ds)) return 'done';
+      if (intervalDone(h, ds)) return 'off';
+      return isSkipped(ds, h.id) ? 'fail' : 'none';
+    }
     const target = Math.max(1, Number(h.target) || 1);
     const c = countOf(ds, h.id);
     if (isSkipped(ds, h.id)) return 'fail';
@@ -13368,6 +13375,30 @@
              left: Math.max(0, s.perWeek - done) };
   }
 
+  /* interval（每 N 天）：以 anchor 为原点分轮，轮内做一次即本轮完成。
+     anchor 缺省用 createdAt；绝不拿「上次完成日」推算，否则拖延会让周期无限后移。 */
+  function intervalRoundStart(h, d) {
+    const s = schedOf(h);
+    if (s.kind !== 'interval') return null;
+    const a = s.anchor || String(h.createdAt || '').slice(0, 10);
+    if (!a) return null;
+    const diff = Math.floor((parseD(d) - parseD(a)) / 86400000);
+    if (diff < 0) return null;
+    return shiftDay(a, Math.floor(diff / s.intervalDays) * s.intervalDays);
+  }
+  function intervalDone(h, d) {
+    const s = schedOf(h);
+    if (s.kind !== 'interval') return false;
+    const rs = intervalRoundStart(h, d);
+    if (!rs) return false;
+    for (let i = 0; i < s.intervalDays; i++) {
+      const ds = shiftDay(rs, i);
+      if (ds > d) break;
+      if (met(h, ds)) return true;
+    }
+    return false;
+  }
+
   /* 应打卡 = sched 说了算。notifyFreq 从这里彻底退出，只管提醒。 */
   function habitDueOn(h, d) {
     if (!h || isArchived(h) || h.optional) return false;
@@ -13383,6 +13414,7 @@
       return dt.getDate() === Math.min(s.day, lastDay);
     }
     if (s.kind === 'weekly') return weekDone(h, d) < s.perWeek;
+    if (s.kind === 'interval') return !intervalDone(h, d);   // 本轮没做 → 每天都可以做
     return true;
   }
 
@@ -13405,7 +13437,7 @@
     const y = now.getFullYear(), m = now.getMonth();
     const upto = now.getDate();
     const list = (state.habits || [])
-      .filter(h => h && !isArchived(h) && !h.optional && !isModuleAnchor(h))
+      .filter(h => h && !isArchived(h) && !h.optional && !isModuleAnchor(h) && !isPeriodic(h))
       .map(h => habitMonthRow(h, y, m, upto))
       .filter(r => r.due > 0);
     if (!list.length) return '';
@@ -21717,7 +21749,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=219', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=220', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

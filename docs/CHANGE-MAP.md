@@ -57,8 +57,10 @@
 **改判定必须同步** `algoModal`（考核算法弹窗是代码镜像，不同步就等于文档在撒谎）。
 
 测试：`verify-habit-btn`(31)、`verify-quit-multi`(32)、`verify-habit-month`(38)、
-`verify-habit-deadline`(16)、`verify-habit-feedback`(16)、`verify-quit-checkin`(21，v204 主动打卡 + v214 多次模式逐次撤销)。
-注：前四个脚本里找 `.pips .pip` / `.habit-done` 的断言在 v2 卡片改版后已腐化，改前版本同样失败，不算回归信号。
+`verify-habit-deadline`(16)、`verify-habit-feedback`(16)、`verify-quit-checkin`(21，v204 主动打卡 + v214 多次模式逐次撤销)、
+`verify-habit-sched`(13，v219 节奏 sched：四选一表单/weekdays off/老数据 notifyFreq 兼容)。
+注：前四个脚本里找 `.pips .pip` / `.habit-done` 的断言在 v2 卡片改版后已腐化，改前版本同样失败，不算回归信号；
+`verify-habit-month` 的 14 项失败同为模块化改版后的既有腐化（基线对照已确认），不计入回归信号。
 
 ---
 
