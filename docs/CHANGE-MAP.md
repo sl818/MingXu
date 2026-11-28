@@ -48,7 +48,12 @@
 | 位置 | 说明 |
 | --- | --- |
 | `viewToday` / `habitCard(h,d,compact)` | 今日页卡片；`compact` 分支是常驻区窄卡，改卡片结构要保住它 |
-| `viewHabits` / `habitManageRows` | 习惯管理页 |
+
+- **一切新通知必须并入通知路由（2026-11-28 陛下定）**：新增/改动任何提醒，一律走路由链路——
+  kind+source 映射到 `lb_notify_boards` 板块（`api/push.php` 的 board_for()），过板块渠道开关、
+  免打扰时段、文案模板（12 场景）与全局渠道配置检测；**禁止绕过路由直发**。习惯 2.0 的
+  时间矩阵（每周几×每日次数）、interval 轮次通知的接入映射见 `docs/HABITS-NOTIFY-SPEC.md` §5。
+  改通知相关跑 `test-ics.php` / `test-schedule.php` / `test-push.php` / `test-push-tick.php` / `verify-notify-route.py`。| `viewHabits` / `habitManageRows` | 习惯管理页 |
 | `habitMonthOverview` / `habitDueOn` / `habitMonthRow` | 本月概览；统计页「本月」分段也调同一个函数 |
 | `met(h,d)` / `dayStats` / `rateOver` / `habitDayAcc` | 达标与完成率口径 |
 | `QUIT_CHECKIN_FROM` / `quitNeedsCheckin(h,d)` | v204 起戒除类（quit）必须主动打卡：生效日 2026-11-27 起写 `checks` 才算守住；戒烟（smoke）与生效日前历史走老口径。改动要同步 `habitDayMark` / `streakOn` / `quitStreak` / `habitBest` / 三个按钮 handler。**v214 起**：当天有失守时 `habit-ok` / `quit-mark` 先逐次撤销失守（一次一条），撤完再点才写 `checks`——因为 `met()` 对 quit 先判失守短路，不撤失守就永远不达标（v204 漏了这条，多次模式会卡死） |
@@ -401,6 +406,12 @@
 | 2026-11-27 | v212 | 9.4 | 批 C 收尾（P0+P1）：①新增全局通知总闸 `notify_global_<uid>`（默认开，tick 最前跳过）；②浏览器渠道真正被消费——`notifyPing` 按板块 `channels.browser` 过滤，通知先于页面访问时懒加载配置；③数据列表状态补「总开关关闭 / 渠道留空 / 本地渠道停用」；④全局总控加总开关与快捷动作（企微暂停、邮件去配、浏览器开启通知）；⑤模板区补齐：变量取值表（真实值）、点变量插入光标、邮件样式（纯文本/HTML + 4 主题色 + 页脚）、邮件卡片预览与 HTML 源码、恢复全部默认；⑥模板保存改为基于已存值（部分更新不再重置其他字段），后端支持 `mail.mode`；⑦开关/勾选/胶囊改用 `--good` 绿（红会被读成停用）。测试：`test-notify-prefs.php` 74→81、`verify-notify-route.py` 23→31、`regression-v3` 30、`test-mailer.php` 45/49（缺 openssl 4 项基线同样）。SW → v212，包已生成未上传 | 会话：通知路由落地 P0+P1 |
 | 2026-11-27 | v213 | 9.4 / 5（导航） / 12（测试） | P2 清理：①删除旧通知矩阵全部死代码——`notifyLoad` / `notifySummary` / `notifyMatrixHtml` / `notifySyncSummary` / `notifySave` 五个函数（140 行）、`notifyPrefs` / `notifyMeta` / `notifyLoading` / `notifyQuiet` / `notifyReport` 五个模块级变量、`bindView` 的 `.mx-table` 绑定、`ACTIONS['notify-save']`、`assets/app.css` 里 24 条 `.mx-*`；②`verify-push-ui.py` 对齐当前 UI 重写流程（未配置时只有「保存」、保存后才出现「发一条测试」；空地址点保存弹「清空即停用」确认）并修正导航设置页→配置页、`.ics-hint` 取到了别的面板共 3 处历史漂移，40/40 通过；③文档清债：根 README 三处「今日推送计划」改指「通知路由」页、`BACKEND.md` 的 `push_preview` 改「五源合并」、`FRONTEND.md` 视图表补 `modules` / `notifyroute` 两行、`HANDOFF.md` 测试现状数字全部按实测更新、`通知路由方案汇总.md` 文首加「实现状态（v212）」并标注第 5 条已修。测试：`verify-push-ui` 40、`verify-notify-route` 31、`regression-v3` 30、`verify-v15` 35、`verify-nav-order` 17、`verify-mobile-nav` 44、`verify-batch2~4` 51/60/20、`verify-money-v92` 23、`verify-api-http` 33、对比度 0 项违规。SW → v213，包已重新生成未上传 | 会话：通知路由 P2 清债 |
 | 2026-11-27 | v215 | 9.4 | 数据列表对齐设计稿（**版本顺延**：并行会话已占 v214 修「戒除类习惯」当天有失守时「完成」无法撤销的问题，本会话从 v214 顺延到 v215）：`notifyRoutePlanHtml` 由单行列表改为**卡片网格**——顶部四筛选（通知类目 / 优先级 / 状态 / 排序）+ 统计行 + 「清除数据项选择」；按排序方式出分组条（优先级 / 类目 / 时间不分组）；卡片为「优先级徽标 + 类目徽标 + 时间 + 状态徽标 / 标题 / 正文 / 功能·来源·id」四行，本地提醒显示「手动」，网格 4 列、max-height 452 滚动。新增 `NOTIFY_KIND_CN` / `NOTIFY_SRC_CN` / `NOTIFY_PRI_RANK`、`notifyPlanFiltered` / `notifyPriClass` / `notifyPlanCardsHtml` / `renderNotifyPlanList` / `notifyLocalKind`；筛选与选中用模块级 `nrFilter` / `nrActiveItem`（不进 state），只重绘网格不整页 render（保下拉焦点）；点卡片把该条真实内容套进模板预览，再点或「清除数据项选择」取消。本地提醒的 kind 归到 habit、细分放 source（类目显示「习惯提醒」、功能显示「喝水」）。CSS 删旧 `.nr-prow` 一套换 `.nr-toolbar` / `.nr-grid` / `.nr-card` / `.nr-badge` / `.nr-group`。测试：`verify-notify-route.py` 31→45（新增卡片字段、四筛选、三排序、选中/清除、统计行）；`regression-v3` 30、`verify-v15` 35、`verify-push-ui` 40 全绿。SW → v215，包已生成未上传 | 会话：数据列表对齐设计稿 |
+| 2026-11-28 | v222 | 9.4 / 5 / 12（测试）/ 9.3 | **通知个性化落地五阶段**（**版本顺延**：并行会话已占 v216-v221 做小习惯 2.0，本会话从 v216 顺延到 v222）：
+①阶段一·渠道双入口：喝水页 / 478 页的渠道 UI 改读写板块矩阵（真源 app_settings boards），`saveModuleNotifyChannels` 部分更新，`lb_notify_boards_save` 改为**基于已存值合并**（原来从默认起底会冲掉未提交板块）；接口 `notify_prefs_save` 的 report 改传入才更新；模块页与路由页改哪边都生效（双向同步）。
+②阶段二·运动实例级：板块矩阵 `move.instances={sportId:{on,channels}}`（白名单清洗）；`lb_notify_effective_row` 实例优先回落板块；tick 停用判定提升到 **item 级**（原来在通道循环里会把 skip 记成 N 条）；排程事件 sport 改带实例 id（同类型多实例不撞）；运动弹窗开关与渠道读写 instances；快照不再写 notifyOn/channels（normalize 不再生成默认，旧数据透传）。
+③阶段三·撤假 UI：运动页三个 `notifyScenes` 勾选框撤除（后端从未实现）。
+④阶段四·统一查看：路由页板块行加接入徽标（✓ 与「喝水页/478页/运动弹窗」同一份设置）。
+⑤阶段五·历史推送：新表 `push_log`（ok/fail/skip 三态 + error，迁移 `db/migrations/2026-11-28_push_log.sql`，schema.sql 同步；表不存在静默降级）；tick 记 ok/fail/skip（item 级）；`push_history` 接口；路由页新增「历史推送记录」面板（状态筛选 / 失败原因透传 / 保留 14 天）。测试：`test-notify-prefs.php` 93、`test-push-tick.php` 50、`test-schedule.php` 154、`test-ics.php` 76、`verify-notify-route` 50、`verify-breathe-page` 98、`verify-move-chan-v177` 17、`verify-move-freq-notify-v178` 34、`regression-v3` 30 全绿。SW → v222，包已生成未上传 | 会话：通知个性化五阶段 |
 
 ---
 
