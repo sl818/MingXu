@@ -4375,3 +4375,20 @@ body.modal-open{overflow:hidden;}
 .nr-chip.chip-bad{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--text);border:1px solid color-mix(in srgb,var(--bad) 45%,transparent)}
 .nr-chipnote{font-size:10px;color:var(--muted)}
 .nr-err{display:block;font-size:11px;color:var(--text);background:color-mix(in srgb,var(--bad) 12%,transparent);border-radius:6px;padding:4px 8px;margin-top:6px;line-height:1.5}
+
+/* ===== 习惯弹窗 2A：分组通栏 840px（v228） ===== */
+#habit-form.modal-card{max-width:840px;width:calc(100vw - 32px)}
+#habit-form .gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:14px 0 8px}
+#habit-form .gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+#habit-form .gtitle:first-child{margin-top:0}
+#habit-form .gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+#habit-form .sched-embed{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px}
+#habit-form .cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+@media (max-width:720px){#habit-form .cols2{grid-template-columns:1fr;gap:0}}
+#habit-form .switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+#habit-form .switch-row b{font-size:12.5px;display:block}
+#habit-form .switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+#habit-form .sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+#habit-form .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+#habit-form .sw.on{background:var(--good);border-color:var(--good)}
+#habit-form .sw.on::after{left:21px}

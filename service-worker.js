@@ -1,8 +1,8 @@
 /* 明序 PWA Service Worker
    只缓存页面外壳和图标；api.php 永远走网络，避免缓存账号数据。 */
-const CACHE = 'lifeboard-shell-v227';
+const CACHE = 'lifeboard-shell-v228';
 /* 带 ?v= 的资源：HTML 里也是同一个版本串，发版时一起改 */
-const VER = 'v227';
+const VER = 'v228';
 const ASSETS = [
   './',
   './index.html',

@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=227">
+<link rel="stylesheet" href="assets/app.css?v=228">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=227">
+<link rel="stylesheet" href="assets/theme-v2.css?v=228">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v227';
+  const APP_VERSION = 'v228';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -17197,8 +17197,6 @@
     root.querySelectorAll('[data-sched]').forEach(function (b) {
       b.classList.toggle('on', b.dataset.sched === schedDraft.kind);
     });
-    const ex = document.getElementById('schedExtra');
-    if (!ex) return;
     /* 批 5：戒除类禁选 weekly/interval（置灰）；目标次数决定每日时间行数 */
     const tSel = document.querySelector('#habit-form [name="type"]');
     const isQuitType = tSel && tSel.value === 'quit';
@@ -17231,14 +17229,30 @@
       }).join('') +
       '<p style="font-size:11px;color:var(--muted);margin:4px 0 0">与通知路由的板块开关取交集——两边都开才会发</p>';
     };
-    let body = '<div class="field"><span>通知渠道</span><div>' + chRows() + '</div></div>';
+    /* 2A 拆分：参数 → schedExtra（内嵌块）；渠道 + 时间 → notifyExtra（提醒区） */
+    const ex = document.getElementById('schedExtra');
+    const nx = document.getElementById('notifyExtra');
+    if (!ex || !nx) return;
+    let param = '';
     if (schedDraft.kind === 'weekdays') {
-      body += '<div class="field"><span>哪几天（可多选）</span><div class="sched-days">' +
+      param += '<div class="field" style="margin-bottom:0"><span>哪几天（可多选）</span><div class="sched-days">' +
         ['一', '二', '三', '四', '五', '六', '日'].map(function (w, i) {
           const real = (i + 1) % 7;
           return '<button type="button" data-day="' + real + '" class="' +
             (schedDraft.days.indexOf(real) >= 0 ? 'on' : '') + '">周' + w + '</button>';
         }).join('') + '</div></div>';
+    } else if (schedDraft.kind === 'weekly') {
+      param += '<div class="field" style="margin-bottom:0;max-width:220px"><span>每周几次</span><div class="sched-num">' +
+        '<input type="number" min="1" max="7" data-sw="perWeek" value="' + schedDraft.perWeek + '"> 次 / 周</div></div>';
+    } else if (schedDraft.kind === 'interval') {
+      param += '<div class="field" style="margin-bottom:0;max-width:220px"><span>间隔天数</span><div class="sched-num">每 ' +
+        '<input type="number" min="2" max="60" data-sw="intervalDays" value="' + schedDraft.intervalDays + '"> 天一次</div></div>';
+    }
+    ex.innerHTML = param;
+    ex.style.display = param ? '' : 'none';   /* daily 无参数，隐藏空盒子 */
+    /* 提醒区：渠道 + 时间矩阵（按节奏适配） */
+    let body = '<div class="field"><span>通知渠道</span><div>' + chRows() + '</div></div>';
+    if (schedDraft.kind === 'weekdays') {
       /* 每个选中日各配各的时间（口径已锁：选中日 × 当日次数） */
       const wdParts = schedDraft.days.slice().sort(function (a, b) { return a - b; }).map(function (d) {
         if (!schedDraft.timesWd) schedDraft.timesWd = {};
@@ -17248,21 +17262,17 @@
       }).join('');
       body += wdParts;
     } else if (schedDraft.kind === 'weekly') {
-      body += '<div class="field"><span>每周几次</span><div class="sched-num">' +
-        '<input type="number" min="1" max="7" data-sw="perWeek" value="' + schedDraft.perWeek + '"> 次 / 周</div></div>' +
-        '<p class="pvw-hint">每周 N 次不单独设提醒——哪天做都行，未完成会进每日日报汇总。</p>';
+      body += '<div class="hint" style="background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px">每周 N 次不单独设提醒——哪天做都行，未完成会进<b>每日日报</b>汇总。上方渠道与备注仍保留。</div>';
     } else if (schedDraft.kind === 'interval') {
-      body += '<div class="field"><span>间隔天数</span><div class="sched-num">每 ' +
-        '<input type="number" min="2" max="60" data-sw="intervalDays" value="' + schedDraft.intervalDays + '"> 天一次</div></div>' +
-        '<div class="field"><span>本轮要求日的提醒时间</span>' +
+      body += '<div class="field"><span>本轮要求日的提醒时间</span>' +
         timeRows([schedDraft.timesInterval || '09:00'], 'itime') + '</div>';
     } else {
       const n = Math.max(1, tgt);
       if (!Array.isArray(schedDraft.timesDaily) || !schedDraft.timesDaily.length) schedDraft.timesDaily = ['07:00'];
-      body += '<div class="field"><span>提醒时间（每日 ' + n + ' 次）</span>' +
+      body += '<div class="field"><span>提醒时间（每天 ' + n + ' 次）</span>' +
         timeRows(schedDraft.timesDaily, 'dtime') + '</div>';
     }
-    ex.innerHTML = body;
+    nx.innerHTML = body;
   }
 
   /* 节奏表单的事件全部走 document 级委托：schedRender 每次重建 innerHTML，
@@ -17309,7 +17319,9 @@
       return;
     }
     /* 批 5：时间矩阵与渠道的编辑（全部走委托，重建不丢） */
-    const t = e.target.closest('#schedExtra [data-dtime],#schedExtra [data-wtime],#schedExtra [data-itime],#schedExtra [data-channel]');
+    const swT = e.target.closest('[data-role="notify-switch"]');
+    if (swT) { swT.classList.toggle('on'); swT.setAttribute('aria-checked', swT.classList.contains('on')); return; }
+    const t = e.target.closest('#notifyExtra [data-dtime],#notifyExtra [data-wtime],#notifyExtra [data-itime],#notifyExtra [data-channel]');
     if (!t || !schedDraft) return;
     if (t.dataset.channel) {
       schedDraft.channels = schedDraft.channels || [];
@@ -17359,16 +17371,23 @@
       '<form class="modal-card" id="habit-form" data-id="' + esc(h.id || '') + '"' +
         (isNew ? ' data-new="1"' : '') + '>' +
         '<h3>' + (isNew ? '添加习惯' : '编辑习惯') + '</h3>' +
-        '<div class="form-grid">' +
-          '<label class="field"><span>图标（emoji）<a class="field-link" href="https://www.emojiall.com/zh-hans" target="_blank" rel="noopener">更多图标</a></span><input name="icon" maxlength="4" value="' + esc(h.icon) + '" placeholder="💊"></label>' +
-          '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(h.name) + '" placeholder="例如：早睡"></label>' +
-          '<label class="field wide"><span>类型</span><select name="type">' +
-            (h.type === 'smoke'
-              ? '<option value="smoke" selected>戒烟 · 站点自带的常驻卡（类型固定）</option>'
-              : '') +
-            '<option value="build"' + (h.type === 'build' ? ' selected' : '') + '>保持 · 点一下算今天达标</option>' +
-            '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 每天点「完成」打卡才算守住，点了「未完成」记一次失守</option>' +
-          '</select></label>' +
+        '<div class="form-grid habit-2a">' +
+          '<div class="gtitle">基础</div>' +
+          '<div class="grid g2">' +
+            '<label class="field"><span>图标（emoji）<a class="field-link" href="https://www.emojiall.com/zh-hans" target="_blank" rel="noopener">更多图标</a></span><input name="icon" maxlength="4" value="' + esc(h.icon) + '" placeholder="💊"></label>' +
+            '<label class="field"><span>名称</span><input name="name" required maxlength="20" value="' + esc(h.name) + '" placeholder="例如：早睡"></label>' +
+          '</div>' +
+          '<div class="grid g3">' +
+            '<label class="field"><span>类型</span><select name="type">' +
+              (h.type === 'smoke'
+                ? '<option value="smoke" selected>戒烟 · 站点自带的常驻卡（类型固定）</option>'
+                : '') +
+              '<option value="build"' + (h.type === 'build' ? ' selected' : '') + '>保持 · 点一下算今天达标</option>' +
+              '<option value="quit"' + (h.type === 'quit' ? ' selected' : '') + '>戒除 · 每天点「完成」打卡才算守住，点了「未完成」记一次失守</option>' +
+            '</select></label>' +
+            '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(h.color || '#2f6f5e') + '"></label>' +
+            '<label class="field"><span>备注</span><input name="note" maxlength="40" value="' + esc(h.note || '') + '" placeholder="可选"></label>' +
+          '</div>' +
         '<div class="form-grid quit-fields wide" data-quit-only hidden>' +
           '<label class="field" data-qf-start><span>开始日期</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
           /* 只给通用戒除：戒烟（smoke）有自己的一对按钮，选单次/多次没有意义 */
@@ -17380,8 +17399,10 @@
           '<label class="field" data-smoke-only><span>一包多少钱（元）</span><input name="quitPackPrice" type="number" min="0" step="0.5" value="' + (Number(h.quitPackPrice) || '') + '" placeholder="例如 25"></label>' +
           '<label class="field" data-smoke-only><span>一包几支</span><input name="quitPackSize" type="number" min="1" max="50" value="' + (Number(h.quitPackSize) || 20) + '"></label>' +
         '</div>' +
-          /* 小习惯 2.0：「多久一次」由 sched 决定，与提醒频率彻底分开。 */
-          '<div class="field wide" data-sched-block><span>多久一次</span>' +
+        '<div class="sep"></div>' +
+          /* 小习惯 2.0 2A：「多久一次」由 sched 决定；参数内嵌在选中卡下方（sched-embed）。 */
+          '<div class="gtitle">节奏 · 多久一次 <span class="n">参数随选中项变化</span></div>' +
+          '<div class="field wide" data-sched-block>' +
             '<div class="sched-rc" id="schedKind">' +
               '<button type="button" data-sched="daily"><b>每天</b><small>每天都要求</small></button>' +
               '<button type="button" data-sched="weekdays"><b>每周固定几天</b><small>如周一三五</small></button>' +
@@ -17389,31 +17410,29 @@
               '<button type="button" data-sched="interval"><b>每 N 天</b><small>隔几天做一次</small></button>' +
             '</div>' +
           '</div>' +
-          '<div id="schedExtra"></div>' +
-          '<label class="field"><span>目标次数 / 天</span><input name="target" type="number" min="1" max="99" value="' + (Number(h.target) || 1) + '"></label>' +
-          '<label class="field"><span>单位</span><input name="unit" maxlength="4" value="' + esc(h.unit || '次') + '"></label>' +
-          /* 截止时刻：只对「保持 × 单次目标」生效（早睡、按时吃药这类）。留空 = 不限时刻。 */
-          '<label class="field"><span>截止时刻（可选，仅单次目标）</span><input type="time" name="deadline" value="' + esc(h.deadline || '') + '"></label>' +
+          '<div id="schedExtra" class="sched-embed"></div>' +
+        '<div class="sep"></div>' +
+          '<div class="gtitle">目标与记录</div>' +
+          '<div class="grid g3">' +
+            '<label class="field"><span>目标次数 / 天</span><input name="target" type="number" min="1" max="99" value="' + (Number(h.target) || 1) + '"></label>' +
+            '<label class="field"><span>单位</span><input name="unit" maxlength="4" value="' + esc(h.unit || '次') + '"></label>' +
+            '<label class="field"><span>截止时刻（可选，仅单次目标）</span><input type="time" name="deadline" value="' + esc(h.deadline || '') + '"></label>' +
+          '</div>' +
           (h.id === 'h_breathe'
-            ? '<label class="field"><span>每组循环数</span><input name="breatheCycles" type="number" min="1" max="8" value="' + (Number(h.breatheCycles) || 4) + '"></label>'
+            ? '<label class="field wide"><span>每组循环数</span><input name="breatheCycles" type="number" min="1" max="8" value="' + (Number(h.breatheCycles) || 4) + '"></label>'
             : '') +
-          '<label class="field"><span>颜色</span><input name="color" type="color" value="' + esc(h.color || '#2f6f5e') + '"></label>' +
-          '<label class="field"><span>备注</span><input name="note" maxlength="40" value="' + esc(h.note || '') + '" placeholder="可选"></label>' +
-        '</div>' +
-        '<div class="form-grid notify-grid">' +
-          '<label class="field"><span>通知提醒</span><select name="notify">' +
-            '<option value="1"' + (h.notify !== false ? ' selected' : '') + '>通知</option>' +
-            '<option value="0"' + (h.notify === false ? ' selected' : '') + '>不通知</option>' +
-          '</select></label>' +
-          '<label class="field"><span>通知时间</span><input type="time" name="suggestTime" value="' + esc(h.suggestTime || '15:00') + '"></label>' +
-          '<label class="field"><span>提醒频率</span><select name="notifyFreq">' +
-            '<option value="daily"' + ((h.notifyFreq || 'daily') === 'daily' ? ' selected' : '') + '>每天</option>' +
-            '<option value="weekly"' + (h.notifyFreq === 'weekly' ? ' selected' : '') + '>每周</option>' +
-            '<option value="monthly"' + (h.notifyFreq === 'monthly' ? ' selected' : '') + '>每月</option>' +
-          '</select></label>' +
-          '<label class="field" data-habit-freq data-habit-for="weekly"><span>每周几</span><select name="notifyWeekday">' + weekOpts + '</select></label>' +
-          '<label class="field" data-habit-freq data-habit-for="monthly"><span>每月几号</span><input type="number" name="notifyMonthday" min="1" max="31" value="' + (Number(h.notifyMonthday) || 1) + '"></label>' +
-          '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
+        '<div class="sep"></div>' +
+        '<div class="sep" style="margin-top:0"></div>' +
+          /* 2A 提醒组：旧通知五字段（通知提醒下拉/通知时间/提醒频率/每周几/每月几号）已删——
+             判定链只认 notifyPlan；notify 总开关以「开启提醒」开关保留在这里。 */
+          '<div class="gtitle">提醒 <span class="n">总开关 · 渠道 · 时间矩阵 · 备注</span></div>' +
+          '<div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后这个习惯不产生任何推送</small></div>' +
+            '<div class="sw' + (h.notify !== false ? ' on' : '') + '" data-role="notify-switch" role="switch" aria-checked="' + (h.notify !== false) + '" tabindex="0"></div></div>' +
+          '<div class="cols2">' +
+            '<div class="field"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(h.notifyNote || '') + '" placeholder="可选，随通知一起发送"></div>' +
+            '<div></div>' +
+          '</div>' +
+          '<div id="notifyExtra"></div>' +
         '</div>' +
         '<p class="hint" data-quit-hint="quit" data-slip="once" hidden>「戒除」<b>每天要点一次「完成」打卡</b>才算守住，不点就不算；' +
           '守不住点「未完成」记一次失守，连续天数从那天重新数。点错了各自再点一次即可撤销。</p>' +
@@ -17944,10 +17963,9 @@
       deadline: '',
       color: get('color') || '#2f6f5e',
       note: get('note'),
-      notify: get('notify') !== '0',
-      notifyFreq: get('notifyFreq') || 'daily',
-      notifyWeekday: clamp(parseInt(get('notifyWeekday'), 10) || 1, 0, 6),
-      notifyMonthday: clamp(parseInt(get('notifyMonthday'), 10) || 1, 1, 31),
+      /* 2A：总开关读「开启提醒」开关（旧下拉已删）；无开关（异常态）回落 true */
+      notify: form.querySelector('[data-role="notify-switch"]')
+        ? form.querySelector('[data-role="notify-switch"]').classList.contains('on') : true,
       notifyNote: get('notifyNote')
     };
     /* 小习惯 2.0：写回节奏草稿 + 更新时间戳（多端合并按它判新旧） */
@@ -22291,7 +22309,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=227', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=228', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
