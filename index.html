@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=229">
+<link rel="stylesheet" href="assets/app.css?v=230">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=229">
+<link rel="stylesheet" href="assets/theme-v2.css?v=230">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v229';
+  const APP_VERSION = 'v230';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -1471,6 +1471,11 @@
     data.tasks.forEach(t => {
       t.repeat = ['daily', 'weekly', 'monthly'].indexOf(t.repeat) >= 0 ? t.repeat : 'none';
       t.repeatTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t.repeatTime || '')) ? t.repeatTime : '20:00';
+      /* 任务级渠道：复用 notifyPlan 清洗（v230），无此键不写 */
+      if (t.notifyPlan && typeof t.notifyPlan === 'object') {
+        const npT = sanitizeNotifyPlan(t.notifyPlan);
+        if (npT && npT.channels) t.notifyPlan = { channels: npT.channels }; else delete t.notifyPlan;
+      }
       const due = t.due && /^\d{4}-\d{2}-\d{2}$/.test(String(t.due)) ? parseD(t.due) : null;
       const wd = Number(t.repeatWeekday);
       const rd = Number(t.repeatDay);
@@ -17137,30 +17142,45 @@
         '</div>' +
         '<div class="tk-sec-head"><b>备注</b><span class="line"></span></div>' +
         '<textarea class="tk-note" name="note" rows="2" maxlength="300" placeholder="可选，补充一点细节">' + esc(t.note || '') + '</textarea>' +
-        '<details class="tk-fold"' + (taskFoldOpen(t) ? ' open' : '') + '>' +
-          '<summary>更多设置<span class="muted-sm">开始时间、时长、通知、重复</span></summary>' +
-          '<div class="form-grid">' +
-            '<label class="field"><span>开始时间</span><input type="time" name="startTime" value="' + esc(t.startTime || '') + '"></label>' +
-            '<label class="field"><span>时长</span><select name="duration">' +
-              [[0, '不设时长'], [30, '30 分钟'], [60, '1 小时'], [90, '1.5 小时'], [120, '2 小时'], [180, '3 小时']]
-                .map(pair => '<option value="' + pair[0] + '"' +
-                  ((Number(t.duration) || 0) === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>').join('') +
-            '</select></label>' +
-            '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
-              '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
-              '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
-              '<option value="weekly"' + (repeat === 'weekly' ? ' selected' : '') + '>每周重复</option>' +
-              '<option value="monthly"' + (repeat === 'monthly' ? ' selected' : '') + '>每月重复</option>' +
-            '</select></label>' +
-            '<label class="field" data-repeat-field data-repeat-for="time"><span>重复时间</span><input type="time" name="repeatTime" value="' + esc(t.repeatTime || '20:00') + '"></label>' +
-            '<label class="field" data-repeat-field data-repeat-for="weekly"><span>每周几</span><select name="repeatWeekday">' + weekOpts + '</select></label>' +
-            '<label class="field" data-repeat-field data-repeat-for="monthly"><span>每月几号</span><input type="number" name="repeatDay" min="1" max="31" value="' + repeatDay + '"></label>' +
-            '<label class="field"><span>通知</span><select name="notify">' +
-              '<option value="1"' + (t.notify !== false ? ' selected' : '') + '>通知</option>' +
-              '<option value="0"' + (t.notify === false ? ' selected' : '') + '>不通知</option>' +
-            '</select></label>' +
-            '<label class="field"><span>通知时间</span><input type="time" name="notifyTime" value="' + esc(t.notifyTime || '09:00') + '"></label>' +
-            '<label class="field wide"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(t.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
+        '<details class="tk-fold">' +
+          '<summary>🔔 提醒 <span class="muted-sm">总开关 · 渠道 · 时间 · 备注（默认收起，点开编辑）</span></summary>' +
+          '<div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此待办不产生任何推送</small></div>' +
+            '<div class="sw' + (t.notify !== false ? ' on' : '') + '" data-role="notify-switch" role="switch" aria-checked="' + (t.notify !== false) + '" tabindex="0"></div></div>' +
+          '<div class="cols2">' +
+            '<div>' +
+              '<div class="gtitle">时间与类型</div>' +
+              '<label class="field"><span>开始时间</span><input type="time" name="startTime" value="' + esc(t.startTime || '') + '"></label>' +
+              '<label class="field"><span>时长</span><select name="duration">' +
+                [[0, '不设时长'], [30, '30 分钟'], [60, '1 小时'], [90, '1.5 小时'], [120, '2 小时'], [180, '3 小时']]
+                  .map(pair => '<option value="' + pair[0] + '"' +
+                    ((Number(t.duration) || 0) === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>').join('') +
+              '</select></label>' +
+              '<label class="field"><span>任务类型</span><select name="repeat" id="task-repeat">' +
+                '<option value="none"' + (repeat === 'none' ? ' selected' : '') + '>单次任务</option>' +
+                '<option value="daily"' + (repeat === 'daily' ? ' selected' : '') + '>每天重复</option>' +
+                '<option value="weekly"' + (repeat === 'weekly' ? ' selected' : '') + '>每周重复</option>' +
+                '<option value="monthly"' + (repeat === 'monthly' ? ' selected' : '') + '>每月重复</option>' +
+              '</select></label>' +
+              '<label class="field" data-repeat-field data-repeat-for="time"><span>重复时间</span><input type="time" name="repeatTime" value="' + esc(t.repeatTime || '20:00') + '"></label>' +
+              '<label class="field" data-repeat-field data-repeat-for="weekly"><span>每周几</span><select name="repeatWeekday">' + weekOpts + '</select></label>' +
+              '<label class="field" data-repeat-field data-repeat-for="monthly"><span>每月几号</span><input type="number" name="repeatDay" min="1" max="31" value="' + repeatDay + '"></label>' +
+            '</div>' +
+            '<div>' +
+              '<div class="gtitle">渠道与备注</div>' +
+              '<div class="field"><span>通知渠道 <span class="newtag">新</span></span>' +
+                '<div class="chan-row">' +
+                  [['wecom','企业微信'],['mail','邮件'],['browser','浏览器']].map(function (c) {
+                    const cur = (t.notifyPlan && Array.isArray(t.notifyPlan.channels)) ? t.notifyPlan.channels : [];
+                    return '<label><input type="checkbox" data-channel="' + c[0] + '"' +
+                      (cur.length ? (cur.indexOf(c[0]) >= 0 ? ' checked' : '')
+                                  : (c[0] === 'wecom' || c[0] === 'browser' ? ' checked' : '')) + '> ' + c[1] + '</label>';
+                  }).join('') +
+                '</div>' +
+                '<div class="hint">与通知路由的板块开关取交集——两边都开才会发；不勾任何渠道时回落板块默认（即现状）</div>' +
+              '</div>' +
+              '<label class="field"><span>通知时间</span><input type="time" name="notifyTime" value="' + esc(t.notifyTime || '09:00') + '"></label>' +
+              '<label class="field"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(t.notifyNote || '') + '" placeholder="可选，随通知一起发送"></label>' +
+            '</div>' +
           '</div>' +
           '<p class="hint" style="margin:10px 0 0">重复任务完成后会自动生成下一次待办；通知在「通知时间」发送，仅当天到期才提醒。每月遇到小月时取当月最后一天。</p>' +
         '</details>' +
@@ -17908,7 +17928,15 @@
       repeatTime: repeatTime,
       repeatWeekday: repeatWeekday,
       repeatDay: repeatDay,
-      notify: get('notify') !== '0',
+      notify: (function () {
+        const sw = document.querySelector('#task-form [data-role="notify-switch"]');
+        return sw ? sw.classList.contains('on') : true;
+      })(),
+      notifyPlan: (function () {
+        const form = document.getElementById('task-form');
+        const cs = form ? [...form.querySelectorAll('[data-channel]')].filter(c => c.checked).map(c => c.dataset.channel) : [];
+        return cs.length ? { channels: cs } : undefined;
+      })(),
       notifyTime: notifyTime,
       notifyNote: get('notifyNote'),
       startTime: startTime,
@@ -18187,7 +18215,9 @@
       next.packSize = clamp(Math.round(Number(get('packSize')) || 20), 1, 50);
     }
     if (key !== 'quit') {
-      next.notify = get('notify') !== '0';
+      /* 2A：总开关读「开启提醒」（旧下拉已删） */
+      const swH = document.querySelector('#habit-form [data-role="notify-switch"]');
+      next.notify = swH ? swH.classList.contains('on') : true;
       const st = get('suggestTime');
       next.suggestTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(st) ? st : '15:00';
       next.notifyFreq = 'daily';
@@ -22309,7 +22339,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=229', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=230', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

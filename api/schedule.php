@@ -182,6 +182,9 @@ function lb_schedule_day(array $state, string $date): array
             'priority' => '当日',
             'tag' => (string)($t['tag'] ?? ''),
             'taskPriority' => (string)($t['priority'] ?? ''),
+            /* v230：任务级渠道随事件下发（push.php effective_row 与 task 板块取交集） */
+            'channels' => (isset($t['notifyPlan']['channels']) && is_array($t['notifyPlan']['channels']) && $t['notifyPlan']['channels'])
+                ? array_values($t['notifyPlan']['channels']) : null,
         ];
     }
 

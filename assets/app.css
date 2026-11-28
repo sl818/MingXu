@@ -4402,3 +4402,21 @@ body.modal-open{overflow:hidden;}
 #habit-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
 #habit-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
 @media (max-width:720px){#habit-form .g2,#habit-form .g3,#habit-form .g4{grid-template-columns:1fr}}
+
+/* ===== 任务弹窗 2A 同构（v230）：分组通栏 840 + 提醒折叠 ===== */
+#task-form.modal-card{max-width:840px;width:calc(100vw - 32px)}
+#task-form .gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:14px 0 8px}
+#task-form .gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+#task-form .gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+#task-form .cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+@media (max-width:720px){#task-form .cols2{grid-template-columns:1fr;gap:0}}
+#task-form .switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+#task-form .switch-row b{font-size:12.5px;display:block}
+#task-form .switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+#task-form .sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+#task-form .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+#task-form .sw.on{background:var(--good);border-color:var(--good)}
+#task-form .sw.on::after{left:21px}
+#task-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+#task-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+#task-form .field input,#task-form .field select,#task-form .field textarea{width:100%}
