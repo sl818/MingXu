@@ -32,6 +32,26 @@
 
 ## 2. 批次划分
 
+### 批 0 · quit×smoke 解耦（2026-11-28 陛下确认，前置批次）
+查证结论：`isQuitLike`（quit+smoke）24 处使用（数据清洗/连胜/周条/dayStats/卡片/事件流判断），
+且 `schedule.php` 里 **smoke 走习惯排程段**——不做解耦，通知重构会卷进戒烟。
+- 方式：24 处逐个甄别，按语义拆成 `isQuit` / 保留 `isSmoke`；2.0 新逻辑（sched/notifyPlan/时间矩阵）
+  **只认 `type==='quit'`，禁止 isQuitLike**（铁律已入 CHANGE-MAP）；
+- 边界：`cravings` store 不拆（quit 失守与戒烟抽/忍共用），只拆判定；`quitNeedsCheckin` 已只认 quit；
+- **硬指标：拆分前后戒烟/戒除两类习惯的连胜数字逐个比对，一个不能变**（`streakOn` 是两者汇合点）；
+- 护航：戒除 21 项 + quit-multi 32 + habit-btn 31 + 全量回归 30；
+- 完成标志：`isQuitLike` 全仓清零（或仅剩显式双分支注释处），grep 验证。
+
+### 路由刚升级的注意（v211–v215，2026-11-27 落地）
+1. 板块矩阵存 `app_settings` 表 `notify_prefs_<uid>`（`lb_notify_boards_load/_save`，push.php），
+   **不在 state**——习惯渠道交集发送时从偏好表读，别去 state 找；
+2. 排程接线走 `api.php` 的 `push_preview` → `lb_schedule_*`：习惯矩阵排程项要扩这个数据源，
+   数据列表（v215 重做的卡片网格）用模块级 `nrFilter`/`nrActiveItem`，只重绘 `#nr-grid`，不整页 render；
+3. 模块类板块（用药/喝水/运动/478/戒烟）启用**派生自模块开关**不可独立存；habit 是基础板块（启用独立）；
+4. 免打扰时段（支持跨夜）、每日小结时刻、12 场景模板全部沿用，habit 场景模板已存在；
+5. 现状关键事实：`schedule.php` 习惯段 **quit 直接 continue 不排提醒、smoke 走单时间旧路径**——
+   批 3 重写这两处时，测试要覆盖「解禁后戒烟不受影响」。
+
 ### 批 1 · BUG 定位与修复（先定位后修，禁止盲改）
 - **BUG-①**：写复现测试——造 target=5 的保持类与戒除类各一，点 1 次打卡，
   分别检查 `checks` 存储、`met()` 读取。定位两种假设：
