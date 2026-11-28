@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>待办弹窗重设计 v2 · 完整字段（对齐习惯 2A）</title>
+<style>
+:root{--bg:#0e1411;--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;--font-sans:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color-scheme:dark;}
+[data-theme="light"]{--bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--surface-3:#ece4d4;--text:#1c2621;--muted:#6f7468;--line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--on-accent:#fdfaf2;--good:#2f7d5c;--bad:#b0473d;}
+[data-skin="slate"]{--bg:#0c111b;--surface:#151c2a;--surface-2:#1a2333;--surface-3:#212c40;--text:#e8edf7;--muted:#8492ad;--line:#2a3550;--accent:#5b8fd6;--accent-soft:#1c2a45;--on-accent:#0c111b;}
+[data-skin="slate"][data-theme="light"]{--bg:#edf0f5;--surface:#ffffff;--surface-2:#f5f7fb;--surface-3:#e3e8f1;--text:#1a2233;--muted:#6b7690;--line:#dde3ee;--accent:#3358a8;--accent-soft:#e3ebf8;--on-accent:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13.5px;line-height:1.5;padding:20px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin-bottom:5px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;margin-bottom:20px}
+.bar b{font-size:12px;color:var(--muted)}
+.bar button{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.scheme{margin-bottom:34px}
+.scheme>h2{font-size:15.5px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.scheme>h2 .tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.scheme>.desc{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px 14px;margin:0 auto;box-shadow:0 18px 44px -22px rgba(0,0,0,.55)}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.m-head b{font-size:15px}
+.m-head .w{font-size:11px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field>span{font-size:11.5px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+.field textarea{resize:vertical;min-height:52px}
+.title-big{font-family:inherit;font-size:16px;font-weight:600;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);width:100%}
+.title-big::placeholder{color:var(--muted);font-weight:400}
+.grid{display:grid;gap:0 12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.sep{border-top:1px dashed var(--line);margin:12px 0}
+.gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:0 0 8px}
+.gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+.gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+.quick-due{display:flex;gap:6px;margin:-4px 0 10px}
+.quick-due button{font-family:inherit;font-size:11.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
+.quick-due button:hover{color:var(--accent);border-color:var(--accent)}
+.subt{display:flex;flex-direction:column;gap:6px}
+.subt .row{display:flex;align-items:center;gap:8px}
+.subt .row input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+.subt .row input[type=text]{flex:1}
+.subt .add{font-family:inherit;font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;text-align:left;padding:4px 0}
+.subt .add:hover{color:var(--accent)}
+.count{font-size:11px;color:var(--muted);font-weight:400}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.switch-row b{font-size:12.5px;display:block}
+.switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+.sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--good);border-color:var(--good)}
+.sw.on::after{left:21px}
+.chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.newtag{font-size:10px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.actions .ghost{font-family:inherit;font-size:13px;padding:8px 18px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.actions .save{font-family:inherit;font-size:13px;font-weight:600;padding:8px 22px;border-radius:10px;border:1px solid var(--bad);background:var(--bad);color:#fff;cursor:pointer;width:auto;margin-top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>待办弹窗重设计 v2 · 完整字段（对齐习惯 2A 视觉）</h1>
+<div class="sub">字段与现弹窗一一对应：要做什么 / 状态 / 分类 / 优先级 / 截止（含快速截止）/ 子任务 / 备注 / 开始时间 / 时长 / 任务类型 / 提醒全套。通知备注保留。</div>
+<div class="bar">
+  <b>明暗</b>
+  <button data-th="dark" class="on">暗色</button>
+  <button data-th="light">亮色</button>
+  <b style="margin-left:8px">皮肤</b>
+  <button data-sk="default" class="on">暗夜绿</button>
+  <button data-sk="slate">石板蓝</button>
+</div>
+
+<!-- ===== 版 1 ===== -->
+<section class="scheme">
+  <h2>版 1 · 宽双栏 780px <span class="tag">左任务 右提醒</span></h2>
+  <div class="desc">左栏任务全部（标题/属性行/子任务/备注），右栏提醒（总开关/通知时间/通知备注）。与习惯 2A 同构。</div>
+  <div class="modal" style="max-width:780px">
+    <div class="m-head"><b>新建任务</b><span class="w">宽 780px</span></div>
+    <div class="cols2">
+      <div>
+        <div class="gtitle">任务</div>
+        <div class="field"><input class="title-big" placeholder="要做什么?"></div>
+        <div class="grid g4">
+          <div class="field"><span>状态</span><select><option>待办</option><option>完成</option></select></div>
+          <div class="field"><span>分类</span><select><option>健康</option><option>工作</option><option>生活</option></select></div>
+          <div class="field"><span>优先级</span><select><option>中</option><option>高</option><option>低</option></select></div>
+          <div class="field"><span>截止</span><input type="date" value="2026-11-28"></div>
+        </div>
+        <div class="quick-due">
+          <button>明日</button><button>三日</button><button>一周</button>
+        </div>
+        <div class="field"><span>子任务 <span class="count">0/0</span></span>
+          <div class="subt" id="sub1">
+            <div class="row"><input type="text" placeholder="添加子任务，回车确认"></div>
+          </div>
+          <button class="add" onclick="addSub('sub1')">+ 添加子任务</button>
+        </div>
+        <div class="field"><span>备注</span><textarea placeholder="可选，补充一点细节"></textarea></div>
+      </div>
+      <div>
+        <div class="gtitle">提醒</div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此待办不产生任何推送</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知时间</span><input type="time" value="09:00"></div>
+        <div class="field"><span>通知备注</span><input placeholder="可选，随通知一起发送"></div>
+        <div class="hint">重复任务完成后自动生成下一次待办；提醒在「通知时间」发送，仅当天到期才提醒；每月遇到小月时取当月最后一天。</div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+
+<!-- ===== 版 2 ===== -->
+<section class="scheme">
+  <h2>版 2 · 分组通栏 840px + 渠道扩展 <span class="tag">含可选新功能</span></h2>
+  <div class="desc">通栏分组：基础 4 列一行（密度最高）→ 子任务 → 备注 → 提醒组左右分栏（含任务级渠道可选新功能）。「开始时间/时长/任务类型」收进提醒组左列（与通知相关的时间类字段就近摆放）。</div>
+  <div class="modal" style="max-width:840px">
+    <div class="m-head"><b>新建任务</b><span class="w">宽 840px · 分组通栏</span></div>
+    <div class="gtitle">任务</div>
+    <div class="field"><input class="title-big" placeholder="要做什么?"></div>
+    <div class="grid g4">
+      <div class="field"><span>状态</span><select><option>待办</option></select></div>
+      <div class="field"><span>分类</span><select><option>健康</option></select></div>
+      <div class="field"><span>优先级</span><select><option>中</option></select></div>
+      <div class="field"><span>截止</span><input type="date" value="2026-11-28"></div>
+    </div>
+    <div class="quick-due">
+      <button>明日</button><button>三日</button><button>一周</button>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">子任务 <span class="n">0/0</span></div>
+    <div class="subt" id="sub2">
+      <div class="row"><input type="text" placeholder="添加子任务，回车确认"></div>
+    </div>
+    <button class="add" onclick="addSub('sub2')">+ 添加子任务</button>
+    <div class="field" style="margin-top:10px"><span>备注</span><textarea placeholder="可选，补充一点细节"></textarea></div>
+    <div class="sep"></div>
+    <div class="gtitle">提醒 <span class="n">总开关 · 渠道 · 时间 · 备注</span></div>
+    <div class="cols2">
+      <div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知时间</span><input type="time" value="09:00"></div>
+        <div class="field"><span>开始时间</span><input type="time" placeholder="--:--"></div>
+        <div class="field"><span>时长</span><select><option>不设时长</option><option>30 分钟</option><option>1 小时</option></select></div>
+        <div class="field"><span>任务类型</span><select><option>单次任务</option><option>每天重复</option><option>每周重复</option><option>每月重复</option></select></div>
+      </div>
+      <div>
+        <div class="field"><span>通知渠道 <span class="newtag">可选新功能</span></span>
+          <div class="chan-row">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与板块开关取交集；不勾任何渠道时回落板块默认（即现状）</div>
+        </div>
+        <div class="field"><span>通知备注</span><input placeholder="可选，随通知一起发送"></div>
+        <div class="hint">重复任务完成后自动生成下一次待办；提醒在「通知时间」发送，仅当天到期才提醒；每月遇到小月时取当月最后一天。</div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+</div>
+<script>
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
+function addSub(id){
+  const box=document.getElementById(id);
+  const row=document.createElement('div');row.className='row';
+  row.innerHTML='<input type="checkbox"><input type="text" placeholder="子任务内容">';
+  box.appendChild(row);
+}
+</script>
+</body>
+</html>
