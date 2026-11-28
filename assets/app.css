@@ -4527,3 +4527,10 @@ body.modal-open{overflow:hidden;}
 #move-sport-form .time-slots .sp-trow{display:flex;align-items:center;gap:8px}
 #move-sport-form .time-slots input{border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);font-family:inherit;font-size:13px;padding:7px 10px}
 #move-sport-form .f-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em}
+
+/* v241：运动弹窗 field 输入框主题化（与其他弹窗一致） */
+#move-sport-form .field>span{font-size:11.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
+#move-sport-form .field input,#move-sport-form .field select{
+  display:block;width:100%;font-family:inherit;font-size:13px;padding:7px 10px;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);
+  color-scheme:inherit}
