@@ -4392,3 +4392,13 @@ body.modal-open{overflow:hidden;}
 #habit-form .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
 #habit-form .sw.on{background:var(--good);border-color:var(--good)}
 #habit-form .sw.on::after{left:21px}
+
+/* 2A 补丁：网格工具类与渠道行（漏了它们双栏不生效，v229） */
+#habit-form .habit-2a{display:block}
+#habit-form .grid{display:grid;gap:0 12px}
+#habit-form .g2{grid-template-columns:1fr 1fr}
+#habit-form .g3{grid-template-columns:1fr 1fr 1fr}
+#habit-form .g4{grid-template-columns:repeat(4,1fr)}
+#habit-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+#habit-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+@media (max-width:720px){#habit-form .g2,#habit-form .g3,#habit-form .g4{grid-template-columns:1fr}}
