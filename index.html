@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=220">
+<link rel="stylesheet" href="assets/app.css?v=221">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=220">
+<link rel="stylesheet" href="assets/theme-v2.css?v=221">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v220';
+  const APP_VERSION = 'v221';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -6728,6 +6728,13 @@
       const missed = assessmentHabits(d).filter(h => !met(h, d)).map(h => h.name);
       sub = '还差 ' + missed.length + ' 项：' + missed.join('、');
     }
+    /* 小习惯 2.0：周期型不进上面的分母，进度在这里单独回述（Q2 的呈现端） */
+    if (isToday) {
+      const perParts = activeHabits(d)
+        .filter(h => !isArchived(h) && !h.optional && isPeriodic(h))
+        .map(h => { const mp = metPeriod(h, d); return h.name + ' ' + mp.done + '/' + mp.target; });
+      if (perParts.length) sub += ' · 本周节奏：' + perParts.join('、');
+    }
 
     /* 常驻卡：四个模块（数据在 state.modules）+ 用药占位（仍是习惯）。
        顺序仍由 orderedPinnedIds() 决定，用户的既有排序不受影响。 */
@@ -12667,6 +12674,13 @@
       '<div class="panel"><h3>总览 <span class="muted-sm">（' + rangeLabel + ' · 只看有记录的日子）</span></h3>' +
         '<div class="stat-grid">' +
           '<div class="stat-card"><small>连续达标</small><b>' + overallStreak() + ' <i>天</i></b><span>完成率 ≥ 75% 记一天</span></div>' +
+          (function () {
+            /* 小习惯 2.0：周期型（每周 N 次）不进日完成率，在这里单独给进度 */
+            const perList = (state.habits || []).filter(h => !isArchived(h) && !h.optional && isPeriodic(h));
+            if (!perList.length) return '';
+            const perDone = perList.filter(h => metPeriod(h, todayStr()).met).length;
+            return '<div class="stat-card"><small>本周节奏</small><b>' + perDone + ' <i>/ ' + perList.length + ' 项</i></b><span>每周 N 次型习惯</span></div>';
+          })() +
           '<div class="stat-card"><small>' + rangeLabel + '完成率</small><b>' + pct(rangeStats) + '</b><span>' + rangeStats.days + ' 天有记录</span></div>' +
           '<div class="stat-card"><small>本月完成率</small><b>' + pct(month) + '</b><span>' + month.days + ' 天有记录</span></div>' +
         '</div>' +
@@ -16879,7 +16893,6 @@
      30ms 是等 openModal 把表单塞进 DOM。 */
   function initSchedForm(h) {
     schedDraft = schedOf(h);
-    window.__schedDebug = schedDraft;   /* 调试用，随本版本移除 */
     schedRender();
   }
 
@@ -21749,7 +21762,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=220', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=221', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
