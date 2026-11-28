@@ -344,6 +344,35 @@ with sync_playwright() as p:
         not m6['hasWaterCard'], str(m6))
     ctx.close()
 
+    # ========== v211 清债模块启停 ==========
+    BOARD['data']['money'] = {'v': 1, 'on': True,
+                              'debts': [{'id': 'd1', 'name': '测试卡', 'balance': 3000, 'due': 10}],
+                              'notify': {'on': True, 'time': '09:00'}}
+    BOARD['rev'] += 1
+    ctx, pg, errs = open_page(br, 'modules')
+    # M8a 停用清债：导航隐藏 + 落库 + debts 保留
+    pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"money\"]'); if(c) c.click(); }")
+    pg.wait_for_timeout(2000)
+    m8 = pg.evaluate("() => Array.from(document.querySelectorAll('[data-nav=\"money\"]')).length")
+    st = BOARD['data']   # mock 整体替换 BOARD['data']，重新取引用（M5 的教训）
+    rec('M8 停用清债：开关落库（on=false）',
+        st['money'].get('on') is False, str(st['money'].get('on')))
+    rec('M8 停用清债：导航不再有「清债」入口', m8 == 0, '入口数=%d' % m8)
+    rec('M8 停用清债：债务数据一个字节不动',
+        st['money']['debts'][0]['balance'] == 3000, str(st['money']['debts'][0]))
+
+    # M8b 再开启：恢复
+    pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"money\"]'); if(c) c.click(); }")
+    pg.wait_for_timeout(2000)
+    m8b = pg.evaluate("() => Array.from(document.querySelectorAll('[data-nav=\"money\"]')).length")
+    st = BOARD['data']
+    rec('M8 再开启清债：开关恢复（on=true）',
+        st['money'].get('on') is True, str(st['money'].get('on')))
+    rec('M8 再开启清债：导航恢复入口', m8b >= 1, '入口数=%d' % m8b)
+    rec('M8 再开启清债：债务数据仍在',
+        st['money']['debts'][0]['balance'] == 3000, str(st['money']['debts'][0]))
+    ctx.close()
+
     br.close()
 
 srv.shutdown()

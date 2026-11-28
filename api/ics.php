@@ -299,6 +299,10 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
             $mp = isset($state['modulePrefs']['meds']) && is_array($state['modulePrefs']['meds']) ? $state['modulePrefs']['meds'] : [];
             return ($mp['on'] ?? true) !== false;
         }
+        if ($key === 'money') {
+            $mm = isset($state['money']) && is_array($state['money']) ? $state['money'] : [];
+            return ($mm['on'] ?? true) !== false;
+        }
         $m = isset($state['modules'][$key]) && is_array($state['modules'][$key]) ? $state['modules'][$key] : [];
         return ($m['on'] ?? true) !== false;
     };
@@ -665,7 +669,7 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
        两者在 2 月会有出入。还款日设在 28 号以内就完全没这个问题。 */
     $money = isset($state['money']) && is_array($state['money']) ? $state['money'] : [];
     $mnt = isset($money['notify']) && is_array($money['notify']) ? $money['notify'] : [];
-    if (($mnt['on'] ?? false) === true) {
+    if ($modOn($state, 'money') && ($mnt['on'] ?? false) === true) {   // v211：清债模块停用则整段不进订阅
         [$nh, $nm] = lb_ics_clock((string)($mnt['time'] ?? ''), '09:00');
         $debts = isset($money['debts']) && is_array($money['debts']) ? $money['debts'] : [];
         foreach ($debts as $d) {

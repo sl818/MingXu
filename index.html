@@ -161,12 +161,21 @@
       const mp = state && state.modulePrefs && state.modulePrefs.meds;
       return !mp || mp.on !== false;
     }
+    if (key === 'money') {
+      const mm = state && state.money;
+      return !mm || mm.on !== false;
+    }
     const m = state && state.modules && state.modules[key];
     return !m || m.on !== false;
   }
   function setModuleOn(key, on) {
     if (!state.modules) state.modules = {};
-    if (key === 'meds') {
+    if (key === 'money') {
+      /* 清债的开关随 moneyAt 整块合并 —— 后写的赢，无需新合并逻辑 */
+      if (!isPlainObject(state.money)) state.money = moneySeed();
+      state.money.on = on;
+      state.moneyAt = Date.now();
+    } else if (key === 'meds') {
       /* { on, at }：合并时按 at 取较新的状态 —— 否则一端停用、另一端启用会被旧状态盖掉 */
       if (!isPlainObject(state.modulePrefs)) state.modulePrefs = {};
       state.modulePrefs.meds = { on: !!on, at: Date.now() };
@@ -10862,6 +10871,8 @@
   function moneySeed() {
     return {
       v: 1,
+      /* v211：模块开关 —— 停用后导航隐藏、还款日历与提醒同步停止；数据原样保留 */
+      on: true,
       debts: [],
       /* 每月在最低还款之外多还的钱（加速钱） */
       extra: 0,
@@ -10988,6 +10999,7 @@
   function normalizeMoney(raw) {
     const out = moneySeed();
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    out.on = raw.on !== false;
     const arr = function (v) { return Array.isArray(v) ? v.filter(function (x) { return x && typeof x === 'object'; }) : []; };
     out.debts = arr(raw.debts).map(function (d) {
       const bal = moneyNum(d.balance);
@@ -14344,7 +14356,9 @@
       { key: 'breathe', icon: '🌬️', name: '478呼吸法', desc: '呼吸练习与每天几组' },
       { key: 'water',   icon: '💧', name: '喝水',      desc: '每天喝水量与补水记录' },
       { key: 'move',    icon: '🏃', name: '运动',      desc: '运动打卡、目标与统计' },
-      { key: 'quit',    icon: '🚭', name: '戒烟',      desc: '戒烟打卡、烟盒与买烟记录' }
+      { key: 'quit',    icon: '🚭', name: '戒烟',      desc: '戒烟打卡、烟盒与买烟记录' },
+      { key: 'money',   icon: '💰', name: '清债',      desc: '债务清单与还款计划',
+        warn: '停用后还款日历与提醒同步停止' }
     ];
     const pref = function (key) { return isModuleOn(key); };
     const rows = DEFS.map(function (m) {
@@ -14354,7 +14368,7 @@
       return '<div class="mdl-row' + (on ? '' : ' off') + '">' +
         '<span class="mdl-ico">' + m.icon + '</span>' +
         '<span class="mdl-txt"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small>' +
-          (on ? '' : '<small class="mdl-off-tag">已停用 · 数据已保留</small>') + '</span>' +
+          (on ? '' : '<small class="mdl-off-tag">已停用 · 数据已保留' + (m.warn ? ' · ' + esc(m.warn) : '') + '</small>') + '</span>' +
         '<span class="w-switch" data-act="module-toggle" data-key="' + m.key + '">' +
           '<input type="checkbox" tabindex="-1"' + (on ? ' checked' : '') + '><i></i></span>' +
       '</div>';
@@ -15324,7 +15338,7 @@
       if (ga !== gb) return ga - gb;
       return rank(a.key) - rank(b.key);
     }).filter(function (n) {
-      return ['meds', 'quit', 'water', 'move', 'breathe'].indexOf(n.key) < 0 || isModuleOn(n.key === 'meds' ? 'meds' : n.key);
+      return ['meds', 'quit', 'water', 'move', 'breathe', 'money'].indexOf(n.key) < 0 || isModuleOn(n.key);
     });
     return out;
   }
@@ -15808,7 +15822,7 @@
 
   function render() {
     /* v209：view 兜底 —— 停用的模块不能通过书签/旧入口进入，回仪表盘 */
-    if (['meds', 'quit', 'water', 'move', 'breathe'].indexOf(view) >= 0 && !isModuleOn(view === 'meds' ? 'meds' : view)) {
+    if (['meds', 'quit', 'water', 'move', 'breathe', 'money'].indexOf(view) >= 0 && !isModuleOn(view)) {
       view = 'today';
       try { localStorage.setItem('lifeboard.view', 'today'); } catch (e) {}
     }
@@ -19583,7 +19597,8 @@
        跟后端 lb_schedule_debts 用同一个兜底。 */
     const mnt = (state.money && state.money.notify && typeof state.money.notify === 'object')
       ? state.money.notify : null;
-    if (mnt && mnt.on) {
+    /* v211：清债模块停用后，还款日历条目一并停止（提醒跟着日历走） */
+    if (isModuleOn('money') && mnt && mnt.on) {
       const [nh, nm] = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(mnt.time || ''))
         ? String(mnt.time).split(':').map(Number) : [9, 0];
       (Array.isArray(state.money.debts) ? state.money.debts : []).forEach(d => {

@@ -759,6 +759,10 @@ function lb_schedule_countdowns(array $state, string $date): array
  */
 function lb_schedule_debts(array $state, string $date): array
 {
+    /* v211：清债模块停用则整段不产生提醒（与前端 isModuleOn 同语义） */
+    if (($state['money']['on'] ?? true) === false) {
+        return [];
+    }
     if (!lb_ics_is_date($date)) {
         return [];
     }
