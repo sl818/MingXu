@@ -185,7 +185,12 @@ function lb_schedule_day(array $state, string $date): array
         ];
     }
 
-    /* ---------------------------------------------------------------- 习惯 */
+    /* ---------------------------------------------------------------- 习惯
+       v221 批 3：分两条路径。
+       · 无 notifyPlan（老数据 + 戒烟旧路径）：原样走 suggestTime + notifyFreq，
+         quit 仍不排提醒——行为零变化，老断言不受影响。
+       · 有 notifyPlan（2.0 矩阵）：按 h.sched 判定当日是否要求，再按
+         notifyPlan 的时间数组逐时间生成排程项；多次型按已完成次数覆盖时间点。 */
     foreach ((array)($state['habits'] ?? []) as $h) {
         if (!is_array($h) || !empty($h['archivedAt'])) {
             continue;
@@ -193,10 +198,6 @@ function lb_schedule_day(array $state, string $date): array
         if (!empty($h['optional']) || !empty($h['med'])
             || in_array((string)($h['id'] ?? ''), ['h_water', 'h_move', 'h_breathe', 'h_drink'], true)) {
             continue;   // 可选项不催；用药类习惯由药品自己提醒；四个健康模块由模块配置接管
-        }
-        /* 与 ics.php 保持一致：戒除类（quit）不排提醒，它靠当天“没破戒”来算 */
-        if (($h['type'] ?? '') === 'quit') {
-            continue;
         }
         /* 通知开关：默认开，显式关掉才不提醒 */
         if (($h['notify'] ?? true) === false) {
@@ -206,54 +207,160 @@ function lb_schedule_day(array $state, string $date): array
         if ($hid === '') {
             continue;
         }
-        $slot = (string)($h['suggestTime'] ?? '');
-        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
+        $np = isset($h['notifyPlan']) && is_array($h['notifyPlan']) ? $h['notifyPlan'] : null;
+        if ($np === null) {
+            /* ============ 旧路径（老数据 + 戒烟，行为零变化） ============ */
+            /* 与 ics.php 保持一致：旧戒除类不排提醒，它靠当天“没破戒”来算 */
+            if (($h['type'] ?? '') === 'quit') {
+                continue;
+            }
+            $slot = (string)($h['suggestTime'] ?? '');
+            if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $slot)) {
+                continue;
+            }
+            /* 通知频率：daily 每天；weekly 只在 notifyWeekday；monthly 只在 notifyMonthday。 */
+            $freq = (string)($h['notifyFreq'] ?? 'daily');
+            if ($freq === 'weekly') {
+                $wd = max(0, min(6, (int)($h['notifyWeekday'] ?? 1)));
+                if ((int)date('w', strtotime($date)) !== $wd) {
+                    continue;
+                }
+            } elseif ($freq === 'monthly') {
+                $md = max(1, min(31, (int)($h['notifyMonthday'] ?? 1)));
+                if ((int)date('j', strtotime($date)) !== $md) {
+                    continue;
+                }
+            }
+            /* 今天已经打过卡就不再催 */
+            if (isset($checks[$hid]) && (float)$checks[$hid] > 0) {
+                continue;
+            }
+            $name = trim((string)($h['name'] ?? '习惯'));
+            if ($name === '') {
+                $name = '习惯';
+            }
+            $target = (float)($h['target'] ?? 1);
+            $unit = (string)($h['unit'] ?? '');
+            $body = $target > 1
+                ? '今天还差 ' . (string)(int)$target . ($unit !== '' ? $unit : '次')
+                : '今天的习惯还没打卡';
+            $notifyNote = trim((string)($h['notifyNote'] ?? ''));
+            if ($notifyNote !== '') {
+                $body .= "\n" . $notifyNote;
+            }
+            $icon = (string)($h['icon'] ?? '');
+            $out[] = [
+                'time' => $slot,
+                'kind' => 'habit',
+                'id' => $hid,
+                'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+                'body' => $body,
+                'source' => 'habit',
+                'priority' => '日常',
+                'habitType' => (string)($h['type'] ?? 'build'),
+            ];
             continue;
         }
-        /* 通知频率：daily 每天；weekly 只在 notifyWeekday；monthly 只在 notifyMonthday。
-           打卡仍是每天，这里只决定「今天要不要提醒」。notifyWeekday 用 0-6（0=周日），
-           和任务的 repeatWeekday、date('w') 一致。 */
-        $freq = (string)($h['notifyFreq'] ?? 'daily');
-        if ($freq === 'weekly') {
-            $wd = max(0, min(6, (int)($h['notifyWeekday'] ?? 1)));
-            if ((int)date('w', strtotime($date)) !== $wd) {
-                continue;
+
+        /* ============ 2.0 矩阵路径（有 notifyPlan） ============ */
+        $sched = isset($h['sched']) && is_array($h['sched']) ? $h['sched'] : null;
+        $kind = $sched ? (string)($sched['kind'] ?? 'daily') : 'daily';
+        $dow = (int)date('w', strtotime($date));   // 0=周日，与前端一致
+        $due = true;
+        if ($kind === 'weekdays') {
+            $days = isset($sched['days']) && is_array($sched['days'])
+                ? array_map('intval', $sched['days']) : [];
+            $due = in_array($dow, $days, true);
+        } elseif ($kind === 'weekly') {
+            $due = false;   // 弹性配额不单独排程，未完成项走每日日报
+        } elseif ($kind === 'interval') {
+            /* 以 anchor 分轮：轮内任一天打卡即本轮完成，剩余日不排（绝不拿上次完成日推算） */
+            $iv = max(2, min(60, (int)($sched['intervalDays'] ?? 3)));
+            $anchor = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($sched['anchor'] ?? ''))
+                ? (string)$sched['anchor']
+                : substr((string)($h['createdAt'] ?? ''), 0, 10);
+            $due = false;
+            $doneAny = false;
+            if ($anchor !== '' && strtotime($date) >= strtotime($anchor)) {
+                $diff = (int)floor((strtotime($date) - strtotime($anchor)) / 86400);
+                $roundStart = date('Y-m-d', strtotime($anchor) + ($diff - ($diff % $iv)) * 86400);
+                for ($i = 0; $i < $iv; $i++) {
+                    $ds = date('Y-m-d', strtotime($roundStart) + $i * 86400);
+                    if ($ds > $date) {
+                        break;
+                    }
+                    if (isset($state['checks'][$ds][$hid]) && (float)$state['checks'][$ds][$hid] > 0) {
+                        $doneAny = true;
+                        break;
+                    }
+                }
+                $due = empty($doneAny);
             }
-        } elseif ($freq === 'monthly') {
-            $md = max(1, min(31, (int)($h['notifyMonthday'] ?? 1)));
-            if ((int)date('j', strtotime($date)) !== $md) {
-                continue;
+            unset($doneAny);
+        }
+        if (!$due) {
+            continue;
+        }
+        /* 当日时间数组：weekdays → notifyPlan.wd[dow]；interval → intervalTime；daily → notifyPlan.daily */
+        $times = [];
+        if ($kind === 'weekdays') {
+            $k = (string)$dow;
+            if (isset($np['wd'][$k]) && is_array($np['wd'][$k])) {
+                $times = $np['wd'][$k];
+            }
+        } elseif ($kind === 'interval') {
+            $times = [ (string)($np['intervalTime'] ?? '09:00') ];
+        } else {
+            if (isset($np['daily']) && is_array($np['daily'])) {
+                $times = $np['daily'];
             }
         }
-        /* 今天已经打过卡就不再催 */
-        if (isset($checks[$hid]) && (float)$checks[$hid] > 0) {
+        $times = array_values(array_filter($times, function ($t) {
+            return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$t);
+        }));
+        sort($times);
+        if (!$times) {
             continue;
         }
         $name = trim((string)($h['name'] ?? '习惯'));
         if ($name === '') {
             $name = '习惯';
         }
-        $target = (float)($h['target'] ?? 1);
+        $target = max(1, (int)round((float)($h['target'] ?? 1)));
         $unit = (string)($h['unit'] ?? '');
-        $body = $target > 1
-            ? '今天还差 ' . (string)(int)$target . ($unit !== '' ? $unit : '次')
-            : '今天的习惯还没打卡';
+        $count = isset($checks[$hid]) ? (float)$checks[$hid] : 0;
         $notifyNote = trim((string)($h['notifyNote'] ?? ''));
-        if ($notifyNote !== '') {
-            $body .= "\n" . $notifyNote;
-        }
         $icon = (string)($h['icon'] ?? '');
-        $out[] = [
-            'time' => $slot,
-            'kind' => 'habit',
-            'id' => $hid,
-            'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
-            'body' => $body,
-            /* v211：普通习惯（build/smoke）——quit 已在上面跳过 */
-            'source' => 'habit',
-            'priority' => '日常',
-            'habitType' => (string)($h['type'] ?? 'build'),
-        ];
+        /* 多次型催促：第 i 个时间点前若已完成次数 ≥ i，该条不发（次数覆盖时间点） */
+        $slotIdx = 0;
+        foreach ($times as $slot) {
+            $slotIdx++;
+            if ($count >= $slotIdx) {
+                continue;
+            }
+            $left = max(0, $target - (int)round($count));
+            $body = $target > 1
+                ? '今天已完成 ' . (string)(int)round($count) . '/' . (string)$target . ' · 还差 ' . (string)$left . ($unit !== '' ? $unit : '次')
+                : '今天的习惯还没打卡';
+            if ((bool)($h['type'] === 'quit')) {
+                $body = $target > 1
+                    ? '今天已失守 ' . (string)(int)round($count) . '/' . (string)$target . ' 次'
+                    : '今天还没打卡 · 守住它';
+            }
+            if ($notifyNote !== '') {
+                $body .= "\n" . $notifyNote;
+            }
+            $out[] = [
+                'time' => (string)$slot,
+                'kind' => 'habit',
+                'id' => $hid,
+                'title' => ($icon !== '' ? $icon . ' ' : '') . $name,
+                'body' => $body,
+                'source' => 'habit',
+                'priority' => '日常',
+                'habitType' => (string)($h['type'] ?? 'build'),
+            ];
+        }
     }
 
     /* ---------------------------------------------------------------- 健康模块
@@ -353,7 +460,9 @@ function lb_schedule_day(array $state, string $date): array
                     'name' => trim((string)($sp['name'] ?? '')) ?: '运动',
                     'icon' => (string)($sp['icon'] ?? ''),
                     'id' => $spid !== '' ? ('sport-' . $spid) : $hid,
-                    'sport' => $spkey,
+                    /* v216：sport 带实例 id（instances 的键）；mode 保留模式 key 供展示 */
+                    'sport' => $spid !== '' ? $spid : $spkey,
+                    'mode' => $spkey,
                 ];
             }
             if ($instSlots) {
@@ -368,6 +477,7 @@ function lb_schedule_day(array $state, string $date): array
                         'source' => 'move',
                         'priority' => '日常',
                         'sport' => $is['sport'],
+                        'mode' => $is['mode'] ?? $is['sport'],
                     ];
                 }
                 continue;
