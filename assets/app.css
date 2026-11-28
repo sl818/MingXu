@@ -4436,3 +4436,29 @@ html[data-theme="dark"] #task-form{--surface:#18211c;--surface-2:#1f2a24;--surfa
 #task-form .quick-due .chip{font-size:11.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
 #task-form .sep{border-top:1px dashed var(--line);margin:12px 0}
 #task-form .hint{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* ===== v232：预览对齐强制版（!important 压过主题层与浏览器原生样式） ===== */
+/* 标题框：16px 加粗、圆角 10、surface-2 底 */
+#task-form .tk-title{font-size:16px !important;font-weight:600 !important;border-radius:10px !important;padding:9px 12px !important;background:var(--surface-2) !important;border:1px solid var(--line) !important;color:var(--text) !important;width:100% !important}
+/* 属性行 4 列网格 */
+#task-form .tk-props{display:grid !important;grid-template-columns:repeat(4,1fr) !important;gap:0 12px !important}
+#task-form .tk-props .tk-p{display:flex !important;flex-direction:column !important;gap:4px !important;margin:0 !important;background:none !important;border:none !important;padding:0 !important}
+#task-form .tk-props .tk-p>span{font-size:11.5px !important;font-weight:600 !important;color:var(--muted) !important;background:none !important;border:none !important;padding:0 !important}
+/* 四个下拉/日期框全部主题化：去原生外观 + chevron 箭头 */
+#task-form .tk-props .tk-p select,#task-form .tk-props .tk-p input{
+  appearance:none !important;-webkit-appearance:none !important;-moz-appearance:none !important;
+  font-family:inherit !important;font-size:13px !important;padding:7px 10px !important;
+  border:1px solid var(--line) !important;border-radius:9px !important;
+  background:var(--surface-2) !important;color:var(--text) !important;width:100% !important;
+  color-scheme:dark !important}
+#task-form .tk-props .tk-p select{
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238fa096' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") !important;
+  background-repeat:no-repeat !important;background-position:right 10px center !important;
+  padding-right:28px !important}
+#task-form .tk-props .tk-p select option{background:var(--surface) !important;color:var(--text) !important}
+/* 习惯弹窗的 select 同步主题化（同一套观感） */
+#habit-form .field select{
+  appearance:none !important;-webkit-appearance:none !important;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238fa096' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") !important;
+  background-repeat:no-repeat !important;background-position:right 10px center !important;
+  padding-right:28px !important}
