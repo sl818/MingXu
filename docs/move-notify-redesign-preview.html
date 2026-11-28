@@ -112,12 +112,7 @@ h1{font-size:19px;margin-bottom:5px}
     <div class="cols2">
       <div>
         <div class="gtitle">运动</div>
-        <div class="sp-grid">
-          <div class="sp-opt"><span class="ci">🏃</span>跑步</div>
-          <div class="sp-opt on"><span class="ci">🚴</span>骑行</div>
-          <div class="sp-opt dis"><span class="ci">🏊</span>游泳</div>
-          <div class="sp-opt"><span class="ci">🤸</span>健身</div>
-        </div>
+        <div class="sp-grid" id="spg1"></div>
         <p class="hint">🔒 运动类型与记录方式建好后不能修改，需要换请新建。</p>
         <div class="sep"></div>
         <div class="field"><span>目标</span>
@@ -138,10 +133,9 @@ h1{font-size:19px;margin-bottom:5px}
         </div>
         <div class="nrow" style="margin:8px 0"><span class="lbl">每个选中的日子做</span><input type="number" value="2" id="pd1" oninput="pvT(1)"><span class="u">次</span></div>
         <div class="sep"></div>
-        <div class="gtitle">运动数据记录 <span class="n">记录方式仅今日步数有</span></div>
-        <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动消耗的时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
-        <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
-        <div class="fld-chk"><div><b>平均配速</b><small>记录本次平均配速</small></div><span class="sw" onclick="this.classList.toggle('on')"></span></div>
+        <div id="rec1"></div>
+        <div class="gtitle">运动数据记录 <span class="n">随运动模式变化</span></div>
+        <div id="flds1"></div>
       </div>
       <div>
         <div class="gtitle">提醒时间矩阵 <span class="n">每选中日各一组</span></div>
@@ -171,13 +165,7 @@ h1{font-size:19px;margin-bottom:5px}
   <div class="modal" style="max-width:840px">
     <div class="m-head"><b>编辑运动 · 骑行</b><span class="w">宽 840px · 分组通栏</span></div>
     <div class="gtitle">运动类型 🔒</div>
-    <div class="sp-grid">
-      <div class="sp-opt"><span class="ci">🏃</span>跑步</div>
-      <div class="sp-opt on"><span class="ci">🚴</span>骑行</div>
-      <div class="sp-opt dis"><span class="ci">🏊</span>游泳</div>
-      <div class="sp-opt"><span class="ci">🤸</span>健身</div>
-      <div class="sp-opt"><span class="ci">🧘</span>拉伸</div>
-    </div>
+    <div class="sp-grid" id="spg2"></div>
     <div class="sep"></div>
     <div class="gtitle">目标与频率</div>
     <div class="grid g4">
@@ -197,12 +185,9 @@ h1{font-size:19px;margin-bottom:5px}
     <div id="tm2"></div>
     <div class="hint">填了到点提醒来运动；某一行留空＝那一趟不提醒只打卡。全天累计步数类（走路）无此矩阵。</div>
     <div class="sep"></div>
-    <div class="gtitle">运动数据记录 <span class="n">记录方式仅今日步数有（此处为骑行，无）</span></div>
-    <div class="grid g3" style="margin-top:8px">
-      <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
-      <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
-      <div class="fld-chk"><div><b>平均配速</b><small>记录平均配速</small></div><span class="sw" onclick="this.classList.toggle('on')"></span></div>
-    </div>
+    <div id="rec2"></div>
+    <div class="gtitle">运动数据记录 <span class="n">随运动模式变化 · 点上方类型卡切换</span></div>
+    <div id="flds2"></div>
     <div class="sep"></div>
     <div class="gtitle">通知提醒 <span class="n">实例级 · 与路由 move 板块同源</span></div>
     <div class="cols2">
@@ -230,15 +215,37 @@ document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.docume
 document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
 function rows(n){let h='';for(let i=0;i<n;i++){h+='<div class="time-row"><label>第 '+(i+1)+' 趟</label><input type="time" value="'+(i===0?'07:00':i===1?'19:00':'--:--')+'"></div>';}return '<div class="time-rows">'+h+'</div>';}
 function wdGroups(n){return '<div class="hint">所有选中日共用这一组时间——勾几天都是这 ' + n + ' 个点提醒，不用重复填。</div>'+rows(n);}
-function pvT(sid){
-  const pd=Number(document.getElementById('pd'+sid)?.value)||2;
-  document.getElementById('tm'+sid).innerHTML=wdGroups(Math.max(1,Math.min(6,pd)));
+/* 真实 MOVE_TYPES 映射（取自 index.html，供预览核对） */
+const MT={
+ steps:{name:'每日步数',icon:'👟',rec:true,flds:[['距离','米','记录今天走了多少米']]},
+ run:{name:'跑步',icon:'🏃',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
+ walk:{name:'健走',icon:'🚶',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
+ ride:{name:'骑行',icon:'🚴',flds:[['运动时长','分钟'],['骑行里程','公里'],['踏频','圈/分','记录平均踏频'],['心率',''],['热量消耗','千卡'],['平均速度','km/h']]},
+ rope:{name:'跳绳',icon:'🪢',flds:[['运动时长','分钟'],['总次数','次'],['每分钟跳频','次/分'],['心率',''],['热量消耗','千卡']]},
+ strength:{name:'力量训练',icon:'🏋️',flds:[['运动时长','分钟'],['组数','组'],['次数','次'],['负重重量','kg'],['组间休息','秒'],['心率',''],['热量消耗','千卡']]},
+ ball:{name:'球类运动',icon:'🏀',flds:[['运动时长','分钟'],['心率区间','','记录运动时的心率区间'],['平均心率',''],['热量消耗','千卡']]},
+ swim:{name:'游泳',icon:'🏊',retired:true,flds:[['距离','米'],['运动时长','分钟'],['泳姿','','自由泳/蛙泳/仰泳/蝶泳'],['配速','','记录本次平均配速']]},
+ yoga:{name:'瑜伽',icon:'🧘',retired:true,flds:[['运动时长','分钟']]}
+};
+let cur={1:'run',2:'ride'};
+function renderType(sid){
+  document.getElementById('spg'+sid).innerHTML=Object.keys(MT).map(k=>{
+    const T=MT[k];const on=cur[sid]===k;
+    return '<div class="sp-opt'+(on?' on':'')+(T.retired?' dis':'')+'" data-k="'+k+'" onclick="pickType(\''+sid+'\',\''+k+'\')"><span class="ci">'+T.icon+'</span>'+T.name+(T.retired?'<small style="display:block;font-size:10px;color:var(--muted)">已下线</small>':'')+'</div>';
+  }).join('');
 }
-function pvF(sid,kind){
-  const box=document.getElementById('tm'+sid);
-  box.innerHTML=kind==='daily'?rows(2):wdGroups(2);
+function renderRec(sid){
+  const T=MT[cur[sid]];
+  document.getElementById('rec'+sid).innerHTML=T.rec
+    ?'<div class="gtitle">记录方式 🔒 <span class="n">仅每日步数有</span></div><div class="rec-rc"><button class="on"><b>手动输入今日步数</b><small>打卡时填今天走了多少步</small></button><button class="locked"><b>每次记录固定步数</b><small>点一次按固定步数累加</small></button></div><div class="nrow" style="margin:6px 0"><span class="lbl">每次记录</span><input type="number" value="1000" style="width:90px"><span class="u">步</span></div>'
+    :'';
 }
-['1','2'].forEach(sid=>{const el=document.getElementById('tm'+sid);if(el)el.innerHTML=wdGroups(2);});
+function renderFlds(sid){
+  const T=MT[cur[sid]];
+  document.getElementById('flds'+sid).innerHTML=T.flds.map(f=>'<div class="fld-chk"><div><b>'+f[0]+(f[1]?'（'+f[1]+'）':'')+'</b><small>'+(f[2]||'记录本次'+f[0])+'</small></div><span class="sw'+(f[0]==='运动时长'||f[0]==='距离'||f[0]==='骑行里程'?' on':'')+'" onclick="this.classList.toggle(\'on\')"></span></div>').join('');
+}
+function pickType(sid,k){cur[sid]=k;renderType(sid);renderRec(sid);renderFlds(sid);}
+['1','2'].forEach(sid=>{renderType(sid);renderRec(sid);renderFlds(sid);});
 </script>
 </body>
 </html>
