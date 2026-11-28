@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>用药弹窗重设计 · 两款（疗程适配 · 对齐习惯/待办 2A）</title>
+<style>
+:root{--bg:#0e1411;--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;--warn:#c98a4b;--font-sans:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color-scheme:dark;}
+[data-theme="light"]{--bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--surface-3:#ece4d4;--text:#1c2621;--muted:#6f7468;--line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--on-accent:#fdfaf2;--good:#2f7d5c;--bad:#b0473d;--warn:#b5733f;}
+[data-skin="slate"]{--bg:#0c111b;--surface:#151c2a;--surface-2:#1a2333;--surface-3:#212c40;--text:#e8edf7;--muted:#8492ad;--line:#2a3550;--accent:#5b8fd6;--accent-soft:#1c2a45;--on-accent:#0c111b;--warn:#d09a5b;}
+[data-skin="slate"][data-theme="light"]{--bg:#edf0f5;--surface:#ffffff;--surface-2:#f5f7fb;--surface-3:#e3e8f1;--text:#1a2233;--muted:#6b7690;--line:#dde3ee;--accent:#3358a8;--accent-soft:#e3ebf8;--on-accent:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13.5px;line-height:1.5;padding:20px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin-bottom:5px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;margin-bottom:20px}
+.bar b{font-size:12px;color:var(--muted)}
+.bar button{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.scheme{margin-bottom:34px}
+.scheme>h2{font-size:15.5px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.scheme>h2 .tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.scheme>.desc{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px 14px;margin:0 auto;box-shadow:0 18px 44px -22px rgba(0,0,0,.55)}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.m-head b{font-size:15px}
+.m-head .w{font-size:11px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field>span{font-size:11.5px;font-weight:600;color:var(--muted)}
+.field input,.field select{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+.dose-pair{display:flex;gap:8px}
+.dose-pair input{flex:1}
+.dose-pair select{width:88px;flex:none}
+.grid{display:grid;gap:0 12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.sep{border-top:1px dashed var(--line);margin:12px 0}
+.gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:0 0 8px}
+.gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+.gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+.time-slots{display:flex;flex-direction:column;gap:7px}
+.time-slots .row{display:flex;align-items:center;gap:8px}
+.time-slots .row label{font-size:11.5px;color:var(--muted);flex:none;min-width:52px}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.switch-row b{font-size:12.5px;display:block}
+.switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+.sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--good);border-color:var(--good)}
+.sw.on::after{left:21px}
+.chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.prtc{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--surface-2);display:flex;gap:10px;align-items:center}
+.prtc .ic{font-size:18px}
+.prtc b{font-size:12.5px;display:block}
+.prtc small{font-size:11px;color:var(--muted)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.actions .ghost{font-family:inherit;font-size:13px;padding:8px 18px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.actions .save{font-family:inherit;font-size:13px;font-weight:600;padding:8px 22px;border-radius:10px;border:1px solid var(--bad);background:var(--bad);color:#fff;cursor:pointer;width:auto;margin-top:0}
+/* 疗程切换器 */
+.course-rc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.course-rc button{font-family:inherit;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);cursor:pointer}
+.course-rc button b{display:block;font-size:12.5px;font-weight:600}
+.course-rc button small{display:block;font-size:10.5px;color:var(--muted);margin-top:1px}
+.course-rc button.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>用药弹窗重设计 · 两款（疗程适配 · 对齐习惯/待办 2A）</h1>
+<div class="sub">疗程三选卡（长期/短期/按需）联动：长期→复诊日期；短期→结束日期；按需→隐藏服药时间组、提醒组显示「不接入通知」。提醒时间复用「每次时间」槽位；新增通知备注与渠道。</div>
+<div class="bar">
+  <b>明暗</b>
+  <button data-th="dark" class="on">暗色</button>
+  <button data-th="light">亮色</button>
+  <b style="margin-left:8px">皮肤</b>
+  <button data-sk="default" class="on">暗夜绿</button>
+  <button data-sk="slate">石板蓝</button>
+  <span style="margin-left:auto;font-size:11px;color:var(--muted)">疗程卡都能点——日期字段、服药时间组、提醒组跟着切</span>
+</div>
+
+<!-- ===== 版 1 ===== -->
+<section class="scheme">
+  <h2>版 1 · 宽双栏 780px <span class="tag">左用药 右提醒</span></h2>
+  <div class="desc">左栏用药全部（基础/服药方案/疗程/库存），右栏提醒（总开关/渠道/通知备注）——按需疗程时右栏换成说明卡。</div>
+  <div class="modal" style="max-width:780px">
+    <div class="m-head"><b>添加用药</b><span class="w">宽 780px</span></div>
+    <div class="cols2">
+      <div>
+        <div class="gtitle">基础</div>
+        <div class="field"><span>药名</span><input value="阿莫西林"></div>
+        <div class="grid g2">
+          <div class="field"><span>用途</span><select><option>西药</option></select></div>
+          <div class="field"><span>剂型</span><select><option>胶囊</option></select></div>
+        </div>
+        <div class="grid g2">
+          <div class="field"><span>规格（可选）</span><input value="0.5g"></div>
+          <div class="field"><span>每次剂量</span><div class="dose-pair"><input type="number" value="1"><select><option>粒</option></select></div></div>
+        </div>
+        <div class="sep"></div>
+        <div class="gtitle">服药方案 <span class="n">按需疗程时整组隐藏</span></div>
+        <div class="grid g2">
+          <div class="field"><span>每日用药次数</span><select><option>3 次</option></select></div>
+          <div class="field"><span>饭前 / 饭后</span><select><option>饭后</option></select></div>
+        </div>
+        <div class="field"><span>每次时间</span>
+          <div class="time-slots">
+            <div class="row"><label>第 1 次</label><input type="time" value="08:00"></div>
+            <div class="row"><label>第 2 次</label><input type="time" value="13:00"></div>
+            <div class="row"><label>第 3 次</label><input type="time" value="19:00"></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="gtitle">疗程 <span class="n">选卡后日期字段随之适配</span></div>
+        <div class="course-rc" data-course>
+          <button class="on" data-c="long"><b>长期</b><small>复诊日期可选</small></button>
+          <button data-c="short"><b>短期疗程</b><small>有结束日期</small></button>
+          <button data-c="prn"><b>按需</b><small>不接入通知</small></button>
+        </div>
+        <div id="p1-dates"></div>
+        <div class="grid g2">
+          <div class="field"><span>开始日期</span><input type="date" value="2026-11-28"></div>
+          <div class="field"><span>当前余量（可选）</span><input type="number" placeholder="实际剩几片"></div>
+        </div>
+        <div class="field"><span>药品厂商</span><input placeholder="例如：辉瑞 / 白云山"></div>
+        <div class="field"><span>药品信息备注</span><input placeholder="例如：缓释胶囊 / 需避光"></div>
+      </div>
+      <div id="p1-notify-wrap">
+        <div class="gtitle">提醒</div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此药不产生任何推送</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知渠道</span>
+          <div class="chan-row">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与通知路由的 med 板块开关取交集；提醒时间＝上方「每次时间」槽位</div>
+        </div>
+        <div class="field"><span>通知备注</span><input placeholder="例如：饭后半小时服用"></div>
+        <div class="hint">每个「每次时间」到点各推一条；已记录服药的槽位当天不再重复推。</div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+
+<!-- ===== 版 2 ===== -->
+<section class="scheme">
+  <h2>版 2 · 分组通栏 840px + 提醒折叠 <span class="tag">与待办同构</span></h2>
+  <div class="desc">分组通栏（基础 → 服药方案 → 疗程 → 库存厂商 → 提醒折叠默认收起）；按需疗程时提醒折叠条显示「按需用药不接入通知系统」且不可展开。</div>
+  <div class="modal" style="max-width:840px">
+    <div class="m-head"><b>添加用药</b><span class="w">宽 840px · 分组通栏</span></div>
+    <div class="gtitle">基础</div>
+    <div class="grid g4">
+      <div class="field"><span>药名</span><input value="阿莫西林"></div>
+      <div class="field"><span>用途</span><select><option>西药</option></select></div>
+      <div class="field"><span>剂型</span><select><option>胶囊</option></select></div>
+      <div class="field"><span>规格（可选）</span><input value="0.5g"></div>
+    </div>
+    <div class="grid g3">
+      <div class="field"><span>每次剂量</span><div class="dose-pair"><input type="number" value="1"><select><option>粒</option></select></div></div>
+      <div class="field"><span>每日用药次数</span><select><option>3 次</option></select></div>
+      <div class="field"><span>饭前 / 饭后</span><select><option>饭后</option></select></div>
+    </div>
+    <div class="field"><span>每次时间</span>
+      <div class="time-slots">
+        <div class="row"><label>第 1 次</label><input type="time" value="08:00"></div>
+        <div class="row"><label>第 2 次</label><input type="time" value="13:00"></div>
+        <div class="row"><label>第 3 次</label><input type="time" value="19:00"></div>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">疗程与状态 <span class="n">日期字段随疗程切换</span></div>
+    <div class="course-rc" data-course>
+      <button class="on" data-c="long"><b>长期</b><small>复诊日期可选</small></button>
+      <button data-c="short"><b>短期疗程</b><small>有结束日期</small></button>
+      <button data-c="prn"><b>按需</b><small>不接入通知</small></button>
+    </div>
+    <div style="height:8px"></div>
+    <div id="p2-dates"></div>
+    <div class="grid g3">
+      <div class="field"><span>开始日期</span><input type="date" value="2026-11-28"></div>
+      <div class="field"><span>状态</span><select><option>进行中</option></select></div>
+      <div class="field"><span>当前余量（可选）</span><input type="number" placeholder="实际剩几片"></div>
+    </div>
+    <div class="grid g2">
+      <div class="field"><span>药品厂商</span><input placeholder="例如：辉瑞 / 白云山"></div>
+      <div class="field"><span>药品信息备注</span><input placeholder="例如：缓释胶囊 / 需避光"></div>
+    </div>
+    <div class="sep"></div>
+    <details class="prtc" id="p2-fold" style="cursor:pointer">
+      <summary style="list-style:none;display:flex;gap:10px;align-items:center" onclick="pvCourse(event)">
+        <span class="ic">🔔</span>
+        <span style="flex:1"><b>提醒 <span class="newtag" style="font-size:10px;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)" id="p2-ctag">长期/短期接入通知</span></b>
+        <small id="p2-csum">总开关 · 渠道 · 通知备注（默认收起，点开编辑）</small></span>
+        <span style="font-size:11px;color:var(--muted)">展开</span>
+      </summary>
+      <div style="padding-top:10px">
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此药不产生任何推送</small></div><div class="sw on" onclick="event.stopPropagation();this.classList.toggle('on')"></div></div>
+        <div class="cols2">
+          <div>
+            <div class="field"><span>通知渠道</span>
+              <div class="chan-row">
+                <label><input type="checkbox" checked> 企业微信</label>
+                <label><input type="checkbox"> 邮件</label>
+                <label><input type="checkbox" checked> 浏览器</label>
+              </div>
+              <div class="hint">与 med 板块开关取交集</div>
+            </div>
+          </div>
+          <div>
+            <div class="field"><span>通知备注</span><input placeholder="例如：饭后半小时服用"></div>
+            <div class="hint">提醒时间＝「每次时间」槽位（1–6 个），到点各推一条；按需用药无固定时间，不接入通知。</div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+</div>
+<script>
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
+/* 疗程联动 */
+function renderCourse(sid,datesId,notifyWrapId){
+  const card=document.querySelector('[data-course]');
+  const kind=card.querySelector('.on').dataset.c;
+  const dates=document.getElementById(datesId);
+  if(kind==='short')dates.innerHTML='<div class="field"><span>结束日期</span><input type="date" value="2026-12-04"></div>';
+  else if(kind==='long')dates.innerHTML='<div class="field"><span>复诊日期（可选）</span><input type="date"></div>';
+  else dates.innerHTML='<div class="hint" style="background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px">按需用药没有固定日期与时间——「服药方案」整组与提醒组都会隐藏，只在想记录时手动记一次。</div>';
+  const nw=document.getElementById(notifyWrapId);
+  if(notifyWrapId==='p1-notify-wrap'){
+    if(kind==='prn')nw.innerHTML='<div class="prtc"><span class="ic">ℹ️</span><span><b>按需用药不接入通知系统</b><small>没有固定服药时间，无法定点推送；需要提醒请改用长期或短期疗程。</small></span></div>';
+    else nw.innerHTML='<div class="gtitle">提醒</div><div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此药不产生任何推送</small></div><div class="sw on" onclick="this.classList.toggle(\'on\')"></div></div><div class="field"><span>通知渠道</span><div class="chan-row"><label><input type="checkbox" checked> 企业微信</label><label><input type="checkbox"> 邮件</label><label><input type="checkbox" checked> 浏览器</label></div><div class="hint">与 med 板块开关取交集；提醒时间＝「每次时间」槽位</div></div><div class="field"><span>通知备注</span><input placeholder="例如：饭后半小时服用"></div>';
+  } else {
+    const fold=document.getElementById('p2-fold');
+    const sum=document.getElementById('p2-csum');
+    if(kind==='prn'){sum.textContent='按需用药不接入通知系统';fold.style.opacity='.55';fold.style.pointerEvents='none';}
+    else{sum.textContent='总开关 · 渠道 · 通知备注（默认收起，点开编辑）';fold.style.opacity='';fold.style.pointerEvents='';}
+  }
+}
+document.querySelectorAll('[data-course]').forEach(box=>{
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    box.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderCourse('x','p1-dates','p1-notify-wrap');renderCourse('x','p2-dates','p2-notify-wrap');
+  });
+});
+renderCourse('x','p1-dates','p1-notify-wrap');renderCourse('x','p2-dates','p2-notify-wrap');
+</script>
+</body>
+</html>
