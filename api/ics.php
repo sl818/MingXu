@@ -454,12 +454,66 @@ function lb_ics_build(array $state, ?DateTimeImmutable $now = null): array
         if (!is_array($h) || !empty($h['archivedAt'])) {
             continue;
         }
-        if (!empty($h['med']) || !empty($h['optional']) || ($h['type'] ?? '') === 'quit'
+        if (!empty($h['med']) || !empty($h['optional'])
             || in_array((string)($h['id'] ?? ''), ['h_water', 'h_move', 'h_breathe', 'h_drink'], true)) {
             continue;
         }
         /* 通知开关：默认开 */
         if (($h['notify'] ?? true) === false) {
+            continue;
+        }
+        /* 批 6：2.0 矩阵路径——有 notifyPlan 按 notifyPlanOf 同口径的回落生成多 VEVENT；
+           weekly 弹性型不进日历（哪天做都行）；quit 带 notifyPlan 解禁。 */
+        $np = isset($h['notifyPlan']) && is_array($h['notifyPlan']) ? $h['notifyPlan'] : null;
+        if ($np !== null) {
+            $sched = isset($h['sched']) && is_array($h['sched']) ? $h['sched'] : null;
+            $kind = $sched ? (string)($sched['kind'] ?? 'daily') : 'daily';
+            if ($kind === 'weekly') {
+                continue;
+            }
+            $name = trim((string)($h['name'] ?? '习惯'));
+            $icon = (string)($h['icon'] ?? '🔔');
+            $title = ($icon !== '' ? $icon . ' ' : '') . ($name !== '' ? $name : '习惯');
+            $note = (string)($h['note'] ?? '');
+            $hid = (string)($h['id'] ?? '');
+            $emit = function (string $st, string $rrule, string $step) use (&$out, &$count, $todayDate, $now, $hid, $title, $note) {
+                if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $st, $mm)) {
+                    return;
+                }
+                $start = $todayDate->setTime((int)$mm[1], (int)$mm[2]);
+                while ($start <= $now) {
+                    /* 多时间事件用时间做 id 后缀，避免同习惯多 VEVENT 冲突 */
+                    $out[] = lb_ics_event(
+                        'habit-' . $hid . '-' . $st,
+                        $start, $start->modify('+15 minutes'),
+                        $title, $note, $rrule
+                    );
+                    $count++;
+                    $start = $start->modify($step);
+                }
+            };
+            if ($kind === 'weekdays') {
+                $days = isset($sched['days']) && is_array($sched['days'])
+                    ? array_map('intval', $sched['days']) : [];
+                foreach ($days as $d) {
+                    $times = isset($np['wd'][(string)$d]) && is_array($np['wd'][(string)$d])
+                        ? $np['wd'][(string)$d] : ($np['daily'] ?? ['07:00']);
+                    foreach ($times as $t) {
+                        $emit((string)$t, 'FREQ=WEEKLY;BYDAY=' . (LB_ICS_WEEK[$d] ?? 'MO'), '+7 days');
+                    }
+                }
+            } elseif ($kind === 'interval') {
+                $iv = max(2, min(60, (int)($sched['intervalDays'] ?? 3)));
+                $emit((string)($np['intervalTime'] ?? '09:00'), 'FREQ=DAILY;INTERVAL=' . $iv, '+' . $iv . ' days');
+            } else {
+                foreach (($np['daily'] ?? ['07:00']) as $t) {
+                    $emit((string)$t, 'FREQ=DAILY', '+1 day');
+                }
+            }
+            continue;
+        }
+        /* 旧路径（无 notifyPlan）：原样，quit 仍不进日历 */
+        if (($h['type'] ?? '') === 'quit') {
             continue;
         }
         $st = is_string($h['suggestTime'] ?? '') ? (string)$h['suggestTime'] : '';
