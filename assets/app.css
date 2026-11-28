@@ -4488,3 +4488,6 @@ body.modal-open{overflow:hidden;}
 #med-form .prtc .ic{font-size:18px}
 #med-form .prtc b{font-size:12.5px;display:block}
 #med-form .prtc small{font-size:11px;color:var(--muted)}
+
+/* v236 补丁：med-2a 覆盖 form-grid 两列（漏了它全部分组错位进格子） */
+#med-form .med-2a{display:block}
