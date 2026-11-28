@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=221">
+<link rel="stylesheet" href="assets/app.css?v=224">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=221">
+<link rel="stylesheet" href="assets/theme-v2.css?v=224">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v221';
+  const APP_VERSION = 'v224';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -853,10 +853,12 @@
        channels 显式给了空数组就保留空 —— 表示「这个运动不要任何渠道」，
        不能强行塞回 browser，否则用户怎么点都关不掉。 */
     const CHS = ['browser', 'wecom', 'mail'];
+    /* v216：实例通知设置的真源是板块矩阵 move.instances，快照不再生成默认值；
+       输入里已有的旧值原样透传（老数据兼容），没有就不写。 */
     const channels = Array.isArray(s.channels)
       ? s.channels.filter(function (x) { return CHS.indexOf(x) >= 0; })
-      : ['browser'];
-    const notifyOn = s.notifyOn !== false;
+      : null;
+    const notifyOn = s.notifyOn === undefined ? undefined : s.notifyOn !== false;
 
     /* 记录方式：v176 只有 manual / fixed。
        v175 的 once（一键完成）和 multi（多次打卡）统一并到 manual，
@@ -878,7 +880,7 @@
     }
     const strokePick = String(s.strokePick || s.stroke || '').slice(0, 10);
 
-    return {
+    const outS = {
       id: String(s.id || uid()),
       key: key,
       name: String(s.name || T.name).trim().slice(0, 20) || T.name,
@@ -895,8 +897,6 @@
       startTime: startTime,
       fields: fields,
       strokePick: strokePick,
-      notifyOn: notifyOn,
-      channels: channels,
       distLocked: distLocked,
       /* —— 以下为 v175 旧字段的镜像，读老代码/老备份时仍能取到 —— */
       unit: TGT[tIdx].unit,
@@ -907,6 +907,14 @@
       createdAt: String(s.createdAt || new Date().toISOString()),
       updatedAt: String(s.updatedAt || s.createdAt || new Date().toISOString())
     };
+    /* v216：实例通知字段不再生成默认值——老数据里已有的原样透传（老备份/老代码读得到），
+       新运动干净无这两个字段（真源在板块矩阵 move.instances）。 */
+    if (s.notifyOn !== undefined) outS.notifyOn = s.notifyOn !== false;
+    if (Array.isArray(s.channels)) {
+      const chOld = s.channels.filter(function (x) { return CHS.indexOf(x) >= 0; });
+      if (chOld.length) outS.channels = chOld;
+    }
+    return outS;
   }
 
   /* 运动 2.2（v179）：单条运动记录的白名单收敛。
@@ -1297,12 +1305,12 @@
      迁移跑两次不会长出重复事件，云合并时也不会被当成新事件。 */
   function migrateQuitCravings(data) {
     if (!Array.isArray(data.habits) || !isPlainObject(data.checks)) return;
-    const quitIds = data.habits.filter(function (h) { return isQuitLike(h); })
+    const quitIds = data.habits.filter(function (h) { return isQuitSemantics(h); })
                               .map(function (h) { return h.id; });
     if (!quitIds.length) return;
     /* 「保持 0 次」是计数时代留下的备注，事件流下它只会误导 */
     data.habits.forEach(function (h) {
-      if (!isQuitLike(h)) return;
+      if (!isQuitSemantics(h)) return;
       if (String(h.note || '') === '保持 0 次') h.note = '';
       /* 暗红在常驻区读起来像「警告」，换成灰绿。只改还是旧默认值的那批，
          用户自己调过的颜色不动。 */
@@ -3287,7 +3295,14 @@
     return !!h && (h.type === 'smoke' || (h.type === 'quit' && h.quitKind === 'smoke'));
   }
   /* 两类都走事件流、都进统计：别用 type === 'quit' 判断，会漏掉戒烟 */
-  function isQuitLike(h) { return !!h && (h.type === 'quit' || h.type === 'smoke'); }
+  /* 戒除语义类：quit（普通戒除）与 smoke（戒烟）共用「失守/守住」的行为模型，
+     周条徽标、日历、月报、日志都在这一层——改名是为了诚实，不是拆行为。 */
+  function isQuitSemantics(h) { return !!h && (h.type === 'quit' || h.type === 'smoke'); }
+
+  /* 小习惯 2.0 铁律：sched 判定、notifyPlan、时间矩阵、提醒路由这些新逻辑
+     一律用 isQuit（只认普通戒除），绝不碰戒烟——戒烟走自己的旧路径。
+     见 docs/HABITS-NOTIFY-EXEC.md 批 0。 */
+  function isQuit(h) { return !!h && h.type === 'quit'; }
   /* v204：戒除（quit）与戒烟（smoke）判定分家。
      戒烟靠「当天没点一根」自动成立；戒除不再自动打卡——从生效日起，
      必须当天点一次「完成」写进 checks 才算守住。
@@ -3646,7 +3661,7 @@
 
   function addCraving(hid, kind) {
     const h = habitById(hid);
-    if (!isQuitLike(h)) return;
+    if (!isQuitSemantics(h)) return;
     if (kind !== 's' && kind !== 'r') return;
     /* 一包抽满、库存又是 0 时不再收这条记录。挡在数据层而不是只靠按钮的 disabled：
        disabled 能被回车提交绕过，也可能来自没刷新的旧页面。 */
@@ -4162,7 +4177,7 @@
     return n;
   }
   function habitStreak(h) {
-    if (isQuitLike(h)) return quitStreak(h);
+    if (isQuitSemantics(h)) return quitStreak(h);
     let d = new Date(), n = 0;
     const created = h.createdAt ? String(h.createdAt).slice(0, 10) : todayStr();
     const ok = ds => hasRecords(ds) && met(h, ds);
@@ -4219,7 +4234,7 @@
   /* 最近 7 天点阵：把「坚持」从形容词变成可数的格子。 */
   function habitWeek(h, d) {
     const target = Math.max(1, Number(h.target) || 1);
-    const q = isQuitLike(h);
+    const q = isQuitSemantics(h);
     const out = [];
     for (let i = 6; i >= 0; i--) {
       const ds = shiftDay(d, -i);
@@ -4299,7 +4314,7 @@
 
   function habitWeekLabelled(h, d) {
     const target = Math.max(1, Number(h.target) || 1);
-    const q = isQuitLike(h);
+    const q = isQuitSemantics(h);
     const WD = ['日', '一', '二', '三', '四', '五', '六'];
     const mon = weekMonday(d);
     const out = [];
@@ -4463,7 +4478,7 @@
   function habitStateText(h, d) {
     if (h.med) return met(h, d) ? '已完成' : '待打卡';
     /* v103：状态位与按钮用同一组词，不再一个「守住」一个「守住了」 */
-    if (isQuitLike(h)) {
+    if (isQuitSemantics(h)) {
       const slip = dayCravings(h.id, d).some(function (e) { return e.k === 's'; });
       return slip ? '今天失守了' : '今天守住了';
     }
@@ -4985,7 +5000,7 @@
        v201：478 有多个提醒点，按 notifyTimes 的**全部**判断（任一已过且当天没达标就催），
        文案也说清是「还差 N 组」而不是笼统的「还没打卡」（做了 1/3 组时那样写是错的）。 */
     const habitDue = assessmentHabits(d).filter(function (h) {
-      if (h.med || isQuitLike(h)) return false;
+      if (h.med || isQuitSemantics(h)) return false;
       const target = Number(h.target) || 1;
       if (countOf(d, h.id) >= target) return false;
       if (h.id === 'h_breathe') {
@@ -5035,6 +5050,32 @@
         }
       }
     }
+
+    /* v223：自定义提醒的浏览器本地通知——之前 notifyChannels 勾了「浏览器」也永远不弹
+       （这里根本没有 notice 条目），数据列表却标「会发送」，属于虚假承诺。
+       口径与后端 lb_schedule_notices 一致：once/daily/weekly/monthly（31 号小月按月末）。 */
+    (state.notices || []).forEach(function (n) {
+      if (!n || (n.on === false)) return;
+      const id = String(n.id || '');
+      const text = String(n.text || '').trim();
+      const time = String(n.time || '');
+      if (!id || !text || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) || time > hm) return;
+      const mode = String(n.mode || 'daily');
+      let hit = false;
+      if (mode === 'once') {
+        hit = String(n.date || '') === d;
+      } else if (mode === 'daily') {
+        hit = true;
+      } else if (mode === 'weekly') {
+        hit = (Array.isArray(n.weeks) ? n.weeks : []).map(Number).indexOf(now.getDay()) >= 0;
+      } else if (mode === 'monthly') {
+        const md = Math.max(1, Math.min(31, Math.round(Number(n.monthday)) || 1));
+        const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        hit = now.getDate() === Math.min(md, dim);
+      }
+      if (!hit) return;
+      items.push({ key: 'notice-' + id, text: text, view: 'config', time: time });
+    });
     return items;
   }
 
@@ -5282,7 +5323,7 @@
      ============================================================ */
   function habitCardV2(h, d) {
     const target = Math.max(1, Number(h.target) || 1);
-    const isQ = isQuitLike(h);
+    const isQ = isQuitSemantics(h);
     const c = countOf(d, h.id);
     const done = met(h, d);
     const skip = isSkipped(d, h.id);
@@ -5398,14 +5439,14 @@
     const target = Math.max(1, Number(h.target) || 1);
     /* 截止型：今天晚于截止时刻多少分钟（0 = 没超时 / 不适用） */
     const late = deadlineDiff(h, d);
-    const pct = isQuitLike(h) ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
+    const pct = isQuitSemantics(h) ? (done ? 100 : 0) : clamp(c / target, 0, 1) * 100;
 
     /* 三类卡片的区别只在「换掉哪一块」：
        build 保持：点圆点 = 今天达标
        quit  戒除：点右上角圆圈 = 今天没守住（不点 = 一直守着），骨架和保持完全一样
        smoke 戒烟：双按钮「点一根 / 忍一次」+ 烟盒，是站点自带的特殊卡 */
     const w = quitWord(h);
-    const isQ = isQuitLike(h);
+    const isQ = isQuitSemantics(h);
     const isSmokeH = isSmoke(h);
     const slips = isQ ? quitSlips(h, d) : 0;
     const broken = slips > 0;
@@ -7384,15 +7425,15 @@
        不混进这里，与「近 N 天」分布（hstats）口径一致。 */
     const rows = activeHabits(todayStr()).filter(h => !h.med).map(h => {
       let hit = 0, total = 0, lapse = 0;
-      const isQuit = isQuitLike(h);
+      const isQuitRow = isQuitSemantics(h);
       for (let day = 1; day <= days; day++) {
         const ds = fmt(new Date(y, m, day));
         if (ds > now) continue;
         /* 戒烟的有无记录看事件流，不看 checks——事件不写进 checks */
-        const dayEv = isQuit ? dayCravings(h.id, ds) : null;
-        if (isQuit ? !dayEv.length : !hasRecords(ds)) continue;
+        const dayEv = isQuitRow ? dayCravings(h.id, ds) : null;
+        if (isQuitRow ? !dayEv.length : !hasRecords(ds)) continue;
         total++;
-        if (isQuit) {
+        if (isQuitRow) {
           if (dayEv.some(function (e) { return e.k === 's'; })) lapse++;
           else hit++;
         } else if (met(h, ds)) {
@@ -7417,7 +7458,7 @@
     const rows = monthHabitsInfo(y, m).rows;
     const html = rows.map(r => {
       const pct = Math.round(r.rate * 100);
-      const num = isQuitLike(r.h)
+      const num = isQuitSemantics(r.h)
         ? '保持 <b>' + r.hit + '</b> / ' + r.total + ' 天'
         : '达标 <b>' + r.hit + '</b> / ' + r.total + ' 天';
       /* 四列：点 / 名 / 进度 / 数值。身份色只留在那个 7px 点上——
@@ -7425,7 +7466,7 @@
       return '<div class="mh" style="--hc:' + esc(r.h.color || '#2f6f5e') + '">' +
         '<span class="mh-dot"></span>' +
         '<span class="mh-name"><b>' + esc(r.h.name) + '</b>' +
-          (isQuitLike(r.h) && r.lapse
+          (isQuitSemantics(r.h) && r.lapse
             ? '<small class="warn">' + (isSmoke(r.h) ? '点了 ' : '破戒 ') + r.lapse + ' 次</small>'
             : '') +
         '</span>' +
@@ -8261,7 +8302,7 @@
      **只给月度小结用**，不要拿它替换 dayStats —— 那个是「达标」的二元定义，
      日历热力、连续达标天数、统计页柱状图全都依赖它。 */
   function habitDayAcc(h, d) {
-    if (isQuitLike(h)) return met(h, d) ? 1 : 0;
+    if (isQuitSemantics(h)) return met(h, d) ? 1 : 0;
     if (h.med) {
       const sched = medScheduledCount(d);
       return sched ? Math.min(medTakenCount(d) / sched, 1) : 0;
@@ -8692,12 +8733,14 @@
 
   function breatheNotifyHtml(m) {
     const notify = m.notify !== false;
-    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
+    /* v216：渠道真源是通知路由板块矩阵；没加载到先渲染默认值并触发懒加载 */
+    const bc = notifyBoardChannels('breathe');
+    if (notify && !bc.synced && notifyRoute === undefined) notifyRouteLoad();
     const groups = breatheGroups(m);
     const times = (Array.isArray(m.notifyTimes) && m.notifyTimes.length) ? m.notifyTimes : breatheDefaultTimes(groups);
     const CHAN_ITEMS = [['browser','🔔','浏览器通知'], ['wecom','💬','企业微信群'], ['mail','✉️','邮件通知']];
     const chanHtml = CHAN_ITEMS.map(function (c) {
-      const on = chans.indexOf(c[0]) >= 0;
+      const on = !!bc.ch[c[0]];
       return '<label class="w-chan' + (on ? ' on' : '') + '"><span class="ci">' + c[1] + '</span>' + c[2] +
         '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
     }).join('');
@@ -8713,9 +8756,9 @@
         '<div id="breathe-notify-body"' + (notify ? '' : ' class="w-notify-off"') + '>' +
           '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
           '<div class="w-chan-grid">' + chanHtml + '</div>' +
-          /* v201：如实说明 —— 真实推送走全局通知矩阵的「习惯类」通道，这里的勾选只作记录。
-             用独立 class，别复用 .w-freq-note（那个是「按每天 N 组生成 N 个提醒点」的说明） */
-          '<p class="w-chan-note">渠道由「设置 › 通知配置」里的<b>习惯类</b>统一控制，这里勾选仅作记录、暂不单独生效。</p>' +
+          /* v216：渠道真源是通知路由板块矩阵（breathe 板块），这里勾选直接生效；
+             与「通知路由」页同一份数据，两边改都同步。 */
+          '<p class="w-chan-note">渠道与「通知路由」页是同一份设置，两边改都生效。</p>' +
           '<div style="margin-top:18px">' +
             '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
             '<div class="w-mode-grid br-mode-grid"><label class="w-mode on"><span>每天固定时间推送</span>' +
@@ -8865,13 +8908,15 @@
 
   function waterNotifyHtml(m) {
     const notify = m.notify !== false;
-    const chans = Array.isArray(m.notifyChannels) ? m.notifyChannels : ['browser'];
+    /* v216：渠道真源是通知路由的板块矩阵；没加载到就先渲染默认值并触发懒加载 */
+    const bc = notifyBoardChannels('water');
+    if (notify && !bc.synced && notifyRoute === undefined) notifyRouteLoad();
     const mode = m.notifyMode === 'daily' ? 'daily' : 'each';
     const dailyCount = [1, 2, 3].indexOf(Number(m.notifyDailyCount)) >= 0 ? Number(m.notifyDailyCount) : 2;
     const dt = isPlainObject(m.notifyDailyTimes) ? m.notifyDailyTimes : {};
     const CHAN_ITEMS = [['browser', '🔔', '浏览器通知'], ['wecom', '💬', '企业微信群'], ['mail', '✉️', '邮件通知']];
     const chanHtml = CHAN_ITEMS.map(function (c) {
-      const on = chans.indexOf(c[0]) >= 0;
+      const on = !!bc.ch[c[0]];
       return '<label class="w-chan' + (on ? ' on' : '') + '"><span class="ci">' + c[1] + '</span>' + c[2] +
         '<input type="checkbox" name="channels" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
     }).join('');
@@ -8883,6 +8928,7 @@
         '<div id="water-notify-body"' + (notify ? '' : ' class="w-notify-off"') + '>' +
           '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒渠道（可多选）</p>' +
           '<div class="w-chan-grid">' + chanHtml + '</div>' +
+          '<p class="w-freq-note">渠道与「通知路由」页是同一份设置，两边改都生效。</p>' +
           '<div style="margin-top:18px">' +
             '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒方式</p>' +
             '<div class="w-mode-grid">' +
@@ -9978,7 +10024,8 @@
      （【今日任务记录】），补数据也从卡片进，两件事不再混在一个区块里。
      要手动补录一条历史记录，用页头的「＋ 添加记录」。 */
   function moveNotifyHtml(m) {
-    const scenes = isPlainObject(m.notifyScenes) ? m.notifyScenes : { steps: true, plan: true, week: true };
+    /* v216：实例通知设置的真源在板块矩阵——打开运动页就拉一次（弹窗初值要用） */
+    if (m.notify !== false && notifyRoute === undefined) notifyRouteLoad();
     /* v177：渠道选择不再放这里（新建 / 编辑运动弹窗里已经选过，页面重复）。
        这里只留总开关与提醒场景；渠道到底能不能收到，取决于「配置」页里的真实配置，
        勾选时弹窗会当场检测并提示。 */
@@ -9987,13 +10034,11 @@
       '<form id="move-notify-form">' +
         '<div class="mv-toggle-row"><div><b>开启运动提醒</b><small>关闭后不推送任何运动通知</small></div>' +
           '<label class="w-switch"><input type="checkbox" name="notify"' + (m.notify !== false ? ' checked' : '') + '><i></i></label></div>' +
+        /* v216：撤掉三个「提醒场景」勾选框——后端从未实现（notifyScenes 全项目只有前端写入），
+           留着就是假的承诺。到点提醒真实存在；周报等真做时再给入口。 */
         '<div id="move-notify-body"' + (m.notify !== false ? '' : ' class="w-notify-off"') + '>' +
-          '<p style="font-size:12.5px;font-weight:600;margin:0 0 10px">提醒场景</p>' +
-          '<div class="mv-scenes">' +
-            '<label class="mv-scene"><input type="checkbox" name="sceneSteps"' + (scenes.steps !== false ? ' checked' : '') + '><div><b>步数目标提醒</b><small>傍晚未达标才提醒</small></div></label>' +
-            '<label class="mv-scene"><input type="checkbox" name="scenePlan"' + (scenes.plan !== false ? ' checked' : '') + '><div><b>计划类到点提醒</b><small>跑步/骑行按计划时间</small></div></label>' +
-            '<label class="mv-scene"><input type="checkbox" name="sceneWeek"' + (scenes.week !== false ? ' checked' : '') + '><div><b>每周达标周报</b><small>周日晚推送</small></div></label>' +
-          '</div>' +
+          '<p class="w-freq-note">每个运动的开关与渠道在「新建 / 编辑运动」里设置；' +
+            '渠道与「通知路由」页是同一份设置，两边改都生效。</p>' +
         '</div>' +
         '<div class="w-save"><button type="submit" class="btn primary">保存提醒设置</button></div>' +
       '</form>' +
@@ -12487,13 +12532,13 @@
     }
 
     const hstats = state.habits.filter(h => !h.optional && !isArchived(h) && !isModuleAnchor(h)).map(h => {
-      const isQuit = isQuitLike(h);
+      const isQuitRow = isQuitSemantics(h);
       /* 戒烟的点阵按事件算：有「抽了」= miss，只有「忍住了」= ok，
          一条都没有 = 空（没记录 ≠ 成功，不能混为一谈）。 */
       /* v203：全部档的日子可能有几百天，逐日点阵会挤成一条线 → 不画点阵，给一句说明 */
       const dots = range ? rangeDays.map(ds => {
         let rec, ok, tip;
-        if (isQuit) {
+        if (isQuitRow) {
           const evs = dayCravings(h.id, ds);
           const ns = evs.filter(function (e) { return e.k === 's'; }).length;
           const nr = evs.length - ns;
@@ -12512,7 +12557,7 @@
       }).join('') : '';
 
       let detail;
-      if (isQuit) {
+      if (isQuitRow) {
         detail = (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天'
           + (quitTotal(h) > quitStreak(h) ? ' · 累计 ' + quitTotal(h) + ' 天' : '');
       } else {
@@ -12520,7 +12565,7 @@
       }
 
       let hitText = '';
-      if (isQuit) {
+      if (isQuitRow) {
         const q = quitRange(h, range);
         const w = quitWord(h);
         /* 戒除只有一个按钮，不点就是守住——没有「忍」这个事件，
@@ -12623,7 +12668,7 @@
         '<span class="log-time">' + e.minute + '</span>' +
         '<span class="log-ico">' + esc(logIco) + '</span>' +
         '<span class="log-name">' + esc(logName) + '</span>' +
-        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (!md && isQuitLike(h) ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
+        '<span class="log-delta' + (e.delta < 0 ? ' minus' : (!md && isQuitSemantics(h) ? ' bad' : '')) + '">' + (e.delta > 0 ? '+' : '') + e.delta + '</span>' +
         '<span class="log-date">' + rel + (backfill ? ' · ' + backfill : '') + '</span>' +
       '</div>';
     }).join('');
@@ -13024,7 +13069,7 @@
     const d = todayStr();
     const ratioOf = h => {
       /* 戒烟不写 checks，countOf 恒为 0，只能看 met（当天有没有「点一根」） */
-      if (isQuitLike(h)) return met(h, d) ? 1 : 0;
+      if (isQuitSemantics(h)) return met(h, d) ? 1 : 0;
       const c = countOf(d, h.id);
       const t = Number(h.target) || 1;
       return Math.min(1, c / t);
@@ -13041,7 +13086,7 @@
        v149：符号（✓ / —）要靠猜，改成和习惯卡 v2 同词的三态文字。
        ok = 今日已完成 / wait = 今日待打卡（今天一条都没记）/ bad = 今日未完成。 */
     const todayMark = h => {
-      if (isQuitLike(h)) {
+      if (isQuitSemantics(h)) {
         return met(h, d)
           ? { k: 'ok', label: '今日已完成', tip: '今日守住了' }
           : { k: 'bad', label: '今日未完成', tip: '今日未达标（记了 ' + quitSlips(h, d) + ' 次）' };
@@ -13058,7 +13103,7 @@
       /* v202：这里原来还有一条 `h.id === 'h_breathe'` 的「每天一组 · N 次循环 · 建议 15:00」——
          但上面的 base 已经用 !isModuleAnchor(h) 过滤掉了 h_breathe，那条分支永远不执行（死代码），
          而且文案是单点语义（多组多提醒之后「每天一组 / 建议 15:00」都不准），一并删掉。 */
-      const detail = isQuitLike(h)
+      const detail = isQuitSemantics(h)
         ? (isSmoke(h) ? '戒烟' : '戒除') + ' · 连续 ' + quitStreak(h) + ' 天达标'
         : '养成 · 每天 ' + (h.target || 1) + ' ' + esc(h.unit || '次');
       return '<div class="habit-row" style="--hc:' + esc(h.color || '#2f6f5e') + '">' +
@@ -14115,6 +14160,56 @@
   let notifyPlan = null;
   let notifyRouteLoading = false;
   let notifyTplScene = 'med';
+  /* v216：模块页（喝水/478/运动）的渠道 = 通知路由板块矩阵的另一个入口。
+     一份数据两个视图，谁改都生效，不存在「互相同步」。默认值兜底与后端 lb_notify_boards 一致。 */
+  const NOTIFY_BOARD_FALLBACK = {
+    med: { wecom: true, mail: true, browser: true },
+    water: { wecom: true, mail: false, browser: false },
+    move: { wecom: true, mail: false, browser: false },
+    breathe: { wecom: true, mail: false, browser: false },
+    quit: { wecom: false, mail: false, browser: false },
+    task: { wecom: true, mail: true, browser: true },
+    habit: { wecom: true, mail: false, browser: true },
+    notice: { wecom: true, mail: true, browser: true },
+    countdown: { wecom: true, mail: true, browser: true },
+    debt: { wecom: true, mail: true, browser: false },
+    report: { wecom: true, mail: false, browser: true }
+  };
+
+  function notifyBoardChannels(bid) {
+    const b = (notifyRoute && notifyRoute.boards && notifyRoute.boards[bid]) || null;
+    const def = NOTIFY_BOARD_FALLBACK[bid] || { wecom: true, mail: false, browser: true };
+    if (!b || !b.channels) return { ch: def, synced: false };
+    return { ch: b.channels, synced: true };
+  }
+
+  /* 模块页只提交自己那一个板块；后端按已存值合并，其他板块不受影响。
+     notifyRoute 没加载过要先拉（否则保存成功也无法回填，弹窗会读不到刚存的值）。 */
+  async function saveModuleNotifyChannels(bid, ch) {
+    if (notifyRoute === undefined) await notifyRouteLoad();
+    const payload = { boards: {} };
+    payload.boards[bid] = { channels: ch };
+    const r = await cloudApi('notify_prefs_save', payload);
+    if (r && r.boards && notifyRoute) notifyRoute.boards = r.boards;
+    return true;
+  }
+
+  /* 运动实例的通知设置（真源：boards.move.instances）。没存过返回 null，调用方用默认值 */
+  function notifyMoveInstance(sportId) {
+    const inst = (notifyRoute && notifyRoute.boards && notifyRoute.boards.move &&
+      notifyRoute.boards.move.instances && notifyRoute.boards.move.instances[sportId]) || null;
+    return inst && typeof inst === 'object' ? inst : null;
+  }
+
+  /* 运动弹窗保存实例设置：只提交这一个运动，其他实例不受影响 */
+  async function saveMoveInstance(sportId, on, chOn) {
+    if (notifyRoute === undefined) await notifyRouteLoad();
+    const payload = { boards: { move: { instances: {} } } };
+    payload.boards.move.instances[sportId] = { on: !!on, channels: chOn };
+    const r = await cloudApi('notify_prefs_save', payload);
+    if (r && r.boards && notifyRoute) notifyRoute.boards = r.boards;
+    return true;
+  }
   /* v125 站点邮件：管理员配一次，全站用于注册确认与找回密码 */
   let siteMailCfg;
   let siteMailReady = false;
@@ -14606,12 +14701,14 @@
      五块：全局总控 / 板块总控（含免打扰与小结时刻）/ 文案模板 / 用户通知数据列表。
      数据：notify_prefs（boards/quietCfg/report/templates）+ push_preview（今日真实排程）
      + 本地 remindItems()。页面内状态不进 state。 */
+  /* entry：板块渠道在哪些地方能改（v216）——dual = 模块页与路由页双入口（同一份数据），
+     route = 仅通知路由页。运动另支持实例级（每个运动单独开关+渠道）。 */
   const NOTIFY_BOARDS = [
-    { id: 'med', name: '用药', icon: '💊', module: 'meds' },
-    { id: 'water', name: '喝水', icon: '💧', module: 'water' },
-    { id: 'move', name: '运动', icon: '🏃', module: 'move' },
-    { id: 'breathe', name: '478 呼吸', icon: '🌬️', module: 'breathe' },
-    { id: 'quit', name: '戒烟', icon: '🚭', module: 'quit' },
+    { id: 'med', name: '用药', icon: '💊', module: 'meds', entry: 'route' },
+    { id: 'water', name: '喝水', icon: '💧', module: 'water', entry: 'dual', entryName: '喝水页' },
+    { id: 'move', name: '运动', icon: '🏃', module: 'move', entry: 'dual', entryName: '运动弹窗', inst: true },
+    { id: 'breathe', name: '478 呼吸', icon: '🌬️', module: 'breathe', entry: 'dual', entryName: '478 页' },
+    { id: 'quit', name: '戒烟', icon: '🚭', module: 'quit', entry: 'route' },
     { id: 'task', name: '待办', icon: '📋' },
     { id: 'habit', name: '普通习惯', icon: '🔁' },
     { id: 'notice', name: '自定义提醒', icon: '🔔' },
@@ -14657,7 +14754,114 @@
       notifyPlan = [];
     }
     notifyRouteLoading = false;
+    notifyHistoryLoad();
+    if (view === 'notifyroute' || view === 'water' || view === 'breathe' || view === 'move') render();
+  }
+
+  async function notifyHistoryLoad() {
+    if (notifyHistoryLoading || notifyHistory !== undefined) return;
+    if (mode === 'landing' || !cloud.user) return;
+    notifyHistoryLoading = true;
+    try {
+      const r = await cloudApi('push_history');
+      notifyHistory = (r && Array.isArray(r.items)) ? r.items : [];
+    } catch (e) {
+      notifyHistory = null;
+    }
+    notifyHistoryLoading = false;
     if (view === 'notifyroute') render();
+  }
+
+  /* 只重绘历史面板（筛选切换时不整页 render） */
+  function renderNotifyHistory() {
+    const box = document.getElementById('nr-hist-list');
+    if (!box) return;
+    box.innerHTML = notifyHistoryRowsHtml();
+  }
+
+  /* v224：历史记录按提醒聚合渲染——一张卡 = 一次提醒，组内逐渠道标成败 */
+  const NOTIFY_HIST_STATUS = {
+    ok: ['成功', 'ok'], part: ['部分成功', 'p2'], fail: ['失败', 'warn'], skip: ['未发送', 'quiet']
+  };
+  const NOTIFY_HIST_CHIP = {
+    ok: ['✓ 已发送', 'chip-ok'], fail: ['✗ 失败', 'chip-bad']
+  };
+
+  function notifyHistoryRowsHtml() {
+    const all = Array.isArray(notifyHistory) ? notifyHistory : [];
+    /* 筛「失败」= 组内任一渠道失败（部分成功的卡也要能翻出来） */
+    const list = nrHistFilter ? all.filter(function (r) {
+      if (nrHistFilter === 'fail') {
+        return (r.rows || []).some(function (x) { return x.status === 'fail'; });
+      }
+      return r.status === nrHistFilter;
+    }) : all;
+    if (!all.length) {
+      return '<p class="nr-empty">暂无发送记录（服务端每次实际尝试发送时才开始记）。</p>';
+    }
+    if (!list.length) {
+      return '<p class="nr-empty">没有符合筛选条件的记录。</p>';
+    }
+    const chanName = function (c) {
+      return c === 'wecom' ? '企微' : (c === 'mail' ? '邮件' : c);
+    };
+    return list.map(function (g) {
+      const st = NOTIFY_HIST_STATUS[g.status] || [g.status, 'quiet'];
+      const board = (notifyRoute && notifyRoute.boards && notifyRoute.boards[g.board]) || null;
+      const browserOn = !!(board && board.channels && board.channels.browser);
+      /* 渠道行：服务端各渠道的成败 + 浏览器（勾了就标「本地」） */
+      let chips = g.rows.map(function (row) {
+        const spec = NOTIFY_HIST_CHIP[row.status];
+        if (!spec) return '';
+        return '<span class="nr-chip ' + spec[1] + '">' + esc(chanName(row.channel)) + ' ' + spec[0] + '</span>';
+      }).join('');
+      if (browserOn) {
+        chips += '<span class="nr-chip off">浏览器 · 本地</span>';
+      }
+      /* 失败原因：每个失败渠道一行 */
+      const errs = g.rows.filter(function (row) { return row.status === 'fail' && row.error; })
+        .map(function (row) {
+          return '<span class="nr-err">' + esc(chanName(row.channel) + '：' + row.error) + '</span>';
+        }).join('');
+      const skipNote = (g.status === 'skip' && g.rows[0] && g.rows[0].error)
+        ? '<span class="nr-err">' + esc(g.rows[0].error) + '</span>' : '';
+      const off = g.status === 'skip';
+      return '<div class="nr-card' + (off ? ' off' : '') + '" style="cursor:default">' +
+        '<span class="nr-ctop">' +
+          '<span class="nr-badge ' + st[1] + '">' + st[0] + '</span>' +
+          '<span class="nr-badge quiet">' + esc(NOTIFY_SRC_CN[g.kind] || g.kind || '提醒') + '</span>' +
+          '<span class="nr-ctime">' + esc(String(g.at || '').replace('T', ' ').slice(0, 16)) + '</span>' +
+        '</span>' +
+        '<span class="nr-ctitle">' + esc(String(g.content || '').split('\n')[0] || '（无文案）') + '</span>' +
+        (chips ? '<span class="nr-cchan"><span class="nr-chiplabel">渠道</span>' + chips + '</span>' : '') +
+        skipNote + errs +
+      '</div>';
+    }).join('');
+  }
+
+  function notifyHistoryHtml() {
+    const all = Array.isArray(notifyHistory) ? notifyHistory : [];
+    const nPart = all.filter(function (r) { return r.status === 'part'; }).length;
+    const nFail = all.filter(function (r) { return r.status === 'fail'; }).length;
+    const nSkip = all.filter(function (r) { return r.status === 'skip'; }).length;
+    const stat = all.length
+      ? all.length + ' 次 · 部分成功 ' + nPart + ' · 失败 ' + nFail + ' · 未发送 ' + nSkip
+      : '还没开始记录';
+    const opt = function (v, label) {
+      return '<option value="' + v + '"' + (nrHistFilter === v ? ' selected' : '') + '>' + label + '</option>';
+    };
+    return notifyRoutePanel('历史推送记录', stat,
+      '<p class="nr-note">服务端每次实际尝试发送时记一条：成功、失败（含返回提示）、因板块/实例停用而未发送。' +
+        '浏览器本地通知不在这里；记录保留 14 天。</p>' +
+      '<div class="nr-toolbar">' +
+        '<label>状态<select id="nr-h-st">' +
+          opt('', '全部') + opt('ok', '成功') + opt('part', '部分成功') + opt('fail', '失败') + opt('skip', '未发送') +
+        '</select></label>' +
+        '<span class="nr-spacer"></span>' +
+        '<span class="nr-stat" id="nr-hist-stat">' + stat + '</span>' +
+        '<button type="button" class="btn ghost" data-act="notify-hist-refresh">刷新</button>' +
+      '</div>' +
+      '<div class="nr-grid" id="nr-hist-list">' + notifyHistoryRowsHtml() + '</div>');
   }
 
   function notifyRoutePanel(title, sub, body) {
@@ -14712,9 +14916,14 @@
           ' title="' + esc(def.name + ' · ' + c[1] + (onCh ? '已勾选' : '未勾选')) + '">' +
           (onCh ? '✓' : '') + '</button></td>';
       }).join('');
+      const entryTxt = def.entry === 'dual'
+        ? '<small class="nr-entry">' + esc('✓ 与「' + (def.entryName || '模块页') + '」同一份设置') +
+          (def.inst ? ' · 每个运动可单独开关' : '') + '</small>'
+        : '';
       return '<tr class="' + (on ? '' : 'off') + '">' +
         '<td><span class="nr-name"><span class="nr-ico">' + def.icon + '</span><span><b>' + esc(def.name) + '</b>' +
-          '<small>' + (def.module ? '跟随功能模块开关' : (on ? '已启用' : '已停用 · 数据保留')) + '</small></span></span></td>' +
+          '<small>' + (def.module ? '跟随功能模块开关' : (on ? '已启用' : '已停用 · 数据保留')) + '</small>' +
+          entryTxt + '</span></span></td>' +
         '<td><button type="button" class="nr-sw' + (on ? ' on' : '') + '" data-act="notify-board-toggle" data-b="' + def.id + '"' +
           ' title="' + (def.module ? '去「功能模块」页开关' : (on ? '停用' : '启用')) + '"></button></td>' +
         cells + '</tr>';
@@ -14723,7 +14932,8 @@
     const q = (notifyRoute && notifyRoute.quiet) || { on: false, start: '23:00', end: '07:00' };
     const rep = (notifyRoute && notifyRoute.report) || { morning: '08:20', noon: '12:30', evening: '20:00' };
     return notifyRoutePanel('板块总控 · 模块启用 + 通知通道矩阵', '模块类板块的启用跟随「功能模块」，这里只配渠道',
-      '<p class="nr-note">停用 = 导航入口隐藏 + 提醒停止 + 数据保留；渠道留空 = 功能照常用、只是不推送。</p>' +
+      '<p class="nr-note">停用 = 导航入口隐藏 + 提醒停止 + 数据保留；渠道留空 = 功能照常用、只是不推送。' +
+        '标「同一份设置」的板块，在模块页和这里改渠道都生效（v216 起）。</p>' +
       '<table class="nr-table"><thead><tr><th>板块</th><th>启用</th>' +
         NOTIFY_CHANNELS.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
@@ -14902,6 +15112,11 @@
       if (bch && bch.browser === false) return '渠道停用';
       return '本地';
     }
+    /* v216：move 条目优先看实例开关（运动弹窗存的那个） */
+    if (r.board === 'move' && r.sport) {
+      const inst = notifyMoveInstance(r.sport);
+      if (inst && inst.on === false) return '已关闭';
+    }
     if (row && row.on === false) return '板块停用';
     const ch = (row && row.channels) || null;
     if (ch && ch.wecom === false && ch.mail === false) return '渠道留空';
@@ -14926,6 +15141,10 @@
   /* 筛选与选中都只活在本次页面里，不进 state（刷新回到默认，和模板场景选择一致） */
   let nrFilter = { cat: '', pri: '', st: '', sort: 'priority' };
   let nrActiveItem = '';
+  /* v216 历史推送记录：undefined=未拉 / null=失败 / 数组=已拉到 */
+  let notifyHistory;
+  let notifyHistoryLoading = false;
+  let nrHistFilter = '';   // '' = 全部 | ok | fail | skip
 
   /* 浏览器本地提醒没有 kind，靠 key 与文案反推——只用于类目展示与板块判定 */
   function notifyLocalKind(it) {
@@ -14933,6 +15152,7 @@
     const t = String((it && it.text) || '');
     if (k.indexOf('med') === 0) return 'med';
     if (k.indexOf('task') === 0) return 'task';
+    if (k.indexOf('notice') === 0) return 'notice';
     if (t.indexOf('喝水') >= 0) return 'water';
     if (t.indexOf('478') >= 0) return 'breathe';
     if (t.indexOf('运动') >= 0) return 'move';
@@ -14949,6 +15169,7 @@
         kind: String(it.kind || ''),
         source: src,
         board: src,
+        sport: String(it.sport || ''),
         priority: String(it.priority || '日常'),
         title: String(it.title || ''),
         body: String(it.body || ''),
@@ -14960,11 +15181,12 @@
       try { local = remindItems() || []; } catch (e) { local = []; }
       local.forEach(function (it) {
         const b = notifyLocalKind(it);
-        /* 类目跟服务端口径一致：喝水/运动/478 都属于「习惯提醒」，细分放 source */
-        const kind = (b === 'med' || b === 'task') ? b : 'habit';
+        /* 类目跟服务端口径一致：喝水/运动/478 都属于「习惯提醒」，细分放 source；
+           自定义提醒（notice）单独成类 */
+        const kind = b === 'notice' ? 'notice' : ((b === 'med' || b === 'task') ? b : 'habit');
         rows.push({
           id: 'local-' + String(it.key || ''),
-          time: '',
+          time: String(it.time || ''),
           kind: kind,
           source: b,
           board: b,
@@ -15012,6 +15234,26 @@
     return p === '紧急' ? 'p1' : (p === '当日' ? 'p2' : (p === '日常' ? 'p3' : ''));
   }
 
+  /* v224：数据列表卡片的「渠道行」——这条提醒会走哪些渠道，勾的亮、没勾的灰虚 */
+  function notifyCardChanRow(r) {
+    const closed = notifyRowState(r) === '已关闭';
+    if (closed) {
+      return '<span class="nr-cchan"><span class="nr-chiplabel">渠道</span>' +
+        '<span class="nr-chipnote">这个运动的通知已关闭，不会走任何渠道</span></span>';
+    }
+    let ch = null;
+    if (r.board === 'move' && r.sport) {
+      const inst = notifyMoveInstance(r.sport);
+      if (inst && inst.channels) ch = inst.channels;
+    }
+    if (!ch) ch = notifyBoardChannels(r.board).ch;
+    const mk = function (name, on) {
+      return '<span class="nr-chip' + (on ? ' on' : ' off') + '">' + name + ' ' + (on ? '●' : '○') + '</span>';
+    };
+    return '<span class="nr-cchan"><span class="nr-chiplabel">渠道</span>' +
+      mk('企微', !!ch.wecom) + mk('邮件', !!ch.mail) + mk('浏览器', !!ch.browser) + '</span>';
+  }
+
   function notifyPlanCardsHtml(list) {
     if (!list.length) {
       return '<p class="nr-empty">没有符合条件的数据项，请调整筛选条件。</p>';
@@ -15035,7 +15277,7 @@
         '<span class="nr-ctop">' +
           '<span class="nr-badge ' + notifyPriClass(r.priority) + '">' + esc(r.priority || '日常') + '</span>' +
           '<span class="nr-badge quiet">' + esc(NOTIFY_KIND_CN[r.kind] || r.kind || '提醒') + '</span>' +
-          '<span class="nr-ctime">' + esc(r.local ? '手动' : (r.time || '—')) + '</span>' +
+          '<span class="nr-ctime">' + esc(r.local ? (r.time || '手动') : (r.time || '—')) + '</span>' +
           '<span class="nr-badge' + (off ? ' warn' : ' quiet') + '">' + esc(st) + '</span>' +
         '</span>' +
         '<span class="nr-ctitle">' + esc(r.title || NOTIFY_SRC_CN[r.source] || '提醒') + '</span>' +
@@ -15043,6 +15285,7 @@
         '<span class="nr-cmeta">功能：' + esc(NOTIFY_SRC_CN[r.source] || '—') +
           ' · 来源：' + esc(r.local ? '浏览器本地' : '服务端排程') +
           ' · ' + esc(r.id || '—') + '</span>' +
+        notifyCardChanRow(r) +
       '</button>';
     });
     return html;
@@ -15126,6 +15369,7 @@
       notifyRouteBoardsHtml() +
       notifyRouteTplHtml() +
       notifyRoutePlanHtml() +
+      notifyHistoryHtml() +
       '</div>';
   }
 
@@ -16137,6 +16381,12 @@
             renderNotifyPlanList();
           });
         });
+      /* v216：历史记录的状态筛选——只重绘历史网格 */
+      const hst = document.getElementById('nr-h-st');
+      if (hst) hst.addEventListener('change', function () {
+        nrHistFilter = hst.value;
+        renderNotifyHistory();
+      });
       notifyTplPreview();
     }
     if (view === 'water') bindWaterPage();
@@ -16601,9 +16851,9 @@
     if (!type || !target) return;
     const sync = () => {
       const tv = type.value;
-      const isQuit = tv === 'quit' || tv === 'smoke';
+      const isQuitT = tv === 'quit' || tv === 'smoke';
       const isSmokeType = tv === 'smoke';
-      if (isQuit) {
+      if (isQuitRow) {
         target.disabled = true;
         target.value = '1';
       } else {
@@ -16611,7 +16861,7 @@
         if (!target.value || Number(target.value) < 1) target.value = '1';
       }
       /* 戒除专属区（开始日期 + 烟字段）只在「戒除 / 戒烟」时出现 */
-      form.querySelectorAll('[data-quit-only]').forEach(el => { el.hidden = !isQuit; });
+      form.querySelectorAll('[data-quit-only]').forEach(el => { el.hidden = !isQuitT; });
       /* 烟专属字段（每天几支 / 烟价 / 一包几支）只在戒烟时出现。
          「不熬夜」出现「一包多少钱」会让人莫名其妙。 */
       form.querySelectorAll('[data-smoke-only]').forEach(el => { el.hidden = !isSmokeType; });
@@ -16630,7 +16880,7 @@
       ['target', 'unit'].forEach(function (nm) {
         const el = form.querySelector('[name="' + nm + '"]');
         const f = el && el.closest('.field');
-        if (f) f.hidden = isQuit;
+        if (f) f.hidden = isQuitRow;
       });
     };
     type.addEventListener('change', sync);
@@ -17818,9 +18068,12 @@
     if (!state.modules) state.modules = {};
     const m = state.modules.water || moduleDefaults('water');
     m.notify = !!form.querySelector('[name="notify"]').checked;
-    const ch = [];
-    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
-    m.notifyChannels = ch.length ? ch : ['browser'];
+    /* v216：渠道不再写进模块快照（旧字段保留但不再使用），真源是通知路由板块矩阵。
+       时间与频率仍归模块自己（schedule / ICS 读这里）。 */
+    const chOn = { wecom: false, mail: false, browser: false };
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) {
+      if (chOn[el.value] !== undefined) chOn[el.value] = true;
+    });
     const modeEl = form.querySelector('[name="mode"]:checked');
     m.notifyMode = modeEl && modeEl.value === 'daily' ? 'daily' : 'each';
     const segOn = form.querySelector('#water-daily-count button.on');
@@ -17837,8 +18090,14 @@
     m.updatedAt = new Date().toISOString();
     state.modules.water = m;
     state.modulesAt = Date.now();
-    save(); render();
-    toast('提醒设置已保存');
+    save();
+    /* 渠道部分更新：成功回填 boards 再重绘（失败则还原为服务端真源并提示） */
+    saveModuleNotifyChannels('water', chOn)
+      .then(function () { render(); toast('提醒设置已保存 · 渠道已同步到通知路由'); })
+      .catch(function (e) {
+        render();
+        toast('提醒设置已保存；渠道保存失败：' + (e && e.message ? e.message : '网络错误'));
+      });
   }
 
   /* ============ 478 呼吸法页改版（v194）：页内设置 + 提醒 ============ */
@@ -17933,9 +18192,11 @@
     if (!state.modules) state.modules = {};
     const m = state.modules.breathe || moduleDefaults('breathe');
     m.notify = !!form.querySelector('[name="notify"]').checked;
-    const ch = [];
-    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) { ch.push(el.value); });
-    m.notifyChannels = ch.length ? ch : ['browser'];
+    /* v216：渠道不再写进模块快照，真源是通知路由板块矩阵（breathe） */
+    const chOn = { wecom: false, mail: false, browser: false };
+    form.querySelectorAll('[name="channels"]:checked').forEach(function (el) {
+      if (chOn[el.value] !== undefined) chOn[el.value] = true;
+    });
     /* v200：以界面上实际存在的输入框为准 —— 用户把「每天几组」改大但没点「保存设置」时，
        提醒区已经多出几个框，以前只读已保存的 groups，多填的时间会被静默丢掉。 */
     const boxes = Array.prototype.slice.call(form.querySelectorAll('[name^="bt"]'));
@@ -17953,10 +18214,16 @@
     m.updatedAt = new Date().toISOString();
     state.modules.breathe = m;
     state.modulesAt = Date.now();
-    save(); render();
-    toast(dup
+    save();
+    const baseMsg = dup
       ? '提醒设置已保存 · 重复的时间已自动错开'
-      : (n !== prevGroups ? '提醒设置已保存 · 每天几组同步为 ' + n + ' 组' : '提醒设置已保存'));
+      : (n !== prevGroups ? '提醒设置已保存 · 每天几组同步为 ' + n + ' 组' : '提醒设置已保存');
+    saveModuleNotifyChannels('breathe', chOn)
+      .then(function () { render(); toast(baseMsg + ' · 渠道已同步到通知路由'); })
+      .catch(function (e) {
+        render();
+        toast(baseMsg + '；渠道保存失败：' + (e && e.message ? e.message : '网络错误'));
+      });
   }
 
   /* ============ 运动 2.0（v175）：新建/编辑弹窗、打卡、记录、提醒保存 ============ */
@@ -18102,8 +18369,12 @@
     let strokePick = (init && init.strokePick) || '自由泳';
     /* v178：通知开关与渠道都按「这个运动」自己存。
        编辑老运动（还没有 channels 字段）时，回落到模块级渠道。 */
-    let notifyOn = init ? (init.notifyOn !== false) : true;
-    let chanSel = (init && Array.isArray(init.channels))
+    /* v216：实例通知设置的真源是板块矩阵 move.instances；没存过回落旧快照值（兼容） */
+    const _inst = init ? notifyMoveInstance(init.id) : null;
+    let notifyOn = _inst ? !!_inst.on : (init ? (init.notifyOn !== false) : true);
+    let chanSel = _inst && _inst.channels
+      ? Object.keys(_inst.channels).filter(function (k) { return _inst.channels[k]; })
+      : (init && Array.isArray(init.channels))
       ? init.channels.slice()
       : (moveModule().notifyChannels || ['browser']).slice();
 
@@ -18373,10 +18644,8 @@
       startTime: st.key === 'steps' ? '' : (st.startTime || ''),
       fields: st.fields,
       strokePick: st.strokePick,
-      notifyOn: st.notifyOn,
-      /* 关掉通知就清空渠道；开着但三个都没选，就存空数组（等于不提醒），
-         绝不再强行塞回 browser —— 那正是「点不掉」的根源。 */
-      channels: st.notifyOn ? st.notifyChannels.slice() : [],
+      /* v216：实例通知设置（开关+渠道）的真源移到板块矩阵 move.instances，
+         快照不再写 notifyOn/channels（旧数据保留但不再读取）。 */
       updatedAt: now
     };
     let moved = 0;
@@ -18411,6 +18680,19 @@
     state.modules.move = m;
     state.modulesAt = Date.now();
     save();
+    /* v216：实例通知设置提交板块矩阵（部分更新，只动这一个运动） */
+    const sportId = editing ? editing.id : (m.sports.length ? m.sports[m.sports.length - 1].id : '');
+    if (sportId) {
+      const chOn = { wecom: false, mail: false, browser: false };
+      (st.notifyOn ? st.notifyChannels : []).forEach(function (k) {
+        if (chOn[k] !== undefined) chOn[k] = true;
+      });
+      saveMoveInstance(sportId, st.notifyOn, chOn)
+        .then(function () { render(); })
+        .catch(function (e) {
+          toast('运动已保存；通知设置保存失败：' + (e && e.message ? e.message : '网络错误'));
+        });
+    }
     closeModal();
     render();
     if (moved) {
@@ -18988,11 +19270,7 @@
     m.notify = !!form.querySelector('[name="notify"]').checked;
     /* v177：渠道改由「新建 / 编辑运动」弹窗管理，这里不再读写，免得把已选渠道冲成默认值 */
     if (!Array.isArray(m.notifyChannels) || !m.notifyChannels.length) m.notifyChannels = ['browser'];
-    m.notifyScenes = {
-      steps: !!form.querySelector('[name="sceneSteps"]').checked,
-      plan: !!form.querySelector('[name="scenePlan"]').checked,
-      week: !!form.querySelector('[name="sceneWeek"]').checked
-    };
+    /* v216：notifyScenes 假开关已撤，不再写入（旧数据保留不删） */
     m.updatedAt = new Date().toISOString();
     state.modules.move = m;
     state.modulesAt = Date.now();
@@ -20324,7 +20602,7 @@
       const c = countOf(selectedDate, h.id);
       logHabit(h.id, 1);
       setCount(selectedDate, h.id, c + 1);
-      if (isQuitLike(h)) toast('已记录一次，明天重新开始');
+      if (isQuitSemantics(h)) toast('已记录一次，明天重新开始');
       else if (c + 1 === Math.max(1, Number(h.target) || 1)) toast('完成：' + h.name + ' 🎉');
       /* v207：喝水每记一杯给个反馈 —— 原来只有「刚好达标」才说话，中间几杯一声不吭（线上实测） */
       else if (h.id === 'h_water') toast('已记录一杯 · 今天 ' + Math.round(waterMlOf(h, c + 1)) + ' ml');
@@ -20441,7 +20719,7 @@
         toast(countOf(d, h.id) ? '已打卡 · 今天守住了' : '已撤销今天的打卡');
         return;
       }
-      if (isQuitLike(h)) {
+      if (isQuitSemantics(h)) {
         /* 戒烟与历史戒除：没有「确认守住」这个动作——不记失守就是守住。
            这个按钮只承担一件事：把今天误记的失守撤掉。 */
         if (quitSlips(h, d) > 0) {
@@ -20472,7 +20750,7 @@
       const h = currentHabit(el.dataset.id);
       if (!h) return;
       const d = selectedDate;
-      if (isQuitLike(h)) {
+      if (isQuitSemantics(h)) {
         /* 多次模式：点一次加一条（一天几次正是这个习惯本身）；
            单次模式：再点一次是撤销，与「完成」形成一对。
            v204：记失守时顺手撤掉当天的打卡，免得「已打卡」和「已失守」同时成立。 */
@@ -21068,6 +21346,11 @@
       nrActiveItem = (nrActiveItem === id) ? '' : id;
       renderNotifyPlanList();
       notifyTplPreview();
+    },
+    'notify-hist-refresh': () => {
+      notifyHistory = undefined;
+      notifyHistoryLoad();
+      toast('正在刷新发送记录…');
     },
     'notify-plan-clear': () => {
       nrActiveItem = '';
@@ -21762,7 +22045,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=221', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=224', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
