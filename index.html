@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=230">
+<link rel="stylesheet" href="assets/app.css?v=231">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=230">
+<link rel="stylesheet" href="assets/theme-v2.css?v=231">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v230';
+  const APP_VERSION = 'v231';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -17325,6 +17325,11 @@
       schedRender();
     }
   });
+  /* 开关是「点击」不是「输入」：单独 click 委托（habit/task 通用，批 6 补） */
+  document.addEventListener('click', function (e) {
+    const swT = e.target.closest('[data-role="notify-switch"]');
+    if (swT) { swT.classList.toggle('on'); swT.setAttribute('aria-checked', swT.classList.contains('on')); }
+  });
   document.addEventListener('input', function (e) {
     /* 目标次数变化 → 时间行数联动（多目标 N 行的行数跟着走） */
     if (e.target.closest('#habit-form') && e.target.name === 'target' && schedDraft) {
@@ -17339,8 +17344,6 @@
       return;
     }
     /* 批 5：时间矩阵与渠道的编辑（全部走委托，重建不丢） */
-    const swT = e.target.closest('[data-role="notify-switch"]');
-    if (swT) { swT.classList.toggle('on'); swT.setAttribute('aria-checked', swT.classList.contains('on')); return; }
     const t = e.target.closest('#notifyExtra [data-dtime],#notifyExtra [data-wtime],#notifyExtra [data-itime],#notifyExtra [data-channel]');
     if (!t || !schedDraft) return;
     if (t.dataset.channel) {
@@ -22339,7 +22342,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=230', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=231', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

@@ -4420,3 +4420,19 @@ body.modal-open{overflow:hidden;}
 #task-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
 #task-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
 #task-form .field input,#task-form .field select,#task-form .field textarea{width:100%}
+
+/* ===== 任务弹窗对齐预览稿（v231）：暗色变量覆盖 + 预览间距 ===== */
+html[data-theme="dark"] #task-form{--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;}
+#task-form{border-radius:16px;padding:16px 18px 14px}
+#task-form .field{margin-bottom:10px;gap:4px}
+#task-form .field>span{font-size:11.5px}
+#task-form .field input,#task-form .field select,#task-form .field textarea{font-size:13px;padding:7px 10px;border-radius:9px}
+#task-form .tk-title{font-size:16px;font-weight:600;border-radius:10px;padding:9px 12px}
+#task-form .tk-props{display:grid;grid-template-columns:repeat(4,1fr);gap:0 12px;margin-bottom:6px}
+#task-form .tk-props .tk-p{display:flex;flex-direction:column;gap:4px;margin-bottom:0}
+#task-form .tk-props .tk-p>span{font-size:11.5px;font-weight:600;color:var(--muted)}
+#task-form .tk-props .tk-p select,#task-form .tk-props .tk-p input{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+#task-form .quick-due{display:flex;gap:6px;margin:-2px 0 8px}
+#task-form .quick-due .chip{font-size:11.5px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
+#task-form .sep{border-top:1px dashed var(--line);margin:12px 0}
+#task-form .hint{font-size:11px;color:var(--muted);margin-top:4px}
