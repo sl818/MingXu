@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>习惯编辑弹窗 · 宽版三款（节奏联动 · 一屏全显）</title>
+<style>
+:root{--bg:#0e1411;--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;--action:#5b8fd6;--font-sans:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color-scheme:dark;}
+[data-theme="light"]{--bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--surface-3:#ece4d4;--text:#1c2621;--muted:#6f7468;--line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--on-accent:#fdfaf2;--good:#2f7d5c;--bad:#b0473d;--action:#2C68FF;}
+[data-skin="slate"]{--bg:#0c111b;--surface:#151c2a;--surface-2:#1a2333;--surface-3:#212c40;--text:#e8edf7;--muted:#8492ad;--line:#2a3550;--line-strong:#3a4870;--accent:#5b8fd6;--accent-soft:#1c2a45;--on-accent:#0c111b;--good:#4c9b6e;--bad:#c96b60;--action:#5b8fd6;}
+[data-skin="slate"][data-theme="light"]{--bg:#edf0f5;--surface:#ffffff;--surface-2:#f5f7fb;--surface-3:#e3e8f1;--text:#1a2233;--muted:#6b7690;--line:#dde3ee;--line-strong:#c3cde0;--accent:#3358a8;--accent-soft:#e3ebf8;--on-accent:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13.5px;line-height:1.5;padding:20px 16px 60px;transition:background .25s,color .25s}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin-bottom:5px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;margin-bottom:20px}
+.bar b{font-size:12px;color:var(--muted)}
+.bar button{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.scheme{margin-bottom:34px}
+.scheme>h2{font-size:15.5px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.scheme>h2 .tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.scheme>.desc{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+/* 弹窗：宽版 */
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px 14px;margin:0 auto;box-shadow:0 18px 44px -22px rgba(0,0,0,.55)}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.m-head b{font-size:15px}
+.m-head .w{font-size:11px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field>span{font-size:11.5px;font-weight:600;color:var(--muted)}
+.field input,.field select{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+.grid{display:grid;gap:0 12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.sched-rc{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sched-rc button{font-family:inherit;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);cursor:pointer;transition:all .15s}
+.sched-rc button b{display:block;font-size:12.5px;font-weight:600}
+.sched-rc button small{display:block;font-size:10.5px;color:var(--muted);margin-top:1px}
+.sched-rc button.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.sched-days{display:flex;gap:6px;flex-wrap:wrap}
+.sched-days button{font-family:inherit;min-width:38px;height:31px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:12px;cursor:pointer}
+.sched-days button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.time-rows{display:flex;flex-direction:column;gap:7px}
+.time-row{display:flex;align-items:center;gap:8px}
+.time-row label{font-size:11.5px;color:var(--muted);flex:none}
+.chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.switch-row b{font-size:12.5px}
+.switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+.sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--good);border-color:var(--good)}
+.sw.on::after{left:21px}
+.save{font-family:inherit;width:100%;margin-top:6px;padding:9px 0;border-radius:10px;border:1px solid var(--bad);background:var(--bad);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer}
+.sep{border-top:1px dashed var(--line);margin:12px 0 12px}
+.gtitle{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:0 0 8px}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>习惯编辑弹窗 · 宽版三款（一屏全显 · 节奏联动）</h1>
+<div class="sub">弹窗加宽至 760–840px、双栏网格；切「多久一次」时下方参数与提醒区跟着适配；旧通知字段（通知时间/提醒频率/每周几/通知提醒旧位置）已全部移除，通知备注保留。</div>
+<div class="bar">
+  <b>明暗</b>
+  <button data-th="dark" class="on">暗色（按你截图）</button>
+  <button data-th="light">亮色</button>
+  <b style="margin-left:8px">皮肤</b>
+  <button data-sk="default" class="on">暗夜绿</button>
+  <button data-sk="slate">石板蓝</button>
+  <span style="margin-left:auto;font-size:11px;color:var(--muted)">三款里的节奏卡都能点——参数区和提醒区会跟着切</span>
+</div>
+
+<!-- ================ 版一 ================ -->
+<section class="scheme">
+  <h2>版一 · 宽双栏 780px <span class="tag">左习惯 右提醒</span></h2>
+  <div class="desc">左栏管习惯本身（名称/类型/节奏/参数），右栏全是提醒（总开关/渠道/时间矩阵/备注）。一眼两块，互不干扰，一屏放下。</div>
+  <div class="modal" style="max-width:780px">
+    <div class="m-head"><b>编辑习惯</b><span class="w">宽 780px · 一屏全显</span></div>
+    <div class="cols2">
+      <div>
+        <div class="gtitle">习惯</div>
+        <div class="grid g2">
+          <div class="field"><span>名称</span><input value="每天读书 30 分钟"></div>
+          <div class="field"><span>图标</span><input value="📖"></div>
+        </div>
+        <div class="field"><span>类型</span><select><option>保持 · 点一下算今天达标</option></select></div>
+        <div class="field"><span>多久一次</span>
+          <div class="sched-rc" data-scheds="v1">
+            <button class="on" data-k="daily"><b>每天</b><small>每天都要求</small></button>
+            <button data-k="weekdays"><b>每周固定几天</b><small>如周一三五</small></button>
+            <button data-k="weekly"><b>每周 N 次</b><small>哪天做都行</small></button>
+            <button data-k="interval"><b>每 N 天</b><small>隔几天做一次</small></button>
+          </div>
+        </div>
+        <div id="v1-param"></div>
+        <div class="grid g3">
+          <div class="field"><span>目标次数</span><input type="number" value="1"></div>
+          <div class="field"><span>单位</span><input value="次"></div>
+          <div class="field"><span>颜色</span><input type="color" value="#4fa88c" style="height:34px;padding:2px"></div>
+        </div>
+        <div class="field"><span>备注</span><input value="可选"></div>
+      </div>
+      <div>
+        <div class="gtitle">提醒</div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此习惯不产生任何推送</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知渠道</span>
+          <div class="chan-row">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与通知路由的板块开关取交集——两边都开才会发</div>
+        </div>
+        <div id="v1-notify"></div>
+        <div class="field"><span>通知备注（随推送一起发）</span><input value="睡前记得读书"></div>
+      </div>
+    </div>
+    <button class="save">保存</button>
+  </div>
+</section>
+
+<!-- ================ 版二 ================ -->
+<section class="scheme">
+  <h2>版二 · 分组通栏 840px <span class="tag">信息密度最高</span></h2>
+  <div class="desc">三个分组横铺（基础 → 节奏 → 提醒），每组内 2–4 列并排——同样字段行数最少，一屏余量最大。</div>
+  <div class="modal" style="max-width:840px">
+    <div class="m-head"><b>编辑习惯</b><span class="w">宽 840px · 分组通栏</span></div>
+    <div class="gtitle">基础</div>
+    <div class="grid g4">
+      <div class="field"><span>名称</span><input value="每天读书 30 分钟"></div>
+      <div class="field"><span>图标</span><input value="📖"></div>
+      <div class="field"><span>类型</span><select><option>保持</option></select></div>
+      <div class="field"><span>颜色</span><input type="color" value="#4fa88c" style="height:33px;padding:2px"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">节奏 · 多久一次（下方参数随之适配）</div>
+    <div class="sched-rc" data-scheds="v2">
+      <button class="on" data-k="daily"><b>每天</b><small>每天都要求</small></button>
+      <button data-k="weekdays"><b>每周固定几天</b><small>如周一三五</small></button>
+      <button data-k="weekly"><b>每周 N 次</b><small>哪天做都行</small></button>
+      <button data-k="interval"><b>每 N 天</b><small>隔几天做一次</small></button>
+    </div>
+    <div style="height:10px"></div>
+    <div id="v2-param"></div>
+    <div class="grid g4">
+      <div class="field"><span>目标次数</span><input type="number" value="1"></div>
+      <div class="field"><span>单位</span><input value="次"></div>
+      <div class="field"><span>打卡方式</span><select><option>每日多次 · 只记一次</option></select></div>
+      <div class="field"><span>备注</span><input value="可选"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">提醒</div>
+    <div class="grid g2">
+      <div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知渠道</span>
+          <div class="chan-row">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与板块开关取交集</div>
+        </div>
+        <div class="field"><span>通知备注</span><input value="睡前记得读书"></div>
+      </div>
+      <div id="v2-notify"></div>
+    </div>
+    <button class="save">保存</button>
+  </div>
+</section>
+
+<!-- ================ 版三 ================ -->
+<section class="scheme">
+  <h2>版三 · 紧凑 680px 双栏 <span class="tag">小屏友好</span></h2>
+  <div class="desc">双栏各 340px，字段更紧凑——适合与移动端断点衔接，桌面上一屏同样全显。</div>
+  <div class="modal" style="max-width:680px">
+    <div class="m-head"><b>编辑习惯</b><span class="w">宽 680px · 紧凑双栏</span></div>
+    <div class="cols2">
+      <div>
+        <div class="grid g2">
+          <div class="field"><span>名称</span><input value="每天读书 30 分钟"></div>
+          <div class="field"><span>图标</span><input value="📖"></div>
+        </div>
+        <div class="field"><span>类型</span><select><option>保持</option></select></div>
+        <div class="field"><span>多久一次</span>
+          <div class="sched-rc" data-scheds="v3" style="grid-template-columns:1fr 1fr">
+            <button class="on" data-k="daily"><b>每天</b></button>
+            <button data-k="weekdays"><b>每周固定几天</b></button>
+            <button data-k="weekly"><b>每周 N 次</b></button>
+            <button data-k="interval"><b>每 N 天</b></button>
+          </div>
+        </div>
+        <div id="v3-param"></div>
+        <div class="grid g2">
+          <div class="field"><span>目标次数</span><input type="number" value="1"></div>
+          <div class="field"><span>单位</span><input value="次"></div>
+        </div>
+        <div class="field"><span>备注</span><input value="可选"></div>
+      </div>
+      <div>
+        <div class="switch-row"><div><b>开启提醒</b><small>总开关</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知渠道</span>
+          <div class="chan-row">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与板块开关取交集</div>
+        </div>
+        <div id="v3-notify"></div>
+        <div class="field"><span>通知备注</span><input value="睡前记得读书"></div>
+      </div>
+    </div>
+    <button class="save">保存</button>
+  </div>
+</section>
+
+<div class="bar" style="margin-top:6px">
+  <b>节奏适配对照</b>
+  <span style="font-size:12px">每天 → 目标次数 + 每日 N 行时间 ｜ 每周固定几天 → 星期多选 + 每选中日一组时间 ｜ 每周 N 次 → 次数 + 「不单独提醒，进日报」说明 ｜ 每 N 天 → 间隔 + 本轮提醒时间</span>
+</div>
+</div>
+<script>
+/* 皮肤/明暗 */
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
+/* ===== 节奏联动渲染：同一函数喂三版 ===== */
+const WD=['日','一','二','三','四','五','六'];
+const target=v=>Math.max(1,Number(v)||1);
+function timeRows(n,attr,val){let h='';for(let i=0;i<n;i++){h+='<div class="time-row"><label>第 '+(i+1)+' 次</label><input type="time" value="'+(val&&val[i]?val[i]:'07:00')+'" data-'+attr+'="'+i+'"></div>';}return '<div class="time-rows">'+h+'</div>'+(n>1?'<div class="hint">行数跟随「目标次数」变化</div>':'');}
+function paramHtml(kind,sid){
+  if(kind==='weekdays')return '<div class="field"><span>哪几天（可多选）</span><div class="sched-days">'+['一','二','三','四','五','六','日'].map((w,i)=>'<button type="button" class="'+([1,3,5].includes((i+1)%7)?'on':'')+'" onclick="this.classList.toggle(\'on\')">周'+w+'</button>').join('')+'</div></div>';
+  if(kind==='weekly')return '<div class="field" style="max-width:220px"><span>每周几次</span><input type="number" value="3" min="1" max="7"></div>';
+  if(kind==='interval')return '<div class="field" style="max-width:220px"><span>间隔天数</span><input type="number" value="3" min="2" max="60"></div>';
+  return '';
+}
+function notifyHtml(kind,sid){
+  if(kind==='weekly')return '<div class="hint" style="background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px">每周 N 次不单独设提醒——哪天做都行，未完成会进<b>每日日报</b>汇总。上方渠道与备注仍保留，用于日报及其他习惯联动。</div>';
+  const t=target(document.querySelector('[data-scheds="'+sid+'"]').closest('.modal').querySelector('[name=tgt],[type=number]')?.value);
+  if(kind==='weekdays'){
+    let h='';[1,3,5].forEach(d=>{h+='<div class="field"><span>周'+WD[d]+' · 提醒时间（'+t+' 次）</span>'+timeRows(t,'wdt'+d)+'</div>';});
+    return '<div class="hint">每个选中日各配各的时间（勾选星期后按勾选结果出组）</div>'+h;
+  }
+  if(kind==='interval')return '<div class="field"><span>本轮要求日的提醒时间</span>'+timeRows(1,'it')+'</div>';
+  return '<div class="field"><span>提醒时间（每天 '+t+' 次）</span>'+timeRows(t,'dt')+'</div>';
+}
+function render(sid){
+  const card=document.querySelector('[data-scheds="'+sid+'"]');
+  const kind=card.querySelector('.on').dataset.k;
+  document.getElementById(sid+'-param').innerHTML=paramHtml(kind,sid);
+  document.getElementById(sid+'-notify').innerHTML=notifyHtml(kind,sid);
+}
+document.querySelectorAll('[data-scheds]').forEach(box=>{
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    box.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render(box.dataset.scheds);
+  });
+});
+['v1','v2','v3'].forEach(render);
+/* 目标次数变化 → 时间行数联动（三版通用） */
+document.addEventListener('input',e=>{
+  if(e.target.type==='number'&&e.target.closest('.modal')){
+    const m=e.target.closest('.modal');
+    const box=m.querySelector('[data-scheds]');
+    if(box)render(box.dataset.scheds);
+  }
+});
+</script>
+</body>
+</html>
