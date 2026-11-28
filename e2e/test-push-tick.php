@@ -46,7 +46,19 @@ function db(): PDO
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, slot_key TEXT,
         kind TEXT, sent_at TEXT)');
     $pdo->exec('CREATE UNIQUE INDEX uq_push_sent ON push_sent (user_id, slot_key)');
+    $pdo->exec('CREATE TABLE push_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, at TEXT,
+        channel TEXT, kind TEXT, slot_key TEXT, content TEXT,
+        status TEXT, error TEXT)');
     return $pdo;
+}
+
+/** 读某用户的历史记录（新在前） */
+function log_rows(PDO $pdo, int $uid): array
+{
+    $st = $pdo->prepare('SELECT * FROM push_log WHERE user_id = ? ORDER BY id DESC');
+    $st->execute([$uid]);
+    return $st->fetchAll();
 }
 
 /** 一个只在 08:00 和 20:00 有药的用户 */
@@ -263,6 +275,64 @@ $r2 = lb_push_tick_run($pdoN, D, '20:30', $sender);
 chk('同一分钟再跑一次不重复发', $r2['sent'] === 0 && $r2['skipped'] === 1, json_encode($r2));
 $r3 = lb_push_tick_run($pdoN, D, '20:34', $sender);
 chk('过了容差窗口也不再补发', $r3['sent'] === 0, json_encode($r3));
+
+echo '[v216] 历史推送记录（push_log 三态）' . PHP_EOL;
+$rows = log_rows($pdoN, 1);
+chk('成功发送记了一条 ok', ($rows[0]['status'] ?? '') === 'ok'
+    && ($rows[0]['channel'] ?? '') === 'wecom', json_encode($rows[0] ?? null));
+chk('ok 记录带文案', strpos((string)($rows[0]['content'] ?? ''), '记得吃维生素') !== false,
+    (string)($rows[0]['content'] ?? ''));
+/* 失败通道：sender 返回 false，error 要落库 */
+$badLog = [];
+$badSender = [['channel' => 'test', 'fn' => function ($row, $text, &$why) use (&$badLog) {
+    $why = '企微返回 400：机器人不存在';
+    return false;
+}]];
+$pdoBad = db();
+add_user($pdoBad, 900, HOOK, state_notice(), 1);
+$rBad = lb_push_tick_run($pdoBad, D, '20:30', $badSender);
+chk('失败通道 failed=1', ($rBad['failed'] ?? 0) === 1, json_encode($rBad));
+$rowsBad = log_rows($pdoBad, 900);
+chk('失败记了一条 fail', ($rowsBad[0]['status'] ?? '') === 'fail', json_encode($rowsBad[0] ?? null));
+chk('失败原因进了 error 字段',
+    strpos((string)($rowsBad[0]['error'] ?? ''), '机器人不存在') !== false,
+    (string)($rowsBad[0]['error'] ?? ''));
+/* v223：渠道勾了但没配置 → 记 fail（用户能在历史里看到「为什么没发」） */
+$pdoNC = db();
+add_user($pdoNC, 902, HOOK, state_notice(), 1);
+$pdoNC->exec('CREATE TABLE IF NOT EXISTS user_mail_config (user_id INTEGER PRIMARY KEY, enabled INTEGER)');
+$pdoNC->exec('DELETE FROM user_mail_config WHERE user_id = 902');
+$gNC = [];
+$twoCh = [
+    ['channel' => 'wecom', 'fn' => function ($row, $text, &$why) use (&$gNC) { $gNC[] = 'wecom'; return true; }],
+    ['channel' => 'mail', 'fn' => function ($row, $text, &$why) use (&$gNC) { $gNC[] = 'mail'; return true; }],
+];
+$rNC = lb_push_tick_run($pdoNC, D, '20:30', $twoCh);
+chk('邮件未配置时企微照发', ($rNC['sent'] ?? 0) === 1, json_encode($rNC));
+$rowsNC = log_rows($pdoNC, 902);
+$mailFail = array_values(array_filter($rowsNC, function ($r) { return $r['status'] === 'fail'; }));
+chk('邮件未配置记一条 fail（原因=邮件未开启）',
+    count($mailFail) === 1 && strpos((string)$mailFail[0]['error'], '邮件未开启') !== false,
+    json_encode($mailFail));
+chk('企微 ok + 邮件 fail，共两条记录', count($rowsNC) === 2, json_encode($rowsNC));
+
+/* 表不存在时降级：不建 push_log 的库照常发送 */
+$pdoNoLog = new PDO('sqlite::memory:');
+$pdoNoLog->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdoNoLog->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+$pdoNoLog->exec('CREATE TABLE users (
+    id INTEGER PRIMARY KEY, email TEXT, status TEXT DEFAULT "active",
+    push_webhook TEXT, push_enabled INTEGER DEFAULT 0)');
+$pdoNoLog->exec('CREATE TABLE boards (user_id INTEGER PRIMARY KEY, data TEXT, rev INTEGER, updated_at INTEGER)');
+$pdoNoLog->exec('CREATE TABLE push_sent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, slot_key TEXT, kind TEXT, sent_at TEXT)');
+$g2 = [];
+add_user($pdoNoLog, 901, '20:30', state_notice(), 1);
+$rNoLog = lb_push_tick_run($pdoNoLog, D, '20:30', [['channel' => 'wecom', 'fn' => function ($row, $text, &$why) use (&$g2) {
+    $g2[] = $text;
+    return true;
+}]]);
+chk('push_log 表不存在时发送照常（降级）', ($rNoLog['sent'] ?? 0) === 1, json_encode($rNoLog));
 
 echo PHP_EOL . '----------------------------' . PHP_EOL;
 echo '通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;

@@ -583,9 +583,9 @@ $mvf = lb_schedule_day(['modules' => ['move' => [
     ]],
     'records' => [],
 ]]], D)[0] ?? [];
-chk('运动：source=move / priority=日常 / sport=run',
+chk('运动：source=move / priority=日常 / sport=实例id s1 / mode=run',
     ($mvf['source'] ?? '') === 'move' && ($mvf['priority'] ?? '') === '日常'
-    && ($mvf['sport'] ?? '') === 'run',
+    && ($mvf['sport'] ?? '') === 's1' && ($mvf['mode'] ?? '') === 'run',
     json_encode($mvf, JSON_UNESCAPED_UNICODE));
 
 $brf = lb_schedule_day($breathOf(['07:00']), D)[0] ?? [];

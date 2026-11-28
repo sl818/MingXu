@@ -56,6 +56,24 @@ CREATE TABLE IF NOT EXISTS push_sent (
   CONSTRAINT fk_push_sent_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 历史推送记录（v216）：ok / fail / skip 三态，给人看的观测日志，不参与去重。
+-- 迁移脚本：db/migrations/2026-11-28_push_log.sql
+CREATE TABLE IF NOT EXISTS push_log (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  at DATETIME NOT NULL,
+  channel VARCHAR(16) NOT NULL DEFAULT '',
+  board VARCHAR(16) NOT NULL DEFAULT '',
+  kind VARCHAR(12) NOT NULL DEFAULT '',
+  slot_key VARCHAR(120) NOT NULL DEFAULT '',
+  content TEXT NULL DEFAULT NULL,
+  status VARCHAR(8) NOT NULL DEFAULT 'ok',
+  error VARCHAR(500) NULL DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_push_log_user_time (user_id, at),
+  CONSTRAINT fk_push_log_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 邮件提醒（QQ 邮箱 SMTP）：授权码只存密文，任何接口都不回显
 CREATE TABLE IF NOT EXISTS user_mail_config (
   user_id INT UNSIGNED NOT NULL,

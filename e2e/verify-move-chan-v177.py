@@ -125,6 +125,11 @@ class H(http.server.SimpleHTTPRequestHandler):
                                     'enabled': CFG['mail_enabled'], 'lastError': '', 'lastTestAt': ''}})
             elif a == 'ics_status':
                 self._j({'ok': True, 'url': None})
+            elif a == 'notify_prefs':
+                self._j({'ok': True, 'boards': boards_store or {},
+                         'quietCfg': {'on': False, 'start': '23:00', 'end': '07:00'},
+                         'report': {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'},
+                         'templates': None, 'kinds': {}, 'global': True})
             elif a == 'load':
                 self._j({'ok': True, 'data': board['data'], 'rev': board['rev'],
                          'updated_at': 1792813000000})
@@ -143,6 +148,18 @@ class H(http.server.SimpleHTTPRequestHandler):
                 sessions[sid] = USER
                 self._j({'ok': True, 'user': USER, 'csrf': 'x', 'registration_open': False},
                         eh={'Set-Cookie': 'sid=' + sid + '; Path=/'})
+            elif a == 'notify_prefs_save':
+                sub = body.get('boards') or {}
+                for bid, row in sub.items():
+                    cur = boards_store.setdefault(bid, {})
+                    curCh = cur.setdefault('channels', {})
+                    curCh.update(row.get('channels') or {})
+                    if 'on' in row:
+                        cur['on'] = row['on']
+                    if bid == 'move' and isinstance(row.get('instances'), dict):
+                        insts = cur.setdefault('instances', {})
+                        insts.update(row['instances'])
+                self._j({'ok': True, 'boards': boards_store})
             elif a in ('save', 'force'):
                 board['data'] = body['data']
                 board['rev'] += 1
@@ -153,6 +170,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_response(405)
             self.end_headers()
 
+
+boards_store = {}   # v216：板块矩阵（notify_prefs 真源）
 
 class TS(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
@@ -214,8 +233,10 @@ with sync_playwright() as pw:
     chk('页面不再有渠道勾选框', pg.locator('#move-notify-form [name="channels"]').count() == 0,
         'count=%d' % pg.locator('#move-notify-form [name="channels"]').count())
     chk('页面不再出现「提醒渠道（可多选）」标题', '提醒渠道（可多选）' not in page_txt)
-    chk('页面仍有「提醒场景」三个开关', pg.locator('#move-notify-form [name="sceneSteps"]').count() == 1
-        and pg.locator('#move-notify-form [name="sceneWeek"]').count() == 1)
+    # v216：notifyScenes 假开关已撤（后端从未实现）
+    chk('v216 「提醒场景」三个开关已撤',
+        pg.locator('#move-notify-form [name="sceneSteps"]').count() == 0
+        and pg.locator('#move-notify-form [name="sceneWeek"]').count() == 0)
 
     print('\n===== 2. 未配置时勾选 → 提示去配置 =====')
     CFG.update({'push_enabled': False, 'webhook': '', 'mail_enabled': False,
@@ -266,18 +287,21 @@ with sync_playwright() as pw:
     click_chan(pg, 'mail')                       # 勾上邮件
     pg.click('#move-sport-form button[type="submit"]')
     pg.wait_for_timeout(1500)
-    # v178 起渠道按「每个运动」自己存（sports[].channels），不再只存模块级
+    # v216：实例通知设置（开关+渠道）的真源是板块矩阵 move.instances；快照不再写
     sps = board['data']['modules']['move'].get('sports') or []
     got = sps[-1].get('channels') if sps else None
-    chk('保存运动后该运动的 channels 含 mail', isinstance(got, list) and 'mail' in got, str(got))
-    # 页面上改提醒场景并保存
-    pg.click('#move-notify-form [name="sceneWeek"]')
+    chk('保存运动后快照不再写 channels（v216 起废弃）', got is None, str(got))
+    inst = boards_store.get('move', {}).get('instances', {})
+    chk('保存运动后实例设置提交到板块矩阵（含 mail）',
+        any(isinstance(v, dict) and (v.get('channels') or {}).get('mail') is True
+            for v in inst.values()), json.dumps(inst, ensure_ascii=False))
+    # 页面上的「提醒设置」保存（总开关）——快照只写 notify，不再动 notifyScenes/channels
     pg.click('#move-notify-form button[type="submit"]')
     pg.wait_for_timeout(1400)
-    sps2 = board['data']['modules']['move'].get('sports') or []
-    got2 = sps2[-1].get('channels') if sps2 else None
-    chk('页面保存提醒设置后该运动的 channels 仍含 mail',
-        isinstance(got2, list) and 'mail' in got2, str(got2))
+    mv = board['data']['modules']['move']
+    chk('页面保存提醒设置后 notifyScenes 保持初始值（不再被改写）',
+        mv.get('notifyScenes') == {'steps': True, 'plan': True, 'week': True},
+        str(mv.get('notifyScenes')))
 
     chk('全流程无 JS 异常', not errs, str(errs[:2]))
     br.close()

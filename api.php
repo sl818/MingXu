@@ -611,6 +611,18 @@ try {
             lb_json(['ok' => true, 'date' => $today, 'items' => $items]);
             break;
 
+        /* 历史推送记录（v216）：最近 50 条 ok/fail/skip，供「通知路由」页的历史面板 */
+        case 'push_history':
+            if ($method !== 'GET') {
+                lb_fail('请使用 GET', 405, 'method_not_allowed');
+            }
+            $user = lb_auth();
+            lb_json([
+                'ok' => true,
+                'items' => lb_push_log_list(lb_db(), (int)$user['id'], 50),
+            ]);
+            break;
+
         /* ---------- 邮件提醒（QQ 邮箱 SMTP）----------
            授权码只进不出：mail_status 不回显任何片段，只给 hasSecret。
            原 IMAP / 企业微信推送逻辑一律不动。 */
@@ -849,9 +861,14 @@ try {
             if (array_key_exists('quiet', $in)) {
                 lb_notify_quiet_save($pdo, $uid, $in['quiet']);
             }
-            $rep = lb_notify_report_save($pdo, $uid, (array)($in['report'] ?? []));
-            if (!$rep['ok']) {
-                lb_fail($rep['error'], 400, 'report_save_failed');
+            /* v216：report 改为传入才更新 —— 模块页只提交 boards 时不能把小结时刻清空 */
+            if (array_key_exists('report', $in)) {
+                $rep = lb_notify_report_save($pdo, $uid, (array)$in['report']);
+                if (!$rep['ok']) {
+                    lb_fail($rep['error'], 400, 'report_save_failed');
+                }
+            } else {
+                $rep = ['ok' => true, 'report' => lb_notify_report_load($pdo, $uid)];
             }
             /* v212：全局总闸；旧调用方不传就不动 */
             if (array_key_exists('global', $in)) {

@@ -36,6 +36,8 @@ board = {
         'habits': [], 'tasks': [], 'meds': [], 'checks': {}, 'doses': {},
         'modules': {'water': {'on': True}, 'move': {'on': True}, 'breathe': {'on': True}, 'quit': {'on': False}},
         'modulePrefs': {'meds': {'on': True}},
+        'notices': [{'id': 'nt1', 'text': '晚上吃药后写日记', 'time': '00:01',
+                     'mode': 'daily', 'on': True}],
     },
     'rev': 1,
 }
@@ -103,6 +105,22 @@ class H(SimpleHTTPRequestHandler):
                  'title': '自定义提醒', 'body': '去取快递'},
                 {'id': 'r1', 'time': '20:00', 'kind': 'report', 'source': 'report', 'priority': '日常',
                  'title': '今日小结', 'body': '今日完成 2 项'},
+            ]})
+        elif a == 'push_history':
+            self._j({'ok': True, 'items': [
+                {'key': '2026-11-27|med|m1|08:00', 'at': '2026-11-27 08:00:00',
+                 'kind': 'med', 'board': 'med', 'content': '该吃药了\n阿莫西林 1片', 'status': 'ok',
+                 'rows': [
+                     {'channel': 'wecom', 'status': 'ok', 'error': ''},
+                     {'channel': 'mail', 'status': 'ok', 'error': ''}]},
+                {'key': '2026-11-27|task|t1|09:00', 'at': '2026-11-27 09:00:00',
+                 'kind': 'task', 'board': 'task', 'content': '该做这件事了\n交周报', 'status': 'part',
+                 'rows': [
+                     {'channel': 'wecom', 'status': 'ok', 'error': ''},
+                     {'channel': 'mail', 'status': 'fail', 'error': 'SMTP：535 授权码不对'}]},
+                {'key': '2026-11-27|habit|sport-sp1|10:30', 'at': '2026-11-27 10:30:00',
+                 'kind': 'habit', 'board': 'move', 'content': '晨跑\n该开始运动了', 'status': 'skip',
+                 'rows': [{'channel': '', 'status': 'skip', 'error': '该运动的通知已关闭'}]},
             ]})
         elif a == 'notify_prefs':
             self._j({'ok': True, 'kinds': {'med': '用药提醒', 'task': '待办到点', 'habit': '习惯提醒',
@@ -179,7 +197,7 @@ with sync_playwright() as pw:
     pg.click('[data-nav="notifyroute"]')
     pg.wait_for_timeout(1200)
     chk('进入通知路由页', pg.evaluate("() => document.body.dataset.view") == 'notifyroute')
-    chk('四个板块面板', pg.locator('.nr-panel').count() == 4, str(pg.locator('.nr-panel').count()))
+    chk('五个板块面板（v216 加历史记录）', pg.locator('.nr-panel').count() == 5, str(pg.locator('.nr-panel').count()))
     chk('板块表 11 行', pg.locator('.nr-table tbody tr').count() == 11, str(pg.locator('.nr-table tbody tr').count()))
     chk('模块类行标注「跟随功能模块开关」',
         pg.locator('.nr-table tbody tr', has_text='用药').first.inner_text().find('跟随功能模块') >= 0)
@@ -266,7 +284,7 @@ with sync_playwright() as pw:
         json.dumps(SAVED['templates'].get('templates', {}).get('mail', {}), ensure_ascii=False))
 
     print('\n[5] 用户通知数据列表（卡片网格，对齐设计稿）')
-    cards = pg.locator('.nr-card')
+    cards = pg.locator('#nr-grid .nr-card')
     N_SERVER = 6
     n0 = cards.count()
     chk('服务端 %d 条都渲染成卡片（另含本地提醒）' % N_SERVER,
@@ -278,6 +296,17 @@ with sync_playwright() as pw:
     chk('卡片带类目徽标', '用药提醒' in body and '每日小结' in body, '')
     chk('卡片带时间与状态', '08:00' in body and ('会发送' in body or '本地' in body), body[:200])
     chk('卡片带功能与来源脚注', '功能：喝水' in body and '来源：服务端排程' in body, '')
+    # v224：渠道行——勾的亮（实色）、没勾的灰虚
+    chk('v224 卡片带渠道行', '渠道' in body and ('企微 ●' in body or '企微' in body), body[:60])
+    med_row = pg.locator('#nr-grid [data-id="m1"]').inner_text()
+    chk('用药卡三渠道都亮（mock 全勾）',
+        med_row.count('●') >= 3, med_row[:200])
+    # v223：自定义提醒有浏览器本地通知了——remindItems 的 notice 条目进列表
+    chk('v223 自定义提醒出现在列表（本地条目）',
+        pg.locator('#nr-grid [data-id="local-notice-nt1"]').count() == 1,
+        str(pg.locator('#nr-grid [data-id="local-notice-nt1"]').count()))
+    nt_row = pg.locator('#nr-grid [data-id="local-notice-nt1"]').inner_text()
+    chk('本地自定义提醒带时刻与「本地」状态', '00:01' in nt_row and '本地' in nt_row, nt_row[:120])
     stat_txt = pg.locator('#nr-plan-stat').inner_text()
     chk('统计行给出条数 / 类目数 / 当前显示',
         '个类目' in stat_txt and '当前显示' in stat_txt, stat_txt)
@@ -285,15 +314,15 @@ with sync_playwright() as pw:
     print('\n[5b] 筛选：类目 / 优先级 / 状态')
     pg.select_option('#nr-f-cat', 'med')
     pg.wait_for_timeout(400)
-    chk('按类目筛只剩用药 1 张', pg.locator('.nr-card').count() == 1, str(pg.locator('.nr-card').count()))
+    chk('按类目筛只剩用药 1 张', pg.locator('#nr-grid .nr-card').count() == 1, str(pg.locator('#nr-grid .nr-card').count()))
     pg.select_option('#nr-f-cat', '')
     pg.select_option('#nr-f-pri', '当日')
     pg.wait_for_timeout(400)
-    chk('按优先级筛出 3 张', pg.locator('.nr-card').count() == 3, str(pg.locator('.nr-card').count()))
+    chk('按优先级筛出 3 张', pg.locator('#nr-grid .nr-card').count() == 3, str(pg.locator('#nr-grid .nr-card').count()))
     pg.select_option('#nr-f-pri', '')
     pg.wait_for_timeout(300)
-    chk('清理筛选后回到初始数量', pg.locator('.nr-card').count() == n0,
-        '%d vs %d' % (pg.locator('.nr-card').count(), n0))
+    chk('清理筛选后回到初始数量', pg.locator('#nr-grid .nr-card').count() == n0,
+        '%d vs %d' % (pg.locator('#nr-grid .nr-card').count(), n0))
 
     print('\n[5c] 排序：按类目 / 按时间')
     pg.select_option('#nr-f-sort', 'category')
@@ -322,6 +351,23 @@ with sync_playwright() as pw:
     pg.click('[data-act="notify-board-toggle"][data-b="water"]')
     pg.wait_for_timeout(300)
     chk('模块板块不能直接停用（提示去功能模块）', '功能模块' in pg.locator('#toast').inner_text())
+
+    print('\n[5e] 历史推送记录面板（v216）')
+    hist = pg.locator('#nr-hist-list .nr-card')
+    chk('历史面板有 3 组（按提醒聚合）', hist.count() == 3, str(hist.count()))
+    htxt = pg.locator('#nr-hist-list').inner_text()
+    chk('聚合状态：成功/部分成功/未发送',
+        '成功' in htxt and '部分成功' in htxt and '未发送' in htxt, htxt[:140])
+    chk('逐渠道成败徽标', '企微 ✓ 已发送' in htxt and '邮件 ✗ 失败' in htxt, htxt[:160])
+    chk('浏览器标「本地」', '浏览器 · 本地' in htxt, '')
+    chk('失败原因透传（SMTP 授权码）', '535' in htxt, htxt[:160])
+    chk('skip 原因透传（已关闭）', '已关闭' in htxt, '')
+    pg.select_option('#nr-h-st', 'fail')
+    pg.wait_for_timeout(400)
+    chk('按失败筛选只剩 1 组', pg.locator('#nr-hist-list .nr-card').count() == 1,
+        str(pg.locator('#nr-hist-list .nr-card').count()))
+    pg.select_option('#nr-h-st', '')
+    pg.wait_for_timeout(300)
 
     print('\n[6] 配置页旧入口已移除')
     pg.click('[data-nav="config"]')

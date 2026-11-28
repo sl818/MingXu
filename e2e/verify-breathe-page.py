@@ -100,6 +100,11 @@ class H(http.server.SimpleHTTPRequestHandler):
             if a == 'status': self._j({'ok': True, 'installed': True, 'registration_open': False})
             elif a == 'me': self._j({'ok': True, 'user': sessions.get(self._sid()), 'csrf': 'x', 'registration_open': False})
             elif a == 'load': self._j({'ok': True, 'data': board['data'], 'rev': board['rev'], 'updated_at': 0})
+            elif a == 'notify_prefs':
+                self._j({'ok': True, 'boards': boards_store or {},
+                         'quietCfg': {'on': False, 'start': '23:00', 'end': '07:00'},
+                         'report': {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'},
+                         'templates': None, 'kinds': {}, 'global': True})
             else: self._j({'ok': False, 'error': '?'}, 404)
         else: super().do_GET()
 
@@ -121,6 +126,16 @@ class H(http.server.SimpleHTTPRequestHandler):
                 save_count['n'] += 1
                 board['data'] = body['data']; board['rev'] += 1
                 self._j({'ok': True, 'rev': board['rev']})
+            elif a == 'notify_prefs_save':
+                save_count['n'] += 1
+                sub = body.get('boards') or {}
+                for bid, row in sub.items():
+                    cur = boards_store.setdefault(bid, {})
+                    curCh = cur.setdefault('channels', {})
+                    curCh.update(row.get('channels') or {})
+                    if 'on' in row:
+                        cur['on'] = row['on']
+                self._j({'ok': True, 'boards': boards_store})
             else: self._j({'ok': False, 'error': '?'}, 404)
         else: self.send_response(405); self.end_headers()
 
@@ -128,6 +143,8 @@ class H(http.server.SimpleHTTPRequestHandler):
 class TS(socketserver.ThreadingMixIn, http.server.HTTPServer): daemon_threads = True
 srv = TS(('127.0.0.1', PORT), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+boards_store = {}   # v216：模块页渠道的真源（板块矩阵），模拟 notify_prefs 的部分更新语义
 
 results = []
 
@@ -277,7 +294,13 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1400)
     m = board['data']['modules']['breathe']
     rec('保存提醒 → 写回 notifyTimes', m.get('notifyTimes') == ['07:00', '11:30', '21:00'], str(m.get('notifyTimes')))
-    rec('保存提醒 → 渠道仍是浏览器', m.get('notifyChannels') == ['browser'], str(m.get('notifyChannels')))
+    # v216：渠道不再写模块快照；真源是板块矩阵，断言提交的 boards.breathe.channels
+    submitted = boards_store.get('breathe', {}).get('channels', {})
+    rec('保存提醒 → 渠道提交到板块矩阵（部分更新）',
+        submitted.get('wecom') is True and submitted.get('mail') is False
+        and submitted.get('browser') is False, str(submitted))
+    rec('保存提醒 → 模块快照不再写 notifyChannels',
+        m.get('notifyChannels') == ['browser'], str(m.get('notifyChannels')))
     ctx.close()
 
     # ---------- v200：上限 5 / 补点去重 / 保存提醒不丢点 ----------
@@ -491,7 +514,7 @@ with sync_playwright() as p:
     rec('v201 ④ 全部档文案改成「有记录的天数」',
         '有记录的天数' in aa and '没记录的日子算 0' not in aa, aa[-40:])
     note = pg.evaluate("() => Array.from(document.querySelectorAll('.w-chan-note')).map(x=>x.textContent.replace(/\\s+/g,' ').trim()).join(' | ')")
-    rec('v201 ⑦ 渠道区说明「由通知配置统一控制」', '习惯类' in note and '仅作记录' in note, note[:60])
+    rec('v216 ⑦ 渠道区说明「与通知路由同一份设置」', '同一份设置' in note, note[:60])
     ctx.close()
 
     # ⑥ 首页横幅

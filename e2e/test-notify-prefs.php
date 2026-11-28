@@ -327,6 +327,87 @@ $log21b = [];
 lb_push_tick_run($pdo21, D, HM, channels($log21b));
 chk('重新打开后照常发送', count($log21b) > 0, implode(',', $log21b));
 
+echo '[22] 部分更新：模块页只提交一个板块，其他板块不被重置（v216）' . PHP_EOL;
+$pdo22 = db();
+add_user($pdo22, 22);
+/* 先存一套「非默认」配置：water 只走邮件、task 板块停用、小结只走企微 */
+lb_notify_boards_save($pdo22, 22, ['boards' => [
+    'water' => ['channels' => ['wecom' => false, 'mail' => true, 'browser' => true]],
+    'task' => ['on' => false],
+    'report' => ['channels' => ['wecom' => true, 'mail' => false, 'browser' => true]],
+]]);
+/* 模块页（喝水）只提交自己板块的一个字段：其余字段与其他板块必须原样保留 */
+lb_notify_boards_save($pdo22, 22, ['boards' => [
+    'water' => ['channels' => ['wecom' => true]],
+]]);
+$b22 = lb_notify_boards_load($pdo22, 22);
+chk('water.wecom 按提交改为 true', $b22['water']['channels']['wecom'] === true);
+chk('water.mail 保持已存值 true（不被默认 false 冲掉）', $b22['water']['channels']['mail'] === true);
+chk('water.browser 保持已存值 true', $b22['water']['channels']['browser'] === true);
+chk('task.on 保持已存值 false（板块没提交就不能被重置）', $b22['task']['on'] === false);
+chk('report.channels 保持已存值', $b22['report']['channels']['wecom'] === true
+    && $b22['report']['channels']['mail'] === false);
+
+echo '[23] 运动实例级通知：开关与渠道（v216）' . PHP_EOL;
+$pdo23 = db();
+add_user($pdo23, 23);
+/* 造一个每天 HM 提醒的运动实例 */
+$pdo23->prepare('UPDATE boards SET data = ? WHERE user_id = 23')->execute([json_encode([
+    'modules' => ['move' => ['on' => true, 'sports' => [[
+        'id' => 'sp1', 'key' => 'run', 'name' => '晨跑',
+        'startTime' => HM, 'freqKind' => 'daily', 'recMode' => 'manual',
+    ]]],
+]], JSON_UNESCAPED_UNICODE)]);
+/* 无实例配置：回落板块渠道（move 默认只走企微） */
+$log23 = [];
+lb_push_tick_run($pdo23, D, HM, channels($log23));
+chk('无实例配置回落板块：只发企微', $log23 === ['wecom'], implode(',', $log23));
+
+/* 实例关闭：整条不发，且计数进 instance_skipped */
+lb_notify_boards_save($pdo23, 23, ['boards' => ['move' => ['instances' => [
+    'sp1' => ['on' => false],
+]]]]);
+$log23 = [];
+$r23 = lb_push_tick_run($pdo23, D, HM, channels($log23));
+chk('实例关闭 → 一条不发', $log23 === [], implode(',', $log23));
+chk('实例关闭计入 instance_skipped', ($r23['instance_skipped'] ?? 0) >= 1,
+    json_encode($r23));
+
+/* v216：实例关闭的 skip 进历史记录（tick 前 log 表要存在才记） */
+$pdo23->exec('CREATE TABLE IF NOT EXISTS push_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, at TEXT,
+    channel TEXT, kind TEXT, slot_key TEXT, content TEXT, status TEXT, error TEXT)');
+$pdo23->prepare('DELETE FROM push_log WHERE user_id = 23')->execute();
+$log23 = [];
+lb_push_tick_run($pdo23, D, HM, channels($log23));
+$rSkip = $pdo23->query("SELECT status, error FROM push_log WHERE user_id = 23")->fetchAll();
+chk('实例关闭记一条 skip（原因=该运动的通知已关闭）',
+    count($rSkip) === 1 && $rSkip[0]['status'] === 'skip'
+    && strpos((string)$rSkip[0]['error'], '已关闭') !== false,
+    json_encode($rSkip));
+
+/* 实例渠道覆盖板块：板块 mail=false，实例只勾邮件 → 发邮件、不发企微 */
+lb_notify_boards_save($pdo23, 23, ['boards' => ['move' => ['instances' => [
+    'sp1' => ['on' => true, 'channels' => ['wecom' => false, 'mail' => true, 'browser' => true]],
+]]]]);
+$log23 = [];
+lb_push_tick_run($pdo23, D, HM, channels($log23));
+chk('实例渠道覆盖板块：只发邮件', $log23 === ['mail'], implode(',', $log23));
+
+/* 白名单清洗：脏键与非法结构进不来 */
+lb_notify_boards_save($pdo23, 23, ['boards' => ['move' => ['instances' => [
+    'sp1' => ['on' => 1, 'channels' => ['wecom' => 1, 'foo' => 1]],
+    '' => ['on' => false],
+    'ok2' => 'not-array',
+]]]]);
+$b23 = lb_notify_boards_load($pdo23, 23);
+$ins23 = $b23['move']['instances'];
+chk('实例 on 归一化为布尔', isset($ins23['sp1']) && $ins23['sp1']['on'] === true);
+chk('实例渠道只认三键', isset($ins23['sp1']['channels']['wecom'])
+    && !isset($ins23['sp1']['channels']['foo']), json_encode($ins23['sp1'] ?? null));
+chk('空 id 与非法结构的实例被丢弃', !isset($ins23['']) && !isset($ins23['ok2']),
+    json_encode(array_keys($ins23)));
+
 echo PHP_EOL . str_repeat('-', 46) . PHP_EOL;
 echo '通知通道矩阵：通过 ' . $pass . ' 项，失败 ' . $fail . ' 项' . PHP_EOL;
 exit($fail > 0 ? 1 : 0);

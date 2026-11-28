@@ -412,6 +412,20 @@
 ③阶段三·撤假 UI：运动页三个 `notifyScenes` 勾选框撤除（后端从未实现）。
 ④阶段四·统一查看：路由页板块行加接入徽标（✓ 与「喝水页/478页/运动弹窗」同一份设置）。
 ⑤阶段五·历史推送：新表 `push_log`（ok/fail/skip 三态 + error，迁移 `db/migrations/2026-11-28_push_log.sql`，schema.sql 同步；表不存在静默降级）；tick 记 ok/fail/skip（item 级）；`push_history` 接口；路由页新增「历史推送记录」面板（状态筛选 / 失败原因透传 / 保留 14 天）。测试：`test-notify-prefs.php` 93、`test-push-tick.php` 50、`test-schedule.php` 154、`test-ics.php` 76、`verify-notify-route` 50、`verify-breathe-page` 98、`verify-move-chan-v177` 17、`verify-move-freq-notify-v178` 34、`regression-v3` 30 全绿。SW → v222，包已生成未上传 | 会话：通知个性化五阶段 |
+| 2026-11-28 | v223 | 9.4 / 5 | 陛下实测两问题修复：①**自定义提醒没有浏览器本地通知**——remindItems 从来不含 notice 条目，
+数据列表却标「会发送」（browser 列是虚假承诺）；补上 notice 条目（口径与 `lb_schedule_notices`（后端）一致：once/daily/weekly/monthly+月末回退），
+横幅与浏览器通知从此覆盖自定义提醒；数据列表本地条目带真实时刻（显示时刻而非「手动」），类目识别补 notice。
+②**勾了渠道但没配置 → 历史记录空**——tick 里通道未配置直接 continue 不落日志；改为「板块没勾静默跳过、勾了未配置记 fail」
+（原因：企业微信未配置 / 邮件未开启），判定顺序不可反。测试：`test-push-tick.php` 53（+未配置 fail 落库）、
+`verify-notify-route.py` 52（+notice 本地条目/时刻/状态）、`test-notify-prefs.php` 94、`regression-v3` 30、`verify-breathe-page` 98 全绿。SW → v223，包已生成未上传 | 会话：通知实测修复 |
+| 2026-11-28 | v224 | 9.4 / 12（测试） | **记录项改版：渠道行 + 历史按提醒聚合**（预览稿陛下已批准）：
+①数据列表卡片加「渠道行」——`notifyCardChanRow` 按 `notifyBoardChannels` / 运动实例的渠道渲染三徽标（勾选实色 ●、未勾虚灰 ○），
+实例关闭的显示「不会走任何渠道」文字；②push_log 加 `board` 列（`lb_push_log_has_board` 检测兼容，老表无列照常落日志；
+迁移 `2026-11-28_push_log.sql` 补 ALTER 指引，**v222 用户需补一条 ALTER**）；③`lb_push_log_list` 改按 slot_key **聚合**返回组结构
+（rows 逐渠道 status/error，聚合状态 ok/part/fail/skip）；④历史面板按提醒聚合渲染：一张卡 = 一次提醒，聚合状态徽标
+（成功/部分成功/失败/未发送）+ 渠道行逐渠道标「✓ 已发送 / ✗ 失败」，失败原因红底条展开，浏览器勾了标「浏览器 · 本地」；
+⑤筛选「失败」= 组内任一渠道失败（部分成功也能翻出）。测试：`verify-notify-route.py` 56、`regression-v3` 30、
+`test-push-tick.php` 53、`test-notify-prefs.php` 94 全绿。SW → v224，包已生成未上传 | 会话：记录项改版 |
 
 ---
 

@@ -61,6 +61,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             elif a == 'me': self._j({'ok': True, 'user': sessions.get(self._sid()), 'csrf': 'x', 'registration_open': False})
             elif a == 'push_status': self._j({'ok': True, 'enabled': False, 'webhook': '', 'sent_today': 0, 'last_sent': '', 'recent': []})
             elif a == 'push_preview': self._j({'ok': True, 'date': '2026-10-25', 'items': []})
+            elif a == 'push_history': self._j({'ok': True, 'items': []})
             elif a == 'mail_status': self._j({'ok': True, 'config': {'enabled': False, 'hasSecret': False}})
             elif a == 'notify_prefs':
                 bd = {k: {'channels': {'wecom': True, 'mail': False, 'browser': False}}

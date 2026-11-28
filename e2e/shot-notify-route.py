@@ -87,6 +87,17 @@ def make_handler(root):
                     {'id': 't1', 'time': '14:00', 'kind': 'task', 'source': 'task', 'priority': '当日',
                      'title': '该做这件事了', 'body': '交周报 · 14:00–15:00'},
                 ]})
+            elif a == 'push_history':
+                self._j({'ok': True, 'items': [
+                    {'key': '2026-11-28|med|m1|08:00', 'at': '2026-11-28 08:00:00',
+                     'kind': 'med', 'board': 'med', 'content': '该吃药了\n维生素D 1粒', 'status': 'ok',
+                     'rows': [{'channel': 'wecom', 'status': 'ok', 'error': ''},
+                              {'channel': 'mail', 'status': 'ok', 'error': ''}]},
+                    {'key': '2026-11-28|task|t1|09:00', 'at': '2026-11-28 09:00:00',
+                     'kind': 'task', 'board': 'task', 'content': '该做这件事了\n交周报', 'status': 'part',
+                     'rows': [{'channel': 'wecom', 'status': 'ok', 'error': ''},
+                              {'channel': 'mail', 'status': 'fail', 'error': 'SMTP：535 授权码不对'}]},
+                ]})
             elif a == 'notify_prefs':
                 self._j({'ok': True,
                          'kinds': {'med': '用药提醒', 'task': '待办到点', 'habit': '习惯提醒',

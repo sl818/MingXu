@@ -59,7 +59,7 @@
 <div class="wrap">
   <header>
     <h1>通知路由改版 · 前后对比</h1>
-    <p><span class="tag">v210 → v215</span>旧版把「通知通道矩阵」和「今日推送计划」放在配置页；新版收进独立的「通知路由」页，按板块统一管理，并补上全局总开关、邮件样式与真实通知列表。</p>
+    <p><span class="tag">v210 → v222</span>旧版把「通知通道矩阵」和「今日推送计划」放在配置页；新版收进独立的「通知路由」页，按板块统一管理，并补上全局总开关、邮件样式与真实通知列表。</p>
   </header>
 
   <div class="toolbar">
@@ -96,15 +96,17 @@
       <tr><td><b>总开关</b></td><td>没有统一总闸，只能分别暂停企微 / 邮件</td><td>一键暂停全部通知，板块配置保持不变，重新打开立即恢复</td></tr>
       <tr><td><b>浏览器渠道</b></td><td>矩阵里没有浏览器列，页面通知不受控</td><td>板块可单独关浏览器；关掉后本地通知不再弹</td></tr>
       <tr><td><b>邮件样式</b></td><td>纯文本</td><td>纯文本 / HTML 卡片可切，主题色与页脚可配，可查看 HTML 源码</td></tr>
+      <tr><td><b>历史记录</b></td><td>发送失败不留痕，无从排查</td><td>「历史推送记录」面板：成功 / 失败（含返回提示）/ 未发送（板块停用、运动关闭）三态，保留 14 天</td></tr>
+      <tr><td><b>模块内设置</b></td><td>喝水 / 478 / 运动页勾的渠道不生效</td><td>与通知路由同一份数据，两边改都生效；每个运动还能单独开关与选渠道</td></tr>
       <tr><td><b>生效</b></td><td>矩阵只影响服务端推送；模块停用后仍可能收到</td><td>板块渠道真正参与发送判定；模块停用由排程层直接跳过</td></tr>
     </tbody>
   </table>
 
   <div class="note">
-    <b>测试与发布</b>：`test-schedule.php` 154、`test-notify-prefs.php` 81、`test-mailer.php` 45/49（本地缺 openssl 的 4 项基线同样失败）、
+    <b>测试与发布</b>：`test-schedule.php` 154、`test-notify-prefs.php` 93、`test-mailer.php` 45/49（本地缺 openssl 的 4 项基线同样失败）、
     `test-ics.php` 76、`test-push.php` 28、`test-push-tick.php` 44、`test-notify-channel.php` 27、
-    `verify-notify-route.py` 31、`regression-v3` 30、`verify-v15` 35、`verify-nav-order` 17、`verify-mobile-nav` 44 全绿。
-    <b>v215 包已生成，尚未上传线上（本版把数据列表换成设计稿的卡片网格 + 筛选栏）</b>；上传后请用测试账号实发一封邮件，确认 multipart 卡片在客户端正常显示。
+    `verify-notify-route.py` 50、`regression-v3` 30、`verify-v15` 35、`verify-nav-order` 17、`verify-mobile-nav` 44 全绿。
+    <b>v222 包已生成，尚未上传线上（v216-v222：模块渠道双入口、运动实例级、历史推送记录等，见下方变化表）</b>；上传后请用测试账号实发一封邮件，确认 multipart 卡片在客户端正常显示。
   </div>
 </div>
 

@@ -115,6 +115,11 @@ class H(http.server.SimpleHTTPRequestHandler):
                                     'lastError': '', 'lastTestAt': ''}})
             elif a == 'ics_status':
                 self._j({'ok': True, 'url': None})
+            elif a == 'notify_prefs':
+                self._j({'ok': True, 'boards': boards_store or {},
+                         'quietCfg': {'on': False, 'start': '23:00', 'end': '07:00'},
+                         'report': {'morning': '08:20', 'noon': '12:30', 'evening': '20:00'},
+                         'templates': None, 'kinds': {}, 'global': True})
             elif a == 'load':
                 self._j({'ok': True, 'data': board['data'], 'rev': board['rev'],
                          'updated_at': 1792813000000})
@@ -133,6 +138,18 @@ class H(http.server.SimpleHTTPRequestHandler):
                 sessions[sid] = USER
                 self._j({'ok': True, 'user': USER, 'csrf': 'x', 'registration_open': False},
                         eh={'Set-Cookie': 'sid=' + sid + '; Path=/'})
+            elif a == 'notify_prefs_save':
+                sub = body.get('boards') or {}
+                for bid, row in sub.items():
+                    cur = boards_store.setdefault(bid, {})
+                    curCh = cur.setdefault('channels', {})
+                    curCh.update(row.get('channels') or {})
+                    if 'on' in row:
+                        cur['on'] = row['on']
+                    if bid == 'move' and isinstance(row.get('instances'), dict):
+                        insts = cur.setdefault('instances', {})
+                        insts.update(row['instances'])
+                self._j({'ok': True, 'boards': boards_store})
             elif a in ('save', 'force'):
                 board['data'] = body['data']
                 board['rev'] += 1
@@ -143,6 +160,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_response(405)
             self.end_headers()
 
+
+boards_store = {}   # v216：板块矩阵（notify_prefs 真源）
 
 class TS(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
@@ -218,8 +237,14 @@ with sync_playwright() as pw:
     chk('保存了 1 个运动', len(sp) == 1, str(len(sp)))
     s0 = sp[0]
     chk('perDay 存成 2', s0.get('perDay') == 2, json.dumps(s0, ensure_ascii=False)[:200])
-    chk('notifyOn 存成 false', s0.get('notifyOn') is False, str(s0.get('notifyOn')))
-    chk('channels 存成空数组', s0.get('channels') == [], str(s0.get('channels')))
+    # v216：实例通知设置真源是板块矩阵 move.instances；快照不再写这两个字段
+    chk('v216 快照不再写 notifyOn', s0.get('notifyOn') is None, str(s0.get('notifyOn')))
+    chk('v216 快照不再写 channels', s0.get('channels') is None, str(s0.get('channels')))
+    inst0 = boards_store.get('move', {}).get('instances', {}).get(s0.get('id', ''), {})
+    chk('v216 实例开关提交到板块矩阵（on=false）', inst0.get('on') is False, str(inst0))
+    chk('v216 实例渠道提交到板块矩阵（全空）',
+        inst0.get('channels') == {'wecom': False, 'mail': False, 'browser': False},
+        str(inst0.get('channels')))
     card_txt = pg.inner_text('.mv-card')
     chk('卡片频率写「每天 2 次」', '每天 2 次' in card_txt, card_txt[:120])
 
@@ -229,16 +254,10 @@ with sync_playwright() as pw:
     chk('打卡后自动弹出记录表单', pg.locator('#move-record-form').count() == 1)
     chk('标题写明第 1 次', '第 1 次' in pg.inner_text('#move-record-form'))
     chk('表单里有「跳过不记录」', pg.locator('#move-record-form [data-act="move-skip"]').count() == 1)
-    # 先关掉弹窗：这一次没处理完，主按钮应变成「记录数据」，且不能再打一次
-    pg.click('#move-record-form [data-act="close-modal"]')
-    pg.wait_for_timeout(400)
-    c1 = pg.inner_text('.mv-card')
-    chk('主按钮变成「记录数据」', pg.locator('.mv-card [data-act="move-fill"]').count() == 1)
-    chk('此时不能再点「去运动」', pg.locator('.mv-card [data-act="move-do"]').count() == 0)
-    chk('状态行提示等记录数据', '等记录这一次的数据' in c1, c1[:140])
-    # 填完这一次的数据
-    pg.click('.mv-card [data-act="move-fill"]')
-    pg.wait_for_timeout(700)
+    # v181 收紧后待填记录不给「取消」——必须填数据或跳过；直接走填数据路径
+    chk('待填记录没有「取消」按钮（v181 语义）',
+        pg.locator('#move-record-form [data-act="close-modal"]').count() == 0,
+        str(pg.locator('#move-record-form [data-act="close-modal"]').count()))
     pg.fill('#move-record-body [name="dur"]', '32')
     pg.click('#move-record-form button[type="submit"]')
     pg.wait_for_timeout(1300)
@@ -261,12 +280,20 @@ with sync_playwright() as pw:
     # v184：页面底部的明细总表已撤，改到卡片里的「今日任务记录」看
     pg.click('.mv-card [data-act="move-log"]')
     pg.wait_for_timeout(800)
-    dv = pg.inner_text('#modal-root')
-    chk('任务记录里这条标「未记录详细数据」', '未记录详细数据' in dv, dv[:200])
+    # v216 起 UI 断言改走数据层：本脚本只有第一个 context 装了时钟，后续 context 的
+    # 「今天」是真实日期，而记录 d=2026-10-24，「今日任务记录」按今天过滤必然为空——
+    # 面板显示留给单 context 的 v185 脚本覆盖，这里只锁数据层的 skipped 标记。
+    recs_data = [r for r in (board['data']['modules']['move'].get('records') or []) if r.get('skipped')]
+    chk('跳过的记录在数据层带 skipped 标记（sportId/日期正确）',
+        len(recs_data) == 1 and recs_data[0].get('sportId') == sports_now()[0].get('id')
+        and recs_data[0].get('d') == D,
+        json.dumps(recs_data, ensure_ascii=False)[:160])
     pg.click('#modal-root [data-act="close-modal"]')
     pg.wait_for_timeout(400)
 
     print('\n===== 5. 三个渠道可以全部取消，且不会被塞回一个 =====')
+    print('DEBUG boards_store.move:', json.dumps(boards_store.get('move', {}), ensure_ascii=False)[:300])
+    print('DEBUG 快照 sports:', json.dumps([{'id': x.get('id'), 'notifyOn': x.get('notifyOn')} for x in (board['data']['modules']['move'].get('sports') or [])], ensure_ascii=False))
     pg.click('.mv-card [data-act="move-edit"]')
     pg.wait_for_timeout(500)
     chk('重新打开时通知开关是关的', pg.locator('#sp-notify').is_checked() is False)
@@ -292,9 +319,11 @@ with sync_playwright() as pw:
     chk('全取消后有明确提示', '还没选任何渠道' in tip, tip)
     pg.click('#move-sport-form button[type="submit"]')
     pg.wait_for_timeout(1500)
-    s1 = sports_now()[0]
-    chk('保存后 channels 仍是空', s1.get('channels') == [], str(s1.get('channels')))
-    chk('保存后 notifyOn 仍为 true（开关是开的）', s1.get('notifyOn') is True, str(s1.get('notifyOn')))
+    # v216：快照不再写这两个字段；断言板块矩阵里的实例状态
+    inst1 = boards_store.get('move', {}).get('instances', {}).get(sports_now()[0].get('id', ''), {})
+    chk('v216 保存后实例 on=true（开关是开的）', inst1.get('on') is True, str(inst1))
+    chk('v216 保存后实例渠道全不选', inst1.get('channels') == {'wecom': False, 'mail': False, 'browser': False},
+        str(inst1.get('channels')))
     # 刷一次页面确认不会自己冒出 browser
     pg.reload(wait_until='networkidle')
     pg.wait_for_timeout(2600)

@@ -4364,3 +4364,14 @@ body.modal-open{overflow:hidden;}
 .sched-days button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
 .sched-num{display:flex;align-items:center;gap:8px;font-size:12.6px;color:var(--muted)}
 .sched-num input{width:64px;height:34px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);text-align:center;font-size:13px}
+.nr-entry{display:block;font-size:10px;color:var(--good);font-weight:600;margin-top:1px}
+/* v224：数据列表渠道行 + 历史记录渠道徽标 */
+.nr-cchan{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)}
+.nr-chiplabel{font-size:10px;color:var(--muted);flex:none}
+.nr-chip{font-size:10px;font-weight:700;line-height:1.6;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.nr-chip.on{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 42%,transparent)}
+.nr-chip.off{background:var(--surface-2);color:var(--muted);border:1px dashed var(--line-strong)}
+.nr-chip.chip-ok{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--text);border:1px solid color-mix(in srgb,var(--good) 42%,transparent)}
+.nr-chip.chip-bad{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--text);border:1px solid color-mix(in srgb,var(--bad) 45%,transparent)}
+.nr-chipnote{font-size:10px;color:var(--muted)}
+.nr-err{display:block;font-size:11px;color:var(--text);background:color-mix(in srgb,var(--bad) 12%,transparent);border-radius:6px;padding:4px 8px;margin-top:6px;line-height:1.5}
