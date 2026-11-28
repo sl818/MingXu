@@ -5906,7 +5906,7 @@ body{
 </style>
 <style>
 /* ===== 预览容器（只影响本页排版） ===== */
-.pv{max-width:1160px;margin:0 auto;padding:36px 22px 90px}
+.pv{max-width:1210px;margin:0 auto;padding:36px 22px 90px}
 .pv-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:8px}
 .pv-head h1{font-size:23px;margin:0 0 7px;letter-spacing:.2px}
 .pv-head p{margin:0;color:var(--muted);font-size:12.8px;line-height:1.7}
@@ -5964,6 +5964,12 @@ body{
   border:1px solid var(--line);border-radius:999px;padding:7px 13px;background:var(--surface)}
 .pv-switch:hover{border-color:var(--line-strong)}
 @media(max-width:640px){.pv{padding:24px 14px 70px}.pv-head h1{font-size:19px}}
+
+/* 正式版宽度：线上 1200px 以上会自动切 3 列，这里固定 2 列，
+   还原你截图里约 555px 的卡宽；窄屏仍回落单列 */
+.pv #cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pv #weekDemo{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:760px){.pv #cards,.pv #weekDemo{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -6083,7 +6089,8 @@ var CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 
 /* 演示数据：done 数组是「本周已完成的展示序下标」 */
 var HABITS = [
   { id:'read', name:'读书',      icon:'📖', color:'#6b5b8e',
-    sched:{kind:'daily'}, done:[0,1,2,3,4,5], count:1, target:1, streak:12, best:31 },
+    sched:{kind:'daily'}, done:[0,1,2,3,4,5], count:1, target:1, streak:12, best:31,
+    note:'最晚不超过一点入睡' },
   { id:'gym',  name:'健身',      icon:'🏋️', color:'#b5733f',
     sched:{kind:'weekdays', days:[1,3,5]}, done:[0,2], count:0, target:1, streak:0, best:9 },
   { id:'run',  name:'跑步 3 公里', icon:'🏃', color:'#2f6f5e',
@@ -6191,6 +6198,7 @@ function cardHtml(h){
     '<div class="habit-week">' + weekCells(h) + '</div>' +
     '<div class="habit-sub">' + tally + '<span class="hc-streak">' + streakTxt + '</span></div>' +
     acts +
+    (h.note ? '<div class="habit-note">' + h.note + '</div>' : '') +
   '</article>';
 }
 
