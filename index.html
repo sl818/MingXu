@@ -1597,6 +1597,9 @@
   }
 
   let state = seedState();
+  /* 刷新停在当前页：切页时写 hash（replaceState 不产生历史）。
+     hash 的校验与恢复延后到启动段（VIEWS 是 const，这里有 TDZ），先存裸值。 */
+  const bootHash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
   let view = state.view || 'today';
   let mode = location.protocol === 'file:' ? 'app' : 'landing';
   let selectedDate = todayStr();
@@ -2417,6 +2420,7 @@
       mode = 'landing';
       view = 'today';
       state.view = 'today';
+      try { history.replaceState(null, '', '#today'); } catch (err) { /* file:// */ }
       persistCloudMeta();
       render();
       /* 被顶替时无论是否手动保存都要提示一次，否则数据看起来「突然没了」 */
@@ -2718,6 +2722,7 @@
       mode = 'app';
       view = 'today';
       state.view = 'today';
+      try { history.replaceState(null, '', '#today'); } catch (err) { /* file:// */ }
       closeModal();
       toast('已登录，正在同步…');
       render();
@@ -2792,6 +2797,7 @@
       mode = 'app';
       view = 'today';
       state.view = 'today';
+      try { history.replaceState(null, '', '#today'); } catch (err) { /* file:// */ }
       closeModal();
       toast('注册成功，正在同步…');
       render();
@@ -19995,6 +20001,7 @@
         if (Array.isArray(state.events) && state.events.length > 1000) state.events = state.events.slice(-1000);
         view = 'today';
         state.view = 'today';
+        try { history.replaceState(null, '', '#today'); } catch (err) { /* file:// */ }
         selectedDate = todayStr();
         save();
         render();
@@ -20566,6 +20573,7 @@
       selectedDate = el.dataset.date;
       view = 'today';
       state.view = 'today';
+      try { history.replaceState(null, '', '#today'); } catch (err) { /* file:// */ }
       save();
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -21992,6 +22000,7 @@
     if ($('#more-sheet')) closeModal();
     view = next;
     state.view = next;
+    try { history.replaceState(null, '', '#' + encodeURIComponent(next)); } catch (err) { /* file:// 等 */ }
     save();
     render();
     if (!noScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -22275,6 +22284,11 @@
   /* ============================================================
      启动
      ============================================================ */
+  /* 刷新停在当前页：hash 合法即恢复（landing 模式渲染不看 view，安全无副作用） */
+  if (bootHash && VIEWS[bootHash]) {
+    view = bootHash;
+    state.view = bootHash;
+  }
   if (!VIEWS[view]) {
     view = 'today';
     state.view = 'today';
