@@ -100,10 +100,12 @@ h1{font-size:19px;margin-bottom:5px}
         </div>
         <div class="sep"></div>
         <div class="gtitle">服药方案 <span class="n">按需疗程时整组隐藏</span></div>
-        <div class="grid g2">
+        <div class="grid g3">
           <div class="field"><span>每日用药次数</span><select><option>3 次</option></select></div>
           <div class="field"><span>饭前 / 饭后</span><select><option>饭后</option></select></div>
+          <div class="field"><span>间隔时长</span><select><option>30 分钟</option></select></div>
         </div>
+        <div class="hint">「间隔时长」在饭前/饭后选中时出现（未设置/立即/10–120 分钟/自定义）；自定义时再出一个分钟数输入。</div>
         <div class="field"><span>每次时间</span>
           <div class="time-slots">
             <div class="row"><label>第 1 次</label><input type="time" value="08:00"></div>
@@ -158,11 +160,13 @@ h1{font-size:19px;margin-bottom:5px}
       <div class="field"><span>剂型</span><select><option>胶囊</option></select></div>
       <div class="field"><span>规格（可选）</span><input value="0.5g"></div>
     </div>
-    <div class="grid g3">
+    <div class="grid g4">
       <div class="field"><span>每次剂量</span><div class="dose-pair"><input type="number" value="1"><select><option>粒</option></select></div></div>
       <div class="field"><span>每日用药次数</span><select><option>3 次</option></select></div>
       <div class="field"><span>饭前 / 饭后</span><select><option>饭后</option></select></div>
+      <div class="field"><span>间隔时长</span><select><option>30 分钟</option></select></div>
     </div>
+    <div class="hint">间隔时长随饭前/饭后出现（饭后 30 分钟＝饭后半小时再吃）；选「自定义…」时追加分钟数输入。</div>
     <div class="field"><span>每次时间</span>
       <div class="time-slots">
         <div class="row"><label>第 1 次</label><input type="time" value="08:00"></div>
