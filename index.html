@@ -17193,22 +17193,70 @@
     });
     const ex = document.getElementById('schedExtra');
     if (!ex) return;
+    /* 批 5：戒除类禁选 weekly/interval（置灰）；目标次数决定每日时间行数 */
+    const tSel = document.querySelector('#habit-form [name="type"]');
+    const isQuitType = tSel && tSel.value === 'quit';
+    root.querySelectorAll('[data-sched]').forEach(function (b) {
+      const banned = isQuitType && (b.dataset.sched === 'weekly' || b.dataset.sched === 'interval');
+      b.disabled = banned;
+      b.style.opacity = banned ? '.45' : '';
+      if (banned) b.classList.remove('on');
+    });
+    const tgtEl = document.querySelector('#habit-form [name="target"]');
+    const tgt = Math.max(1, Number(tgtEl && tgtEl.value) || 1);
+    /* 时间行工具：arr 与 target 对齐（不足补 07:00，超出裁掉） */
+    const alignTimes = function (arr) {
+      const a = (Array.isArray(arr) && arr.length ? arr : ['07:00']).slice(0, tgt);
+      while (a.length < tgt) a.push('07:00');
+      return a;
+    };
+    const timeRows = function (arr, attr) {
+      return alignTimes(arr).map(function (t, i) {
+        return '<input type="time" value="' + t + '" data-' + attr + '="' + i + '" style="margin-bottom:6px">';
+      }).join('');
+    };
+    const chRows = function () {
+      const cur = (Array.isArray(schedDraft.channels) && schedDraft.channels.length)
+        ? schedDraft.channels : ['wecom', 'browser'];
+      return [['wecom', '企业微信'], ['mail', '邮件'], ['browser', '浏览器']].map(function (c) {
+        return '<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:12px">' +
+          '<input type="checkbox" data-channel="' + c[0] + '"' +
+          (cur.indexOf(c[0]) >= 0 ? ' checked' : '') + '> ' + c[1] + '</label>';
+      }).join('') +
+      '<p style="font-size:11px;color:var(--muted);margin:4px 0 0">与通知路由的板块开关取交集——两边都开才会发</p>';
+    };
+    let body = '<div class="field"><span>通知渠道</span><div>' + chRows() + '</div></div>';
     if (schedDraft.kind === 'weekdays') {
-      ex.innerHTML = '<div class="field"><span>哪几天（可多选）</span><div class="sched-days">' +
+      body += '<div class="field"><span>哪几天（可多选）</span><div class="sched-days">' +
         ['一', '二', '三', '四', '五', '六', '日'].map(function (w, i) {
-          const real = (i + 1) % 7;   /* 展示序 → 真实周序（0=周日） */
+          const real = (i + 1) % 7;
           return '<button type="button" data-day="' + real + '" class="' +
             (schedDraft.days.indexOf(real) >= 0 ? 'on' : '') + '">周' + w + '</button>';
         }).join('') + '</div></div>';
+      /* 每个选中日各配各的时间（口径已锁：选中日 × 当日次数） */
+      const wdParts = schedDraft.days.slice().sort(function (a, b) { return a - b; }).map(function (d) {
+        if (!schedDraft.timesWd) schedDraft.timesWd = {};
+        if (!Array.isArray(schedDraft.timesWd[String(d)])) schedDraft.timesWd[String(d)] = ['07:00'];
+        return '<div class="field"><span>周' + ['日', '一', '二', '三', '四', '五', '六'][d] +
+          ' · ' + tgt + ' 次提醒</span>' + timeRows(schedDraft.timesWd[String(d)], 'wtime-' + d) + '</div>';
+      }).join('');
+      body += wdParts;
     } else if (schedDraft.kind === 'weekly') {
-      ex.innerHTML = '<div class="field"><span>每周几次</span><div class="sched-num">' +
-        '<input type="number" min="1" max="7" data-sw="perWeek" value="' + schedDraft.perWeek + '"> 次 / 周</div></div>';
+      body += '<div class="field"><span>每周几次</span><div class="sched-num">' +
+        '<input type="number" min="1" max="7" data-sw="perWeek" value="' + schedDraft.perWeek + '"> 次 / 周</div></div>' +
+        '<p class="pvw-hint">每周 N 次不单独设提醒——哪天做都行，未完成会进每日日报汇总。</p>';
     } else if (schedDraft.kind === 'interval') {
-      ex.innerHTML = '<div class="field"><span>间隔天数</span><div class="sched-num">每 ' +
-        '<input type="number" min="2" max="60" data-sw="intervalDays" value="' + schedDraft.intervalDays + '"> 天一次</div></div>';
+      body += '<div class="field"><span>间隔天数</span><div class="sched-num">每 ' +
+        '<input type="number" min="2" max="60" data-sw="intervalDays" value="' + schedDraft.intervalDays + '"> 天一次</div></div>' +
+        '<div class="field"><span>本轮要求日的提醒时间</span>' +
+        timeRows([schedDraft.timesInterval || '09:00'], 'itime') + '</div>';
     } else {
-      ex.innerHTML = '';
+      const n = Math.max(1, tgt);
+      if (!Array.isArray(schedDraft.timesDaily) || !schedDraft.timesDaily.length) schedDraft.timesDaily = ['07:00'];
+      body += '<div class="field"><span>提醒时间（每日 ' + n + ' 次）</span>' +
+        timeRows(schedDraft.timesDaily, 'dtime') + '</div>';
     }
+    ex.innerHTML = body;
   }
 
   /* 节奏表单的事件全部走 document 级委托：schedRender 每次重建 innerHTML，
@@ -17216,7 +17264,24 @@
      点一次触发 N 次， toggle 就会被偶数次执行而"看起来没反应"。 */
   document.addEventListener('click', function (e) {
     const pick = e.target.closest('#schedKind [data-sched]');
-    if (pick && schedDraft) { schedDraft.kind = pick.dataset.sched; schedRender(); return; }
+    if (pick && schedDraft) {
+      const k = pick.dataset.sched;
+      /* 批 5 约束：戒除类不支持每周 N 次 / 每隔 N 天（弹性配额的戒除没有意义） */
+      const tSel = document.querySelector('#habit-form [name="type"]');
+      if (tSel && tSel.value === 'quit' && (k === 'weekly' || k === 'interval')) {
+        toast('戒除类不支持「' + pick.textContent.trim() + '」，请选每天或每周固定几天');
+        return;
+      }
+      schedDraft.kind = k;
+      /* 默认时间行：daily→1 行（多目标=target 行）；weekdays→每选中日 target 行 */
+      if (k === 'daily' && !Array.isArray(schedDraft.timesDaily)) {
+        schedDraft.timesDaily = ['07:00'];
+      }
+      if (k === 'weekdays' && !schedDraft.timesWd) schedDraft.timesWd = {};
+      if (k === 'interval' && !schedDraft.timesInterval) schedDraft.timesInterval = '09:00';
+      schedRender();
+      return;
+    }
     const day = e.target.closest('#schedExtra [data-day]');
     if (day && schedDraft) {
       const d = Number(day.dataset.day), k = schedDraft.days.indexOf(d);
@@ -17230,6 +17295,29 @@
       const v = Number(sw.value) || 0;
       if (sw.dataset.sw === 'perWeek') schedDraft.perWeek = Math.max(1, Math.min(7, v || 3));
       if (sw.dataset.sw === 'intervalDays') schedDraft.intervalDays = Math.max(2, Math.min(60, v || 3));
+      return;
+    }
+    /* 批 5：时间矩阵与渠道的编辑（全部走委托，重建不丢） */
+    const t = e.target.closest('#schedExtra [data-dtime],#schedExtra [data-wtime],#schedExtra [data-itime],#schedExtra [data-channel]');
+    if (!t || !schedDraft) return;
+    if (t.dataset.channel) {
+      schedDraft.channels = schedDraft.channels || [];
+      const c = t.dataset.channel;
+      const k = schedDraft.channels.indexOf(c);
+      if (t.checked && k < 0) schedDraft.channels.push(c);
+      if (!t.checked && k >= 0) schedDraft.channels.splice(k, 1);
+      return;
+    }
+    if (t.dataset.dtime !== undefined) {
+      schedDraft.timesDaily = schedDraft.timesDaily || [];
+      schedDraft.timesDaily[Number(t.dataset.dtime)] = t.value;
+    } else if (t.dataset.itime !== undefined) {
+      schedDraft.timesInterval = t.value;
+    } else if (t.dataset.wtime) {
+      const d = String(t.dataset.wtime);
+      schedDraft.timesWd = schedDraft.timesWd || {};
+      schedDraft.timesWd[d] = schedDraft.timesWd[d] || [];
+      schedDraft.timesWd[d][Number(t.dataset.wtime)] = t.value;
     }
   });
 
@@ -17265,8 +17353,8 @@
           '<label class="field" data-qf-start><span>开始日期</span><input type="date" name="quitStart" value="' + esc(quitStartDay(h)) + '"></label>' +
           /* 只给通用戒除：戒烟（smoke）有自己的一对按钮，选单次/多次没有意义 */
           '<label class="field" data-quit-plain><span>打卡方式</span><select name="slipMode">' +
-            '<option value="once"' + ((h.slipMode || 'once') === 'once' ? ' selected' : '') + '>每日单次 · 点了就是破了</option>' +
             '<option value="multi"' + (h.slipMode === 'multi' ? ' selected' : '') + '>每日多次 · 一天能记好几次</option>' +
+            '<option value="once"' + ((h.slipMode || 'once') === 'once' ? ' selected' : '') + '>每日多次 · 只记一次（时间仍可配多条提醒）</option>' +
           '</select></label>' +
           '<label class="field" data-smoke-only><span>原来每天几支</span><input name="quitPerDay" type="number" min="1" max="100" value="' + (Number(h.quitPerDay) || '') + '" placeholder="留空则不折算省钱"></label>' +
           '<label class="field" data-smoke-only><span>一包多少钱（元）</span><input name="quitPackPrice" type="number" min="0" step="0.5" value="' + (Number(h.quitPackPrice) || '') + '" placeholder="例如 25"></label>' +
@@ -17828,7 +17916,9 @@
       name: get('name'),
       icon: get('icon') || '✅',
       type: type,
-      target: type === 'quit' ? 1 : clamp(parseInt(get('target'), 10) || 1, 1, 99),
+      /* 批 5：戒除类 target 不再强制 1——它只决定通知时间行数（每日多次戒除需要 N 行），
+         met 的戒除语义（有无失守）不读 target，行为不受影响（BUG-① 复现测试护航） */
+      target: clamp(parseInt(get('target'), 10) || 1, 1, 99),
       unit: get('unit') || '次',
       /* 截止时刻：类型不是保持、或目标 >1 时一律存空，避免出现无意义的组合 */
       deadline: '',
@@ -17843,6 +17933,32 @@
     /* 小习惯 2.0：写回节奏草稿 + 更新时间戳（多端合并按它判新旧） */
     if (document.getElementById('schedKind')) {
       payload.sched = schedDraft || { kind: 'daily' };
+      /* 批 5：通知计划——按节奏取对应时间矩阵，行数与目标次数对齐 */
+      if (schedDraft) {
+        const tEl = document.querySelector('#habit-form [name="target"]');
+        const tgt = Math.max(1, Number(tEl && tEl.value) || 1);
+        const align = function (a) {
+          const x = (Array.isArray(a) && a.length ? a : ['07:00'])
+            .slice(0, tgt).filter(t => /^\d{2}:\d{2}$/.test(String(t)));
+          while (x.length < tgt) x.push('07:00');
+          return x;
+        };
+        const np = { channels: (Array.isArray(schedDraft.channels) && schedDraft.channels.length)
+          ? schedDraft.channels.slice() : ['wecom', 'browser'] };
+        if (schedDraft.kind === 'daily') np.daily = align(schedDraft.timesDaily);
+        if (schedDraft.kind === 'weekdays') {
+          const wd = {};
+          (schedDraft.days || []).forEach(function (d) {
+            wd[String(d)] = align((schedDraft.timesWd || {})[String(d)]);
+          });
+          np.wd = wd;
+        }
+        if (schedDraft.kind === 'interval') {
+          np.intervalTime = /^\d{2}:\d{2}$/.test(String(schedDraft.timesInterval || ''))
+            ? schedDraft.timesInterval : '09:00';
+        }
+        payload.notifyPlan = np;
+      }
       payload.updatedAt = Date.now();
     }
     if (type === 'quit' || type === 'smoke') {
