@@ -4422,7 +4422,7 @@ body.modal-open{overflow:hidden;}
 #task-form .field input,#task-form .field select,#task-form .field textarea{width:100%}
 
 /* ===== 任务弹窗对齐预览稿（v231）：暗色变量覆盖 + 预览间距 ===== */
-html[data-theme="dark"] #task-form{--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;}
+/* v233：颜色回主题（陛下定：待办跟随明暗主题色，与习惯弹窗一致），不再覆盖变量 */
 #task-form{border-radius:16px;padding:16px 18px 14px}
 #task-form .field{margin-bottom:10px;gap:4px}
 #task-form .field>span{font-size:11.5px}
@@ -4450,7 +4450,7 @@ html[data-theme="dark"] #task-form{--surface:#18211c;--surface-2:#1f2a24;--surfa
   font-family:inherit !important;font-size:13px !important;padding:7px 10px !important;
   border:1px solid var(--line) !important;border-radius:9px !important;
   background:var(--surface-2) !important;color:var(--text) !important;width:100% !important;
-  color-scheme:dark !important}
+  }
 #task-form .tk-props .tk-p select{
   background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238fa096' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") !important;
   background-repeat:no-repeat !important;background-position:right 10px center !important;
