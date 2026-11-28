@@ -2,7 +2,7 @@
 
 这个目录放所有说明文档；项目根目录只留 [README.md](../README.md)（入口）和代码。
 
-**当前版本 v216（2026-11-28，已上线）**：`index.html` 21,489 行 + `assets/app.css` 4,354 行 · 17 个页面 · 360+ 个 action · 1 套主题 × 明暗两态 · 后端 `api.php` 36 个动作 + `api/` 下 7 个接口文件（详见 [BACKEND.md](BACKEND.md) / [SMTP.md](SMTP.md)）。
+**当前版本 v221（2026-11-28，已上线）**：`index.html` 22,0xx 行 + `assets/app.css` 4,366 行 · 17 个页面 · 360+ 个 action · 1 套主题 × 明暗两态 · 后端 `api.php` 36 个动作 + `api/` 下 7 个接口文件（详见 [BACKEND.md](BACKEND.md) / [SMTP.md](SMTP.md)）。
 
 ---
 
