@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>运动弹窗重设计 · 两款（时间矩阵 · 频率联动 · 2A）</title>
+<style>
+:root{--bg:#0e1411;--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;--font-sans:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color-scheme:dark;}
+[data-theme="light"]{--bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--surface-3:#ece4d4;--text:#1c2621;--muted:#6f7468;--line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--on-accent:#fdfaf2;--good:#2f7d5c;--bad:#b0473d;}
+[data-skin="slate"]{--bg:#0c111b;--surface:#151c2a;--surface-2:#1a2333;--surface-3:#212c40;--text:#e8edf7;--muted:#8492ad;--line:#2a3550;--accent:#5b8fd6;--accent-soft:#1c2a45;--on-accent:#0c111b;}
+[data-skin="slate"][data-theme="light"]{--bg:#edf0f5;--surface:#ffffff;--surface-2:#f5f7fb;--surface-3:#e3e8f1;--text:#1a2233;--muted:#6b7690;--line:#dde3ee;--accent:#3358a8;--accent-soft:#e3ebf8;--on-accent:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13.5px;line-height:1.5;padding:20px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin-bottom:5px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;margin-bottom:20px}
+.bar b{font-size:12px;color:var(--muted)}
+.bar button{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.scheme{margin-bottom:34px}
+.scheme>h2{font-size:15.5px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.scheme>h2 .tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.scheme>.desc{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px 14px;margin:0 auto;box-shadow:0 18px 44px -22px rgba(0,0,0,.55)}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.m-head b{font-size:15px}
+.m-head .w{font-size:11px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field>span,.f-label{font-size:11.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
+.field input,.field select{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+.grid{display:grid;gap:0 12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.sep{border-top:1px dashed var(--line);margin:12px 0}
+.gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:0 0 8px}
+.gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+.gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+/* 类型网格 */
+.sp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:8px}
+.sp-opt{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:8px 6px;text-align:center;font-size:12px;cursor:pointer}
+.sp-opt.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.sp-opt .ci{font-size:16px;display:block}
+.sp-opt.dis{opacity:.45;cursor:not-allowed}
+.sp-desc{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:9px;padding:7px 10px}
+/* 频率 */
+.freq-rc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.freq-rc button{font-family:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);cursor:pointer;text-align:left}
+.freq-rc button b{display:block;font-size:12.5px}
+.freq-rc button small{display:block;font-size:10.5px;color:var(--muted)}
+.freq-rc button.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.nrow{display:flex;align-items:center;gap:8px}
+.nrow .lbl{font-size:12px;color:var(--muted)}
+.nrow input{width:72px;flex:none}
+.nrow .u{font-size:12px;color:var(--muted)}
+.sched-days{display:flex;gap:6px;flex-wrap:wrap}
+.sched-days button{font-family:inherit;min-width:38px;height:31px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text);font-size:12px;cursor:pointer}
+.sched-days button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+/* 时间矩阵 */
+.time-rows{display:flex;flex-direction:column;gap:7px}
+.time-row{display:flex;align-items:center;gap:8px}
+.time-row label{font-size:11.5px;color:var(--muted);flex:none}
+/* 记录方式 */
+.rec-rc{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rec-rc button{font-family:inherit;text-align:left;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);cursor:pointer}
+.rec-rc button b{display:block;font-size:12.5px}
+.rec-rc button small{display:block;font-size:10.5px;color:var(--muted)}
+.rec-rc button.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.rec-rc button.locked{opacity:.5}
+/* 数据记录勾选 */
+.fld-chk{display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
+.fld-chk b{font-size:12.5px;display:block}
+.fld-chk small{font-size:10.5px;color:var(--muted)}
+/* 通知 */
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.switch-row b{font-size:12.5px;display:block}
+.switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+.sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--good);border-color:var(--good)}
+.sw.on::after{left:21px}
+.chan-row{display:flex;gap:10px;flex-wrap:wrap}
+.chan-opt{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:7px 12px;font-size:12.5px;display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.chan-opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.dot.ok{background:var(--good)}.dot.bad{background:var(--bad)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.actions .ghost{font-family:inherit;font-size:13px;padding:8px 18px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.actions .save{font-family:inherit;font-size:13px;font-weight:600;padding:8px 22px;border-radius:10px;border:1px solid var(--bad);background:var(--bad);color:#fff;cursor:pointer;width:auto;margin-top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>运动弹窗重设计 · 两款（提醒时间矩阵 · 频率联动）</h1>
+<div class="sub">核心改进：「运动开始时间」单行 → 按频率联动的时间矩阵（每天 N 次 = N 行；每周选天 = 每选中日各一组）。三渠道沿用现有实例级机制（含配置检测点）。全部字段照搬现弹窗。</div>
+<div class="bar">
+  <b>明暗</b>
+  <button data-th="dark" class="on">暗色</button>
+  <button data-th="light">亮色</button>
+  <b style="margin-left:8px">皮肤</b>
+  <button data-sk="default" class="on">暗夜绿</button>
+  <button data-sk="slate">石板蓝</button>
+  <span style="margin-left:auto;font-size:11px;color:var(--muted)">交互：频率卡、星期多选、次数输入都会联动时间矩阵</span>
+</div>
+
+<!-- ===== 版 1 ===== -->
+<section class="scheme">
+  <h2>版 1 · 宽双栏 780px <span class="tag">左运动 右提醒</span></h2>
+  <div class="desc">左栏运动全部（类型/目标/频率/时间矩阵/记录方式/数据记录），右栏提醒（总开关/渠道）。字段多，行距收窄。</div>
+  <div class="modal" style="max-width:780px">
+    <div class="m-head"><b>编辑运动 · 跑步</b><span class="w">宽 780px</span></div>
+    <div class="cols2">
+      <div>
+        <div class="gtitle">运动</div>
+        <div class="sp-grid">
+          <div class="sp-opt"><span class="ci">🏃</span>跑步</div>
+          <div class="sp-opt on"><span class="ci">🚴</span>骑行</div>
+          <div class="sp-opt dis"><span class="ci">🏊</span>游泳</div>
+          <div class="sp-opt"><span class="ci">🤸</span>健身</div>
+        </div>
+        <p class="hint">🔒 运动类型与记录方式建好后不能修改，需要换请新建。</p>
+        <div class="sep"></div>
+        <div class="field"><span>目标</span>
+          <div class="nrow"><select style="flex:1"><option>每次距离</option></select><input type="number" value="5" style="width:80px;flex:none"><span class="u">公里</span></div>
+        </div>
+        <div class="sep"></div>
+        <div class="gtitle">频率 <span class="n">联动下方时间矩阵</span></div>
+        <div class="freq-rc">
+          <button onclick="pvF(1,'daily')"><b>每天运动</b><small>每天都要求</small></button>
+          <button class="on" onclick="pvF(1,'weekdays')"><b>每周选日运动</b><small>如周一三五</small></button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="sched-days">
+          <button class="on" onclick="this.classList.toggle('on');pvT(1)">周一</button>
+          <button class="on" onclick="this.classList.toggle('on');pvT(1)">周三</button>
+          <button class="on" onclick="this.classList.toggle('on');pvT(1)">周六</button>
+          <button onclick="this.classList.toggle('on');pvT(1)">周日</button>
+        </div>
+        <div class="nrow" style="margin:8px 0"><span class="lbl">每个选中的日子做</span><input type="number" value="2" id="pd1" oninput="pvT(1)"><span class="u">次</span></div>
+        <div class="sep"></div>
+        <div class="gtitle">记录方式 🔒</div>
+        <div class="rec-rc">
+          <button class="on"><b>手动输入今日数据</b><small>打卡时填实际值</small></button>
+          <button class="locked"><b>每次记录固定值</b><small>点一次按固定值累加</small></button>
+        </div>
+        <div class="gtitle">运动数据记录</div>
+        <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动消耗的时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
+        <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
+        <div class="fld-chk"><div><b>平均配速</b><small>记录本次平均配速</small></div><span class="sw" onclick="this.classList.toggle('on')"></span></div>
+      </div>
+      <div>
+        <div class="gtitle">提醒时间矩阵 <span class="n">每选中日各一组</span></div>
+        <div id="tm1"></div>
+        <div class="hint">填了到点提醒来运动；某一行留空＝那一趟不提醒只打卡。全天累计步数类（走路）无此矩阵。</div>
+        <div class="sep"></div>
+        <div class="gtitle">通知提醒</div>
+        <div class="switch-row"><div><b>接收这个运动的提醒</b><small>到点按下面选的渠道通知你</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="field"><span>提醒渠道（可单选，也可多选）</span>
+          <div class="chan-row">
+            <label class="chan-opt on"><span class="dot ok"></span>💬 企业微信</label>
+            <label class="chan-opt"><span class="dot bad"></span>✉️ 邮件</label>
+            <label class="chan-opt on"><span class="dot ok"></span>🔔 浏览器</label>
+          </div>
+          <div class="hint">彩点＝渠道配置检测：绿=已配置、红=未配置；三渠道都不选等同不提醒。沿用现有实例级机制（与路由 move 板块实例设置同源）。</div>
+        </div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存修改</button></div>
+  </div>
+</section>
+
+<!-- ===== 版 2 ===== -->
+<section class="scheme">
+  <h2>版 2 · 分组通栏 840px <span class="tag">字段最多的弹窗适合通栏</span></h2>
+  <div class="desc">运动字段比其他模块多一倍，通栏分组（类型 → 目标 → 频率+时间矩阵 → 记录方式 → 数据记录 → 通知）横向铺开最省行数。</div>
+  <div class="modal" style="max-width:840px">
+    <div class="m-head"><b>编辑运动 · 骑行</b><span class="w">宽 840px · 分组通栏</span></div>
+    <div class="gtitle">运动类型 🔒</div>
+    <div class="sp-grid">
+      <div class="sp-opt"><span class="ci">🏃</span>跑步</div>
+      <div class="sp-opt on"><span class="ci">🚴</span>骑行</div>
+      <div class="sp-opt dis"><span class="ci">🏊</span>游泳</div>
+      <div class="sp-opt"><span class="ci">🤸</span>健身</div>
+      <div class="sp-opt"><span class="ci">🧘</span>拉伸</div>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">目标与频率</div>
+    <div class="grid g4">
+      <div class="field"><span>目标档</span><select><option>每次距离</option></select></div>
+      <div class="field"><span>目标值</span><input type="number" value="5"></div>
+      <div class="field"><span>频率</span><select><option>每周选日运动</option></select></div>
+      <div class="field"><span>每个选中日做</span><input type="number" value="2"></div>
+    </div>
+    <div class="sched-days">
+      <button class="on" onclick="this.classList.toggle('on');pvT(2)">周一</button>
+      <button class="on" onclick="this.classList.toggle('on');pvT(2)">周三</button>
+      <button class="on" onclick="this.classList.toggle('on');pvT(2)">周六</button>
+      <button onclick="this.classList.toggle('on');pvT(2)">周日</button>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">提醒时间矩阵 <span class="n">每天 N 次 = N 行 · 每选中日各一组</span></div>
+    <div id="tm2"></div>
+    <div class="hint">填了到点提醒来运动；某一行留空＝那一趟不提醒只打卡。全天累计步数类（走路）无此矩阵。</div>
+    <div class="sep"></div>
+    <div class="gtitle">记录方式 🔒 与 数据记录</div>
+    <div class="rec-rc">
+      <button class="on"><b>手动输入今日数据</b><small>打卡时填实际值</small></button>
+      <button class="locked"><b>每次记录固定值</b><small>点一次按固定值累加</small></button>
+    </div>
+    <div class="grid g3" style="margin-top:8px">
+      <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
+      <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
+      <div class="fld-chk"><div><b>平均配速</b><small>记录平均配速</small></div><span class="sw" onclick="this.classList.toggle('on')"></span></div>
+    </div>
+    <div class="sep"></div>
+    <div class="gtitle">通知提醒 <span class="n">实例级 · 与路由 move 板块同源</span></div>
+    <div class="cols2">
+      <div>
+        <div class="switch-row"><div><b>接收这个运动的提醒</b><small>总开关</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="hint">关闭后不为这个运动发任何通知（时间矩阵留不留都不推）。</div>
+      </div>
+      <div>
+        <div class="field"><span>提醒渠道</span>
+          <div class="chan-row">
+            <label class="chan-opt on"><span class="dot ok"></span>💬 企业微信</label>
+            <label class="chan-opt"><span class="dot bad"></span>✉️ 邮件</label>
+            <label class="chan-opt on"><span class="dot ok"></span>🔔 浏览器</label>
+          </div>
+          <div class="hint">彩点＝配置检测（绿=已配置/红=未配置）；与路由 move 板块实例设置同源。</div>
+        </div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存修改</button></div>
+  </div>
+</section>
+</div>
+<script>
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
+function rows(n){let h='';for(let i=0;i<n;i++){h+='<div class="time-row"><label>第 '+(i+1)+' 趟</label><input type="time" value="'+(i===0?'07:00':i===1?'19:00':'--:--')+'"></div>';}return '<div class="time-rows">'+h+'</div>';}
+function wdGroups(n){let h='';['周一','周三','周六'].forEach(d=>{h+='<div class="field"><span>'+d+' · '+n+' 趟提醒</span>'+rows(n)+'</div>';});return h;}
+function pvT(sid){
+  const pd=Number(document.getElementById('pd'+sid)?.value)||2;
+  document.getElementById('tm'+sid).innerHTML=wdGroups(Math.max(1,Math.min(6,pd)));
+}
+function pvF(sid,kind){
+  const box=document.getElementById('tm'+sid);
+  box.innerHTML=kind==='daily'?rows(2):wdGroups(2);
+}
+['1','2'].forEach(sid=>{const el=document.getElementById('tm'+sid);if(el)el.innerHTML=wdGroups(2);});
+</script>
+</body>
+</html>
