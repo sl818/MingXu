@@ -4119,10 +4119,12 @@
   }
 
   /* 今日页该不该出现这张卡：要做的显示；今天不需要做的不显示；
-     周期型凑够了次数也要显示（折叠成「已达成」，不能凭空消失）。 */
+     周期型凑够了次数也要显示（折叠成「已达成」，不能凭空消失）；
+     interval（每 N 天）同样恒显示——消失是 BUG-②（陛下实测：点完成卡片就不见了）。 */
   function todayVisible(h, d) {
     if (!h || isArchived(h) || isModuleAnchor(h)) return false;
     if (habitDueOn(h, d)) return true;
+    if (schedOf(h).kind === 'interval') return true;
     const mp = metPeriod(h, d);
     return !!(mp && mp.met);
   }
@@ -5338,6 +5340,9 @@
     let badge = '今日待打卡', badgeCls = 'wait';
     if (skip || broken) { badge = '今日未完成'; badgeCls = 'bad'; }
     else if (done) { badge = '今日已完成'; badgeCls = 'ok'; }
+    else if (schedOf(h).kind === 'interval' && intervalDone(h, d) && !met(h, d)) {
+      badge = '未到打卡时间'; badgeCls = 'wait';
+    }
 
     /* 节奏：一句话说清「多久做一次、做到多少」 */
     const sc = schedOf(h);
@@ -5402,16 +5407,21 @@
     }
     sub += '<span class="hc-streak">连续 <b>' + streak + '</b> 天<i>·</i>最长 ' + best + ' 天</span>';
 
-    /* 未完成在左、完成在右；都已完成的卡再点一次是撤销 */
+    /* 未完成在左、完成在右；都已完成的卡再点一次是撤销。
+       interval 本轮已完成（且今天自己没打卡）→ 两个按钮禁用，显示「未到打卡时间」（BUG-② 的用户语义）。
+       做的那天当天 met 为真，不进这条分支，仍可撤销。 */
+    const notDueYet = schedOf(h).kind === 'interval' && intervalDone(h, d) && !met(h, d);
+    const dis = notDueYet ? ' disabled title="未到打卡时间 · 下一轮开始前不用打卡"' : '';
     const acts = '<div class="hc-acts">' +
-      '<button type="button" class="hc-btn no' + ((skip || broken) ? ' on' : '') + '"' +
+      '<button type="button" class="hc-btn no' + ((skip || broken) ? ' on' : '') + '"' + dis +
         ' data-act="habit-no" data-id="' + esc(h.id) + '"' +
         ' title="记为今天未完成 · 再点一次撤销">' + HC_CROSS + '<span>未完成</span></button>' +
-      '<button type="button" class="hc-btn yes' + (done ? ' on' : '') + '"' +
+      '<button type="button" class="hc-btn yes' + (done ? ' on' : '') + '"' + dis +
         ' data-act="habit-ok" data-id="' + esc(h.id) + '"' +
-        ' title="' + (isQ ? (broken ? '点一下撤销 1 次失守（点几次撤几次）' : '今天已经守住了')
-                         : (done ? '点一下撤销今天的打卡' : '记为今天已完成')) + '">' +
-        HC_TICK + '<span>' + (done ? '已完成' : '完成') + '</span></button>' +
+        ' title="' + (notDueYet ? '未到打卡时间'
+                         : (isQ ? (broken ? '点一下撤销 1 次失守（点几次撤几次）' : '今天已经守住了')
+                         : (done ? '点一下撤销今天的打卡' : '记为今天已完成'))) + '">' +
+        HC_TICK + '<span>' + (notDueYet ? '未到打卡时间' : (done ? '已完成' : '完成')) + '</span></button>' +
       '</div>';
 
     return '<article class="habit-card hcard-v2' + (done ? ' is-done' : '') + '"' +
@@ -16853,7 +16863,7 @@
       const tv = type.value;
       const isQuitT = tv === 'quit' || tv === 'smoke';
       const isSmokeType = tv === 'smoke';
-      if (isQuitRow) {
+      if (isQuitT) {
         target.disabled = true;
         target.value = '1';
       } else {
@@ -16880,7 +16890,7 @@
       ['target', 'unit'].forEach(function (nm) {
         const el = form.querySelector('[name="' + nm + '"]');
         const f = el && el.closest('.field');
-        if (f) f.hidden = isQuitRow;
+        if (f) f.hidden = isQuitT;
       });
     };
     type.addEventListener('change', sync);
@@ -20740,6 +20750,17 @@
         setCount(d, h.id, 0);
         render();
         toast('已撤销今天的打卡');
+        return;
+      }
+      /* 多目标：逐次步进而不是一次设满——v2 卡片改版丢了 pips 圆点后，
+         这里是唯一入口，直接设满会让「每日 5 次」点一下就完成（BUG-①） */
+      if (target > 1) {
+        const c = countOf(d, h.id) + 1;
+        setCount(d, h.id, c);
+        render();
+        habitPulse(h.id, c >= target ? 'on' : 'slip');
+        toast(c >= target ? '今天 ' + target + '/' + target + ' · 完成'
+                          : '已记录 ' + c + '/' + target + ' · 还差 ' + (target - c) + ' 次');
         return;
       }
       setCount(d, h.id, target);
