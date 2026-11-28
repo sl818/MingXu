@@ -138,12 +138,7 @@ h1{font-size:19px;margin-bottom:5px}
         </div>
         <div class="nrow" style="margin:8px 0"><span class="lbl">每个选中的日子做</span><input type="number" value="2" id="pd1" oninput="pvT(1)"><span class="u">次</span></div>
         <div class="sep"></div>
-        <div class="gtitle">记录方式 🔒</div>
-        <div class="rec-rc">
-          <button class="on"><b>手动输入今日数据</b><small>打卡时填实际值</small></button>
-          <button class="locked"><b>每次记录固定值</b><small>点一次按固定值累加</small></button>
-        </div>
-        <div class="gtitle">运动数据记录</div>
+        <div class="gtitle">运动数据记录 <span class="n">记录方式仅今日步数有</span></div>
         <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动消耗的时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
         <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
         <div class="fld-chk"><div><b>平均配速</b><small>记录本次平均配速</small></div><span class="sw" onclick="this.classList.toggle('on')"></span></div>
@@ -202,11 +197,7 @@ h1{font-size:19px;margin-bottom:5px}
     <div id="tm2"></div>
     <div class="hint">填了到点提醒来运动；某一行留空＝那一趟不提醒只打卡。全天累计步数类（走路）无此矩阵。</div>
     <div class="sep"></div>
-    <div class="gtitle">记录方式 🔒 与 数据记录</div>
-    <div class="rec-rc">
-      <button class="on"><b>手动输入今日数据</b><small>打卡时填实际值</small></button>
-      <button class="locked"><b>每次记录固定值</b><small>点一次按固定值累加</small></button>
-    </div>
+    <div class="gtitle">运动数据记录 <span class="n">记录方式仅今日步数有（此处为骑行，无）</span></div>
     <div class="grid g3" style="margin-top:8px">
       <div class="fld-chk"><div><b>时长（分钟）</b><small>本次运动时长</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
       <div class="fld-chk"><div><b>平均心率</b><small>记录平均心率</small></div><span class="sw on" onclick="this.classList.toggle('on')"></span></div>
@@ -238,7 +229,7 @@ h1{font-size:19px;margin-bottom:5px}
 document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
 function rows(n){let h='';for(let i=0;i<n;i++){h+='<div class="time-row"><label>第 '+(i+1)+' 趟</label><input type="time" value="'+(i===0?'07:00':i===1?'19:00':'--:--')+'"></div>';}return '<div class="time-rows">'+h+'</div>';}
-function wdGroups(n){let h='';['周一','周三','周六'].forEach(d=>{h+='<div class="field"><span>'+d+' · '+n+' 趟提醒</span>'+rows(n)+'</div>';});return h;}
+function wdGroups(n){return '<div class="hint">所有选中日共用这一组时间——勾几天都是这 ' + n + ' 个点提醒，不用重复填。</div>'+rows(n);}
 function pvT(sid){
   const pd=Number(document.getElementById('pd'+sid)?.value)||2;
   document.getElementById('tm'+sid).innerHTML=wdGroups(Math.max(1,Math.min(6,pd)));
