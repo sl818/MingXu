@@ -955,6 +955,10 @@ function lb_schedule_debts(array $state, string $date): array
         if ($due < 1 || $due > 31) {
             continue;
         }
+        /* v237：债务级开关（无还款日时 normalize 已强制关；这里再兜底） */
+        if (($d['notify'] ?? true) === false) {
+            continue;
+        }
 
         /* 本月还款日：超出当月天数时按月末 */
         $eff = min($due, (int)date('t', $ts));
@@ -983,6 +987,9 @@ function lb_schedule_debts(array $state, string $date): array
             'body' => $body,
             'source' => 'debt',
             'priority' => '紧急',
+            /* v237：债务级渠道随事件下发（push.php 与 debt 板块取交集） */
+            'channels' => (isset($d['notifyPlan']['channels']) && is_array($d['notifyPlan']['channels']) && $d['notifyPlan']['channels'])
+                ? array_values($d['notifyPlan']['channels']) : null,
             /* 本次提醒对应的还款日（不是每月的号数） */
             'due' => $dueDay,
         ];

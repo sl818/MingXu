@@ -989,7 +989,7 @@ function lb_notify_effective_row(array $boards, array $item): array
     }
     /* 小习惯 2.0：事件自带习惯级渠道（notifyPlan.channels）→ 与板块渠道取交集，
        交集空则全关。板块是账号级总闸，习惯级是单习惯微调，两者都开才发。 */
-    if (($bid === 'habit' || $bid === 'task') && isset($item['channels']) && is_array($item['channels']) && $item['channels']) {
+    if (($bid === 'habit' || $bid === 'task' || $bid === 'debt') && isset($item['channels']) && is_array($item['channels']) && $item['channels']) {
         foreach (['wecom', 'mail', 'browser'] as $chName) {
             if (!empty($ch[$chName]) && in_array($chName, array_map('strval', $item['channels']), true)) {
                 continue;

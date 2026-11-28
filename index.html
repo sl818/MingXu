@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=236">
+<link rel="stylesheet" href="assets/app.css?v=237">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=236">
+<link rel="stylesheet" href="assets/theme-v2.css?v=237">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v236';
+  const APP_VERSION = 'v237';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -12435,27 +12435,53 @@
   function moneyDebtModal(d) {
     const isNew = !d;
     const v = d || { name: '', type: 'card', balance: '', apr: 18, min: '', due: '', note: '' };
+    const debtDue = Number(v.due) > 0 ? Math.round(Number(v.due)) : 0;
+    const debtChan = (v.notifyPlan && Array.isArray(v.notifyPlan.channels)) ? v.notifyPlan.channels : [];
     openModal('<form class="modal-card" id="money-form" data-id="' + esc(v.id || '') + '">' +
       '<h3>' + (isNew ? '记一笔债' : '编辑债务') + '</h3>' +
-      '<div class="form-grid">' +
-        '<label class="field"><span>名称（欠谁的）</span>' +
-          '<input name="name" maxlength="24" value="' + esc(v.name || '') + '" placeholder="例如：信用卡A"></label>' +
-        '<label class="field"><span>类型</span><select name="type">' +
-          MONEY_TYPES.map(function (t) {
-            return '<option value="' + t.key + '"' + (t.key === v.type ? ' selected' : '') + '>' + t.label + '</option>';
-          }).join('') + '</select></label>' +
-        '<label class="field"><span>剩余欠款（元）</span>' +
-          '<input name="balance" type="number" min="0" step="0.01" value="' + (Number(v.balance) || '') + '" placeholder="38000"></label>' +
-        '<label class="field"><span>年化利率（%），没有利息填 0</span>' +
-          '<input name="apr" type="number" min="0" max="200" step="0.01" value="' + (Number(v.apr) || 0) + '"></label>' +
-        '<label class="field"><span>最低月还款（元）</span>' +
-          '<input name="min" type="number" min="0" step="0.01" value="' + (Number(v.min) || '') + '" placeholder="1900"></label>' +
-        '<label class="field"><span>每月还款日（填 0 或不填则没有具体还款日期）</span>' +
-          '<input name="due" type="number" min="0" max="31" step="1" value="' +
-            (Number(v.due) > 0 ? Math.round(Number(v.due)) : '') + '" placeholder="例如 5"></label>' +
-        '<label class="field wide"><span>备注（可选）</span>' +
-          '<input name="note" maxlength="60" value="' + esc(v.note || '') + '"></label>' +
-      '</div>' +
+      '<div class="form-grid debt-2a">' +
+        '<div class="gtitle">基础</div>' +
+        '<div class="grid g4">' +
+          '<label class="field"><span>名称（欠谁的）</span>' +
+            '<input name="name" maxlength="24" value="' + esc(v.name || '') + '" placeholder="例如：信用卡A"></label>' +
+          '<label class="field"><span>类型</span><select name="type">' +
+            MONEY_TYPES.map(function (t) {
+              return '<option value="' + t.key + '"' + (t.key === v.type ? ' selected' : '') + '>' + t.label + '</option>';
+            }).join('') + '</select></label>' +
+          '<label class="field"><span>剩余欠款（元）</span>' +
+            '<input name="balance" type="number" min="0" step="0.01" value="' + (Number(v.balance) || '') + '" placeholder="38000"></label>' +
+          '<label class="field"><span>年化利率（%），没有利息填 0</span>' +
+            '<input name="apr" type="number" min="0" max="200" step="0.01" value="' + (Number(v.apr) || 0) + '"></label>' +
+        '</div>' +
+        '<div class="grid g3">' +
+          '<label class="field"><span>最低月还款（元）</span>' +
+            '<input name="min" type="number" min="0" step="0.01" value="' + (Number(v.min) || '') + '" placeholder="1900"></label>' +
+          '<label class="field"><span>每月还款日（填 0 或不填则没有具体还款日期）</span>' +
+            '<input name="due" type="number" min="0" max="31" step="1" value="' + (debtDue || '') + '" placeholder="例如 5"></label>' +
+          '<label class="field"><span>备注（可选）</span>' +
+            '<input name="note" maxlength="60" value="' + esc(v.note || '') + '"></label>' +
+        '</div>' +
+      '<div class="sep"></div>' +
+      '<div class="gtitle">提醒 <span class="n">填了还款日才能开启</span></div>' +
+      '<details class="debt-fold">' +
+        '<summary>🔔 提醒 <span class="muted-sm">总开关 · 渠道 · 通知备注（默认收起，点开编辑）</span></summary>' +
+        '<div class="switch-row"><div><b>开启提醒</b><small data-due-sw-hint>每月还款日当天定点推送</small></div>' +
+          '<div class="sw' + (debtDue > 0 && v.notify !== false ? ' on' : '') + (debtDue > 0 ? '' : ' locked') + '" data-role="debt-notify-switch" role="switch" aria-checked="' + (debtDue > 0 && v.notify !== false) + '" tabindex="0"></div></div>' +
+        '<div class="cols2">' +
+          '<div class="field"><span>通知渠道</span>' +
+            '<div class="chan-row" id="notifyExtra">' +
+              [['wecom', '企业微信'], ['mail', '邮件'], ['browser', '浏览器']].map(function (c) {
+                return '<label><input type="checkbox" data-channel="' + c[0] + '"' +
+                  (debtChan.length ? (debtChan.indexOf(c[0]) >= 0 ? ' checked' : '')
+                                    : (c[0] === 'wecom' || c[0] === 'browser' ? ' checked' : '')) + '> ' + c[1] + '</label>';
+              }).join('') +
+            '</div>' +
+            '<div class="hint">三层都开才会发：债务级开关 → 清债页全局还款提醒设置 → 路由 debt 板块</div>' +
+          '</div>' +
+          '<div class="field"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(v.notifyNote || '') + '" placeholder="例如：先还最低再考虑多还"></div>' +
+        '</div>' +
+        '<p class="hint" style="margin:10px 0 0">每月还款日当天按清债页全局「通知时间」推送（默认 09:00），带剩余欠款与最低月还款金额；还款日填 0 或不填则无法定点推送，开关保持关闭。</p>' +
+      '</details>' +
       '<p class="hint">「剩余欠款」填现在的账单余额；「最低月还款」填账单上的最低还款额。' +
         '利息按 余额 × 年化 ÷ 12 估算，跟银行实际账单会有几分钱误差，以账单为准。</p>' +
       '<div class="modal-actions"><span class="spacer"></span>' +
@@ -12485,6 +12511,18 @@
         return isFinite(n) && n >= 1 && n <= 31 ? n : 0;
       })(get('due')),
       note: get('note').slice(0, 60),
+      notify: (function () {
+        const due = get('due');
+        const hasDue = Math.round(Number(due)) >= 1 && Math.round(Number(due)) <= 31;
+        const sw = form.querySelector('[data-role="debt-notify-switch"]');
+        if (!hasDue) return false;   /* 没有还款日强制关闭 */
+        return sw ? sw.classList.contains('on') : true;
+      })(),
+      notifyPlan: (function () {
+        const cs = [...form.querySelectorAll('[data-channel]')].filter(c => c.checked).map(c => c.dataset.channel);
+        return cs.length ? { channels: cs } : undefined;
+      })(),
+      notifyNote: get('notifyNote').slice(0, 60),
       u: Date.now()
     };
     const m = normalizeMoney(money());
@@ -17342,6 +17380,22 @@
     /* 目标次数变化 → 时间行数联动（多目标 N 行的行数跟着走） */
     if (e.target.closest('#habit-form') && e.target.name === 'target' && schedDraft) {
       schedRender();
+      return;
+    }
+    /* 债务还款日联动：0/空 → 开启提醒强制关闭并锁定 */
+    if (e.target.closest('#money-form') && e.target.name === 'due') {
+      const fm = e.target.closest('#money-form');
+      const swEl = fm.querySelector('[data-role="debt-notify-switch"]');
+      const hintEl = fm.querySelector('[data-due-sw-hint]');
+      const hasDue = Math.round(Number(e.target.value)) >= 1 && Math.round(Number(e.target.value)) <= 31;
+      if (swEl) {
+        swEl.classList.toggle('locked', !hasDue);
+        if (!hasDue) swEl.classList.remove('on');
+        swEl.setAttribute('aria-checked', hasDue && swEl.classList.contains('on'));
+      }
+      if (hintEl) hintEl.textContent = hasDue
+        ? '每月 ' + Math.round(Number(e.target.value)) + ' 日当天定点推送'
+        : '未设置还款日——无法定点推送，开关已关闭';
       return;
     }
     const sw = e.target.closest('#schedExtra [data-sw]');
@@ -22407,7 +22461,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=236', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=237', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
