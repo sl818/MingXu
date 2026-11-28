@@ -1448,6 +1448,11 @@
       const dl = String(h.deadline || '');
       h.deadline = (h.type === 'build' && !h.med && (Number(h.target) || 1) <= 1
         && /^([01]\d|2[0-3]):[0-5]\d$/.test(dl)) ? dl : '';
+      /* 小习惯 2.0：节奏字段。老数据没有这个键就不写，
+         schedOf() 缺省会按 daily 处理，因此不需要迁移。 */
+      if (h.sched && typeof h.sched === 'object') h.sched = schedOf(h);
+      const hu = Number(h.updatedAt);
+      h.updatedAt = (isFinite(hu) && hu > 0) ? hu : 0;
     });
     data.tasks = data.tasks.filter(t => t && typeof t === 'object');
     data.tasks.forEach(t => {
@@ -2168,6 +2173,18 @@
         }
         const cur = map[item.id];
         if (!cur.archivedAt && item.archivedAt) cur.archivedAt = item.archivedAt;
+        if (key === 'habits') {
+          /* 小习惯 2.0：习惯也按 updatedAt 判新旧。老数据两边都是 0 时
+             仍走「云端为主」，不因改规则而翻动历史。 */
+          const hlu = Number(item.updatedAt) || 0;
+          const hru = Number(cur.updatedAt) || 0;
+          if (hlu > hru) {
+            const keepArch = cur.archivedAt;
+            Object.assign(cur, item);
+            if (keepArch) cur.archivedAt = keepArch;
+          }
+          return;
+        }
         if (key === 'meds') {
           /* 以前这里是「整条以云端为准」，结果本地刚改的名字、刚登记的库存都会被丢弃。
              现在按 updatedAt 判断谁更新：新的一侧整体胜出，归档标记只增不减，
@@ -4074,8 +4091,25 @@
   }
   /* 考核口径的唯一入口：普通习惯 + 四个模块。
      dayStats / 横幅 / 「还差几项」/ 日历页都从这里取，避免两套名单打架。 */
+  /* 小习惯 2.0 的日口径：
+     · 周期型（每周 N 次）不进日完成率，另出「本周节奏」
+     · 今天不需要做的（周一三五型在周二）不进分母，否则「不需要做」会被写成欠账
+     模块四项照旧全算，不受影响。 */
   function assessmentHabits(d) {
-    return activeHabits(d).concat(moduleHabits());
+    const list = activeHabits(d).filter(function (h) {
+      if (isPeriodic(h)) return false;
+      return habitDueOn(h, d);
+    });
+    return list.concat(moduleHabits());
+  }
+
+  /* 今日页该不该出现这张卡：要做的显示；今天不需要做的不显示；
+     周期型凑够了次数也要显示（折叠成「已达成」，不能凭空消失）。 */
+  function todayVisible(h, d) {
+    if (!h || isArchived(h) || isModuleAnchor(h)) return false;
+    if (habitDueOn(h, d)) return true;
+    const mp = metPeriod(h, d);
+    return !!(mp && mp.met);
   }
   function dayStats(d) {
     const habits = assessmentHabits(d);
@@ -4245,6 +4279,9 @@
       if (quitNeedsCheckin(h, ds) && countOf(ds, h.id) < 1) return 'none';
       return 'done';
     }
+    /* 小习惯 2.0：这一天不需要做（周一三五型在周二）——周条画虚线，不画叉，
+       否则用户会把空白误读成「漏打卡」。纯函数判断，不看是否已达成。 */
+    if (!schedDueRaw(h, ds)) return 'off';
     const target = Math.max(1, Number(h.target) || 1);
     const c = countOf(ds, h.id);
     if (isSkipped(ds, h.id)) return 'fail';
@@ -4265,6 +4302,7 @@
       const st = habitDayMark(h, ds, d);
       let tip = ds.slice(5) + ' · ';
       if (st === 'future') tip += '还没到';
+      else if (st === 'off') tip += '今天不需要做';
       else if (st === 'fail') tip += (q ? '失守' : '记为未完成');
       else if (st === 'done') tip += (q ? '守住了' : '完成 ' + countOf(ds, h.id) + '/' + target);
       else if (st === 'part') tip += '完成 ' + countOf(ds, h.id) + '/' + target;
@@ -5254,17 +5292,35 @@
     else if (done) { badge = '今日已完成'; badgeCls = 'ok'; }
 
     /* 节奏：一句话说清「多久做一次、做到多少」 */
+    const sc = schedOf(h);
     let pace = '每天';
     if (isSmoke(h)) pace = '每天保持 0 次';
     else if (isQ) pace = quitNeedsCheckin(h, d) ? '每天打卡守住' : '每天保持 0 次';
+    else if (sc.kind === 'weekdays') pace = schedDaysText(sc.days);
+    else if (sc.kind === 'weekly') pace = '每周 ' + sc.perWeek + ' 次';
+    else if (sc.kind === 'interval') pace = '每 ' + sc.intervalDays + ' 天';
+    else if (sc.kind === 'monthly') pace = '每月 ' + sc.day + ' 日';
     else if (isDeadlineHabit(h)) pace = '每天 · ' + h.deadline + ' 前';
     else if (target > 1) pace = '每天 · 目标 ' + target + ' ' + (h.unit || '次');
+
+    /* 计数位的分母跟着节奏走：周型用选中天数，周配额用 perWeek，其余仍是 7 */
+    let weekText = '本周 ' + habitWeekDone(h, d) + '/7';
+    if (sc.kind === 'weekdays') {
+      weekText = '本周 ' + habitWeekDone(h, d) + '/' + sc.days.length;
+    } else if (sc.kind === 'weekly') {
+      const mp = metPeriod(h, d);
+      weekText = mp.left > 0
+        ? ('本周 ' + mp.done + '/' + mp.target + ' · 还差 ' + mp.left)
+        : ('本周 ' + mp.done + '/' + mp.target + ' · 已达成');
+    } else if (sc.kind === 'interval') {
+      weekText = '每 ' + sc.intervalDays + ' 天';
+    }
 
     const meta = '<span class="habit-kind ' + (isQ ? 'quit' : 'build') + '">' +
         (isQ ? '戒除' : '养成') + '</span>' +
       '<span class="hc-pace">' + esc(pace) + '</span>' +
       '<span class="hc-sep">·</span>' +
-      '<span class="hc-weekn">本周 ' + habitWeekDone(h, d) + '/7</span>';
+      '<span class="hc-weekn">' + esc(weekText) + '</span>';
 
     /* 副行：多目标给点阵，戒除给今日得失，右侧永远是连续天数 */
     let sub = '';
@@ -6654,7 +6710,7 @@
     const streak = overallStreak();
     const pend = pendingTasks(d);
     const doneToday = liveTasks().filter(t => t.status === 'done' && t.doneAt === d);
-    const visibleHabits = state.habits.filter(h => !isArchived(h) && !isModuleAnchor(h));
+    const visibleHabits = state.habits.filter(h => todayVisible(h, d));
 
     let sub;
     if (!hasRecords(d)) {
@@ -13209,31 +13265,125 @@
   }
 
   /* ============================================================
-     习惯页「本月概览」（v109）
+     小习惯 2.0 · 节奏（sched）
      ------------------------------------------------------------
-     全部现算，不新增任何字段。两个口径写死在这里，别散到别处：
-       · 达标 = met(h,d)，和今日/日历/统计用的是同一个判定
-       · 应打卡 = 按 notifyFreq 逐日判断（daily 每天、weekly 每周那一天、
-         monthly 每月那一天），不是「本月过了多少天就除多少天」
-     用药习惯（h.med）当天没有排期就不计入应打卡——「没有用药需求就不参与」。
+     一个习惯「多久做一次」由 sched 决定；notifyFreq 只决定「什么时候提醒」。
+     两者分开是本轮重构的立论点。缺省等价于「每天」，老数据零迁移。
+
+       kind = daily | weekdays | weekly | interval
+         days        weekdays 用；真实周序 0-6（0=周日，与全站一致）
+         perWeek     weekly 用；1-7，不限哪天，凑够即算
+         intervalDays + anchor  interval 用；anchor 固定，禁止拿「上次完成日」
+                                推算，否则拖延会让周期无限后移
+
+     口径（见 docs/HABITS-V2-CHANGE-ORDER.md §2）：
+       · weekdays 属「日型」：非选中日 = 不需要做，不进完成率分母
+       · weekly 属「周期型」：不进 dayStats，单列「本周节奏」
+       · met() 只回答「这一天做没做」，达标由 metPeriod() 判
      ============================================================ */
+  const SCHED_KINDS = ['daily', 'weekdays', 'weekly', 'interval'];
+
+  function schedOf(h) {
+    const s = (h && h.sched && typeof h.sched === 'object') ? h.sched : null;
+    if (!s) {
+      /* 老数据兼容：历史上「多久一次」是用 notifyFreq 表达的（虽然它本意只是提醒）。
+         没有 sched 时按旧语义还原，避免老习惯被静默改成「每天」。
+         新表单只会写 sched，这条分支只服务于存量数据。 */
+      const f = h && h.notifyFreq;
+      const wd = Number(h && h.notifyWeekday);
+      const md = Number(h && h.notifyMonthday);
+      if (f === 'weekly') {
+        return { kind: 'weekdays', days: [(isFinite(wd) && wd >= 0 && wd <= 6) ? Math.round(wd) : 1] };
+      }
+      if (f === 'monthly') {
+        return { kind: 'monthly', day: (isFinite(md) && md >= 1 && md <= 31) ? Math.round(md) : 1 };
+      }
+      return { kind: 'daily' };
+    }
+    const kind = SCHED_KINDS.indexOf(s.kind) >= 0 ? s.kind : 'daily';
+    if (kind === 'daily') return { kind: 'daily' };
+    if (kind === 'weekdays') {
+      let days = Array.isArray(s.days) ? s.days.map(function (x) { return Math.round(Number(x)); })
+        .filter(function (x, i, a) { return x >= 0 && x <= 6 && a.indexOf(x) === i; }) : [];
+      days.sort(function (a, b) { return a - b; });
+      /* 空选回落周一三五，不退回「每天」——避免静默变成全勤要求 */
+      if (!days.length) days = [1, 3, 5];
+      return { kind: 'weekdays', days: days };
+    }
+    if (kind === 'weekly') {
+      const n = Math.round(Number(s.perWeek));
+      return { kind: 'weekly', perWeek: (n >= 1 && n <= 7) ? n : 3 };
+    }
+    const iv = Math.round(Number(s.intervalDays));
+    const anc = String(s.anchor || '');
+    return {
+      kind: 'interval',
+      intervalDays: (iv >= 2 && iv <= 60) ? iv : 3,
+      anchor: /^\d{4}-\d{2}-\d{2}$/.test(anc) ? anc : ''
+    };
+  }
+
+  /* 弹性配额型：不进 dayStats，单列「本周节奏」 */
+  function isPeriodic(h) { return schedOf(h).kind === 'weekly'; }
+
+  /* 「周一/三/五」这种展示文案：按展示序（周一在前）排，不是真实周序 */
+  function schedDaysText(days) {
+    const W = ['日', '一', '二', '三', '四', '五', '六'];
+    return (Array.isArray(days) ? days : []).slice()
+      .sort(function (a, b) { return ((a + 6) % 7) - ((b + 6) % 7); })
+      .map(function (d) { return '周' + W[d]; }).join(' / ');
+  }
+
+  /* 这一天「有没有被要求」——纯函数，不看是否已达成。
+     周条算历史日必须用这个，不能用 habitDueOn（后者对 weekly 含动态判断）。 */
+  function schedDueRaw(h, d) {
+    const s = schedOf(h);
+    if (s.kind === 'weekdays') return s.days.indexOf(parseD(d).getDay()) >= 0;
+    if (s.kind === 'monthly') {
+      const dt = parseD(d);
+      const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+      return dt.getDate() === Math.min(s.day, lastDay);
+    }
+    return true;
+  }
+
+  /* 本周（周一起）已有几天做了——按日粒度，不递归 */
+  function weekDone(h, d) {
+    const mon = weekMonday(d);
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      const ds = shiftDay(mon, i);
+      if (ds > d) break;
+      if (met(h, ds)) n++;
+    }
+    return n;
+  }
+
+  /* 本周期达成情况；非周期型返回 null */
+  function metPeriod(h, d) {
+    const s = schedOf(h);
+    if (s.kind !== 'weekly') return null;
+    const done = weekDone(h, d);
+    return { done: done, target: s.perWeek, met: done >= s.perWeek,
+             left: Math.max(0, s.perWeek - done) };
+  }
+
+  /* 应打卡 = sched 说了算。notifyFreq 从这里彻底退出，只管提醒。 */
   function habitDueOn(h, d) {
     if (!h || isArchived(h) || h.optional) return false;
     /* 习惯创建之前的日子不算：新建的习惯不该因为「上月全勤」被扣分 */
     const born = String(h.createdAt || '').slice(0, 10);
     if (born && d < born) return false;
     if (h.med) return medScheduledCount(d) > 0;
-    const freq = ['daily', 'weekly', 'monthly'].indexOf(h.notifyFreq) >= 0 ? h.notifyFreq : 'daily';
-    if (freq === 'daily') return true;
-    const dt = parseD(d);
-    /* 别写 `Number(x) || 1`：周日是 0，falsy，会被当成周一。
-       Number(undefined) 是 NaN，一样要回落到 1。 */
-    const wd = Number(h.notifyWeekday);
-    if (freq === 'weekly') return dt.getDay() === (isFinite(wd) ? clamp(Math.round(wd), 0, 6) : 1);
-    const mdN = Number(h.notifyMonthday);
-    const md = isFinite(mdN) ? clamp(Math.round(mdN), 1, 31) : 1;
-    const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
-    return dt.getDate() === Math.min(md, lastDay);
+    const s = schedOf(h);
+    if (s.kind === 'weekdays') return s.days.indexOf(parseD(d).getDay()) >= 0;
+    if (s.kind === 'monthly') {
+      const dt = parseD(d);
+      const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+      return dt.getDate() === Math.min(s.day, lastDay);
+    }
+    if (s.kind === 'weekly') return weekDone(h, d) < s.perWeek;
+    return true;
   }
 
   /* 某个习惯在 [1 号, upto 号] 区间里的达标与应打卡天数 */
@@ -16629,9 +16779,82 @@
     bindTaskSubs(document.getElementById('task-form'));
   }
 
+  /* ===== 小习惯 2.0：表单里的节奏草稿 =====
+     打开弹窗时从 h.sched 拷贝，保存时整体写回。
+     schedDraft 只在弹窗里，不进 state，半截选择不会被读到。 */
+  let schedDraft = null;
+
+  function schedRender() {
+    /* 从 daily 切到别的节奏时，参数字段还不存在——在这里补齐默认值，
+       否则 schedDraft.days.indexOf 会直接报错 */
+    if (schedDraft) {
+      if (schedDraft.kind === 'weekdays') {
+        if (!Array.isArray(schedDraft.days)) schedDraft.days = [1, 3, 5];
+        /* 全取消时界面不能全空——回落周一三五，保存时 schedOf 也会归一化 */
+        if (!schedDraft.days.length) schedDraft.days = [1, 3, 5];
+      }
+      if (schedDraft.kind === 'weekly' && !schedDraft.perWeek) schedDraft.perWeek = 3;
+      if (schedDraft.kind === 'interval' && !schedDraft.intervalDays) schedDraft.intervalDays = 3;
+    }
+    const root = document.getElementById('schedKind');
+    if (!root || !schedDraft) return;
+    root.querySelectorAll('[data-sched]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.sched === schedDraft.kind);
+    });
+    const ex = document.getElementById('schedExtra');
+    if (!ex) return;
+    if (schedDraft.kind === 'weekdays') {
+      ex.innerHTML = '<div class="field"><span>哪几天（可多选）</span><div class="sched-days">' +
+        ['一', '二', '三', '四', '五', '六', '日'].map(function (w, i) {
+          const real = (i + 1) % 7;   /* 展示序 → 真实周序（0=周日） */
+          return '<button type="button" data-day="' + real + '" class="' +
+            (schedDraft.days.indexOf(real) >= 0 ? 'on' : '') + '">周' + w + '</button>';
+        }).join('') + '</div></div>';
+    } else if (schedDraft.kind === 'weekly') {
+      ex.innerHTML = '<div class="field"><span>每周几次</span><div class="sched-num">' +
+        '<input type="number" min="1" max="7" data-sw="perWeek" value="' + schedDraft.perWeek + '"> 次 / 周</div></div>';
+    } else if (schedDraft.kind === 'interval') {
+      ex.innerHTML = '<div class="field"><span>间隔天数</span><div class="sched-num">每 ' +
+        '<input type="number" min="2" max="60" data-sw="intervalDays" value="' + schedDraft.intervalDays + '"> 天一次</div></div>';
+    } else {
+      ex.innerHTML = '';
+    }
+  }
+
+  /* 节奏表单的事件全部走 document 级委托：schedRender 每次重建 innerHTML，
+     若在重建里反复 addEventListener，同一个按钮会叠上多层 handler，
+     点一次触发 N 次， toggle 就会被偶数次执行而"看起来没反应"。 */
+  document.addEventListener('click', function (e) {
+    const pick = e.target.closest('#schedKind [data-sched]');
+    if (pick && schedDraft) { schedDraft.kind = pick.dataset.sched; schedRender(); return; }
+    const day = e.target.closest('#schedExtra [data-day]');
+    if (day && schedDraft) {
+      const d = Number(day.dataset.day), k = schedDraft.days.indexOf(d);
+      if (k >= 0) schedDraft.days.splice(k, 1); else schedDraft.days.push(d);
+      schedRender();
+    }
+  });
+  document.addEventListener('input', function (e) {
+    const sw = e.target.closest('#schedExtra [data-sw]');
+    if (sw && schedDraft) {
+      const v = Number(sw.value) || 0;
+      if (sw.dataset.sw === 'perWeek') schedDraft.perWeek = Math.max(1, Math.min(7, v || 3));
+      if (sw.dataset.sw === 'intervalDays') schedDraft.intervalDays = Math.max(2, Math.min(60, v || 3));
+    }
+  });
+
+  /* 弹窗渲染后调用：把 h.sched 拷进草稿并画上选中态。
+     30ms 是等 openModal 把表单塞进 DOM。 */
+  function initSchedForm(h) {
+    schedDraft = schedOf(h);
+    window.__schedDebug = schedDraft;   /* 调试用，随本版本移除 */
+    schedRender();
+  }
+
   function habitModal(habit) {
     const isNew = !habit;
     const h = habit || { name: '', icon: '✅', type: 'build', target: 1, unit: '次', color: '#2f6f5e', note: '' };
+    setTimeout(function () { initSchedForm(h); }, 30);
     const hWeek = Number.isFinite(Number(h.notifyWeekday)) ? clamp(Number(h.notifyWeekday), 0, 6) : 1;
     const weekOpts = WEEK_CN.map((label, i) =>
       '<option value="' + i + '"' + (hWeek === i ? ' selected' : '') + '>周' + label + '</option>').join('');
@@ -16660,6 +16883,16 @@
           '<label class="field" data-smoke-only><span>一包多少钱（元）</span><input name="quitPackPrice" type="number" min="0" step="0.5" value="' + (Number(h.quitPackPrice) || '') + '" placeholder="例如 25"></label>' +
           '<label class="field" data-smoke-only><span>一包几支</span><input name="quitPackSize" type="number" min="1" max="50" value="' + (Number(h.quitPackSize) || 20) + '"></label>' +
         '</div>' +
+          /* 小习惯 2.0：「多久一次」由 sched 决定，与提醒频率彻底分开。 */
+          '<div class="field wide" data-sched-block><span>多久一次</span>' +
+            '<div class="sched-rc" id="schedKind">' +
+              '<button type="button" data-sched="daily"><b>每天</b><small>每天都要求</small></button>' +
+              '<button type="button" data-sched="weekdays"><b>每周固定几天</b><small>如周一三五</small></button>' +
+              '<button type="button" data-sched="weekly"><b>每周 N 次</b><small>哪天做都行</small></button>' +
+              '<button type="button" data-sched="interval"><b>每 N 天</b><small>隔几天做一次</small></button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="schedExtra"></div>' +
           '<label class="field"><span>目标次数 / 天</span><input name="target" type="number" min="1" max="99" value="' + (Number(h.target) || 1) + '"></label>' +
           '<label class="field"><span>单位</span><input name="unit" maxlength="4" value="' + esc(h.unit || '次') + '"></label>' +
           /* 截止时刻：只对「保持 × 单次目标」生效（早睡、按时吃药这类）。留空 = 不限时刻。 */
@@ -16676,7 +16909,7 @@
             '<option value="0"' + (h.notify === false ? ' selected' : '') + '>不通知</option>' +
           '</select></label>' +
           '<label class="field"><span>通知时间</span><input type="time" name="suggestTime" value="' + esc(h.suggestTime || '15:00') + '"></label>' +
-          '<label class="field"><span>通知频率</span><select name="notifyFreq">' +
+          '<label class="field"><span>提醒频率</span><select name="notifyFreq">' +
             '<option value="daily"' + ((h.notifyFreq || 'daily') === 'daily' ? ' selected' : '') + '>每天</option>' +
             '<option value="weekly"' + (h.notifyFreq === 'weekly' ? ' selected' : '') + '>每周</option>' +
             '<option value="monthly"' + (h.notifyFreq === 'monthly' ? ' selected' : '') + '>每月</option>' +
@@ -17196,8 +17429,7 @@
   }
 
   function saveHabitForm(form) {
-    const id = form.dataset.id || '';
-    const get = n => {
+    const id = form.dataset.id || '';    const get = n => {
       const el = form.querySelector('[name="' + n + '"]');
       return el ? el.value.trim() : '';
     };
@@ -17219,6 +17451,11 @@
       notifyMonthday: clamp(parseInt(get('notifyMonthday'), 10) || 1, 1, 31),
       notifyNote: get('notifyNote')
     };
+    /* 小习惯 2.0：写回节奏草稿 + 更新时间戳（多端合并按它判新旧） */
+    if (document.getElementById('schedKind')) {
+      payload.sched = schedDraft || { kind: 'daily' };
+      payload.updatedAt = Date.now();
+    }
     if (type === 'quit' || type === 'smoke') {
       const qs = get('quitStart');
       payload.quitStart = /^\d{4}-\d{2}-\d{2}$/.test(qs) ? qs : '';
@@ -17248,6 +17485,11 @@
     if (!payload.name) return;
     if (id) {
       const h = currentHabit(id);
+      /* 小习惯 2.0：节奏变了要先说一声——历史不回算（Q4 拍板） */
+      if (h && document.getElementById('schedKind') && schedDraft &&
+          schedOf(h).kind !== schedDraft.kind) {
+        if (!confirm('修改节奏只影响本周及以后，历史打卡按原规则保留。确定吗？')) return;
+      }
       if (h) Object.assign(h, payload);
     } else {
       payload.id = 'h_' + uid();
@@ -19035,7 +19277,10 @@
           med: id === 'h_med',
           deadline: (String(h.type || 'build') === 'build' && (Number(h.target) || 1) <= 1
             && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(h.deadline || ''))) ? String(h.deadline) : '',
-          archivedAt: h.archivedAt ? String(h.archivedAt) : (h.archived === true ? new Date().toISOString() : '')
+          archivedAt: h.archivedAt ? String(h.archivedAt) : (h.archived === true ? new Date().toISOString() : ''),
+          /* 小习惯 2.0：节奏只做结构校验，非法值归一成 daily 而不是抛错 */
+          sched: (h.sched && typeof h.sched === 'object') ? schedOf(h) : undefined,
+          updatedAt: (Number(h.updatedAt) > 0) ? Number(h.updatedAt) : 0
         });
       });
 

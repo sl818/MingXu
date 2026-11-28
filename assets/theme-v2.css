@@ -541,6 +541,9 @@ body{
   border-color:var(--red);border-width:2px;
 }
 .hcard-v2 .hw-cell.is-future{opacity:.42;}
+/* 小习惯 2.0：这一天不需要做（周一三五型在周二）——虚线弱化，不画叉 */
+.hcard-v2 .hw-cell.is-off i{border-style:dashed;border-color:var(--line-strong);background:transparent;opacity:.5}
+.hcard-v2 .hw-cell.is-off b{opacity:.45}
 
 /* ---- 副行 ---- */
 .hcard-v2 .habit-sub{
