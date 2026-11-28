@@ -27,6 +27,7 @@
 | [PRD-HABITS-V2.md](PRD-HABITS-V2.md) | **需求**：周期模型、双层判定、七种节奏、配额与时段、24 条异常、风险登记册（v1.0，写于 v174 之前） | 想确认「当初为什么这么设计」 |
 | [HABITS-UPGRADE-GUIDE.md](HABITS-UPGRADE-GUIDE.md) | **在 v205 代码上哪些还成立**：与 PRD 的逐条裁决、现状事实、明确不做清单 | 动手前先读这份，与 PRD 冲突以它为准 |
 | [HABITS-V2-CHANGE-ORDER.md](HABITS-V2-CHANGE-ORDER.md) | **可执行改动单**：B0–B8 分批、每批改哪几处、验收矩阵、架构建议（含「不建 SQL 表」「不推倒重写」的结论） | 真正开始改的时候 |
+| [habits-v2-preview.html](habits-v2-preview.html) | **可交互预览**：直接引用 `assets/app.css` + `theme-v2.css` 与真实卡片 class，明暗双态、可点打卡、可切节奏 | 决定「要不要这么改」时先看它 |
 | [prototype-habits-v2.html](prototype-habits-v2.html) | 单文件可交互原型：5 种打卡形态、三步表单、详情周期视图 | 想直观看看交互长什么样 |
 
 > 这三份是递进关系：PRD 说「要什么」→ 升级指南说「哪些还成立」→ 改动单说「按什么顺序改」。
