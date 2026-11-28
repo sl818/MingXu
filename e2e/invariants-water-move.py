@@ -351,6 +351,7 @@ with sync_playwright() as p:
     BOARD['rev'] += 1
     ctx, pg, errs = open_page(br, 'modules')
     # M8a 停用清债：导航隐藏 + 落库 + debts 保留
+    pg.wait_for_timeout(1200)
     pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"money\"]'); if(c) c.click(); }")
     pg.wait_for_timeout(2000)
     m8 = pg.evaluate("() => Array.from(document.querySelectorAll('[data-nav=\"money\"]')).length")
@@ -361,7 +362,15 @@ with sync_playwright() as p:
     rec('M8 停用清债：债务数据一个字节不动',
         st['money']['debts'][0]['balance'] == 3000, str(st['money']['debts'][0]))
 
+    # M8c 停用后：站内日历的还款标记消失（dayDebts 源头过滤）
+    pg.evaluate("() => { document.querySelector('[data-nav=\"calendar\"]').click(); }")
+    pg.wait_for_timeout(1800)
+    m8c = pg.evaluate("() => /还款/.test(document.body.innerText || '')")
+    rec('M8 停用清债：站内日历的还款标记消失', not m8c, str(m8c))
+
     # M8b 再开启：恢复
+    pg.evaluate("() => { document.querySelector('[data-nav=\"modules\"]').click(); }")   # M8c 把页面带到了日历页，先回功能模块页
+    pg.wait_for_timeout(1200)
     pg.evaluate("() => { const c=document.querySelector('[data-act=\"module-toggle\"][data-key=\"money\"]'); if(c) c.click(); }")
     pg.wait_for_timeout(2000)
     m8b = pg.evaluate("() => Array.from(document.querySelectorAll('[data-nav=\"money\"]')).length")

@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=217">
+<link rel="stylesheet" href="assets/app.css?v=218">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=217">
+<link rel="stylesheet" href="assets/theme-v2.css?v=218">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v217';
+  const APP_VERSION = 'v218';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -10933,6 +10933,10 @@
      跟后端 lb_schedule_debts、api/ics.php 必须同一口径，否则日历、订阅、
      企微提醒三处会对不上。 */
   function dayDebts(ds) {
+    /* v218：清债模块停用后，站内月历/周视图/汇总的还款标记一并隐藏 ——
+       这是 v211 漏接的第四条路径（与 v209 首页卡同款模式）：dayDebts 是
+       所有日历视图还款标记的共同数据源，在源头断一处即全线生效。 */
+    if (!isModuleOn('money')) return [];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ds || ''))) return [];
     const d = parseD(ds);
     const dom = d.getDate();
@@ -21468,7 +21472,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=217', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=218', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
