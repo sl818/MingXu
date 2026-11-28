@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=226">
+<link rel="stylesheet" href="assets/app.css?v=227">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=226">
+<link rel="stylesheet" href="assets/theme-v2.css?v=227">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v226';
+  const APP_VERSION = 'v227';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -17296,6 +17296,11 @@
     }
   });
   document.addEventListener('input', function (e) {
+    /* 目标次数变化 → 时间行数联动（多目标 N 行的行数跟着走） */
+    if (e.target.closest('#habit-form') && e.target.name === 'target' && schedDraft) {
+      schedRender();
+      return;
+    }
     const sw = e.target.closest('#schedExtra [data-sw]');
     if (sw && schedDraft) {
       const v = Number(sw.value) || 0;
@@ -17331,6 +17336,15 @@
      30ms 是等 openModal 把表单塞进 DOM。 */
   function initSchedForm(h) {
     schedDraft = schedOf(h);
+    /* 回填通知计划：编辑时显示已保存的时间/渠道。
+       没有这段，渲染按默认 07:00 显示、保存再把默认写回——配置被静默覆盖。 */
+    const np = (h && h.notifyPlan && typeof h.notifyPlan === 'object') ? h.notifyPlan : null;
+    if (np) {
+      if (Array.isArray(np.daily)) schedDraft.timesDaily = np.daily.slice();
+      if (np.wd && typeof np.wd === 'object') schedDraft.timesWd = JSON.parse(JSON.stringify(np.wd));
+      if (np.intervalTime) schedDraft.timesInterval = String(np.intervalTime);
+      if (Array.isArray(np.channels)) schedDraft.channels = np.channels.slice();
+    }
     schedRender();
   }
 
@@ -22277,7 +22291,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=226', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=227', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
