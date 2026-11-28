@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>债务弹窗重设计 · 两款（对齐习惯/待办/用药 2A）</title>
+<style>
+:root{--bg:#0e1411;--surface:#18211c;--surface-2:#1f2a24;--surface-3:#26332b;--text:#eef3ef;--muted:#8fa096;--line:#2c3a32;--line-strong:#3d4d43;--accent:#4fa88c;--accent-soft:#1d3229;--on-accent:#0e1411;--good:#4c9b6e;--bad:#c96b60;--warn:#c98a4b;--font-sans:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color-scheme:dark;}
+[data-theme="light"]{--bg:#f3eee4;--surface:#fffdf8;--surface-2:#f7f1e6;--surface-3:#ece4d4;--text:#1c2621;--muted:#6f7468;--line:#e3dac8;--line-strong:#cfc2aa;--accent:#1f6b57;--accent-soft:#e1eee7;--on-accent:#fdfaf2;--good:#2f7d5c;--bad:#b0473d;}
+[data-skin="slate"]{--bg:#0c111b;--surface:#151c2a;--surface-2:#1a2333;--surface-3:#212c40;--text:#e8edf7;--muted:#8492ad;--line:#2a3550;--accent:#5b8fd6;--accent-soft:#1c2a45;--on-accent:#0c111b;}
+[data-skin="slate"][data-theme="light"]{--bg:#edf0f5;--surface:#ffffff;--surface-2:#f5f7fb;--surface-3:#e3e8f1;--text:#1a2233;--muted:#6b7690;--line:#dde3ee;--accent:#3358a8;--accent-soft:#e3ebf8;--on-accent:#ffffff;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13.5px;line-height:1.5;padding:20px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;margin-bottom:5px}
+.sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:13px;margin-bottom:20px}
+.bar b{font-size:12px;color:var(--muted)}
+.bar button{font-family:inherit;font-size:12px;padding:5px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.scheme{margin-bottom:34px}
+.scheme>h2{font-size:15.5px;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.scheme>h2 .tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.scheme>.desc{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px 14px;margin:0 auto;box-shadow:0 18px 44px -22px rgba(0,0,0,.55)}
+.m-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.m-head b{font-size:15px}
+.m-head .w{font-size:11px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field>span{font-size:11.5px;font-weight:600;color:var(--muted)}
+.field input,.field select{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);width:100%}
+.grid{display:grid;gap:0 12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+.sep{border-top:1px dashed var(--line);margin:12px 0}
+.gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:0 0 8px}
+.gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+.gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.switch-row b{font-size:12.5px;display:block}
+.switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+.sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.sw.on{background:var(--good);border-color:var(--good)}
+.sw.on::after{left:21px}
+.sw.locked{opacity:.5;cursor:not-allowed}
+.chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.chan-row.locked label{opacity:.5;pointer-events:none}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.warnhint{font-size:11px;color:var(--warn);margin-top:4px}
+.fold{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:2px}
+.fold>.fh{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--surface-2);cursor:pointer;font-size:13px;font-weight:600}
+.fold>.fh small{color:var(--muted);font-weight:400;font-size:11px}
+.fold>.fh .arrow{margin-left:auto;font-size:11px;color:var(--muted)}
+.fold>.fb{display:none;padding:12px;border-top:1px solid var(--line)}
+.fold.open>.fb{display:block}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.actions .ghost{font-family:inherit;font-size:13px;padding:8px 18px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.actions .save{font-family:inherit;font-size:13px;font-weight:600;padding:8px 22px;border-radius:10px;border:1px solid var(--bad);background:var(--bad);color:#fff;cursor:pointer;width:auto;margin-top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>债务弹窗重设计 · 两款（对齐 2A 视觉）</h1>
+<div class="sub">口径：每月还款日接入通知（每月一天定点推）；填 0 或不填 → 「开启提醒」强制关闭并禁用（没有具体还款日就没有定点推送）。渠道与备注为债务级三件套；清债页的全局还款提醒设置保留，两层都开才发。</div>
+<div class="bar">
+  <b>明暗</b>
+  <button data-th="dark" class="on">暗色</button>
+  <button data-th="light">亮色</button>
+  <b style="margin-left:8px">皮肤</b>
+  <button data-sk="default" class="on">暗夜绿</button>
+  <button data-sk="slate">石板蓝</button>
+  <span style="margin-left:auto;font-size:11px;color:var(--muted)">交互：把「每月还款日」清空或填 0，看开关被强制关闭</span>
+</div>
+
+<!-- ===== 版 1 ===== -->
+<section class="scheme">
+  <h2>版 1 · 宽双栏 780px <span class="tag">左债务 右提醒</span></h2>
+  <div class="desc">左栏债务全部（名称/类型/欠款/利率/月还款/还款日/备注），右栏提醒（总开关/渠道/通知备注）——还款日清空时开关锁定。</div>
+  <div class="modal" style="max-width:780px">
+    <div class="m-head"><b>记一笔债</b><span class="w">宽 780px</span></div>
+    <div class="cols2">
+      <div>
+        <div class="gtitle">债务</div>
+        <div class="field"><span>名称（欠谁的）</span><input value="信用卡A"></div>
+        <div class="field"><span>类型</span><select><option>信用卡</option></select></div>
+        <div class="grid g2">
+          <div class="field"><span>剩余欠款（元）</span><input type="number" value="38000"></div>
+          <div class="field"><span>年化利率（%）</span><input type="number" value="18"></div>
+        </div>
+        <div class="grid g2">
+          <div class="field"><span>最低月还款（元）</span><input type="number" value="1900"></div>
+          <div class="field"><span>每月还款日</span><input type="number" id="due1" value="5" oninput="pvSync1()"></div>
+        </div>
+        <div class="field"><span>备注（可选）</span><input></div>
+      </div>
+      <div>
+        <div class="gtitle">提醒</div>
+        <div class="switch-row"><div><b>开启提醒</b><small id="sws1">每月还款日当天定点推送</small></div><div class="sw on" id="sw1" onclick="if(!this.classList.contains('locked'))this.classList.toggle('on')"></div></div>
+        <div class="field"><span>通知渠道</span>
+          <div class="chan-row" id="ch1">
+            <label><input type="checkbox" checked> 企业微信</label>
+            <label><input type="checkbox"> 邮件</label>
+            <label><input type="checkbox" checked> 浏览器</label>
+          </div>
+          <div class="hint">与清债页的全局还款提醒设置、路由的 debt 板块开关，三层都开才会发</div>
+        </div>
+        <div class="field"><span>通知备注</span><input placeholder="例如：先还最低再考虑多还"></div>
+        <div class="hint">每月还款日当天按全局「通知时间」推送（默认 09:00），带剩余欠款与最低月还款金额。</div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+
+<!-- ===== 版 2 ===== -->
+<section class="scheme">
+  <h2>版 2 · 分组通栏 840px + 提醒折叠 <span class="tag">与待办/用药同构</span></h2>
+  <div class="desc">分组通栏：基础 4 列 → 还款 2 列 → 备注 → 提醒折叠（默认收起）。还款日联动同版 1。</div>
+  <div class="modal" style="max-width:840px">
+    <div class="m-head"><b>记一笔债</b><span class="w">宽 840px · 分组通栏</span></div>
+    <div class="gtitle">基础</div>
+    <div class="grid g4">
+      <div class="field"><span>名称（欠谁的）</span><input value="信用卡A"></div>
+      <div class="field"><span>类型</span><select><option>信用卡</option></select></div>
+      <div class="field"><span>剩余欠款（元）</span><input type="number" value="38000"></div>
+      <div class="field"><span>年化利率（%）</span><input type="number" value="18"></div>
+    </div>
+    <div class="grid g3">
+      <div class="field"><span>最低月还款（元）</span><input type="number" value="1900"></div>
+      <div class="field"><span>每月还款日</span><input type="number" id="due2" value="5" oninput="pvSync2()"></div>
+      <div class="field"><span>备注（可选）</span><input></div>
+    </div>
+    <div class="sep"></div>
+    <div class="fold" id="fold2">
+      <div class="fh" onclick="this.parentElement.classList.toggle('open')">
+        <span>🔔 提醒 <small id="fsum2">总开关 · 渠道 · 通知备注（默认收起）</small></span><span class="arrow">展开</span>
+      </div>
+      <div class="fb">
+        <div class="switch-row"><div><b>开启提醒</b><small id="sws2">每月还款日当天定点推送</small></div><div class="sw on" id="sw2" onclick="if(!this.classList.contains('locked'))this.classList.toggle('on')"></div></div>
+        <div class="cols2">
+          <div>
+            <div class="field"><span>通知渠道</span>
+              <div class="chan-row" id="ch2">
+                <label><input type="checkbox" checked> 企业微信</label>
+                <label><input type="checkbox"> 邮件</label>
+                <label><input type="checkbox" checked> 浏览器</label>
+              </div>
+              <div class="hint">三层都开才会发：债务级 → 清债页全局设置 → 路由 debt 板块</div>
+            </div>
+          </div>
+          <div>
+            <div class="field"><span>通知备注</span><input placeholder="例如：先还最低再考虑多还"></div>
+            <div class="hint">每月还款日当天按全局「通知时间」推送（默认 09:00），带剩余欠款与最低月还款金额。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="actions"><button class="ghost">取消</button><button class="save">保存</button></div>
+  </div>
+</section>
+
+<div class="bar" style="margin-top:6px">
+  <b>数据层说明</b>
+  <span style="font-size:12px">债务对象加 notify（总开关，默认 true）/ notifyPlan.channels / notifyNote 三件套；排程段加「债务级开关过滤 + 渠道下发」；push.php 交集扩展到 debt 板块。全局 money.notify（清债页设置）保留为第二层闸。</span>
+</div>
+</div>
+<script>
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.theme=b.dataset.th;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>{document.documentElement.dataset.skin=b.dataset.sk;document.querySelectorAll('[data-sk]').forEach(x=>x.classList.toggle('on',x===b));});
+function pvSync(n){
+  const v=document.getElementById('due'+n).value;
+  const sw=document.getElementById('sw'+n),sm=document.getElementById('sws'+n),ch=document.getElementById('ch'+n);
+  const has=Number(v)>0;
+  sw.classList.toggle('locked',!has);
+  ch.classList.toggle('locked',!has);
+  if(!has){sw.classList.remove('on');sm.textContent='未设置还款日——无法定点推送，开关已关闭';}
+  else{sm.textContent='每月 '+v+' 日当天定点推送';}
+}
+function pvSync1(){pvSync(1)}
+function pvSync2(){pvSync(2)}
+</script>
+</body>
+</html>
