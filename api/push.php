@@ -1026,6 +1026,7 @@ function lb_notify_text_render(array $tpl, array $ev): string
         '{功能}' => $label,
         '{优先级}' => (string)($ev['priority'] ?? ''),
         '{浏览器文案}' => (string)($ev['browser'] ?? ''),
+        '{服药方式}' => (string)($ev['mealText'] ?? ''),
     ];
     $title = trim(strtr((string)($scene['title'] ?? '{标题}'), $vars));
     $body = trim(strtr((string)($scene['body'] ?? '{正文}'), $vars));

@@ -4462,3 +4462,29 @@ body.modal-open{overflow:hidden;}
   background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238fa096' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") !important;
   background-repeat:no-repeat !important;background-position:right 10px center !important;
   padding-right:28px !important}
+
+/* ===== 用药弹窗 2A 同构（v235） ===== */
+#med-form.modal-card{max-width:840px;width:calc(100vw - 32px)}
+#med-form .gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:14px 0 8px}
+#med-form .gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+#med-form .gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+#med-form .grid{display:grid;gap:0 12px}
+#med-form .g2{grid-template-columns:1fr 1fr}
+#med-form .g3{grid-template-columns:1fr 1fr 1fr}
+#med-form .g4{grid-template-columns:repeat(4,1fr)}
+#med-form .cols2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+@media (max-width:720px){#med-form .g4,#med-form .g3{grid-template-columns:1fr 1fr}#med-form .cols2{grid-template-columns:1fr;gap:0}}
+#med-form .sep{border-top:1px dashed var(--line);margin:12px 0}
+#med-form .switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+#med-form .switch-row b{font-size:12.5px;display:block}
+#med-form .switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+#med-form .sw{position:relative;width:42px;height:23px;border-radius:999px;background:var(--surface-3);border:1px solid var(--line);cursor:pointer;flex:none;transition:background .2s}
+#med-form .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+#med-form .sw.on{background:var(--good);border-color:var(--good)}
+#med-form .sw.on::after{left:21px}
+#med-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+#med-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+#med-form .prtc{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--surface-2);display:flex;gap:10px;align-items:center}
+#med-form .prtc .ic{font-size:18px}
+#med-form .prtc b{font-size:12.5px;display:block}
+#med-form .prtc small{font-size:11px;color:var(--muted)}

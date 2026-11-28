@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=234">
+<link rel="stylesheet" href="assets/app.css?v=235">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=234">
+<link rel="stylesheet" href="assets/theme-v2.css?v=235">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v234';
+  const APP_VERSION = 'v235';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -427,6 +427,13 @@
     const now = new Date().toISOString();
     data.meds.forEach(function (m) {
       if (!m) return;
+      /* 用药通知三件套（v235）：总开关/渠道/备注，渠道复用 notifyPlan 清洗 */
+      m.notify = m.notify !== false;
+      m.notifyNote = String(m.notifyNote || '').slice(0, 60);
+      if (m.notifyPlan && typeof m.notifyPlan === 'object') {
+        const npM = sanitizeNotifyPlan(m.notifyPlan);
+        if (npM && npM.channels) m.notifyPlan = { channels: npM.channels }; else delete m.notifyPlan;
+      }
       const hasBase = m.stockBase !== undefined && m.stockBase !== null;
       if (hasBase) return;
       const legacy = m.stock;
@@ -5264,7 +5271,8 @@
       '{来源}': kind,
       '{功能}': notifyBoardName(kind),
       '{优先级}': '',
-      '{浏览器文案}': String(it.text || '')
+      '{浏览器文案}': String(it.text || ''),
+      '{服药方式}': String(it.mealText || '')
     };
     const apply = function (s) {
       return String(s || '').replace(/\{[^{}]+\}/g, function (m) {
@@ -15070,7 +15078,7 @@
       return '<button type="button" class="nr-chip' + (s[0] === notifyTplScene ? ' on' : '') +
         '" data-act="notify-tpl-scene" data-s="' + s[0] + '">' + s[1] + '</button>';
     }).join('');
-    const vars = ['{标题}', '{正文}', '{时间}', '{类目}', '{场景}', '{来源}', '{功能}', '{优先级}', '{浏览器文案}'];
+    const vars = ['{标题}', '{正文}', '{时间}', '{类目}', '{场景}', '{来源}', '{功能}', '{优先级}', '{浏览器文案}', '{服药方式}'];
     const vv = notifyTplVars();
     const varRows = vars.map(function (v) {
       return '<div class="nr-varrow"><code>' + v + '</code><span>' +
@@ -17523,28 +17531,66 @@
           ? '<p class="hint hint-warn">这个短期疗程已在 ' + esc(m.endDate) + ' 结束，用药列表里会归到「已停用」。' +
             '如果医生让你继续吃，请把结束日期改到后面；如果确实停了，可以把状态改成「已完成」。</p>'
           : '') +
-        '<label class="field"><span>药名</span><input name="name" required maxlength="30" value="' + esc(m.name) + '" placeholder="例如：阿莫西林"></label>' +
-        '<div class="form-grid">' +
-          '<label class="field"><span>用途</span><select name="purpose">' + purposeOpts + '</select></label>' +
-          '<label class="field"><span>剂型</span><select name="form">' + formOpts + '</select></label>' +
-          '<label class="field"><span>规格（可选）</span><input name="strength" maxlength="20" value="' + esc(m.strength || '') + '" placeholder="0.5g / 片"></label>' +
-          '<label class="field"><span>每次剂量</span><div class="dose-pair">' +
-            '<input name="doseAmount" type="number" min="0.1" step="0.1" value="' + (Number(m.doseAmount) || 1) + '">' +
-            '<select name="doseUnit">' + unitOpts + '</select>' +
-          '</div></label>' +
-          '<label class="field" data-timing><span>每日用药次数</span><select name="doseTimes">' + countOpts + '</select></label>' +
-          '<label class="field" data-timing><span>饭前 / 饭后</span><select name="mealTiming">' + mealOpts + '</select></label>' +
-          '<label class="field" data-timing data-off style="display:' + (hasMeal ? '' : 'none') + '"><span>间隔时长</span><select name="mealOffset">' + offsetOpts + '</select></label>' +
+        '<div class="form-grid med-2a">' +
+          '<div class="gtitle">基础</div>' +
+          '<div class="grid g4">' +
+            '<label class="field"><span>药名</span><input name="name" required maxlength="30" value="' + esc(m.name) + '" placeholder="例如：阿莫西林"></label>' +
+            '<label class="field"><span>用途</span><select name="purpose">' + purposeOpts + '</select></label>' +
+            '<label class="field"><span>剂型</span><select name="form">' + formOpts + '</select></label>' +
+            '<label class="field"><span>规格（可选）</span><input name="strength" maxlength="20" value="' + esc(m.strength || '') + '" placeholder="0.5g / 片"></label>' +
+          '</div>' +
+          '<div class="grid g4">' +
+            '<label class="field"><span>每次剂量</span><div class="dose-pair">' +
+              '<input name="doseAmount" type="number" min="0.1" step="0.1" value="' + (Number(m.doseAmount) || 1) + '">' +
+              '<select name="doseUnit">' + unitOpts + '</select>' +
+            '</div></label>' +
+            '<label class="field" data-timing><span>每日用药次数</span><select name="doseTimes">' + countOpts + '</select></label>' +
+            '<label class="field" data-timing><span>饭前 / 饭后</span><select name="mealTiming">' + mealOpts + '</select></label>' +
+            '<label class="field" data-timing data-off style="display:' + (hasMeal ? '' : 'none') + '"><span>间隔时长</span><select name="mealOffset">' + offsetOpts + '</select></label>' +
+          '</div>' +
           '<label class="field" data-timing data-off-custom style="display:' + (hasMeal && isCustomOff ? '' : 'none') + '"><span>自定义间隔（分钟）</span><input type="number" name="mealOffsetCustom" min="0" max="720" step="1" value="' + esc(isCustomOff ? String(rawOff) : '') + '" placeholder="例如 25"></label>' +
           '<div class="field wide" data-timing><span>每次时间</span><div class="time-slots" id="time-slots">' + timeSlotsHtml(curTimes, curCount) + '</div></div>' +
-          '<label class="field"><span>疗程</span><select name="courseType">' + courseOpts + '</select></label>' +
-          '<label class="field"><span>状态</span><select name="status">' + statusOpts + '</select></label>' +
-          '<label class="field"><span>开始日期</span><input type="date" name="startDate" value="' + esc(m.startDate || todayStr()) + '"></label>' +
-          '<label class="field" data-course="short"><span>结束日期</span><input type="date" name="endDate" value="' + esc(m.endDate || fmt(addDays(new Date(), 6))) + '"></label>' +
-          '<label class="field" data-course="long"><span>复诊日期（可选）</span><input type="date" name="reviewDate" value="' + esc(m.reviewDate || '') + '"></label>' +
-          '<label class="field"><span>当前余量（可选）</span><input type="number" name="stock" min="0" step="0.1" value="' + esc(stockVal) + '" placeholder="现在手里实际剩几片"></label>' +
-          '<label class="field"><span>药品厂商</span><input name="manufacturer" maxlength="30" value="' + esc(m.manufacturer || '') + '" placeholder="例如：辉瑞 / 白云山"></label>' +
-          '<label class="field wide"><span>药品信息备注</span><input name="medInfo" maxlength="60" value="' + esc(m.medInfo || '') + '" placeholder="例如：缓释胶囊 / 需避光 / 不可与牛奶同服"></label>' +
+        '<div class="sep"></div>' +
+          '<div class="gtitle">疗程与状态 <span class="n">日期字段随疗程切换</span></div>' +
+          '<div class="grid g4">' +
+            '<label class="field"><span>疗程</span><select name="courseType">' + courseOpts + '</select></label>' +
+            '<label class="field"><span>状态</span><select name="status">' + statusOpts + '</select></label>' +
+            '<label class="field"><span>开始日期</span><input type="date" name="startDate" value="' + esc(m.startDate || todayStr()) + '"></label>' +
+            '<label class="field"><span>当前余量（可选）</span><input type="number" name="stock" min="0" step="0.1" value="' + esc(stockVal) + '" placeholder="现在手里实际剩几片"></label>' +
+          '</div>' +
+          '<div class="grid g2">' +
+            '<label class="field" data-course="short"><span>结束日期</span><input type="date" name="endDate" value="' + esc(m.endDate || fmt(addDays(new Date(), 6))) + '"></label>' +
+            '<label class="field" data-course="long"><span>复诊日期（可选）</span><input type="date" name="reviewDate" value="' + esc(m.reviewDate || '') + '"></label>' +
+            /* 复诊日期当天会推送一条「今天复诊」（长期疗程），见 schedule.php med 段 */
+          '</div>' +
+          '<div class="grid g2">' +
+            '<label class="field"><span>药品厂商</span><input name="manufacturer" maxlength="30" value="' + esc(m.manufacturer || '') + '" placeholder="例如：辉瑞 / 白云山"></label>' +
+            '<label class="field"><span>药品信息备注</span><input name="medInfo" maxlength="60" value="' + esc(m.medInfo || '') + '" placeholder="例如：缓释胶囊 / 需避光 / 不可与牛奶同服"></label>' +
+          '</div>' +
+        '<div class="sep"></div>' +
+        /* 2A 提醒组：长期/短期接入（总开关+渠道+备注，时间复用每次槽位）；按需不接入（联动静默） */
+          '<div class="gtitle">提醒 <span class="n">长期/短期接入 · 按需不接入</span></div>' +
+          '<div data-med-notify>' +
+            '<div class="switch-row"><div><b>开启提醒</b><small>总开关 · 关掉后此药不产生任何推送</small></div>' +
+              '<div class="sw' + (m.notify !== false ? ' on' : '') + '" data-role="notify-switch" role="switch" aria-checked="' + (m.notify !== false) + '" tabindex="0"></div></div>' +
+            '<div class="cols2">' +
+              '<div class="field"><span>通知备注</span><input name="notifyNote" maxlength="60" value="' + esc(m.notifyNote || '') + '" placeholder="例如：饭后半小时服用"></div>' +
+              '<div class="field"><span>通知渠道</span>' +
+                '<div class="chan-row" id="notifyExtra">' +
+                  [['wecom', '企业微信'], ['mail', '邮件'], ['browser', '浏览器']].map(function (c) {
+                    const cur = (m.notifyPlan && Array.isArray(m.notifyPlan.channels)) ? m.notifyPlan.channels : [];
+                    return '<label><input type="checkbox" data-channel="' + c[0] + '"' +
+                      (cur.length ? (cur.indexOf(c[0]) >= 0 ? ' checked' : '')
+                                  : (c[0] === 'wecom' || c[0] === 'browser' ? ' checked' : '')) + '> ' + c[1] + '</label>';
+                  }).join('') +
+                '</div>' +
+                '<div class="hint">提醒时间＝上方「每次时间」槽位，到点各推一条；已记录的槽位当天不重复推。渠道与路由的 med 板块开关取交集。</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div data-med-prn-hint class="prtc" style="display:' + ((m.courseType || 'long') === 'prn' ? '' : 'none') + '">' +
+            '<span class="ic">ℹ️</span><span><b>按需用药不接入通知系统</b>' +
+            '<small>没有固定服药时间，无法定点推送；需要提醒请改用长期或短期疗程。</small></span></div>' +
         '</div>' +
         '<p class="hint">「当前余量」填你现在手里实际有多少（可数一遍）。之后每记录一次服药会自动往下扣，' +
           (stockRemain === null ? '所以这个数越准，剩余天数越可信。' : '上次登记：' + esc(medStockBaseLabel(m) || '—') + '。改这个数字等于重新登记一次基线。') +
@@ -17590,6 +17636,13 @@
         if (show && el.hasAttribute('data-off')) show = hasMeal;
         if (show && el.hasAttribute('data-off-custom')) show = custom;
         el.style.display = show ? '' : 'none';
+      });
+      /* 2A：按需疗程 → 提醒组隐藏、说明卡显示（按需不接入通知，陛下定） */
+      form.querySelectorAll('[data-med-notify]').forEach(el => {
+        el.style.display = prn ? 'none' : '';
+      });
+      form.querySelectorAll('[data-med-prn-hint]').forEach(el => {
+        el.style.display = prn ? '' : 'none';
       });
     };
     const onMealChange = () => {
@@ -19824,6 +19877,16 @@
       endDate: endDate,
       reviewDate: courseType === 'long' ? get('reviewDate') : '',
       status: get('status') || 'active',
+      notify: (function () {
+        const sw = document.querySelector('#med-form [data-role="notify-switch"]');
+        return sw ? sw.classList.contains('on') : true;
+      })(),
+      notifyNote: get('notifyNote'),
+      notifyPlan: (function () {
+        const f = document.getElementById('med-form');
+        const cs = f ? [...f.querySelectorAll('[data-channel]')].filter(c => c.checked).map(c => c.dataset.channel) : [];
+        return cs.length ? { channels: cs } : undefined;
+      })(),
       stockBase: stockBase,
       stockBaseAt: stockBaseAt,
       stockReview: false,
@@ -22344,7 +22407,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=234', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=235', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

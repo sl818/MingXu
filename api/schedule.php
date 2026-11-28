@@ -79,6 +79,26 @@ function lb_schedule_day(array $state, string $date): array
             }
         }
 
+        /* v235：通知总开关（弹窗「开启提醒」）——关掉不排；按需用药天然无时刻（上面已 continue） */
+        if (($m['notify'] ?? true) === false) {
+            continue;
+        }
+        /* 服药方式文案进正文：饭前/饭后 + 间隔（饭后30分钟）；mealOffset 0=立即 */
+        $mealText = '';
+        $mealTiming = (string)($m['mealTiming'] ?? '');
+        if ($mealTiming === 'before' || $mealTiming === 'after') {
+            $off = $m['mealOffset'] ?? null;
+            $offText = '';
+            if ($off === 0 || $off === '0') {
+                $offText = '立即';
+            } elseif (is_numeric($off) && (int)$off > 0) {
+                $offText = (int)$off . '分钟';
+            }
+            $mealText = ($mealTiming === 'before' ? '饭前' : '饭后') . $offText;
+        }
+        $notifyNote = trim((string)($m['notifyNote'] ?? ''));
+        $npCh = (isset($m['notifyPlan']['channels']) && is_array($m['notifyPlan']['channels']) && $m['notifyPlan']['channels'])
+            ? array_values($m['notifyPlan']['channels']) : null;
         $times = isset($m['times']) && is_array($m['times']) ? $m['times'] : [];
         $times = array_values(array_filter($times, static function ($t) {
             return is_string($t) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t);
@@ -113,11 +133,32 @@ function lb_schedule_day(array $state, string $date): array
                 'kind' => 'med',
                 'id' => $mid,
                 'title' => '该吃药了',
-                'body' => $name . ' ' . $amt . $unit . '（每天 ' . $slot . '）',
+                'body' => $name . ' ' . $amt . $unit . '（每天 ' . $slot . ($mealText !== '' ? ' · ' . $mealText : '') . '）'
+                    . ($notifyNote !== '' ? "\n" . $notifyNote : ''),
                 /* v211：模板变量用的来源/优先级。只增不改，去重键仍是 日期|kind|id|时间 */
                 'source' => 'med',
                 'priority' => '紧急',
+                /* v235：{服药方式} 模板变量 + 任务级同款渠道交集 */
+                'mealText' => $mealText,
+                'channels' => $npCh,
             ];
+        }
+        /* v235：长期疗程复诊日提醒——一次性，当天 09:00，走同一渠道交集 */
+        if (($m['courseType'] ?? '') === 'long') {
+            $rd = lb_ics_is_date($m['reviewDate'] ?? '') ? (string)$m['reviewDate'] : '';
+            if ($rd !== '' && $rd === $date) {
+                $out[] = [
+                    'time' => '09:00',
+                    'kind' => 'med',
+                    'id' => $mid . '-review',
+                    'title' => '今天复诊',
+                    'body' => $name . ' 今天复诊' . ($notifyNote !== '' ? "\n" . $notifyNote : ''),
+                    'source' => 'med',
+                    'priority' => '紧急',
+                    'mealText' => $mealText,
+                    'channels' => $npCh,
+                ];
+            }
         }
     }
 
