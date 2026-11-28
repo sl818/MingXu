@@ -499,6 +499,7 @@ function lb_schedule_day(array $state, string $date): array
                         continue;
                     }
                 }
+                $noteN = trim((string)($sp['notifyNote'] ?? ''));
                 $done = false;
                 foreach ($records as $r) {
                     if (!is_array($r) || (string)($r['d'] ?? '') !== $date) {
@@ -525,7 +526,8 @@ function lb_schedule_day(array $state, string $date): array
                         /* v216：sport 带实例 id（instances 的键）；mode 保留模式 key 供展示 */
                         'sport' => $spid !== '' ? $spid : $spkey,
                         'mode' => $spkey,
-                        'body' => '该开始运动了' . ($tot > 1 ? '（第 ' . ($si + 1) . '/' . $tot . ' 趟）' : ''),
+                        'body' => '该开始运动了' . ($tot > 1 ? '（第 ' . ($si + 1) . '/' . $tot . ' 趟）' : '')
+                            . ($noteN !== '' ? "\n" . $noteN : ''),
                     ];
                 }
             }

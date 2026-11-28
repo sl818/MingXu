@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=239">
+<link rel="stylesheet" href="assets/app.css?v=240">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=239">
+<link rel="stylesheet" href="assets/theme-v2.css?v=240">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v239';
+  const APP_VERSION = 'v240';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -902,6 +902,8 @@
       recMode: recMode,
       fixedSteps: fixedSteps,
       startTime: startTime,
+      times: (Array.isArray(s.times) ? s.times : []).filter(function (t) { return /^\d{2}:\d{2}$/.test(String(t)); }),
+      notifyNote: String(s.notifyNote || '').slice(0, 60),
       fields: fields,
       strokePick: strokePick,
       distLocked: distLocked,
@@ -18762,6 +18764,7 @@
     /* v216：实例通知设置的真源是板块矩阵 move.instances；没存过回落旧快照值（兼容） */
     const _inst = init ? notifyMoveInstance(init.id) : null;
     let notifyOn = _inst ? !!_inst.on : (init ? (init.notifyOn !== false) : true);
+    let notifyNote = init ? String(init.notifyNote || '') : '';
     let chanSel = _inst && _inst.channels
       ? Object.keys(_inst.channels).filter(function (k) { return _inst.channels[k]; })
       : (init && Array.isArray(init.channels))
@@ -18880,8 +18883,13 @@
             '<input type="checkbox" value="' + c[0] + '"' + (on ? ' checked' : '') + '></label>';
         }).join('') + '</div>';
         h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
+        h += '<span class="f-label">通知备注</span>' +
+          '<input type="text" id="sp-notify-note" maxlength="60" value="' + esc(notifyNote) + '" placeholder="例如：先热身再上强度">' +
+          '<p class="sp-hint">随每次到点推送一起发送。</p>';
       }
       box.innerHTML = h;
+      const nn = box.querySelector('#sp-notify-note');
+      if (nn) nn.addEventListener('input', function () { notifyNote = nn.value; });
       box.querySelectorAll('[data-sp-time]').forEach(function (inp) {
         inp.addEventListener('input', function () {
           spTimes[Number(inp.dataset.spTime)] = inp.value;
@@ -19025,7 +19033,8 @@
         times: spTimes.slice(),
         fields: Object.keys(fieldOn).filter(function (k) { return fieldOn[k]; }),
         strokePick: strokePick,
-        notifyOn: notifyOn, notifyChannels: chanSel.slice()
+        notifyOn: notifyOn, notifyChannels: chanSel.slice(),
+        notifyNote: notifyNote
       };
     };
     renderBody();
@@ -19052,6 +19061,7 @@
       fixedSteps: st.fixedSteps,
       times: st.key === 'steps' ? [] : (st.times || []),
       startTime: st.key === 'steps' ? '' : (st.times || [])[0] || '',   /* 旧字段回落：列表/历史显示取第一趟 */
+      notifyNote: st.key === 'steps' ? '' : String(st.notifyNote || '').slice(0, 60),
       fields: st.fields,
       strokePick: st.strokePick,
       /* v216：实例通知设置（开关+渠道）的真源移到板块矩阵 move.instances，
@@ -22483,7 +22493,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=239', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=240', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 
