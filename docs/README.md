@@ -2,7 +2,7 @@
 
 这个目录放所有说明文档；项目根目录只留 [README.md](../README.md)（入口）和代码。
 
-**当前版本 v215（2026-11-27，待上传）**：`index.html` 21,230 行 + `assets/app.css` 4,347 行 · 17 个页面 · 360+ 个 action · 1 套主题 × 明暗两态 · 后端 `api.php` 36 个动作 + `api/` 下 7 个接口文件（详见 [BACKEND.md](BACKEND.md) / [SMTP.md](SMTP.md)）。
+**当前版本 v216（2026-11-28，已上线）**：`index.html` 21,489 行 + `assets/app.css` 4,354 行 · 17 个页面 · 360+ 个 action · 1 套主题 × 明暗两态 · 后端 `api.php` 36 个动作 + `api/` 下 7 个接口文件（详见 [BACKEND.md](BACKEND.md) / [SMTP.md](SMTP.md)）。
 
 ---
 
@@ -19,6 +19,18 @@
 | [DEPLOY.md](DEPLOY.md)                 | 宝塔部署、Nginx、HTTPS、备份、定时任务、排错                 | 上线 / 运维         |
 | [HANDOFF.md](HANDOFF.md)               | 当前线上状态、版本流水、已知问题、技术债                        | 接手 / 想知道改过什么    |
 | [MOVE-OPTIMIZATION.md](MOVE-OPTIMIZATION.md) | **运动模块 v185 优化（已实施）**：五条反馈怎么改、「真人走一遍」回归矩阵、文末实施记录与差异 | 改运动模块前        |
+
+## 产品与方案文档（习惯 2.0）
+
+| 文档 | 回答什么问题 | 什么时候读 |
+|---|---|---|
+| [PRD-HABITS-V2.md](PRD-HABITS-V2.md) | **需求**：周期模型、双层判定、七种节奏、配额与时段、24 条异常、风险登记册（v1.0，写于 v174 之前） | 想确认「当初为什么这么设计」 |
+| [HABITS-UPGRADE-GUIDE.md](HABITS-UPGRADE-GUIDE.md) | **在 v205 代码上哪些还成立**：与 PRD 的逐条裁决、现状事实、明确不做清单 | 动手前先读这份，与 PRD 冲突以它为准 |
+| [HABITS-V2-CHANGE-ORDER.md](HABITS-V2-CHANGE-ORDER.md) | **可执行改动单**：B0–B8 分批、每批改哪几处、验收矩阵、架构建议（含「不建 SQL 表」「不推倒重写」的结论） | 真正开始改的时候 |
+| [prototype-habits-v2.html](prototype-habits-v2.html) | 单文件可交互原型：5 种打卡形态、三步表单、详情周期视图 | 想直观看看交互长什么样 |
+
+> 这三份是递进关系：PRD 说「要什么」→ 升级指南说「哪些还成立」→ 改动单说「按什么顺序改」。
+> 三者都**未落地实施**（v216 线上仍只有「每天」一种节奏），实施与否见改动单 §9 的分期建议。
 
 ## 设计文档（2026-11-23 起集中在 `design/`）
 
