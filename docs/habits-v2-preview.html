@@ -5970,6 +5970,52 @@ body{
 .pv #cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 .pv #weekDemo{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:760px){.pv #cards,.pv #weekDemo{grid-template-columns:1fr}}
+
+/* ===== 新建向导（模拟弹窗外观，组件仍用线上 .field / .btn） ===== */
+.pvw-card{max-width:760px;border:1px solid var(--line);border-radius:16px;background:var(--surface);
+  padding:20px 20px 16px;box-shadow:var(--shadow-lg)}
+.pvw-title{font-size:15px;margin:0 0 14px;font-weight:650}
+.pvw-steps{display:flex;align-items:center;margin:0 0 18px;font-size:12px}
+.pvw-steps div{display:flex;align-items:center;gap:7px;color:var(--muted);flex:none}
+.pvw-steps div i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line-strong);
+  display:grid;place-items:center;font-size:11px;font-style:normal}
+.pvw-steps div.on{color:var(--text);font-weight:600}
+.pvw-steps div.on i{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.pvw-steps div.ok i{border-color:var(--accent);color:var(--accent);font-weight:700}
+.pvw-steps div:not(:last-child)::after{content:"";flex:1;height:1px;background:var(--line);margin:0 12px;min-width:20px}
+.pvw-rc{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
+.pvw-rc button{text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface);cursor:pointer;transition:.15s}
+.pvw-rc button:hover{border-color:var(--line-strong)}
+.pvw-rc button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent-soft) 55%,var(--surface));
+  box-shadow:inset 0 0 0 1px var(--accent)}
+.pvw-rc b{display:block;font-size:12.8px;color:var(--text)}
+.pvw-rc small{display:block;font-size:11.2px;color:var(--muted);margin-top:2px;line-height:1.45}
+.pvw-chips{display:flex;gap:8px;flex-wrap:wrap}
+.pvw-chips button{font-size:12px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--text);cursor:pointer}
+.pvw-chips button:hover{border-color:var(--line-strong)}
+.pvw-chips button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.pvw-days{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px}
+.pvw-days button{min-width:42px;height:34px;border:1px solid var(--line);border-radius:9px;
+  background:var(--surface);color:var(--text);font-size:12.5px;cursor:pointer}
+.pvw-days button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.pvw-num{display:flex;align-items:center;gap:9px;font-size:12.6px;color:var(--muted)}
+.pvw-num input{width:70px;height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);
+  color:var(--text);text-align:center;font-size:14px}
+.pvw-preview{margin:14px 0 0;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:9px;
+  background:var(--surface-2);font-size:12.4px;color:var(--text);line-height:1.6}
+.pvw-preview b{color:var(--accent);font-weight:650}
+.pvw-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.pvw-foot .sp{flex:1}
+.pvw-hint{font-size:11.6px;color:var(--muted);margin:2px 0 14px;line-height:1.7;
+  padding-left:10px;border-left:2px solid var(--line-strong)}
+.pvw-mini{position:relative;border:1px solid var(--line);border-radius:12px;padding:13px 14px 12px;
+  background:linear-gradient(180deg,var(--surface-2),var(--surface))}
+.pvw-mini b{font-size:13.6px;letter-spacing:.2px}
+.pvw-mini .pvw-mini-badge{position:absolute;right:13px;top:12px;font-size:10.8px;padding:2px 8px;
+  border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.pvw-mini .pvw-mini-meta{font-size:11.6px;color:var(--muted);margin-top:5px}
 </style>
 </head>
 <body>
@@ -6077,6 +6123,34 @@ body{
     </p>
   </section>
 
+  <section class="pv-sec">
+    <h2>六、新建习惯 <em>三步向导</em></h2>
+    <p class="desc">
+      照原型的「<b>做什么 → 多久一次 → 怎么记</b>」三段走，主路径只问三个问题。
+      已砍掉原型里的时段拆分与每月型（前者呼吸/喝水模块已有，后者低频），
+      节奏只留四种。每一步都有一句人话回述，不用在脑子里模拟规则。
+    </p>
+    <div class="pvw-card">
+      <h3 class="pvw-title">添加小习惯</h3>
+      <div class="pvw-steps" id="wSteps">
+        <div class="on"><i>1</i>做什么</div>
+        <div><i>2</i>多久一次</div>
+        <div><i>3</i>怎么记</div>
+      </div>
+      <div id="wBody"></div>
+      <p class="pvw-preview" id="wPreview"></p>
+      <div class="pvw-foot">
+        <button type="button" class="btn ghost" id="wBack" disabled>上一步</button>
+        <span class="sp"></span>
+        <button type="button" class="btn ghost" id="wCancel">取消</button>
+        <button type="button" class="btn primary" id="wNext">下一步</button>
+      </div>
+    </div>
+    <p class="pv-foot" style="margin-top:14px">
+      保存后会在上面第一节真的多出一张卡，可以直接看它长什么样、点一下看看行为。
+    </p>
+  </section>
+
 </div>
 
 <script>
@@ -6130,6 +6204,8 @@ function counterText(h){
     return left > 0 ? ('本周 ' + h.done.length + '/' + h.sched.perWeek + ' · 还差 ' + left)
                     : ('本周 ' + h.done.length + '/' + h.sched.perWeek + ' · 已达成');
   }
+  if (h.sched.kind === 'interval')
+    return '本轮第 ' + (h.done.length ? '2' : '1') + ' 天 / 共 ' + (h.sched.intervalDays||3) + ' 天';
   return '本周 ' + h.done.length + '/7';
 }
 function weekCells(h, withLabel){
@@ -6325,6 +6401,189 @@ function renderPreview(){
 document.querySelectorAll('.rh-card').forEach(function(b){
   b.addEventListener('click', function(){ RHY.kind = b.dataset.kind; renderForm(); });
 });
+
+/* ===== 第六节：新建习惯三步向导 ===== */
+var WIZ = { step:1, icon:'🏃', name:'', type:'build', kind:'daily',
+            days:[1,3,5], perWeek:3, intervalDays:3, per:1, unit:'次',
+            color:'#2f6f5e', note:'', remind:'20:00', freq:'每天' };
+
+var PRESETS = [
+  { label:'每周 3 次运动', icon:'🏃', name:'运动', type:'build', kind:'weekly', perWeek:3, per:1, unit:'次' },
+  { label:'每天早上读书', icon:'📖', name:'读书', type:'build', kind:'daily', per:20, unit:'页' },
+  { label:'每 3 天浇花',   icon:'🪴', name:'浇花', type:'build', kind:'interval', intervalDays:3 },
+  { label:'每周最多 2 次奶茶', icon:'🧋', name:'奶茶', type:'quit', kind:'weekly', perWeek:2 }
+];
+
+function wizPaceText(){
+  if (WIZ.kind === 'weekdays'){
+    if (!WIZ.days.length) return '（还没选日子）';
+    return WIZ.days.slice().sort(function(a,b){ return ((a+6)%7)-((b+6)%7); })
+      .map(function(d){ return '周'+WD[(d+6)%7]; }).join(' / ');
+  }
+  if (WIZ.kind === 'weekly') return '每周 ' + WIZ.perWeek + ' 次';
+  if (WIZ.kind === 'interval') return '每 ' + WIZ.intervalDays + ' 天';
+  return '每天';
+}
+function wizPreview(){
+  var amt = WIZ.per > 1 ? ('每次 ' + WIZ.per + ' ' + WIZ.unit) : ('每次 1 ' + WIZ.unit);
+  if (WIZ.kind === 'daily')    return '<b>每天</b> · ' + amt + ' · 今天还没打卡';
+  if (WIZ.kind === 'weekdays') return '<b>' + wizPaceText() + '</b> · ' + amt + ' · 非选中日不需要做';
+  if (WIZ.kind === 'weekly')   return '<b>每周 ' + WIZ.perWeek + ' 次</b> · ' + amt + ' · 本周还差 ' + WIZ.perWeek + ' 次';
+  return '<b>每 ' + WIZ.intervalDays + ' 天</b> · ' + amt + ' · 本轮第 1 天';
+}
+
+function renderWiz(){
+  document.querySelectorAll('#wSteps div').forEach(function(d,i){
+    d.className = (i+1 === WIZ.step) ? 'on' : ((i+1 < WIZ.step) ? 'ok' : '');
+  });
+  var body = document.getElementById('wBody'), html = '';
+
+  if (WIZ.step === 1){
+    html =
+      '<div class="form-grid">' +
+        '<label class="field"><span>图标</span><input id="wIcon" maxlength="4" value="' + WIZ.icon + '"></label>' +
+        '<label class="field"><span>名称</span><input id="wName" maxlength="20" placeholder="例如：早睡" value="' + WIZ.name + '"></label>' +
+      '</div>' +
+      '<div class="field"><span>类型</span><div class="pvw-rc">' +
+        '<button type="button" data-wtype="build" class="' + (WIZ.type==='build'?'on':'') + '"><b>养成 · 做了算数</b><small>记录「做了几次」</small></button>' +
+        '<button type="button" data-wtype="quit" class="' + (WIZ.type==='quit'?'on':'') + '"><b>戒除 · 不犯算数</b><small>记录「没守住几次」</small></button>' +
+      '</div></div>' +
+      '<div class="field"><span>从模板开始（可选）</span><div class="pvw-chips">' +
+        PRESETS.map(function(p,i){ return '<button type="button" data-preset="' + i + '">' + p.label + '</button>'; }).join('') +
+      '</div></div>';
+  } else if (WIZ.step === 2){
+    var extra = '';
+    if (WIZ.kind === 'weekdays'){
+      extra = '<div class="field"><span>哪几天</span><div class="pvw-days">' +
+        WD.map(function(w,i){
+          var real = realDow(i);
+          return '<button type="button" data-wday="' + real + '" class="' +
+            (WIZ.days.indexOf(real)>=0?'on':'') + '">周' + w + '</button>';
+        }).join('') + '</div></div>';
+    } else if (WIZ.kind === 'weekly'){
+      extra = '<div class="field"><span>每周几次</span><div class="pvw-num">' +
+        '<input type="number" id="wPerWeek" min="1" max="7" value="' + WIZ.perWeek + '"> 次 / 周</div></div>';
+    } else if (WIZ.kind === 'interval'){
+      extra = '<div class="field"><span>间隔天数</span><div class="pvw-num">每 ' +
+        '<input type="number" id="wIv" min="2" max="60" value="' + WIZ.intervalDays + '"> 天一次</div></div>';
+    }
+    html =
+      '<div class="field"><span>多久一次</span><div class="pvw-rc">' +
+        '<button type="button" data-wkind="daily" class="' + (WIZ.kind==='daily'?'on':'') + '"><b>每天</b><small>每天都算一次</small></button>' +
+        '<button type="button" data-wkind="weekdays" class="' + (WIZ.kind==='weekdays'?'on':'') + '"><b>每周固定几天</b><small>如周一三五</small></button>' +
+        '<button type="button" data-wkind="weekly" class="' + (WIZ.kind==='weekly'?'on':'') + '"><b>每周 N 次</b><small>哪天做都行</small></button>' +
+        '<button type="button" data-wkind="interval" class="' + (WIZ.kind==='interval'?'on':'') + '"><b>每 N 天</b><small>隔几天做一次</small></button>' +
+      '</div></div>' + extra +
+      '<div class="form-grid">' +
+        '<label class="field"><span>每次多少</span><input type="number" id="wPer" min="1" max="99" value="' + WIZ.per + '"></label>' +
+        '<label class="field"><span>单位</span><input id="wUnit" maxlength="4" value="' + WIZ.unit + '"></label>' +
+      '</div>';
+  } else {
+    html =
+      '<div class="form-grid">' +
+        '<label class="field"><span>提醒时间</span><input type="time" id="wRemind" value="' + WIZ.remind + '"></label>' +
+        '<label class="field"><span>提醒频率</span><select id="wFreq">' +
+          ['每天','每周','每月'].map(function(f){ return '<option' + (WIZ.freq===f?' selected':'') + '>' + f + '</option>'; }).join('') +
+        '</select></label>' +
+      '</div>' +
+      '<p class="pvw-hint">提醒频率只影响「什么时候提醒」，不影响「怎么算达标」——这条分开，就是这个方案的核心。</p>' +
+      '<div class="form-grid">' +
+        '<label class="field"><span>颜色</span><input type="color" id="wColor" value="' + WIZ.color + '"></label>' +
+        '<label class="field"><span>备注</span><input id="wNote" maxlength="40" placeholder="可选" value="' + WIZ.note + '"></label>' +
+      '</div>' +
+      '<div class="field"><span>保存后你会看到</span>' +
+        '<div class="pvw-mini"><b>' + (WIZ.icon||'✅') + ' ' + (WIZ.name||'未命名') + '</b>' +
+          '<span class="pvw-mini-badge">今日待打卡</span>' +
+          '<div class="pvw-mini-meta">' + (WIZ.type === 'quit' ? '戒除' : '养成') + ' · ' +
+            wizPaceText() + ' · ' + (WIZ.kind==='weekly' ? '本周 0/' + WIZ.perWeek : '本周 0 天') +
+            ' · 提醒 ' + WIZ.remind + '</div></div></div>';
+  }
+  body.innerHTML = html;
+
+  var q = function(id){ return document.getElementById(id); };
+  if (q('wIcon')) q('wIcon').addEventListener('input', function(e){ WIZ.icon = e.target.value; });
+  if (q('wName')) q('wName').addEventListener('input', function(e){ WIZ.name = e.target.value; updatePreview(); });
+  body.querySelectorAll('[data-wtype]').forEach(function(b){
+    b.addEventListener('click', function(){ WIZ.type = b.dataset.wtype; renderWiz(); });
+  });
+  body.querySelectorAll('[data-preset]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = PRESETS[Number(b.dataset.preset)];
+      Object.keys(p).forEach(function(k){ if (k !== 'label') WIZ[k] = p[k]; });
+      renderWiz();
+    });
+  });
+  body.querySelectorAll('[data-wkind]').forEach(function(b){
+    b.addEventListener('click', function(){ WIZ.kind = b.dataset.wkind; renderWiz(); });
+  });
+  body.querySelectorAll('[data-wday]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var d = Number(b.dataset.wday), k = WIZ.days.indexOf(d);
+      if (k >= 0) WIZ.days.splice(k,1); else WIZ.days.push(d);
+      renderWiz();
+    });
+  });
+  if (q('wPerWeek')) q('wPerWeek').addEventListener('input', function(e){
+    WIZ.perWeek = Math.max(1, Math.min(7, Number(e.target.value)||3)); updatePreview();
+  });
+  if (q('wIv')) q('wIv').addEventListener('input', function(e){
+    WIZ.intervalDays = Math.max(2, Math.min(60, Number(e.target.value)||3)); updatePreview();
+  });
+  if (q('wPer')) q('wPer').addEventListener('input', function(e){
+    WIZ.per = Math.max(1, Number(e.target.value)||1); updatePreview();
+  });
+  if (q('wUnit')) q('wUnit').addEventListener('input', function(e){ WIZ.unit = e.target.value || '次'; updatePreview(); });
+  if (q('wRemind')) q('wRemind').addEventListener('input', function(e){ WIZ.remind = e.target.value; updatePreview(); });
+  if (q('wFreq')) q('wFreq').addEventListener('change', function(e){ WIZ.freq = e.target.value; });
+  if (q('wColor')) q('wColor').addEventListener('input', function(e){ WIZ.color = e.target.value; });
+  if (q('wNote')) q('wNote').addEventListener('input', function(e){ WIZ.note = e.target.value; });
+
+  q('wBack').disabled = (WIZ.step === 1);
+  q('wNext').textContent = (WIZ.step === 3) ? '保存' : '下一步';
+  updatePreview();
+}
+function updatePreview(){ document.getElementById('wPreview').innerHTML = wizPreview(); }
+
+function wizSave(){
+  HABITS.push({
+    id: 'n' + Date.now(),
+    name: WIZ.name || '新习惯', icon: WIZ.icon || '✅', color: WIZ.color,
+    type: WIZ.type,
+    sched: WIZ.kind === 'weekdays' ? {kind:'weekdays', days: WIZ.days.slice()}
+         : WIZ.kind === 'weekly'   ? {kind:'weekly', perWeek: WIZ.perWeek}
+         : WIZ.kind === 'interval' ? {kind:'interval', intervalDays: WIZ.intervalDays}
+         : {kind:'daily'},
+    done: [], slips: 0, skipped: false, streak: 0, best: 0,
+    note: WIZ.note || '',
+    target: WIZ.per, unit: WIZ.unit
+  });
+  renderCards();
+  document.getElementById('cards').scrollIntoView({behavior:'smooth', block:'center'});
+  toastWiz('已添加「' + (WIZ.name || '新习惯') + '」，看第一节最后一张卡');
+  WIZ.name = ''; WIZ.note = ''; WIZ.step = 1; WIZ.type = 'build'; WIZ.kind = 'daily';
+  renderWiz();
+}
+function toastWiz(msg){
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99;' +
+    'background:var(--text);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:12.6px;' +
+    'box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s';
+  document.body.appendChild(t);
+  requestAnimationFrame(function(){ t.style.opacity = '1'; });
+  setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 260); }, 2200);
+}
+
+document.getElementById('wNext').addEventListener('click', function(){
+  if (WIZ.step < 3) { WIZ.step++; renderWiz(); } else { wizSave(); }
+});
+document.getElementById('wBack').addEventListener('click', function(){
+  if (WIZ.step > 1) { WIZ.step--; renderWiz(); }
+});
+document.getElementById('wCancel').addEventListener('click', function(){
+  WIZ.step = 1; renderWiz();
+});
+renderWiz();
 
 /* 明暗切换 */
 document.getElementById('themeBtn').addEventListener('click', function(){
