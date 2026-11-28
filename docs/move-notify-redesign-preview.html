@@ -245,7 +245,19 @@ function renderFlds(sid){
   document.getElementById('flds'+sid).innerHTML=T.flds.map(f=>'<div class="fld-chk"><div><b>'+f[0]+(f[1]?'（'+f[1]+'）':'')+'</b><small>'+(f[2]||'记录本次'+f[0])+'</small></div><span class="sw'+(f[0]==='运动时长'||f[0]==='距离'||f[0]==='骑行里程'?' on':'')+'" onclick="this.classList.toggle(\'on\')"></span></div>').join('');
 }
 function pickType(sid,k){cur[sid]=k;renderType(sid);renderRec(sid);renderFlds(sid);}
-['1','2'].forEach(sid=>{renderType(sid);renderRec(sid);renderFlds(sid);});
+function pvT(sid){
+  const pd=Number(document.getElementById('pd'+sid)?.value)||2;
+  const box=document.getElementById('tm'+sid);
+  if(box)box.innerHTML=wdGroups(Math.max(1,Math.min(6,pd)));
+}
+function pvF(sid,kind){
+  const box=document.getElementById('tm'+sid);
+  if(box)box.innerHTML=kind==='daily'?rows(2):wdGroups(2);
+}
+['1','2'].forEach(sid=>{renderType(sid);renderRec(sid);renderFlds(sid);
+  const box=document.getElementById('tm'+sid);
+  if(box)box.innerHTML=wdGroups(2);
+});
 </script>
 </body>
 </html>
