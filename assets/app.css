@@ -4514,3 +4514,16 @@ body.modal-open{overflow:hidden;}
 #money-form .chan-row{display:flex;gap:16px;flex-wrap:wrap;padding:7px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
 #money-form .chan-row label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
 @media (max-width:720px){#money-form .g3,#money-form .g4{grid-template-columns:1fr 1fr}}
+/* ===== 运动弹窗 2A 同构（v238）：分组通栏 840 ===== */
+#move-sport-form.modal-card{max-width:840px;width:calc(100vw - 32px)}
+#move-sport-form .gtitle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin:14px 0 8px}
+#move-sport-form .gtitle::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+#move-sport-form .gtitle .n{font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:auto}
+#move-sport-form .sep{border-top:1px dashed var(--line);margin:12px 0}
+#move-sport-form .switch-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+#move-sport-form .switch-row b{font-size:12.5px;display:block}
+#move-sport-form .switch-row small{display:block;font-size:10.5px;color:var(--muted)}
+#move-sport-form .time-slots{display:flex;flex-direction:column;gap:7px}
+#move-sport-form .time-slots .sp-trow{display:flex;align-items:center;gap:8px}
+#move-sport-form .time-slots input{border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text);font-family:inherit;font-size:13px;padding:7px 10px}
+#move-sport-form .f-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em}

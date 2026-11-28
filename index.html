@@ -37,11 +37,11 @@
   } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="assets/app.css?v=237">
+<link rel="stylesheet" href="assets/app.css?v=238">
 
 
 
-<link rel="stylesheet" href="assets/theme-v2.css?v=237">
+<link rel="stylesheet" href="assets/theme-v2.css?v=238">
 </head>
 <body>
 <div class="app landing">
@@ -319,7 +319,7 @@
   const SKIN_KEY = 'lifeboard.skin';
   const LAYOUT_KEY = 'lifeboard.layout';
   /* 应用版本号：设置页「系统版本」显示它；每次打包 bump 时与 ?v= / SW 的 CACHE、VER 同步递增 */
-  const APP_VERSION = 'v237';
+  const APP_VERSION = 'v238';
   /* 主题 v2：单一主题（暖纸 / 白卡 / 一支红），六套皮肤已删除。
      规范见 DESIGN.md；样式层见 assets/theme-v2.css。 */
 
@@ -18738,8 +18738,10 @@
     let weekSel = init ? (init.weekSel || []).slice() : [new Date().getDay()];
     let recMode = init ? (init.recMode || 'manual') : 'manual';
     let fixedSteps = init ? (init.fixedSteps || 1000) : 1000;
-    /* v184：运动开始时间（HH:MM），默认留空；每日步数不用 */
-    let startTime = init ? (init.startTime || '') : '';
+    /* v238：提醒时间矩阵——times 数组（旧 startTime 单值回落）；每日步数不用 */
+    let spTimes = init && Array.isArray(init.times)
+      ? init.times.filter(function (t) { return /^\d{2}:\d{2}$/.test(String(t)); })
+      : (init && init.startTime ? [String(init.startTime)] : []);
     /* v185：勾选状态改成严格判断 —— 先把该模式的全部字段置为「未勾」，
        再把存档里明确勾上的置回 true。
        原来只往 fieldOn 里塞 true、渲染时用「不等于 false 就算勾上」，
@@ -18807,11 +18809,18 @@
           ? '勾选哪几天就只在这些天记步数；没勾的日子算按计划休息，不计入未达标。'
           : '勾选哪几天就是每周哪几天运动；再填每个执行日要做几次。没勾的日子算按计划休息，不计入未达标。') + '</p>';
       }
-      /* v184：运动开始时间（每日步数是全天持续统计，不需要） */
+      /* v238：提醒时间矩阵（每日步数全天统计，不需要）——
+         每天 N 次 = N 行；每周选天 × 每选中日 N 次 = 单组 N 行，所有选中日共用 */
       if (!isSteps) {
-        h += '<span class="f-label">运动开始时间</span>' +
-          '<div class="sp-trow"><input type="time" id="sp-starttime" value="' + esc(startTime) + '"></div>' +
-          '<p class="sp-hint">填了到这个点会提醒你来运动；留空就只打卡、不提醒。</p>';
+        const need = freqKind === 'daily' ? Math.max(1, freqN) : Math.max(1, perDay);
+        while (spTimes.length < need) spTimes.push('');
+        h += '<span class="f-label">提醒时间矩阵 <small style="color:var(--muted);font-weight:400">' +
+          (freqKind === 'daily' ? '每天 ' + need + ' 次 = ' + need + ' 行' : '所有选中日共用这一组时间 · 共 ' + need + ' 趟') + '</small></span>';
+        h += '<div class="time-slots" id="sp-times">' + spTimes.slice(0, need).map(function (t, i) {
+          return '<div class="sp-trow"><span class="lbl" style="font-size:11.5px;color:var(--muted);min-width:52px">第 ' + (i + 1) + ' 趟</span>' +
+            '<input type="time" data-sp-time="' + i + '" value="' + esc(t) + '" style="flex:1"></div>';
+        }).join('') + '</div>';
+        h += '<p class="sp-hint">填了到点会提醒你来运动；某一行留空＝那一趟不提醒只打卡。</p>';
       }
       if (T.recordMode) {
         /* v185：记录方式建好后锁定 —— 与 v183 的运动类型同款手法。
@@ -18873,6 +18882,11 @@
         h += '<p class="sp-chan-tip" id="sp-chan-tip"></p>';
       }
       box.innerHTML = h;
+      box.querySelectorAll('[data-sp-time]').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          spTimes[Number(inp.dataset.spTime)] = inp.value;
+        });
+      });
       bindBody();
       checkSelected();
     }
@@ -19001,7 +19015,7 @@
         key: curKey, tIdx: tIdx, tVal: tVal,
         freqKind: freqKind, freqN: freqN, perDay: perDay, weekSel: weekSel.slice(),
         recMode: recMode, fixedSteps: fixedSteps,
-        startTime: startTime,
+        times: spTimes.slice(),
         fields: Object.keys(fieldOn).filter(function (k) { return fieldOn[k]; }),
         strokePick: strokePick,
         notifyOn: notifyOn, notifyChannels: chanSel.slice()
@@ -19029,7 +19043,8 @@
       weekSel: weekSel,
       recMode: st.key === 'steps' ? st.recMode : 'manual',
       fixedSteps: st.fixedSteps,
-      startTime: st.key === 'steps' ? '' : (st.startTime || ''),
+      times: st.key === 'steps' ? [] : (st.times || []),
+      startTime: st.key === 'steps' ? '' : (st.times || [])[0] || '',   /* 旧字段回落：列表/历史显示取第一趟 */
       fields: st.fields,
       strokePick: st.strokePick,
       /* v216：实例通知设置（开关+渠道）的真源移到板块矩阵 move.instances，
@@ -22461,7 +22476,7 @@
       /* v131：注册 URL 带版本串 + updateViaCache:'none'。
          原来直接注册裸地址，浏览器按 HTTP 缓存判断「脚本没变」就不更新 SW，
          于是新 HTML 配着旧 SW、旧 CSS——发版后怎么刷都不对。 */
-      navigator.serviceWorker.register('service-worker.js?v=237', { updateViaCache: 'none' }).catch(() => {});
+      navigator.serviceWorker.register('service-worker.js?v=238', { updateViaCache: 'none' }).catch(() => {});
     });
   }
 

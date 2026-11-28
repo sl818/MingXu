@@ -473,8 +473,19 @@ function lb_schedule_day(array $state, string $date): array
                 if (!is_array($sp)) {
                     continue;
                 }
-                $st = (string)($sp['startTime'] ?? '');
-                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $st)) {
+                /* v238：提醒时间矩阵——times 数组（新）优先，旧 startTime 回落 */
+                $slots = isset($sp['times']) && is_array($sp['times'])
+                    ? array_values(array_filter($sp['times'], static function ($t) {
+                        return is_string($t) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t);
+                    }))
+                    : [];
+                if (!$slots) {
+                    $st0 = (string)($sp['startTime'] ?? '');
+                    if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $st0)) {
+                        $slots = [$st0];
+                    }
+                }
+                if (!$slots) {
                     continue;
                 }
                 $spid = (string)($sp['id'] ?? '');
@@ -503,15 +514,20 @@ function lb_schedule_day(array $state, string $date): array
                 if ($done) {
                     continue;
                 }
-                $instSlots[] = [
-                    'time' => $st,
-                    'name' => trim((string)($sp['name'] ?? '')) ?: '运动',
-                    'icon' => (string)($sp['icon'] ?? ''),
-                    'id' => $spid !== '' ? ('sport-' . $spid) : $hid,
-                    /* v216：sport 带实例 id（instances 的键）；mode 保留模式 key 供展示 */
-                    'sport' => $spid !== '' ? $spid : $spkey,
-                    'mode' => $spkey,
-                ];
+                /* 矩阵：每个槽位一条；多趟时正文带「第 i/N 趟」 */
+                $tot = count($slots);
+                foreach ($slots as $si => $st) {
+                    $instSlots[] = [
+                        'time' => $st,
+                        'name' => trim((string)($sp['name'] ?? '')) ?: '运动',
+                        'icon' => (string)($sp['icon'] ?? ''),
+                        'id' => $spid !== '' ? ('sport-' . $spid) : $hid,
+                        /* v216：sport 带实例 id（instances 的键）；mode 保留模式 key 供展示 */
+                        'sport' => $spid !== '' ? $spid : $spkey,
+                        'mode' => $spkey,
+                        'body' => '该开始运动了' . ($tot > 1 ? '（第 ' . ($si + 1) . '/' . $tot . ' 趟）' : ''),
+                    ];
+                }
             }
             if ($instSlots) {
                 foreach ($instSlots as $is) {
@@ -520,7 +536,7 @@ function lb_schedule_day(array $state, string $date): array
                         'kind' => 'habit',
                         'id' => $is['id'],
                         'title' => ($is['icon'] !== '' ? $is['icon'] . ' ' : '') . $is['name'],
-                        'body' => '该开始运动了',
+                        'body' => (string)($is['body'] ?? '该开始运动了'),
                         /* v211：运动实例带自己的模式 key，模板/板块映射要用 */
                         'source' => 'move',
                         'priority' => '日常',
