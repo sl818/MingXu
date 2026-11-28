@@ -1459,6 +1459,11 @@
       /* 小习惯 2.0：节奏字段。老数据没有这个键就不写，
          schedOf() 缺省会按 daily 处理，因此不需要迁移。 */
       if (h.sched && typeof h.sched === 'object') h.sched = schedOf(h);
+      /* 通知计划：结构校验，无此键不写（老数据零迁移，三处同步之二） */
+      if (h.notifyPlan && typeof h.notifyPlan === 'object') {
+        const npS = sanitizeNotifyPlan(h.notifyPlan);
+        if (npS) h.notifyPlan = npS; else delete h.notifyPlan;
+      }
       const hu = Number(h.updatedAt);
       h.updatedAt = (isFinite(hu) && hu > 0) ? hu : 0;
     });
@@ -13402,6 +13407,60 @@
   /* 弹性配额型：不进 dayStats，单列「本周节奏」 */
   function isPeriodic(h) { return schedOf(h).kind === 'weekly'; }
 
+  /* ===== 通知计划（notifyPlan）=====
+     渠道 + 各节奏的时间矩阵。无此键 = 老数据，notifyPlanOf 按节奏回落默认。
+     铁律：channels 与路由板块矩阵取交集后发送（板块是账号级总闸，习惯级是单习惯微调）。 */
+  const HABIT_NOTIFY_CHANNELS = ['wecom', 'mail', 'browser'];
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  function sanitizeNotifyPlan(np) {
+    if (!np || typeof np !== 'object') return null;
+    const out = {};
+    if (Array.isArray(np.channels)) {
+      out.channels = HABIT_NOTIFY_CHANNELS.filter(c => np.channels.indexOf(c) >= 0);
+    }
+    const timesOf = v => Array.isArray(v)
+      ? v.map(x => TIME_RE.test(String(x)) ? String(x) : null)
+        .filter(Boolean).sort().filter((x, i, a) => a.indexOf(x) === i)
+      : null;
+    const daily = timesOf(np.daily);
+    if (daily && daily.length) out.daily = daily;
+    if (np.wd && typeof np.wd === 'object') {
+      const wd = {};
+      Object.keys(np.wd).forEach(k => {
+        const i = Math.round(Number(k));
+        const t = timesOf(np.wd[k]);
+        if (i >= 0 && i <= 6 && t && t.length) wd[String(i)] = t;
+      });
+      if (Object.keys(wd).length) out.wd = wd;
+    }
+    if (TIME_RE.test(String(np.intervalTime || ''))) out.intervalTime = String(np.intervalTime);
+    return Object.keys(out).length ? out : null;
+  }
+
+  /* 归一化读取：按节奏回落默认（无配置也能排程）。
+     channels 缺省 wecom+browser（mail 与 habit 板块默认一致默认关）。 */
+  function notifyPlanOf(h) {
+    const s = schedOf(h);
+    const np = (h && h.notifyPlan && typeof h.notifyPlan === 'object') ? h.notifyPlan : {};
+    const out = { channels: (Array.isArray(np.channels) && np.channels.length)
+      ? np.channels : ['wecom', 'browser'] };
+    if (s.kind === 'weekdays') {
+      const wd = {};
+      s.days.forEach(d => {
+        const k = String(d);
+        wd[k] = (np.wd && Array.isArray(np.wd[k]) && np.wd[k].length) ? np.wd[k]
+              : (Array.isArray(np.daily) && np.daily.length) ? np.daily : ['07:00'];
+      });
+      out.wd = wd;
+    }
+    if (s.kind === 'daily') {
+      out.daily = (Array.isArray(np.daily) && np.daily.length) ? np.daily : ['07:00'];
+    }
+    if (s.kind === 'interval') out.intervalTime = np.intervalTime || '09:00';
+    return out;
+  }
+
   /* 「周一/三/五」这种展示文案：按展示序（周一在前）排，不是真实周序 */
   function schedDaysText(days) {
     const W = ['日', '一', '二', '三', '四', '五', '六'];
@@ -19613,6 +19672,8 @@
           archivedAt: h.archivedAt ? String(h.archivedAt) : (h.archived === true ? new Date().toISOString() : ''),
           /* 小习惯 2.0：节奏只做结构校验，非法值归一成 daily 而不是抛错 */
           sched: (h.sched && typeof h.sched === 'object') ? schedOf(h) : undefined,
+          notifyPlan: (h.notifyPlan && typeof h.notifyPlan === 'object')
+            ? (sanitizeNotifyPlan(h.notifyPlan) || undefined) : undefined,
           updatedAt: (Number(h.updatedAt) > 0) ? Number(h.updatedAt) : 0
         });
       });
