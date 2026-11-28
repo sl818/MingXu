@@ -112,6 +112,7 @@ h1{font-size:19px;margin-bottom:5px}
     <div class="cols2">
       <div>
         <div class="gtitle">运动</div>
+        <div class="sp-desc" id="desc1"></div>
         <div class="sp-grid" id="spg1"></div>
         <p class="hint">🔒 运动类型与记录方式建好后不能修改，需要换请新建。</p>
         <div class="sep"></div>
@@ -167,6 +168,7 @@ h1{font-size:19px;margin-bottom:5px}
   <div class="modal" style="max-width:840px">
     <div class="m-head"><b>编辑运动 · 骑行</b><span class="w">宽 840px · 分组通栏</span></div>
     <div class="gtitle">运动类型 🔒</div>
+    <div class="sp-desc" id="desc2"></div>
     <div class="sp-grid" id="spg2"></div>
     <div class="sep"></div>
     <div class="gtitle">目标与频率</div>
@@ -221,15 +223,15 @@ function rows(n){let h='';for(let i=0;i<n;i++){h+='<div class="time-row"><label>
 function wdGroups(n){return '<div class="hint">所有选中日共用这一组时间——勾几天都是这 ' + n + ' 个点提醒，不用重复填。</div>'+rows(n);}
 /* 真实 MOVE_TYPES 映射（取自 index.html，供预览核对） */
 const MT={
- steps:{name:'每日步数',icon:'👟',rec:true,flds:[['距离','米','记录今天走了多少米']]},
- run:{name:'跑步',icon:'🏃',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
- walk:{name:'健走',icon:'🚶',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
- ride:{name:'骑行',icon:'🚴',flds:[['运动时长','分钟'],['骑行里程','公里'],['踏频','圈/分','记录平均踏频'],['心率',''],['热量消耗','千卡'],['平均速度','km/h']]},
- rope:{name:'跳绳',icon:'🪢',flds:[['运动时长','分钟'],['总次数','次'],['每分钟跳频','次/分'],['心率',''],['热量消耗','千卡']]},
- strength:{name:'力量训练',icon:'🏋️',flds:[['运动时长','分钟'],['组数','组'],['次数','次'],['负重重量','kg'],['组间休息','秒'],['心率',''],['热量消耗','千卡']]},
- ball:{name:'球类运动',icon:'🏀',flds:[['运动时长','分钟'],['心率区间','','记录运动时的心率区间'],['平均心率',''],['热量消耗','千卡']]},
- swim:{name:'游泳',icon:'🏊',retired:true,flds:[['距离','米'],['运动时长','分钟'],['泳姿','','自由泳/蛙泳/仰泳/蝶泳'],['配速','','记录本次平均配速']]},
- yoga:{name:'瑜伽',icon:'🧘',retired:true,flds:[['运动时长','分钟']]}
+ steps:{desc:'每日步数，全天走路的步数，支持两种记录方式',name:'每日步数',icon:'👟',rec:true,flds:[['距离','米','记录今天走了多少米']]},
+ run:{desc:'记录每次跑步的时长、距离、配速、步频与心率',name:'跑步',icon:'🏃',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
+ walk:{desc:'记录每次健走的时长、距离、配速、步频与心率',name:'健走',icon:'🚶',flds:[['运动时长','分钟'],['距离','公里'],['配速','','记录本次平均配速'],['步频','步/分'],['心率',''],['热量消耗','千卡'],['步幅','']]},
+ ride:{desc:'记录每次骑行的时长、里程、踏频与平均速度',name:'骑行',icon:'🚴',flds:[['运动时长','分钟'],['骑行里程','公里'],['踏频','圈/分','记录平均踏频'],['心率',''],['热量消耗','千卡'],['平均速度','km/h']]},
+ rope:{desc:'记录每次跳绳的时长、次数与跳频',name:'跳绳',icon:'🪢',flds:[['运动时长','分钟'],['总次数','次'],['每分钟跳频','次/分'],['心率',''],['热量消耗','千卡']]},
+ strength:{desc:'记录每次力量训练的时长、组数、次数与负重',name:'力量训练',icon:'🏋️',flds:[['运动时长','分钟'],['组数','组'],['次数','次'],['负重重量','kg'],['组间休息','秒'],['心率',''],['热量消耗','千卡']]},
+ ball:{desc:'记录每次球类运动的时长与心率',name:'球类运动',icon:'🏀',flds:[['运动时长','分钟'],['心率区间','','记录运动时的心率区间'],['平均心率',''],['热量消耗','千卡']]},
+ swim:{desc:'（已下线）记录每次游泳的距离、泳姿与配速',name:'游泳',icon:'🏊',retired:true,flds:[['距离','米'],['运动时长','分钟'],['泳姿','','自由泳/蛙泳/仰泳/蝶泳'],['配速','','记录本次平均配速']]},
+ yoga:{desc:'（已下线）记录每次瑜伽的练习时长',name:'瑜伽',icon:'🧘',retired:true,flds:[['运动时长','分钟']]}
 };
 let cur={1:'run',2:'ride'};
 function renderType(sid){
@@ -244,11 +246,18 @@ function renderRec(sid){
     ?'<div class="gtitle">记录方式 🔒 <span class="n">仅每日步数有</span></div><div class="rec-rc"><button class="on"><b>手动输入今日步数</b><small>打卡时填今天走了多少步</small></button><button class="locked"><b>每次记录固定步数</b><small>点一次按固定步数累加</small></button></div><div class="nrow" style="margin:6px 0"><span class="lbl">每次记录</span><input type="number" value="1000" style="width:90px"><span class="u">步</span></div>'
     :'';
 }
+function renderDesc(sid){
+  const T=MT[cur[sid]];
+  const el=document.getElementById('desc'+sid);
+  if(el)el.innerHTML=T.desc?('<span class="ci">'+T.icon+'</span> '+T.desc):'';
+}
 function renderFlds(sid){
   const T=MT[cur[sid]];
+  const descEl=document.getElementById('desc'+sid);
+  if(descEl)descEl.innerHTML=T.desc?('<span class="ci">'+T.icon+'</span> '+T.desc):'';
   document.getElementById('flds'+sid).innerHTML=T.flds.map(f=>'<div class="fld-chk"><div><b>'+f[0]+(f[1]?'（'+f[1]+'）':'')+'</b><small>'+(f[2]||'记录本次'+f[0])+'</small></div><span class="sw'+(f[0]==='运动时长'||f[0]==='距离'||f[0]==='骑行里程'?' on':'')+'" onclick="this.classList.toggle(\'on\')"></span></div>').join('');
 }
-function pickType(sid,k){cur[sid]=k;renderType(sid);renderRec(sid);renderFlds(sid);}
+function pickType(sid,k){cur[sid]=k;renderType(sid);renderRec(sid);renderFlds(sid);renderDesc(sid);}
 function pvT(sid){
   const pd=Number(document.getElementById('pd'+sid)?.value)||2;
   const box=document.getElementById('tm'+sid);
@@ -258,7 +267,7 @@ function pvF(sid,kind){
   const box=document.getElementById('tm'+sid);
   if(box)box.innerHTML=kind==='daily'?rows(2):wdGroups(2);
 }
-['1','2'].forEach(sid=>{renderType(sid);renderRec(sid);renderFlds(sid);
+['1','2'].forEach(sid=>{renderType(sid);renderRec(sid);renderFlds(sid);renderDesc(sid);
   const box=document.getElementById('tm'+sid);
   if(box)box.innerHTML=wdGroups(2);
 });
